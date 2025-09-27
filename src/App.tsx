@@ -14,6 +14,7 @@ import Leaders from "./pages/Leaders";
 import LeadersRanking from "./pages/LeadersRanking";
 import Contacts from "./pages/Contacts";
 import Campaigns from "./pages/Campaigns";
+import Events from "./pages/Events";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,7 +38,7 @@ const App = () => (
           <Route path="/leaders/ranking" element={<DashboardLayout><LeadersRanking /></DashboardLayout>} />
           <Route path="/contacts" element={<DashboardLayout><Contacts /></DashboardLayout>} />
           <Route path="/campaigns" element={<DashboardLayout><Campaigns /></DashboardLayout>} />
-          <Route path="/events" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Eventos (Em desenvolvimento)</h1></div></DashboardLayout>} />
+          <Route path="/events" element={<DashboardLayout><Events /></DashboardLayout>} />
           <Route path="/segments" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Segmentos (Em desenvolvimento)</h1></div></DashboardLayout>} />
           <Route path="/messaging" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Mensagens (Em desenvolvimento)</h1></div></DashboardLayout>} />
           <Route path="/settings/privacy" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Configurações de Privacidade (Em desenvolvimento)</h1></div></DashboardLayout>} />
