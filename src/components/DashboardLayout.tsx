@@ -17,10 +17,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex-1 flex flex-col">
           {/* Header com trigger do sidebar */}
           <header className="bg-white border-b border-gray-200 h-16 flex items-center px-6 sticky top-0 z-10">
-            <SidebarTrigger asChild>
-              <Button variant="ghost" size="sm" className="mr-4">
-                <Menu className="h-4 w-4" />
-              </Button>
+            <SidebarTrigger className="mr-4 h-8 w-8 rounded-md hover:bg-gray-100 flex items-center justify-center">
+              <Menu className="h-4 w-4" />
             </SidebarTrigger>
             
             <div className="flex-1">
