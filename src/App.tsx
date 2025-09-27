@@ -12,6 +12,7 @@ import ResetSuccess from "./pages/ResetSuccess";
 import Dashboard from "./pages/Dashboard";
 import Leaders from "./pages/Leaders";
 import LeadersRanking from "./pages/LeadersRanking";
+import Contacts from "./pages/Contacts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,7 +34,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/leaders" element={<DashboardLayout><Leaders /></DashboardLayout>} />
           <Route path="/leaders/ranking" element={<DashboardLayout><LeadersRanking /></DashboardLayout>} />
-          <Route path="/contacts" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Contatos (Em desenvolvimento)</h1></div></DashboardLayout>} />
+          <Route path="/contacts" element={<DashboardLayout><Contacts /></DashboardLayout>} />
           <Route path="/campaigns" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Campanhas (Em desenvolvimento)</h1></div></DashboardLayout>} />
           <Route path="/events" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Eventos (Em desenvolvimento)</h1></div></DashboardLayout>} />
           <Route path="/segments" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Segmentos (Em desenvolvimento)</h1></div></DashboardLayout>} />
