@@ -27,6 +27,7 @@ import {
   Filter,
   Search
 } from "lucide-react";
+import EventQRCode from "@/components/EventQRCode";
 
 // Mock data para eventos
 const mockEventsData = [
@@ -345,9 +346,9 @@ const Events = () => {
                 {filteredEvents.map((event) => (
                   <Card key={event.id} className="card-default hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
-                      <div className="grid md:grid-cols-12 gap-4">
+                      <div className="grid lg:grid-cols-12 gap-6">
                         {/* Info Principal */}
-                        <div className="md:col-span-5">
+                        <div className="lg:col-span-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <h3 className="font-semibold text-gray-900 mb-2">
@@ -384,8 +385,8 @@ const Events = () => {
                         </div>
 
                         {/* Métricas */}
-                        <div className="md:col-span-4">
-                          <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="lg:col-span-3">
+                          <div className="grid grid-cols-1 gap-3 mb-4">
                             <div className="text-center p-3 bg-blue-50 rounded-lg">
                               <p className="text-xs text-gray-600">Inscrições</p>
                               <p className="font-bold text-blue-600">{event.registrations}</p>
@@ -396,19 +397,29 @@ const Events = () => {
                             </div>
                           </div>
                           
-                          <div className="text-center p-3 bg-primary-50 rounded-lg">
+                          <div className="text-center p-3 bg-primary-50 rounded-lg mb-3">
                             <p className="text-xs text-gray-600">Taxa de Presença</p>
                             <p className="font-bold text-primary-600">{getAttendanceRate(event)}%</p>
                           </div>
 
-                          <div className="mt-3 text-xs text-gray-500">
+                          <div className="text-xs text-gray-500">
                             <p>Região: {event.region}</p>
                             <p>Criado em {new Date(event.createdAt).toLocaleDateString()}</p>
                           </div>
                         </div>
 
+                        {/* QR Codes */}
+                        <div className="lg:col-span-3">
+                          <EventQRCode event={{
+                            id: event.id,
+                            name: event.name,
+                            date: event.date,
+                            category: event.category
+                          }} />
+                        </div>
+
                         {/* Ações */}
-                        <div className="md:col-span-3">
+                        <div className="lg:col-span-2">
                           <div className="flex flex-col space-y-2">
                             <Dialog>
                               <DialogTrigger asChild>
@@ -447,7 +458,7 @@ const Events = () => {
                               variant="ghost" 
                               size="sm"
                               onClick={() => deleteEvent(event.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 w-full"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Excluir
