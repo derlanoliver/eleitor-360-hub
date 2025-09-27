@@ -17,6 +17,7 @@ import LeadersRanking from "./pages/LeadersRanking";
 import Contacts from "./pages/Contacts";
 import Campaigns from "./pages/Campaigns";
 import Events from "./pages/Events";
+import Segments from "./pages/Segments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,9 +82,7 @@ const App = () => (
             <Route path="/segments" element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Segmentos (Em desenvolvimento)</h1>
-                  </div>
+                  <Segments />
                 </DashboardLayout>
               </ProtectedRoute>
             } />
