@@ -68,7 +68,7 @@ const Login = () => {
             <img 
               src={logo} 
               alt="Rafael Prudente - Deputado Federal" 
-              className="w-[400px] h-auto mx-auto"
+              className="w-[400px] h-[150px] mx-auto object-cover object-center"
             />
           </div>
 
