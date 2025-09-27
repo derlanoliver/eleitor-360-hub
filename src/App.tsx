@@ -9,6 +9,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ResetSuccess from "./pages/ResetSuccess";
 import Dashboard from "./pages/Dashboard";
+import Leaders from "./pages/Leaders";
+import LeadersRanking from "./pages/LeadersRanking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/reset-success" element={<ResetSuccess />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/leaders" element={<Leaders />} />
+          <Route path="/leaders/ranking" element={<LeadersRanking />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

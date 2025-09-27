@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Trophy, Phone, Users, MapPin, Calendar, Activity } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // Mock data para o ranking de lideranças
 const mockLeaders = [
@@ -286,9 +287,11 @@ const Dashboard = () => {
                 <CardTitle>Ações Rápidas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="h-4 w-4 mr-2" />
-                  Ver Todos os Líderes
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/leaders">
+                    <Users className="h-4 w-4 mr-2" />
+                    Ver Todos os Líderes
+                  </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start">
                   <Calendar className="h-4 w-4 mr-2" />
