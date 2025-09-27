@@ -92,12 +92,12 @@ const Dashboard = () => {
   const listLeaders = mockLeaders.slice(3, 5);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Dashboard - Plataforma 360 Eleitor/DF
+            Dashboard
           </h1>
           <p className="text-gray-600">
             Visão geral do desempenho e ranking de lideranças

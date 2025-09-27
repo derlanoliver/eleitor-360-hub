@@ -82,7 +82,7 @@ const LeadersRanking = () => {
   const regions = [...new Set(mockRankingData.currentMonth.map(leader => leader.region))];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
