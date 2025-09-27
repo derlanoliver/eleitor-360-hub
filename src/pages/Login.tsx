@@ -61,24 +61,26 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <img 
-            src={logo} 
-            alt="Rafael Prudente - Deputado Federal" 
-            className="w-[300px] h-auto mx-auto"
-          />
-        </div>
+        {/* Container com borda neon */}
+        <div className="border-2 border-primary-400 rounded-2xl p-8 shadow-[0_0_20px_rgba(251,146,60,0.3)] bg-white/95 backdrop-blur-sm">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <img 
+              src={logo} 
+              alt="Rafael Prudente - Deputado Federal" 
+              className="w-[400px] h-auto mx-auto"
+            />
+          </div>
 
-        {/* Login Form */}
-        <Card className="card-default">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl text-center">Entrar</CardTitle>
-            <CardDescription className="text-center">
-              Digite suas credenciais para acessar
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* Login Form */}
+          <Card className="card-default border-0 shadow-none bg-transparent">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-xl text-center">Entrar</CardTitle>
+              <CardDescription className="text-center">
+                Digite suas credenciais para acessar
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
@@ -166,8 +168,9 @@ const Login = () => {
                   {authLoading ? "Entrando..." : "Entrar"}
                 </Button>
             </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-600 mt-6">
