@@ -22,6 +22,9 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          600: "hsl(var(--color-primary-600))",
+          500: "hsl(var(--color-primary-500))",
+          400: "hsl(var(--color-primary-400))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -47,16 +50,29 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        gray: {
+          50: "hsl(var(--gray-50))",
+          100: "hsl(var(--gray-100))",
+          200: "hsl(var(--gray-200))",
+          600: "hsl(var(--gray-600))",
+          800: "hsl(var(--gray-800))",
+          900: "hsl(var(--gray-900))",
         },
+        success: {
+          500: "hsl(var(--success-500))",
+        },
+        warning: {
+          500: "hsl(var(--warning-500))",
+        },
+        danger: {
+          500: "hsl(var(--danger-500))",
+        },
+        info: {
+          500: "hsl(var(--info-500))",
+        },
+      },
+      fontFamily: {
+        inter: ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
