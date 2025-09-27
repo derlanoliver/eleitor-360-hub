@@ -95,8 +95,10 @@ export function AppSidebar() {
                         flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
                       `}
                     >
-                      <item.icon className="h-5 w-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      <>
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      </>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -123,8 +125,10 @@ export function AppSidebar() {
                         flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
                       `}
                     >
-                      <item.icon className="h-5 w-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      <>
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      </>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -151,8 +155,10 @@ export function AppSidebar() {
                         flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
                       `}
                     >
-                      <item.icon className="h-5 w-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      <>
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      </>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -179,8 +185,10 @@ export function AppSidebar() {
                         flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
                       `}
                     >
-                      <item.icon className="h-5 w-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      <>
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                      </>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -196,8 +204,10 @@ export function AppSidebar() {
               to="/login" 
               className="text-red-600 hover:bg-red-50 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
             >
-              <LogOut className="h-5 w-5" />
-              {!isCollapsed && <span className="ml-3">Sair</span>}
+              <>
+                <LogOut className="h-5 w-5" />
+                {!isCollapsed && <span className="ml-3">Sair</span>}
+              </>
             </NavLink>
           </SidebarMenuButton>
         </div>
