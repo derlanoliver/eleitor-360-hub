@@ -126,115 +126,55 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center text-sm">
-          <QrCode className="h-4 w-4 mr-2 text-primary-600" />
-          QR Codes do Evento
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Código de Rastreamento */}
-        <div className="text-center">
-          <Badge variant="secondary" className="text-xs font-mono">
-            {trackingCode}
-          </Badge>
-          <p className="text-xs text-gray-500 mt-1">Código de rastreamento</p>
-        </div>
-
-        {/* QR Code WhatsApp */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <MessageCircle className="h-3 w-3 mr-1 text-green-600" />
-              <span className="text-xs font-medium">WhatsApp</span>
-            </div>
+    <div className="w-full space-y-3">
+      {/* QR Code WhatsApp */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center text-sm">
+            <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+            QR Code WhatsApp
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-center">
+            <Badge variant="secondary" className="text-xs font-mono mb-2">
+              {trackingCode}
+            </Badge>
           </div>
           
           {whatsappQR && (
-            <div className="bg-white p-2 rounded-lg border text-center">
+            <div className="bg-white p-3 rounded-lg border text-center">
               <img 
                 src={whatsappQR} 
                 alt="QR Code WhatsApp" 
-                className="w-20 h-20 mx-auto"
+                className="w-24 h-24 mx-auto"
               />
             </div>
           )}
           
-          <div className="flex space-x-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadQRCode('whatsapp')}
-              className="flex-1 text-xs h-7"
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Baixar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(whatsappURL, 'WhatsApp')}
-              className="h-7 px-2"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadQRCode('whatsapp')}
+            className="w-full text-xs"
+          >
+            <Download className="h-3 w-3 mr-2" />
+            Baixar QR Code
+          </Button>
+        </CardContent>
+      </Card>
 
-        {/* QR Code Cadastro */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Link2 className="h-3 w-3 mr-1 text-blue-600" />
-              <span className="text-xs font-medium">Cadastro</span>
-            </div>
-          </div>
-          
-          {registrationQR && (
-            <div className="bg-white p-2 rounded-lg border text-center">
-              <img 
-                src={registrationQR} 
-                alt="QR Code Cadastro" 
-                className="w-20 h-20 mx-auto"
-              />
-            </div>
-          )}
-          
-          <div className="flex space-x-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadQRCode('registration')}
-              className="flex-1 text-xs h-7"
-            >
-              <Download className="h-3 w-3 mr-1" />
-              Baixar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(registrationURL, 'cadastro')}
-              className="h-7 px-2"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Links para referência */}
-        <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
-          <div>
-            <span className="font-medium">WhatsApp:</span>
-            <p className="break-all">{whatsappURL.substring(0, 50)}...</p>
-          </div>
-          <div>
-            <span className="font-medium">Cadastro:</span>
-            <p className="break-all">{registrationURL.substring(0, 50)}...</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Link de Cadastro */}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => copyToClipboard(registrationURL, 'cadastro')}
+        className="w-full text-xs"
+      >
+        <Link2 className="h-3 w-3 mr-2" />
+        Copiar Link
+      </Button>
+    </div>
   );
 };
 

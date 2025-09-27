@@ -408,18 +408,8 @@ const Events = () => {
                           </div>
                         </div>
 
-                        {/* QR Codes */}
-                        <div className="lg:col-span-3">
-                          <EventQRCode event={{
-                            id: event.id,
-                            name: event.name,
-                            date: event.date,
-                            category: event.category
-                          }} />
-                        </div>
-
                         {/* Ações */}
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-3">
                           <div className="flex flex-col space-y-2">
                             <Dialog>
                               <DialogTrigger asChild>
@@ -440,6 +430,14 @@ const Events = () => {
                                 {selectedEvent && <EventDetails event={selectedEvent} registrations={getEventRegistrations(selectedEvent.id)} />}
                               </DialogContent>
                             </Dialog>
+
+                            {/* QR Code WhatsApp */}
+                            <EventQRCode event={{
+                              id: event.id,
+                              name: event.name,
+                              date: event.date,
+                              category: event.category
+                            }} />
 
                             <div className="grid grid-cols-2 gap-2">
                               <Button variant="ghost" size="sm">
@@ -465,6 +463,9 @@ const Events = () => {
                             </Button>
                           </div>
                         </div>
+
+                        {/* Coluna vazia para balanceamento */}
+                        <div className="lg:col-span-2"></div>
                       </div>
                     </CardContent>
                   </Card>
