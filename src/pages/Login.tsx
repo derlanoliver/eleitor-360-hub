@@ -66,14 +66,8 @@ const Login = () => {
           <img 
             src={logo} 
             alt="Rafael Prudente - Deputado Federal" 
-            className="h-20 w-auto mx-auto mb-4"
+            className="h-24 w-auto mx-auto"
           />
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            Plataforma 360 Eleitor/DF
-          </h1>
-          <p className="text-gray-600">
-            Faça login para acessar a plataforma
-          </p>
         </div>
 
         {/* Login Form */}
