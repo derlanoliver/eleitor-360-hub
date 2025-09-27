@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Button } from "@/components/ui/button";
+import UserMenu from "./UserMenu";
 import { Menu } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -27,16 +27,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </h1>
             </div>
 
-            {/* User info placeholder */}
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Rafael Prudente</p>
-                <p className="text-xs text-gray-600">Deputado Distrital</p>
-              </div>
-              <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">RP</span>
-              </div>
-            </div>
+            {/* User Menu */}
+            <UserMenu />
           </header>
 
           {/* Main content */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,51 +7,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isLoading: authLoading, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    const from = location.state?.from || "/dashboard";
+    navigate(from, { replace: true });
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setIsLoading(true);
 
-    // Mock validation
+    // Client-side validation
     if (!formData.email || !formData.password) {
       setError("Por favor, preencha todos os campos.");
-      setIsLoading(false);
       return;
     }
 
     if (!formData.email.includes("@")) {
       setError("Por favor, insira um e-mail válido.");
-      setIsLoading(false);
       return;
     }
 
-    // Mock authentication
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Mock successful login
-      if (formData.email === "admin@rafaelprudente.com" && formData.password === "123456") {
-        navigate("/dashboard");
-      } else {
-        setError("E-mail ou senha incorretos. Tente: admin@rafaelprudente.com / 123456");
-      }
-    } catch (err) {
-      setError("Erro interno. Tente novamente.");
-    } finally {
-      setIsLoading(false);
+    // Attempt login
+    const success = await login(formData.email, formData.password, formData.rememberMe);
+    
+    if (success) {
+      const from = location.state?.from || "/dashboard";
+      navigate(from, { replace: true });
     }
   };
 
@@ -105,7 +103,7 @@ const Login = () => {
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     className="pl-10 focus-ring"
-                    disabled={isLoading}
+                      disabled={authLoading}
                     required
                   />
                 </div>
@@ -122,14 +120,14 @@ const Login = () => {
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
                     className="pl-10 pr-10 focus-ring"
-                    disabled={isLoading}
+                      disabled={authLoading}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-3 text-gray-600 hover:text-gray-800 focus:outline-none"
-                    disabled={isLoading}
+                    disabled={authLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -148,7 +146,7 @@ const Login = () => {
                     onCheckedChange={(checked) => 
                       handleInputChange("rememberMe", checked as boolean)
                     }
-                    disabled={isLoading}
+                    disabled={authLoading}
                   />
                   <label
                     htmlFor="rememberMe"
@@ -166,13 +164,13 @@ const Login = () => {
                 </Link>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-primary-500 hover:bg-primary-600 focus:ring-primary-500"
-                disabled={isLoading}
-              >
-                {isLoading ? "Entrando..." : "Entrar"}
-              </Button>
+                <Button
+                  type="submit"
+                  className="w-full bg-primary-500 hover:bg-primary-600 focus:ring-primary-500"
+                  disabled={authLoading}
+                >
+                  {authLoading ? "Entrando..." : "Entrar"}
+                </Button>
             </form>
           </CardContent>
         </Card>

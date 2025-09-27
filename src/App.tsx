@@ -3,7 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import { DashboardLayout } from "./components/DashboardLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -25,28 +27,98 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/reset-success" element={<ResetSuccess />} />
-          
-          {/* Dashboard routes with sidebar layout */}
-          <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/leaders" element={<DashboardLayout><Leaders /></DashboardLayout>} />
-          <Route path="/leaders/ranking" element={<DashboardLayout><LeadersRanking /></DashboardLayout>} />
-          <Route path="/contacts" element={<DashboardLayout><Contacts /></DashboardLayout>} />
-          <Route path="/campaigns" element={<DashboardLayout><Campaigns /></DashboardLayout>} />
-          <Route path="/events" element={<DashboardLayout><Events /></DashboardLayout>} />
-          <Route path="/segments" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Segmentos (Em desenvolvimento)</h1></div></DashboardLayout>} />
-          <Route path="/messaging" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Mensagens (Em desenvolvimento)</h1></div></DashboardLayout>} />
-          <Route path="/settings/privacy" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Configurações de Privacidade (Em desenvolvimento)</h1></div></DashboardLayout>} />
-          <Route path="/settings/organization" element={<DashboardLayout><div className="p-6"><h1 className="text-2xl font-bold">Configurações da Organização (Em desenvolvimento)</h1></div></DashboardLayout>} />
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/reset-success" element={<ResetSuccess />} />
+            
+            {/* Protected dashboard routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Dashboard />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/leaders" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Leaders />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/leaders/ranking" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <LeadersRanking />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/contacts" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Contacts />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/campaigns" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Campaigns />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/events" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Events />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/segments" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Segmentos (Em desenvolvimento)</h1>
+                  </div>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/messaging" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Mensagens (Em desenvolvimento)</h1>
+                  </div>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/privacy" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Configurações de Privacidade (Em desenvolvimento)</h1>
+                  </div>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/organization" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <div className="p-6">
+                    <h1 className="text-2xl font-bold">Configurações da Organização (Em desenvolvimento)</h1>
+                  </div>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
