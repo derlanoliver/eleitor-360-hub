@@ -166,7 +166,7 @@ const Messaging = () => {
   return (
     <div className="h-screen flex bg-gray-50">
       {/* Left Sidebar - Contacts List */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
@@ -262,9 +262,9 @@ const Messaging = () => {
       </div>
 
       {/* Center - Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50">
+      <div className="flex-1 flex flex-col bg-gray-50 h-screen">
         {/* Chat Header */}
-        <div className="bg-white border-b border-gray-200 p-4">
+        <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -316,34 +316,36 @@ const Messaging = () => {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
-            {contactMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}
-              >
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full p-4">
+            <div className="space-y-4">
+              {contactMessages.map((message) => (
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender === "agent"
-                      ? "bg-primary-500 text-white"
-                      : "bg-white text-gray-900 border border-gray-200"
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.sender === "agent" ? "text-primary-100" : "text-gray-500"
-                  }`}>
-                    {message.timestamp}
-                  </p>
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.sender === "agent"
+                        ? "bg-primary-500 text-white"
+                        : "bg-white text-gray-900 border border-gray-200"
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.sender === "agent" ? "text-primary-100" : "text-gray-500"
+                    }`}>
+                      {message.timestamp}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
 
-        {/* Message Input */}
-        <div className="bg-white border-t border-gray-200 p-4">
+        {/* Message Input - Fixed at bottom */}
+        <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm">
               <Paperclip className="h-4 w-4" />
