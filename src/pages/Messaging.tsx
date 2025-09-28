@@ -316,9 +316,9 @@ const Messaging = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full p-4">
-            <div className="space-y-4">
+        <div className="flex-1 overflow-hidden min-h-0">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4 min-h-full">
               {contactMessages.map((message) => (
                 <div
                   key={message.id}
