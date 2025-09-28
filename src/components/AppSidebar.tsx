@@ -59,7 +59,7 @@ export function AppSidebar() {
     isActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "hover:bg-gray-100 text-gray-700";
 
   return (
-    <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon" variant="sidebar">
       <SidebarContent className="bg-white border-r border-gray-200">
         {/* Logo/Header */}
         <div className="p-4 border-b border-gray-200">

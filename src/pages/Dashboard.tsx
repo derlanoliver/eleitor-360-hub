@@ -92,11 +92,11 @@ const Dashboard = () => {
   const listLeaders = mockLeaders.slice(3, 5);
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
             Dashboard
           </h1>
           <p className="text-gray-600">
@@ -104,21 +104,21 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
           {/* Ranking de Lideranças - Pódio + TOP 5 */}
           <div className="lg:col-span-2">
             <Card className="card-default">
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center text-base md:text-lg">
                   <Trophy className="h-5 w-5 text-primary-600 mr-2" />
                   Ranking de Lideranças - TOP 5
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {/* Pódio TOP 3 */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">🏆 Pódio do Mês</h3>
-                  <div className="grid md:grid-cols-3 gap-4">
+                <div className="mb-6 md:mb-8">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">🏆 Pódio do Mês</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {podiumLeaders.map((leader) => (
                       <div
                         key={leader.id}
@@ -139,17 +139,17 @@ const Dashboard = () => {
                           <h4 className="font-semibold text-gray-900 text-sm mb-1">
                             {leader.name}
                           </h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleWhatsAppClick(leader.phone)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            <span className="text-xs">
-                              ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
-                            </span>
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleWhatsAppClick(leader.phone)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
+                            >
+                              <Phone className="h-4 w-4 mr-1" />
+                              <span className="text-xs hidden sm:inline">
+                                ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
+                              </span>
+                            </Button>
                           <div className="mt-2">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                               {leader.registrations} cadastros
