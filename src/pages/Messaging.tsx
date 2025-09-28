@@ -164,11 +164,11 @@ const Messaging = () => {
   };
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Left Sidebar - Contacts List */}
-      <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Conversas</h2>
             <div className="flex gap-2">
@@ -262,7 +262,7 @@ const Messaging = () => {
       </div>
 
       {/* Center - Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50 h-screen">
+      <div className="flex-1 flex flex-col bg-gray-50 max-h-screen">
         {/* Chat Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -375,9 +375,9 @@ const Messaging = () => {
       </div>
 
       {/* Right Sidebar - Contact Info */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col max-h-screen">
         {/* Contact Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3 mb-4">
             <Avatar className="h-16 w-16">
               <AvatarImage src={selectedContact.avatar} />
