@@ -1,170 +1,135 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; 
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Search, 
-  Send, 
-  Phone, 
-  Mail, 
-  Calendar, 
-  IdCard,
-  Plus,
-  MoreVertical,
-  Paperclip,
-  Smile,
-  Mic,
-  Filter,
-  User,
-  Tag,
-  Target,
-  Zap
-} from "lucide-react";
+import { Search, Send, Phone, Mail, Calendar, IdCard, Plus, MoreVertical, Paperclip, Smile, Mic, Filter, User, Tag, Target, Zap } from "lucide-react";
 
 // Mock data
-const mockContacts = [
-  {
-    id: "1",
-    name: "Laersia Sanson",
-    phone: "+5527996320904", 
-    lastMessage: "Olá! Tudo bem? Posso te ajudar?",
-    timestamp: "21:37",
-    unread: 2,
-    avatar: "",
-    status: "online",
-    campaign: "Campanha Saúde 2024",
-    tags: ["Apoiador", "Saúde"],
-    email: "laersia@email.com",
-    inscriptionDate: "26.09.2025 21:37",
-    cpf: "123.456.789-00"
-  },
-  {
-    id: "2", 
-    name: "Kah",
-    phone: "+5511987654321",
-    lastMessage: "Obrigada pelas informações!",
-    timestamp: "12:38",
-    unread: 0,
-    avatar: "",
-    status: "away",
-    campaign: "Orçamento Participativo",
-    tags: ["Interessado"],
-    email: "kah@email.com", 
-    inscriptionDate: "25.09.2025 12:30",
-    cpf: "987.654.321-00"
-  },
-  {
-    id: "3",
-    name: "Julia Vestphal",
-    phone: "+5521999888777",
-    lastMessage: "Quando será o próximo evento?",
-    timestamp: "ontem",
-    unread: 1,
-    avatar: "",
-    status: "offline",
-    campaign: "Eventos Comunitários", 
-    tags: ["Participativo", "Eventos"],
-    email: "julia.vestphal@email.com",
-    inscriptionDate: "24.09.2025 15:20",
-    cpf: "456.789.123-00"
-  },
-  {
-    id: "4",
-    name: "COBRANÇA PRETTI - ISA",
-    phone: "+5511888777666",
-    lastMessage: "Preciso de informações sobre o projeto",
-    timestamp: "ontem",
-    unread: 0,
-    avatar: "",
-    status: "offline",
-    campaign: "Projetos Sociais",
-    tags: ["Projeto", "ISA"],
-    email: "cobranca.pretti@email.com",
-    inscriptionDate: "23.09.2025 09:15",
-    cpf: "321.654.987-00"
-  }
-];
-
-const mockMessages = [
-  {
-    id: "1",
-    contactId: "1",
-    sender: "contact",
-    content: "Oi! boa noite",
-    timestamp: "Sex, 25 Set 2025, 21:37",
-    type: "text"
-  },
-  {
-    id: "2", 
-    contactId: "1",
-    sender: "contact",
-    content: "Você vende gás?",
-    timestamp: "Sex, 25 Set 2025, 21:37", 
-    type: "text"
-  },
-  {
-    id: "3",
-    contactId: "1",
-    sender: "agent",
-    content: "Oi, boa noite! Sou a Dani, posso te ajudar agora. O que você precisa?",
-    timestamp: "Sex, 25 Set 2025, 21:37",
-    type: "text"
-  },
-  {
-    id: "4",
-    contactId: "1", 
-    sender: "agent",
-    content: "No momento, não vendemos gás (GLP ou GNV). Nosso foco é combustíveis líquidos, lubrificantes e serviços automotivos. Se quiser saber mais sobre esses serviços, só avisar!",
-    timestamp: "Sex, 25 Set 2025, 21:38",
-    type: "text"
-  }
-];
-
+const mockContacts = [{
+  id: "1",
+  name: "Laersia Sanson",
+  phone: "+5527996320904",
+  lastMessage: "Olá! Tudo bem? Posso te ajudar?",
+  timestamp: "21:37",
+  unread: 2,
+  avatar: "",
+  status: "online",
+  campaign: "Campanha Saúde 2024",
+  tags: ["Apoiador", "Saúde"],
+  email: "laersia@email.com",
+  inscriptionDate: "26.09.2025 21:37",
+  cpf: "123.456.789-00"
+}, {
+  id: "2",
+  name: "Kah",
+  phone: "+5511987654321",
+  lastMessage: "Obrigada pelas informações!",
+  timestamp: "12:38",
+  unread: 0,
+  avatar: "",
+  status: "away",
+  campaign: "Orçamento Participativo",
+  tags: ["Interessado"],
+  email: "kah@email.com",
+  inscriptionDate: "25.09.2025 12:30",
+  cpf: "987.654.321-00"
+}, {
+  id: "3",
+  name: "Julia Vestphal",
+  phone: "+5521999888777",
+  lastMessage: "Quando será o próximo evento?",
+  timestamp: "ontem",
+  unread: 1,
+  avatar: "",
+  status: "offline",
+  campaign: "Eventos Comunitários",
+  tags: ["Participativo", "Eventos"],
+  email: "julia.vestphal@email.com",
+  inscriptionDate: "24.09.2025 15:20",
+  cpf: "456.789.123-00"
+}, {
+  id: "4",
+  name: "COBRANÇA PRETTI - ISA",
+  phone: "+5511888777666",
+  lastMessage: "Preciso de informações sobre o projeto",
+  timestamp: "ontem",
+  unread: 0,
+  avatar: "",
+  status: "offline",
+  campaign: "Projetos Sociais",
+  tags: ["Projeto", "ISA"],
+  email: "cobranca.pretti@email.com",
+  inscriptionDate: "23.09.2025 09:15",
+  cpf: "321.654.987-00"
+}];
+const mockMessages = [{
+  id: "1",
+  contactId: "1",
+  sender: "contact",
+  content: "Oi! boa noite",
+  timestamp: "Sex, 25 Set 2025, 21:37",
+  type: "text"
+}, {
+  id: "2",
+  contactId: "1",
+  sender: "contact",
+  content: "Você vende gás?",
+  timestamp: "Sex, 25 Set 2025, 21:37",
+  type: "text"
+}, {
+  id: "3",
+  contactId: "1",
+  sender: "agent",
+  content: "Oi, boa noite! Sou a Dani, posso te ajudar agora. O que você precisa?",
+  timestamp: "Sex, 25 Set 2025, 21:37",
+  type: "text"
+}, {
+  id: "4",
+  contactId: "1",
+  sender: "agent",
+  content: "No momento, não vendemos gás (GLP ou GNV). Nosso foco é combustíveis líquidos, lubrificantes e serviços automotivos. Se quiser saber mais sobre esses serviços, só avisar!",
+  timestamp: "Sex, 25 Set 2025, 21:38",
+  type: "text"
+}];
 const Messaging = () => {
   const [selectedContact, setSelectedContact] = useState(mockContacts[0]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-
   const filteredContacts = mockContacts.filter(contact => {
-    const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contact.phone.includes(searchTerm);
-    const matchesFilter = filterStatus === "all" || 
-                         (filterStatus === "unread" && contact.unread > 0) ||
-                         (filterStatus === "online" && contact.status === "online");
+    const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) || contact.phone.includes(searchTerm);
+    const matchesFilter = filterStatus === "all" || filterStatus === "unread" && contact.unread > 0 || filterStatus === "online" && contact.status === "online";
     return matchesSearch && matchesFilter;
   });
-
   const contactMessages = mockMessages.filter(msg => msg.contactId === selectedContact.id);
-
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
-    
+
     // Aqui seria a implementação real do envio
     console.log("Sending message:", newMessage);
     setNewMessage("");
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "online": return "bg-green-500";
-      case "away": return "bg-yellow-500"; 
-      case "offline": return "bg-gray-400";
-      default: return "bg-gray-400";
+      case "online":
+        return "bg-green-500";
+      case "away":
+        return "bg-yellow-500";
+      case "offline":
+        return "bg-gray-400";
+      default:
+        return "bg-gray-400";
     }
   };
-
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
-
-  return (
-    <div className="h-screen flex bg-gray-50 overflow-hidden">
+  return <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Left Sidebar - Contacts List */}
       <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
@@ -184,12 +149,7 @@ const Messaging = () => {
           {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar conversas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Buscar conversas..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
 
           {/* Filters */}
@@ -208,16 +168,7 @@ const Messaging = () => {
         {/* Contacts List */}
         <ScrollArea className="flex-1">
           <div className="p-2">
-            {filteredContacts.map((contact) => (
-              <div
-                key={contact.id}
-                onClick={() => setSelectedContact(contact)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedContact.id === contact.id
-                    ? "bg-primary-50 border border-primary-200"
-                    : "hover:bg-gray-50"
-                }`}
-              >
+            {filteredContacts.map(contact => <div key={contact.id} onClick={() => setSelectedContact(contact)} className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedContact.id === contact.id ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50"}`}>
                 <div className="flex items-start gap-3">
                   <div className="relative">
                     <Avatar className="h-12 w-12">
@@ -236,27 +187,22 @@ const Messaging = () => {
                       </h3>
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-500">{contact.timestamp}</span>
-                        {contact.unread > 0 && (
-                          <Badge className="bg-primary-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        {contact.unread > 0 && <Badge className="bg-primary-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                             {contact.unread}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </div>
                     </div>
                     <p className="text-sm text-gray-600 truncate mt-1">
                       {contact.lastMessage}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {contact.tags.slice(0, 2).map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                      {contact.tags.slice(0, 2).map(tag => <Badge key={tag} variant="secondary" className="text-xs">
                           {tag}
-                        </Badge>
-                      ))}
+                        </Badge>)}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </ScrollArea>
       </div>
@@ -319,27 +265,14 @@ const Messaging = () => {
         <div className="flex-1 overflow-hidden min-h-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4 min-h-full">
-              {contactMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.sender === "agent"
-                        ? "bg-primary-500 text-white"
-                        : "bg-white text-gray-900 border border-gray-200"
-                    }`}
-                  >
+              {contactMessages.map(message => <div key={message.id} className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender === "agent" ? "bg-primary-500 text-white" : "bg-white text-gray-900 border border-gray-200"}`}>
                     <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.sender === "agent" ? "text-primary-100" : "text-gray-500"
-                    }`}>
+                    <p className={`text-xs mt-1 ${message.sender === "agent" ? "text-primary-100" : "text-gray-500"}`}>
                       {message.timestamp}
                     </p>
                   </div>
-                </div>
-              ))}
+                </div>)}
             </div>
           </ScrollArea>
         </div>
@@ -351,13 +284,7 @@ const Messaging = () => {
               <Paperclip className="h-4 w-4" />
             </Button>
             <div className="flex-1 relative">
-              <Input
-                placeholder="Digite uma mensagem..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                className="pr-20"
-              />
+              <Input placeholder="Digite uma mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSendMessage()} className="pr-20" />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
                 <Button variant="ghost" size="sm">
                   <Smile className="h-4 w-4" />
@@ -453,11 +380,9 @@ const Messaging = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {selectedContact.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">
+                  {selectedContact.tags.map(tag => <Badge key={tag} variant="secondary">
                       {tag}
-                    </Badge>
-                  ))}
+                    </Badge>)}
                 </div>
               </CardContent>
             </Card>
@@ -478,46 +403,7 @@ const Messaging = () => {
             </Card>
 
             {/* Automation */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    Automação
-                  </CardTitle>
-                  <div className="text-xs text-green-600 font-medium">
-                    Automação está ligada
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Select defaultValue="pausar">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pausar">Pausar automação por</SelectItem>
-                      <SelectItem value="parar">Parar automação</SelectItem>
-                      <SelectItem value="continuar">Continuar automação</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button className="w-full" variant="outline">
-                    Atribuir a mim
-                  </Button>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Atribuído para" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="me">Eu</SelectItem>
-                      <SelectItem value="team1">Equipe 1</SelectItem>
-                      <SelectItem value="team2">Equipe 2</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            
 
             {/* Sequences */}
             <Card>
@@ -551,8 +437,6 @@ const Messaging = () => {
           </div>
         </ScrollArea>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Messaging;
