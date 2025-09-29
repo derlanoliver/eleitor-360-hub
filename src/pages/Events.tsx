@@ -240,13 +240,13 @@ const Events = () => {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 Gestão de Eventos
               </h1>
               <p className="text-gray-600">
@@ -255,12 +255,12 @@ const Events = () => {
             </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
+                <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Evento
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl mx-4">
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Criar Novo Evento</DialogTitle>
                 </DialogHeader>
@@ -276,9 +276,9 @@ const Events = () => {
 
         <Tabs defaultValue="events" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="events" className="text-xs sm:text-sm">Eventos</TabsTrigger>
-            <TabsTrigger value="checkin" className="text-xs sm:text-sm">Check-in</TabsTrigger>
-            <TabsTrigger value="reports" className="text-xs sm:text-sm">Relatórios</TabsTrigger>
+            <TabsTrigger value="events">Eventos</TabsTrigger>
+            <TabsTrigger value="checkin">Check-in</TabsTrigger>
+            <TabsTrigger value="reports">Relatórios</TabsTrigger>
           </TabsList>
 
           {/* Lista de Eventos */}
@@ -288,7 +288,7 @@ const Events = () => {
               <div className="lg:col-span-1">
                 <Card className="card-default">
                   <CardHeader>
-                    <CardTitle className="flex items-center text-base">
+                    <CardTitle className="flex items-center">
                       <Filter className="h-5 w-5 text-primary-600 mr-2" />
                       Filtros
                     </CardTitle>
@@ -345,13 +345,13 @@ const Events = () => {
               <div className="lg:col-span-3 space-y-4">
                 {filteredEvents.map((event) => (
                   <Card key={event.id} className="card-default hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 md:p-6">
-                      <div className="grid lg:grid-cols-12 gap-4 md:gap-6">
+                    <CardContent className="p-6">
+                      <div className="grid lg:grid-cols-12 gap-6">
                         {/* Info Principal */}
                         <div className="lg:col-span-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <h3 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">
+                              <h3 className="font-semibold text-gray-900 mb-2">
                                 {event.name}
                               </h3>
                               <p className="text-sm text-gray-600 mb-3 line-clamp-2">
@@ -371,41 +371,35 @@ const Events = () => {
                           <div className="space-y-2 text-sm text-gray-600">
                             <div className="flex items-center">
                               <Calendar className="h-4 w-4 mr-2" />
-                              <span className="text-xs sm:text-sm">
-                                {new Date(event.date).toLocaleDateString()} às {event.time}
-                              </span>
+                              {new Date(event.date).toLocaleDateString()} às {event.time}
                             </div>
                             <div className="flex items-center">
                               <MapPin className="h-4 w-4 mr-2" />
-                              <span className="text-xs sm:text-sm truncate">
-                                {event.location}
-                              </span>
+                              {event.location}
                             </div>
                             <div className="flex items-center">
                               <Users className="h-4 w-4 mr-2" />
-                              <span className="text-xs sm:text-sm">
-                                Capacidade: {event.capacity} pessoas
-                              </span>
+                              Capacidade: {event.capacity} pessoas
                             </div>
                           </div>
                         </div>
 
                         {/* Métricas */}
                         <div className="lg:col-span-3">
-                          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 mb-4">
+                          <div className="grid grid-cols-1 gap-3 mb-4">
                             <div className="text-center p-3 bg-blue-50 rounded-lg">
                               <p className="text-xs text-gray-600">Inscrições</p>
-                              <p className="font-bold text-blue-600 text-sm md:text-base">{event.registrations}</p>
+                              <p className="font-bold text-blue-600">{event.registrations}</p>
                             </div>
                             <div className="text-center p-3 bg-green-50 rounded-lg">
                               <p className="text-xs text-gray-600">Presença</p>
-                              <p className="font-bold text-green-600 text-sm md:text-base">{event.checkedIn}</p>
+                              <p className="font-bold text-green-600">{event.checkedIn}</p>
                             </div>
                           </div>
                           
                           <div className="text-center p-3 bg-primary-50 rounded-lg mb-3">
                             <p className="text-xs text-gray-600">Taxa de Presença</p>
-                            <p className="font-bold text-primary-600 text-sm md:text-base">{getAttendanceRate(event)}%</p>
+                            <p className="font-bold text-primary-600">{getAttendanceRate(event)}%</p>
                           </div>
 
                           <div className="text-xs text-gray-500">
@@ -423,13 +417,13 @@ const Events = () => {
                                   variant="outline" 
                                   size="sm" 
                                   onClick={() => setSelectedEvent(event)}
-                                  className="w-full text-xs sm:text-sm"
+                                  className="w-full"
                                 >
                                   <Eye className="h-4 w-4 mr-2" />
                                   Ver Detalhes
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto mx-4">
+                              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                                 <DialogHeader>
                                   <DialogTitle>Detalhes do Evento</DialogTitle>
                                 </DialogHeader>
@@ -446,9 +440,8 @@ const Events = () => {
                             }} />
 
                             <div className="grid grid-cols-2 gap-2">
-                              <Button variant="ghost" size="sm" className="text-xs sm:text-sm">
+                              <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
-                                <span className="hidden sm:inline ml-1">Editar</span>
                               </Button>
                               <Button 
                                 variant="ghost" 

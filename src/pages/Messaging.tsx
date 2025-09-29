@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Send, Phone, Mail, Calendar, IdCard, Plus, MoreVertical, Paperclip, Smile, Mic, Filter, User, Tag, Target, Zap, ArrowLeft, ChevronRight } from "lucide-react";
+import { Search, Send, Phone, Mail, Calendar, IdCard, Plus, MoreVertical, Paperclip, Smile, Mic, Filter, User, Tag, Target, Zap } from "lucide-react";
 
 // Mock data
 const mockContacts = [{
@@ -67,7 +67,6 @@ const mockContacts = [{
   inscriptionDate: "23.09.2025 09:15",
   cpf: "321.654.987-00"
 }];
-
 const mockMessages = [{
   id: "1",
   contactId: "1",
@@ -97,28 +96,24 @@ const mockMessages = [{
   timestamp: "Sex, 25 Set 2025, 21:38",
   type: "text"
 }];
-
 const Messaging = () => {
   const [selectedContact, setSelectedContact] = useState(mockContacts[0]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [currentView, setCurrentView] = useState<'contacts' | 'chat' | 'details'>('contacts');
-
   const filteredContacts = mockContacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) || contact.phone.includes(searchTerm);
     const matchesFilter = filterStatus === "all" || filterStatus === "unread" && contact.unread > 0 || filterStatus === "online" && contact.status === "online";
     return matchesSearch && matchesFilter;
   });
-
   const contactMessages = mockMessages.filter(msg => msg.contactId === selectedContact.id);
-
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
+
+    // Aqui seria a implementação real do envio
     console.log("Sending message:", newMessage);
     setNewMessage("");
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online":
@@ -131,62 +126,14 @@ const Messaging = () => {
         return "bg-gray-400";
     }
   };
-
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
-
-  const handleContactSelect = (contact: any) => {
-    setSelectedContact(contact);
-    if (window.innerWidth < 768) {
-      setCurrentView('chat');
-    }
-  };
-
-  return (
-    <div className="h-screen flex bg-gray-50 overflow-hidden">
-      {/* Mobile Navigation */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-2 z-50 flex items-center justify-between">
-        {currentView === 'chat' && (
-          <Button variant="ghost" size="sm" onClick={() => setCurrentView('contacts')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        )}
-        {currentView === 'contacts' && (
-          <h2 className="text-lg font-semibold text-gray-900">Conversas</h2>
-        )}
-        {currentView === 'chat' && (
-          <>
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={selectedContact.avatar} />
-                <AvatarFallback className="bg-primary-100 text-primary-700">
-                  {getInitials(selectedContact.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="font-medium text-gray-900 text-sm">{selectedContact.name}</h3>
-                <p className="text-xs text-gray-500">{selectedContact.phone}</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setCurrentView('details')}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-        {currentView === 'details' && (
-          <Button variant="ghost" size="sm" onClick={() => setCurrentView('chat')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Chat
-          </Button>
-        )}
-      </div>
-
+  return <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Left Sidebar - Contacts List */}
-      <div className={`${currentView === 'contacts' ? 'flex' : 'hidden'} md:flex w-full md:w-96 bg-white border-r border-gray-200 flex-col h-full ${currentView === 'contacts' ? 'pt-16 md:pt-0' : ''}`}>
+      <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex-shrink-0 hidden md:block">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Conversas</h2>
             <div className="flex gap-2">
@@ -218,23 +165,10 @@ const Messaging = () => {
           </Select>
         </div>
 
-        {/* Mobile Search */}
-        <div className="p-4 border-b border-gray-200 flex-shrink-0 md:hidden">
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input placeholder="Buscar conversas..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
-          </div>
-        </div>
-
         {/* Contacts List */}
         <ScrollArea className="flex-1">
           <div className="p-2">
-            {filteredContacts.map(contact => (
-              <div 
-                key={contact.id} 
-                onClick={() => handleContactSelect(contact)} 
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedContact.id === contact.id ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50"}`}
-              >
+            {filteredContacts.map(contact => <div key={contact.id} onClick={() => setSelectedContact(contact)} className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedContact.id === contact.id ? "bg-primary-50 border border-primary-200" : "hover:bg-gray-50"}`}>
                 <div className="flex items-start gap-3">
                   <div className="relative">
                     <Avatar className="h-12 w-12">
@@ -253,35 +187,30 @@ const Messaging = () => {
                       </h3>
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-500">{contact.timestamp}</span>
-                        {contact.unread > 0 && (
-                          <Badge className="bg-primary-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        {contact.unread > 0 && <Badge className="bg-primary-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                             {contact.unread}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </div>
                     </div>
                     <p className="text-sm text-gray-600 truncate mt-1">
                       {contact.lastMessage}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {contact.tags.slice(0, 2).map(tag => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                      {contact.tags.slice(0, 2).map(tag => <Badge key={tag} variant="secondary" className="text-xs">
                           {tag}
-                        </Badge>
-                      ))}
+                        </Badge>)}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </ScrollArea>
       </div>
 
       {/* Center - Chat Area */}
-      <div className={`${currentView === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-gray-50 max-h-screen ${currentView === 'chat' ? 'pt-16 md:pt-0' : ''}`}>
+      <div className="flex-1 flex flex-col bg-gray-50 max-h-screen">
         {/* Chat Header */}
-        <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0 hidden md:block">
+        <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -301,7 +230,7 @@ const Messaging = () => {
             
             <div className="flex items-center gap-2">
               <Select defaultValue="aberto">
-                <SelectTrigger className="w-32 lg:w-40">
+                <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,7 +254,7 @@ const Messaging = () => {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="hidden lg:flex">
+              <Button variant="outline" size="sm">
                 Marcar como Concluído
               </Button>
             </div>
@@ -336,16 +265,14 @@ const Messaging = () => {
         <div className="flex-1 overflow-hidden min-h-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4 min-h-full">
-              {contactMessages.map(message => (
-                <div key={message.id} className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}>
+              {contactMessages.map(message => <div key={message.id} className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender === "agent" ? "bg-primary-500 text-white" : "bg-white text-gray-900 border border-gray-200"}`}>
                     <p className="text-sm">{message.content}</p>
                     <p className={`text-xs mt-1 ${message.sender === "agent" ? "text-primary-100" : "text-gray-500"}`}>
                       {message.timestamp}
                     </p>
                   </div>
-                </div>
-              ))}
+                </div>)}
             </div>
           </ScrollArea>
         </div>
@@ -353,22 +280,16 @@ const Messaging = () => {
         {/* Message Input - Fixed at bottom */}
         <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="hidden sm:flex">
+            <Button variant="ghost" size="sm">
               <Paperclip className="h-4 w-4" />
             </Button>
             <div className="flex-1 relative">
-              <Input 
-                placeholder="Digite uma mensagem..." 
-                value={newMessage} 
-                onChange={e => setNewMessage(e.target.value)} 
-                onKeyDown={e => e.key === "Enter" && handleSendMessage()} 
-                className="pr-20" 
-              />
+              <Input placeholder="Digite uma mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSendMessage()} className="pr-20" />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                <Button variant="ghost" size="sm" className="hidden sm:flex">
+                <Button variant="ghost" size="sm">
                   <Smile className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="hidden sm:flex">
+                <Button variant="ghost" size="sm">
                   <Mic className="h-4 w-4" />
                 </Button>
               </div>
@@ -381,7 +302,7 @@ const Messaging = () => {
       </div>
 
       {/* Right Sidebar - Contact Info */}
-      <div className={`${currentView === 'details' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 bg-white border-l border-gray-200 flex-col max-h-screen ${currentView === 'details' ? 'pt-16 lg:pt-0' : ''}`}>
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col max-h-screen">
         {/* Contact Header */}
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3 mb-4">
@@ -395,7 +316,7 @@ const Messaging = () => {
               <h3 className="font-semibold text-gray-900">{selectedContact.name}</h3>
               <p className="text-sm text-gray-500">{selectedContact.phone}</p>
             </div>
-            <Button variant="ghost" size="sm" className="hidden lg:flex">
+            <Button variant="ghost" size="sm">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </div>
@@ -459,11 +380,9 @@ const Messaging = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {selectedContact.tags.map(tag => (
-                    <Badge key={tag} variant="secondary">
+                  {selectedContact.tags.map(tag => <Badge key={tag} variant="secondary">
                       {tag}
-                    </Badge>
-                  ))}
+                    </Badge>)}
                 </div>
               </CardContent>
             </Card>
@@ -482,6 +401,9 @@ const Messaging = () => {
                 </Badge>
               </CardContent>
             </Card>
+
+            {/* Automation */}
+            
 
             {/* Sequences */}
             <Card>
@@ -515,8 +437,6 @@ const Messaging = () => {
           </div>
         </ScrollArea>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Messaging;

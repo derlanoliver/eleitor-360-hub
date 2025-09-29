@@ -193,13 +193,13 @@ const Contacts = () => {
   const totalWithEmail = contacts.filter(c => c.consentEmail).length;
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 Base de Contatos
               </h1>
               <p className="text-gray-600">
@@ -207,12 +207,12 @@ const Contacts = () => {
                 {totalWithWhatsApp} WhatsApp • {totalWithEmail} E-mail
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-              <Button variant="outline" className="w-full sm:w-auto text-sm">
+            <div className="flex space-x-3">
+              <Button variant="outline">
                 <Users className="h-4 w-4 mr-2" />
                 Importar Contatos
               </Button>
-              <Button className="w-full sm:w-auto text-sm">
+              <Button>
                 <Users className="h-4 w-4 mr-2" />
                 Adicionar Contato
               </Button>
@@ -220,12 +220,12 @@ const Contacts = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid lg:grid-cols-4 gap-6">
           {/* Filtros */}
           <div className="lg:col-span-1">
             <Card className="card-default">
               <CardHeader>
-                <CardTitle className="flex items-center text-base">
+                <CardTitle className="flex items-center">
                   <Filter className="h-5 w-5 text-primary-600 mr-2" />
                   Filtros
                 </CardTitle>
@@ -290,16 +290,16 @@ const Contacts = () => {
             <div className="space-y-4">
               {filteredContacts.map((contact) => (
                 <Card key={contact.id} className="card-default hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 md:p-6">
+                  <CardContent className="p-6">
                     <div className="grid md:grid-cols-12 gap-4 items-center">
                       {/* Info Principal */}
                       <div className="md:col-span-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold text-sm">
+                          <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
                             {contact.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-gray-900 truncate text-sm md:text-base">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-gray-900 truncate">
                               {contact.name}
                             </h3>
                             <p className="text-sm text-gray-600 truncate">
@@ -318,16 +318,16 @@ const Contacts = () => {
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2 text-sm">
                             <Phone className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600 truncate flex-1">{contact.phone}</span>
+                            <span className="text-gray-600">{contact.phone}</span>
                             {contact.consentWhatsApp && (
-                              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                              <CheckCircle className="h-4 w-4 text-green-500" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2 text-sm">
                             <Mail className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600 truncate flex-1">{contact.email}</span>
+                            <span className="text-gray-600 truncate">{contact.email}</span>
                             {contact.consentEmail && (
-                              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                              <CheckCircle className="h-4 w-4 text-green-500" />
                             )}
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -370,21 +370,16 @@ const Contacts = () => {
                           <div className="flex items-center justify-between">
                             <div className="text-xs text-gray-500 flex items-center">
                               <Clock className="h-3 w-3 mr-1" />
-                              <span className="hidden sm:inline">
-                                {new Date(contact.lastActivity).toLocaleDateString()}
-                              </span>
-                              <span className="sm:hidden">
-                                {new Date(contact.lastActivity).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                              </span>
+                              {new Date(contact.lastActivity).toLocaleDateString()}
                             </div>
                             
-                            <div className="flex space-x-1 md:space-x-2">
+                            <div className="flex space-x-2">
                               {contact.consentWhatsApp && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleWhatsAppClick(contact.phone)}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
                                 >
                                   <Phone className="h-4 w-4" />
                                 </Button>
@@ -394,7 +389,7 @@ const Contacts = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleEmailClick(contact.email)}
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-1 h-auto"
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                 >
                                   <Mail className="h-4 w-4" />
                                 </Button>
@@ -405,12 +400,11 @@ const Contacts = () => {
                                     variant="ghost" 
                                     size="sm"
                                     onClick={() => setSelectedContact(contact)}
-                                    className="p-1 h-auto"
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto mx-4">
+                                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                                   <DialogHeader>
                                     <DialogTitle>Detalhes do Contato</DialogTitle>
                                   </DialogHeader>
@@ -428,12 +422,12 @@ const Contacts = () => {
 
               {filteredContacts.length === 0 && (
                 <Card className="card-default">
-                  <CardContent className="p-6 md:p-8 text-center">
+                  <CardContent className="p-8 text-center">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
                       Nenhum contato encontrado
                     </h3>
-                    <p className="text-gray-600 text-sm md:text-base">
+                    <p className="text-gray-600">
                       Tente ajustar os filtros ou adicionar novos contatos.
                     </p>
                   </CardContent>

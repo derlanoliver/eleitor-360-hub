@@ -183,13 +183,13 @@ const Campaigns = () => {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 Campanhas & Atribuição
               </h1>
               <p className="text-gray-600">
@@ -198,12 +198,12 @@ const Campaigns = () => {
             </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
+                <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Campanha
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl mx-4">
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Criar Nova Campanha</DialogTitle>
                 </DialogHeader>
@@ -219,30 +219,30 @@ const Campaigns = () => {
 
         <Tabs defaultValue="campaigns" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="campaigns" className="text-xs sm:text-sm">Campanhas UTM</TabsTrigger>
-            <TabsTrigger value="leaders" className="text-xs sm:text-sm">Links de Líderes</TabsTrigger>
-            <TabsTrigger value="attribution" className="text-xs sm:text-sm">Relatório de Origens</TabsTrigger>
+            <TabsTrigger value="campaigns">Campanhas UTM</TabsTrigger>
+            <TabsTrigger value="leaders">Links de Líderes</TabsTrigger>
+            <TabsTrigger value="attribution">Relatório de Origens</TabsTrigger>
           </TabsList>
 
           {/* Campanhas UTM */}
           <TabsContent value="campaigns">
-            <div className="grid gap-4 md:gap-6">
+            <div className="grid gap-6">
               {campaigns.map((campaign) => (
                 <Card key={campaign.id} className="card-default">
-                  <CardContent className="p-4 md:p-6">
+                  <CardContent className="p-6">
                     <div className="grid md:grid-cols-12 gap-4">
                       {/* Info da Campanha */}
                       <div className="md:col-span-5">
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base">
+                            <h3 className="font-semibold text-gray-900 mb-1">
                               {campaign.name}
                             </h3>
                             <p className="text-sm text-gray-600 mb-2">
                               {campaign.description}
                             </p>
-                            <div className="flex items-center space-x-2 flex-wrap gap-2">
-                              <Badge variant={campaign.status === "active" ? "default" : "secondary"} className="text-xs">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={campaign.status === "active" ? "default" : "secondary"}>
                                 {campaign.status === "active" ? "Ativa" : "Pausada"}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
@@ -254,7 +254,6 @@ const Campaigns = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => toggleCampaignStatus(campaign.id)}
-                            className="text-xs sm:text-sm"
                           >
                             {campaign.status === "active" ? "Pausar" : "Ativar"}
                           </Button>
@@ -265,12 +264,12 @@ const Campaigns = () => {
                       <div className="md:col-span-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="text-center p-3 bg-blue-50 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">Cadastros</p>
-                            <p className="font-bold text-blue-600 text-sm md:text-base">{campaign.registrations}</p>
+                            <p className="text-sm text-gray-600">Cadastros</p>
+                            <p className="font-bold text-blue-600">{campaign.registrations}</p>
                           </div>
                           <div className="text-center p-3 bg-green-50 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-600">Conversões</p>
-                            <p className="font-bold text-green-600 text-sm md:text-base">{campaign.conversions}</p>
+                            <p className="text-sm text-gray-600">Conversões</p>
+                            <p className="font-bold text-green-600">{campaign.conversions}</p>
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 text-center mt-2">
@@ -285,7 +284,7 @@ const Campaigns = () => {
                             <Input
                               value={campaign.link}
                               readOnly
-                              className="text-xs truncate"
+                              className="text-xs"
                             />
                             <Button
                               variant="ghost"
@@ -308,10 +307,10 @@ const Campaigns = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => downloadQRCode(campaign.qrCode, campaign.utmCampaign)}
-                              className="flex-1 text-xs sm:text-sm"
+                              className="flex-1"
                             >
                               <QrCode className="h-4 w-4 mr-2" />
-                              <span className="hidden sm:inline">Baixar</span> QR
+                              Baixar QR
                             </Button>
                             <Button variant="ghost" size="sm">
                               <Eye className="h-4 w-4" />
