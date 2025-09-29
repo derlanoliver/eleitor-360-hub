@@ -33,7 +33,7 @@ const mainItems = [
 ];
 
 const campaignItems = [
-  { title: "Campanhas", url: "/campaigns", icon: Target },
+  { title: "Projetos", url: "/campaigns", icon: Target },
   { title: "Eventos", url: "/events", icon: Calendar },
   { title: "Segmentos", url: "/segments", icon: Target },
 ];
