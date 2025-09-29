@@ -33,9 +33,9 @@ const mainItems = [
 ];
 
 const campaignItems = [
-  { title: "Projetos", url: "/campaigns", icon: Target },
+  { title: "Campanhas", url: "/campaigns", icon: Target },
   { title: "Eventos", url: "/events", icon: Calendar },
-  { title: "Segmentos", url: "/segments", icon: Target },
+  { title: "Projetos", url: "/segments", icon: Target },
 ];
 
 const communicationItems = [
