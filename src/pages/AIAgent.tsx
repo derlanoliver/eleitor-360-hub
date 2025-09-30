@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, Copy, Trash2, Sparkles, FileText, Image as ImageIcon, Bot, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -35,7 +36,18 @@ const AIAgent = () => {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Auto-scroll para a última mensagem
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages, isTyping]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -60,26 +72,7 @@ const AIAgent = () => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const simulateAIResponse = (userMessage: string, files: AttachedFile[]) => {
-    let response = "Entendi sua mensagem. ";
-    
-    if (files.length > 0) {
-      const docFiles = files.filter(f => f.type === "document");
-      const imgFiles = files.filter(f => f.type === "image");
-      
-      if (docFiles.length > 0) {
-        response += `Analisei ${docFiles.length} documento(s) anexado(s). `;
-      }
-      if (imgFiles.length > 0) {
-        response += `Visualizei ${imgFiles.length} imagem(ns) anexada(s). `;
-      }
-    }
-
-    response += "Como posso te ajudar com essas informações?";
-    return response;
-  };
-
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() && attachedFiles.length === 0) return;
 
     const userMessage: Message = {
@@ -90,22 +83,121 @@ const AIAgent = () => {
       files: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
     };
 
+    const currentInput = input;
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setAttachedFiles([]);
     setIsTyping(true);
 
-    // Simular streaming (mock)
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      // Preparar histórico de mensagens para a API
+      const apiMessages = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Adicionar mensagem atual
+      apiMessages.push({
+        role: "user",
+        content: currentInput
+      });
+
+      console.log('Calling chat edge function...');
+
+      // Chamar a edge function com streaming
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ messages: apiMessages }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      let aiContent = "";
+      const aiMessageId = (Date.now() + 1).toString();
+
+      if (reader) {
+        let done = false;
+        
+        while (!done) {
+          const { value, done: streamDone } = await reader.read();
+          done = streamDone;
+          
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  
+                  if (content) {
+                    aiContent += content;
+                    
+                    // Atualizar mensagem em tempo real
+                    setMessages((prev) => {
+                      const lastMsg = prev[prev.length - 1];
+                      if (lastMsg?.id === aiMessageId) {
+                        return prev.map(msg => 
+                          msg.id === aiMessageId 
+                            ? { ...msg, content: aiContent }
+                            : msg
+                        );
+                      } else {
+                        return [...prev, {
+                          id: aiMessageId,
+                          role: "assistant" as const,
+                          content: aiContent,
+                          timestamp: new Date(),
+                        }];
+                      }
+                    });
+                  }
+                } catch (e) {
+                  // Ignorar erros de parse
+                }
+              }
+            }
+          }
+        }
+      }
+
+      setIsTyping(false);
+
+    } catch (error) {
+      console.error('Error calling AI:', error);
+      setIsTyping(false);
+      
+      toast({
+        title: "Erro ao conectar com IA",
+        description: "Verifique se a chave de API está configurada em Configurações > Provedores de IA",
+        variant: "destructive",
+      });
+
+      // Adicionar mensagem de erro
+      setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: simulateAIResponse(input, attachedFiles),
+        content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, verifique se a chave de API da OpenAI está configurada corretamente nas configurações.",
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
-      setIsTyping(false);
-    }, 1500);
+      }]);
+    }
   };
 
   const handleClearConversation = () => {
@@ -159,7 +251,7 @@ const AIAgent = () => {
 
       {/* Messages Area */}
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
+        <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="max-w-4xl mx-auto p-4 space-y-6">
             {messages.map((message) => (
               <div
@@ -306,7 +398,7 @@ const AIAgent = () => {
 
           <p className="text-xs text-gray-500 mt-2 text-center">
             <Sparkles className="h-3 w-3 inline mr-1" />
-            Powered by GPT-5 • Anexe documentos (PDF, TXT, MD) e imagens (PNG, JPG)
+            Powered by GPT-5 Mini • Configure sua API key em Configurações
           </p>
         </div>
       </div>

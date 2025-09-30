@@ -19,6 +19,7 @@ import Campaigns from "./pages/Campaigns";
 import Events from "./pages/Events";
 import Projects from "./pages/Projects";
 import AIAgent from "./pages/AIAgent";
+import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import NotFound from "./pages/NotFound";
 
@@ -92,6 +93,13 @@ const App = () => (
               <ProtectedRoute>
                 <DashboardLayout>
                   <AIAgent />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Settings />
                 </DashboardLayout>
               </ProtectedRoute>
             } />

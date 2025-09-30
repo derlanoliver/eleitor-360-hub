@@ -23,7 +23,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             
             <div className="flex-1">
               <h1 className="text-lg font-semibold text-gray-900">
-                Plataforma 360 Eleitor/DF
+                eleitor360
               </h1>
             </div>
 

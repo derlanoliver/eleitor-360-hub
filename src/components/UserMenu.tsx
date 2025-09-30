@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ import {
 
 const UserMenu = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   if (!user) return null;
@@ -104,7 +106,7 @@ const UserMenu = () => {
             <span>Perfil</span>
           </DropdownMenuItem>
           
-          <DropdownMenuItem className="cursor-pointer">
+          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings")}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Configurações</span>
           </DropdownMenuItem>
