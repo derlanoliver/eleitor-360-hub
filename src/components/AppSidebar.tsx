@@ -5,7 +5,8 @@ import {
   UserCheck, 
   Calendar, 
   Target, 
-  MessageSquare,
+  FolderKanban,
+  Bot,
   Settings,
   Shield,
   Building,
@@ -35,11 +36,11 @@ const mainItems = [
 const campaignItems = [
   { title: "Campanhas", url: "/campaigns", icon: Target },
   { title: "Eventos", url: "/events", icon: Calendar },
-  { title: "Projetos", url: "/segments", icon: Target },
+  { title: "Projetos", url: "/projects", icon: FolderKanban },
 ];
 
 const communicationItems = [
-  { title: "Mensagens", url: "/messaging", icon: MessageSquare },
+  { title: "Agente IA", url: "/ai-agent", icon: Bot },
 ];
 
 const settingsItems = [

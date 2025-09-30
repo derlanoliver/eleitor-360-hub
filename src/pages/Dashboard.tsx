@@ -2,8 +2,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Trophy, Phone, Users, MapPin, Calendar, Activity } from "lucide-react";
+import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { RankingChart } from "@/components/dashboard/RankingChart";
+import { FilterTabs } from "@/components/dashboard/FilterTabs";
+import { ProfileStats } from "@/components/dashboard/ProfileStats";
+
+// Import seed data
+import rankingRA from "@/data/dashboard/ranking_ra.json";
+import rankingTemas from "@/data/dashboard/ranking_temas.json";
+import perfilData from "@/data/dashboard/perfil.json";
 
 // Mock data para o ranking de lideranças
 const mockLeaders = [
@@ -59,6 +68,9 @@ const mockStats = {
 };
 
 const Dashboard = () => {
+  const [periodRA, setPeriodRA] = useState("30d");
+  const [periodTemas, setPeriodTemas] = useState("30d");
+
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -91,6 +103,20 @@ const Dashboard = () => {
   const podiumLeaders = mockLeaders.slice(0, 3);
   const listLeaders = mockLeaders.slice(3, 5);
 
+  // Preparar dados dos gráficos
+  const raChartData = rankingRA.slice(0, 8).map(item => ({
+    name: item.ra,
+    value: item.cadastros
+  }));
+
+  const temasChartData = rankingTemas.slice(0, 8).map(item => ({
+    name: item.tema,
+    value: item.cadastros
+  }));
+
+  // Calcular total de cadastros a partir dos dados
+  const totalCadastros = rankingRA.reduce((sum, item) => sum + item.cadastros, 0);
+
   return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
@@ -106,7 +132,7 @@ const Dashboard = () => {
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Ranking de Lideranças - Pódio + TOP 5 */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <Card className="card-default">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -217,6 +243,44 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Novo: Ranking por RA */}
+            <Card className="card-default">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <MapPin className="h-5 w-5 text-primary-500" />
+                    Ranking por Região Administrativa
+                  </CardTitle>
+                  <FilterTabs selected={periodRA} onChange={setPeriodRA} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <RankingChart
+                  title=""
+                  data={raChartData}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Novo: Ranking por Temas */}
+            <Card className="card-default">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="h-5 w-5 text-primary-500" />
+                    Ranking por Temas/Pautas
+                  </CardTitle>
+                  <FilterTabs selected={periodTemas} onChange={setPeriodTemas} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <RankingChart
+                  title=""
+                  data={temasChartData}
+                />
+              </CardContent>
+            </Card>
           </div>
 
           {/* Estatísticas Gerais */}
@@ -235,7 +299,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Total de Cadastros</span>
                   </div>
                   <span className="text-lg font-bold text-primary-600">
-                    {mockStats.totalRegistrations.toLocaleString()}
+                    {totalCadastros.toLocaleString()}
                   </span>
                 </div>
 
@@ -245,7 +309,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Cidades Alcançadas</span>
                   </div>
                   <span className="text-lg font-bold text-blue-600">
-                    {mockStats.citiesReached} RAs
+                    {rankingRA.length} RAs
                   </span>
                 </div>
 
@@ -255,7 +319,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
                   </div>
                   <span className="text-base font-semibold text-green-600">
-                    {mockStats.topCity}
+                    {rankingRA[0].ra}
                   </span>
                 </div>
 
@@ -280,6 +344,9 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Novo: Perfil dos Cadastrados */}
+            <ProfileStats data={perfilData} />
 
             {/* Quick Actions */}
             <Card className="card-default">

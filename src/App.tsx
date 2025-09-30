@@ -17,8 +17,9 @@ import LeadersRanking from "./pages/LeadersRanking";
 import Contacts from "./pages/Contacts";
 import Campaigns from "./pages/Campaigns";
 import Events from "./pages/Events";
-import Segments from "./pages/Segments";
-import Messaging from "./pages/Messaging";
+import Projects from "./pages/Projects";
+import AIAgent from "./pages/AIAgent";
+import AIProviders from "./pages/settings/AIProviders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,17 +81,24 @@ const App = () => (
                 </DashboardLayout>
               </ProtectedRoute>
             } />
-            <Route path="/segments" element={
+            <Route path="/projects" element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <Segments />
+                  <Projects />
                 </DashboardLayout>
               </ProtectedRoute>
             } />
-            <Route path="/messaging" element={
+            <Route path="/ai-agent" element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <Messaging />
+                  <AIAgent />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/ai-providers" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <AIProviders />
                 </DashboardLayout>
               </ProtectedRoute>
             } />
