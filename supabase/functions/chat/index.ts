@@ -167,7 +167,7 @@ async function callOpenAI(messages: any[], apiKey: string, systemPrompt: string)
   return await response.json();
 }
 
-async function streamOpenAI(messages: any[], apiKey: string, systemPrompt: string) {
+async function streamOpenAI(messages: any[], apiKey: string, systemPrompt: string, useStreaming: boolean = true) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -181,7 +181,7 @@ async function streamOpenAI(messages: any[], apiKey: string, systemPrompt: strin
         ...messages
       ],
       max_completion_tokens: 2000,
-      stream: true,
+      stream: useStreaming,
     }),
   });
 
@@ -315,31 +315,65 @@ Lembre-se: você está aqui para ajudar a tomar decisões estratégicas com base
         }
       }
 
-      // Fazer nova chamada com os resultados das funções (com streaming)
+      // Fazer nova chamada com os resultados das funções
       console.log('Fazendo segunda chamada com resultados das funções');
-      const streamResponse = await streamOpenAI(updatedMessages, OPENAI_API_KEY, systemPrompt);
-      
-      return new Response(streamResponse.body, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
+      try {
+        const streamResponse = await streamOpenAI(updatedMessages, OPENAI_API_KEY, systemPrompt, true);
+        
+        return new Response(streamResponse.body, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      } catch (error: any) {
+        // Se falhar com streaming, tentar sem streaming
+        if (error.message.includes('400')) {
+          console.log('Erro com streaming, tentando sem streaming');
+          const nonStreamResponse = await streamOpenAI(updatedMessages, OPENAI_API_KEY, systemPrompt, false);
+          const data = await nonStreamResponse.json();
+          
+          return new Response(JSON.stringify(data), {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+        throw error;
+      }
     } else {
       // Sem tool calls, fazer streaming direto
       console.log('Sem tool calls, fazendo streaming direto');
-      const streamResponse = await streamOpenAI(messages, OPENAI_API_KEY, systemPrompt);
-      
-      return new Response(streamResponse.body, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
+      try {
+        const streamResponse = await streamOpenAI(messages, OPENAI_API_KEY, systemPrompt, true);
+        
+        return new Response(streamResponse.body, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      } catch (error: any) {
+        // Se falhar com streaming, tentar sem streaming
+        if (error.message.includes('400')) {
+          console.log('Erro com streaming, tentando sem streaming');
+          const nonStreamResponse = await streamOpenAI(messages, OPENAI_API_KEY, systemPrompt, false);
+          const data = await nonStreamResponse.json();
+          
+          return new Response(JSON.stringify(data), {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+        throw error;
+      }
     }
 
   } catch (error) {
