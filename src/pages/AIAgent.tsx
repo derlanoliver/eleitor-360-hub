@@ -28,7 +28,7 @@ const AIAgent = () => {
     {
       id: "1",
       role: "assistant",
-      content: "Olá! Sou seu assistente de IA. Posso te ajudar com análise de documentos, geração de conteúdo e muito mais. Como posso te ajudar hoje?",
+      content: "👋 Olá! Sou seu assistente de IA especializado em análise de dados políticos!\n\n📊 Posso te ajudar a:\n• Consultar rankings de cadastros por região\n• Analisar performance de coordenadores\n• Verificar temas mais populares\n• Analisar perfil demográfico\n\nÉ só perguntar! Por exemplo: \"Quais foram as regiões que mais trouxeram cadastros?\"",
       timestamp: new Date(),
     }
   ]);
@@ -184,9 +184,13 @@ const AIAgent = () => {
       console.error('Error calling AI:', error);
       setIsTyping(false);
       
+      const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+      
       toast({
         title: "Erro ao conectar com IA",
-        description: "Verifique se a chave de API está configurada em Configurações > Provedores de IA",
+        description: errorMsg.includes('API') 
+          ? "Verifique se a chave de API está configurada em Configurações > Provedores de IA"
+          : "Erro ao processar sua solicitação. Tente novamente.",
         variant: "destructive",
       });
 
@@ -205,7 +209,7 @@ const AIAgent = () => {
       {
         id: "1",
         role: "assistant",
-        content: "Conversa limpa. Como posso te ajudar agora?",
+        content: "👋 Conversa limpa! Como posso te ajudar com a análise de dados da campanha?",
         timestamp: new Date(),
       }
     ]);
@@ -233,8 +237,8 @@ const AIAgent = () => {
               <Bot className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Agente IA</h1>
-              <p className="text-sm text-gray-500">Assistente com GPT-5</p>
+              <h1 className="text-lg font-semibold text-gray-900">Agente IA - Análise de Dados</h1>
+              <p className="text-sm text-gray-500">Consultas inteligentes em tempo real</p>
             </div>
           </div>
           
@@ -268,7 +272,11 @@ const AIAgent = () => {
                 
                 <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
                   <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ 
+                      __html: message.content
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br />')
+                    }} />
                     
                     {message.files && message.files.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -398,7 +406,7 @@ const AIAgent = () => {
 
           <p className="text-xs text-gray-500 mt-2 text-center">
             <Sparkles className="h-3 w-3 inline mr-1" />
-            Powered by GPT-5 Mini • Configure sua API key em Configurações
+            Análises em tempo real com GPT-5 Mini • Dados atualizados automaticamente
           </p>
         </div>
       </div>
