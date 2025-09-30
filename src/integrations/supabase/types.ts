@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cadastros_ra: {
+        Row: {
+          cadastros: number
+          created_at: string
+          id: string
+          ra: string
+          updated_at: string
+        }
+        Insert: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          ra: string
+          updated_at?: string
+        }
+        Update: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          ra?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coordenadores: {
+        Row: {
+          cadastros: number
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      perfil_demografico: {
+        Row: {
+          created_at: string
+          genero: string
+          id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          genero: string
+          id?: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          genero?: string
+          id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      temas_interesse: {
+        Row: {
+          cadastros: number
+          created_at: string
+          id: string
+          tema: string
+          updated_at: string
+        }
+        Insert: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          tema: string
+          updated_at?: string
+        }
+        Update: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          tema?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
