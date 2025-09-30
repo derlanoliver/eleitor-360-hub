@@ -1,4 +1,4 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+// Edge runtime types
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,17 +36,29 @@ Deno.serve(async (req) => {
           },
           ...messages
         ],
-        temperature: 0.7,
         max_completion_tokens: 2000,
         stream: true,
       }),
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('OpenAI API error:', response.status, error);
+      const errorText = await response.text();
+      console.error('OpenAI API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      
+      let errorMessage = 'Erro ao chamar a API da OpenAI';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error?.message || errorMessage;
+      } catch (e) {
+        errorMessage = errorText;
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Erro ao chamar a API da OpenAI', details: error }), 
+        JSON.stringify({ error: errorMessage }), 
         {
           status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -66,8 +78,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in chat function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }), 
+      JSON.stringify({ error: errorMessage }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -41,22 +41,34 @@ const AIProviders = () => {
   const testConnection = async () => {
     setIsTestingConnection(true);
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: { 
-          messages: [{ role: 'user', content: 'Olá' }]
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: 'teste' }]
+          }),
         }
-      });
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Erro na conexão');
+      }
 
       toast({
         title: "Conexão bem-sucedida!",
         description: "A chave de API está funcionando corretamente.",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Test connection error:', error);
       toast({
         title: "Erro na conexão",
-        description: "Verifique se a chave de API está correta.",
+        description: error.message || "Verifique se a chave de API está correta.",
         variant: "destructive",
       });
     } finally {
