@@ -67,7 +67,7 @@ export function AppSidebar() {
           {!isCollapsed ? (
             <div>
               <h2 className="text-lg font-bold text-primary-600">
-                Plataforma 360
+                eleitor360
               </h2>
             </div>
           ) : (
