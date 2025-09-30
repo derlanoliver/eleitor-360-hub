@@ -385,8 +385,9 @@ const AIAgent = () => {
               variant="outline"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
+              className="h-12 w-12"
             >
-              <Paperclip className="h-4 w-4" />
+              <Paperclip className="h-5 w-5" />
             </Button>
 
             <div className="flex-1">
@@ -395,12 +396,12 @@ const AIAgent = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                className="resize-none"
+                className="resize-none h-12 py-3"
               />
             </div>
 
-            <Button onClick={handleSend} size="icon">
-              <Send className="h-4 w-4" />
+            <Button onClick={handleSend} size="icon" className="h-12 w-12">
+              <Send className="h-5 w-5" />
             </Button>
           </div>
 
