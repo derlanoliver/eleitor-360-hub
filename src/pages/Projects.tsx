@@ -27,9 +27,9 @@ const Projects = () => {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Projetos</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Programas</h1>
         <p className="text-gray-600 mt-1">
-          Acompanhe os projetos oficiais e seu impacto na comunidade
+          Acompanhe os programas oficiais e seu impacto na comunidade
         </p>
       </div>
 
@@ -39,7 +39,7 @@ const Projects = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar projetos..."
+              placeholder="Buscar programas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -100,7 +100,7 @@ const Projects = () => {
         <div className="text-center py-12">
           <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Nenhum projeto encontrado
+            Nenhum programa encontrado
           </h3>
           <p className="text-gray-600">
             Tente ajustar os filtros de busca.

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./AppSidebar";
 import UserMenu from "./UserMenu";
 import { Menu } from "lucide-react";
@@ -9,7 +10,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({
   children
 }: DashboardLayoutProps) {
-  return <SidebarProvider>
+  return <TooltipProvider>
+    <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
         <AppSidebar />
         
@@ -34,5 +36,6 @@ export function DashboardLayout({
           </main>
         </div>
       </div>
-    </SidebarProvider>;
+    </SidebarProvider>
+  </TooltipProvider>;
 }
