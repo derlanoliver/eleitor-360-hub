@@ -63,18 +63,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (error || !data?.valid) {
         console.log('Session invalid or expired');
         logout();
-      } else {
-        // Update user data if needed
-        if (data.user) {
-          setUser({
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role,
-            avatar: "/src/assets/logo-rafael-prudente.png"
-          });
-        }
       }
+      // Se a sessão é válida, não faz nada - evita re-render desnecessário
+      // O usuário já está setado do storage local
     } catch (error) {
       console.error('Error verifying session:', error);
     }
