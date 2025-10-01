@@ -31,13 +31,13 @@ import {
 } from "lucide-react";
 
 const UserMenu = () => {
-  const { user, profile, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  if (!user || !profile) return null;
+  if (!user) return null;
 
-  const initials = profile.name
+  const initials = user.name
     .split(" ")
     .map(n => n[0])
     .slice(0, 2)
@@ -55,7 +55,7 @@ const UserMenu = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="flex items-center space-x-3 h-auto p-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={undefined} alt={profile.name} />
+              <AvatarImage src={user.avatar} alt={user.name} />
               <AvatarFallback className="bg-primary-100 text-primary-700 text-sm font-medium">
                 {initials}
               </AvatarFallback>
@@ -63,10 +63,10 @@ const UserMenu = () => {
             
             <div className="flex flex-col items-start">
               <span className="text-sm font-medium text-gray-900">
-                {profile.name}
+                {user.name}
               </span>
               <Badge variant="secondary" className="text-xs">
-                {profile.role}
+                {user.role}
               </Badge>
             </div>
             
@@ -79,22 +79,22 @@ const UserMenu = () => {
             <div className="flex flex-col space-y-2">
               <div className="flex items-center space-x-2">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={undefined} alt={profile.name} />
+                  <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="bg-primary-100 text-primary-700">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
                   <p className="text-sm font-medium text-gray-900">
-                    {profile.name}
+                    {user.name}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {profile.email}
+                    {user.email}
                   </p>
                 </div>
               </div>
               <Badge variant="outline" className="self-start">
-                {profile.role}
+                {user.role}
               </Badge>
             </div>
           </DropdownMenuLabel>
