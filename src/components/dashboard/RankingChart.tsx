@@ -44,6 +44,8 @@ export const RankingChart = ({ title, data, icon }: RankingChartProps) => {
                 border: '1px solid hsl(220, 13%, 91%)',
                 borderRadius: '8px'
               }}
+              labelFormatter={(value) => value}
+              formatter={(value) => [`${value}`, 'Total']}
             />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {data.map((_, index) => (
