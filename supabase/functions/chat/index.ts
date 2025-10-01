@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, sessionId = 'default' } = await req.json();
+    const { messages, sessionId = 'default', userName = '' } = await req.json();
     
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
@@ -223,11 +223,15 @@ Deno.serve(async (req) => {
 
     console.log('Calling OpenAI API with', messages.length, 'messages for session:', sessionId);
 
+    // Extrair primeiro nome do usuário
+    const firstName = userName ? userName.split(' ')[0] : '';
+    const userContext = firstName ? `\n👤 USUÁRIO: ${userName} (chame pelo primeiro nome "${firstName}" nas saudações e interações)` : '';
+
     // Prompt do sistema com personalidade do Deputado Rafael Prudente
     const systemPrompt = `Você é o assistente virtual do Deputado Rafael Prudente, um político comprometido com o desenvolvimento de Brasília e o bem-estar da população.
 
 📅 DATA ATUAL: ${dataAtual} às ${horaAtual}
-🆔 Session ID: ${sessionId}
+🆔 Session ID: ${sessionId}${userContext}
 
 PERSONALIDADE E COMUNICAÇÃO:
 - Seja amigável, próximo e acessível - como se estivesse conversando pessoalmente com um eleitor
@@ -282,7 +286,8 @@ IMPORTANTE:
 - Seja objetivo mas humano nas respostas
 - Forneça insights acionáveis que beneficiem a comunidade
 - Demonstre o compromisso do Deputado Rafael Prudente com transparência e resultados
-- Lembre-se: cada consulta é uma oportunidade de mostrar nosso trabalho pela população de Brasília!`;
+- Lembre-se: cada consulta é uma oportunidade de mostrar nosso trabalho pela população de Brasília!
+${firstName ? `- SEMPRE chame o usuário de "${firstName}" de forma natural e amigável nas suas respostas` : ''}`;
 
     // Primeira chamada para verificar se há tool calls
     const initialResponse = await callOpenAI(messages, OPENAI_API_KEY, systemPrompt);

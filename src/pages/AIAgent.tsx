@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, Copy, Trash2, Sparkles, FileText, Image as ImageIcon, Bot, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -29,6 +31,7 @@ interface AttachedFile {
 }
 
 const AIAgent = () => {
+  const { user } = useAuth();
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -142,7 +145,8 @@ const AIAgent = () => {
           },
           body: JSON.stringify({ 
             messages: apiMessages,
-            sessionId 
+            sessionId,
+            userName: user?.name || ''
           }),
         }
       );
@@ -301,7 +305,7 @@ const AIAgent = () => {
                       {message.role === "assistant" ? (
                         <div className="space-y-0">
                           <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
+                            remarkPlugins={[remarkGfm, remarkBreaks]}
                             components={{
                               code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
