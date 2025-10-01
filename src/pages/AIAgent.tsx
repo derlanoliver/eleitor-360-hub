@@ -264,7 +264,7 @@ const AIAgent = () => {
       {/* Messages Area */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full" ref={scrollAreaRef}>
-          <div className="max-w-4xl mx-auto p-4 space-y-6">
+          <div className="max-w-4xl mx-auto p-4 space-y-3">
             {messages.map((message, index) => {
               // Verificar se é a primeira mensagem de um grupo
               const isFirstInGroup = message.conversationGroup 
@@ -277,27 +277,27 @@ const AIAgent = () => {
                 : true;
               
               // Reduzir espaçamento entre mensagens do mesmo grupo
-              const marginClass = !isFirstInGroup ? "-mt-4" : "";
+              const marginClass = !isFirstInGroup ? "-mt-2" : "";
               
               return (
                 <div
                   key={message.id}
                   className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"} ${marginClass}`}
                 >
-                  {message.role === "assistant" && isFirstInGroup && (
-                    <Avatar className="h-8 w-8 flex-shrink-0 self-start">
+                  {message.role === "assistant" && isLastInGroup && (
+                    <Avatar className="h-8 w-8 flex-shrink-0 self-start transition-all duration-300">
                       <AvatarFallback className="bg-primary-100 text-primary-700">
                         <Bot className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
                   )}
                   
-                  {message.role === "assistant" && !isFirstInGroup && (
+                  {message.role === "assistant" && !isLastInGroup && (
                     <div className="h-8 w-8 flex-shrink-0" />
                   )}
                   
                   <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
-                    <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
+                    <Card className={`p-3 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
                       {message.role === "assistant" ? (
                         <div className="space-y-0">
                           <ReactMarkdown
@@ -439,7 +439,7 @@ const AIAgent = () => {
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <Card className="p-4 bg-white">
+                <Card className="p-3 bg-white">
                   <div className="flex gap-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
