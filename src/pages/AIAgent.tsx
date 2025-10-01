@@ -40,10 +40,8 @@ const AIAgent = () => {
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [displayedContent, setDisplayedContent] = useState<{ [key: string]: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Auto-scroll para a última mensagem
@@ -56,18 +54,6 @@ const AIAgent = () => {
     }
   }, [messages, isTyping]);
 
-  // Inicializar displayedContent para mensagem inicial
-  useEffect(() => {
-    if (messages.length > 0) {
-      const initialMessage = messages[0];
-      if (initialMessage.role === "assistant" && !displayedContent[initialMessage.id]) {
-        setDisplayedContent((prev) => ({
-          ...prev,
-          [initialMessage.id]: initialMessage.content,
-        }));
-      }
-    }
-  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -92,32 +78,27 @@ const AIAgent = () => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const typeCharacterByCharacter = (messageId: string, fullContent: string) => {
-    let currentIndex = 0;
-    setDisplayedContent((prev) => ({ ...prev, [messageId]: "" }));
+  const splitIntoMessages = (content: string): string[] => {
+    return content
+      .split('\n\n')
+      .map(paragraph => paragraph.trim())
+      .filter(paragraph => paragraph.length > 0);
+  };
 
-    const typeNextChar = () => {
-      if (currentIndex < fullContent.length) {
-        const char = fullContent[currentIndex];
-        setDisplayedContent((prev) => ({
-          ...prev,
-          [messageId]: fullContent.substring(0, currentIndex + 1),
-        }));
-        currentIndex++;
-
-        // Velocidade variável baseada no caractere
-        let delay = 20; // padrão rápido
-        if (char === "." || char === "!" || char === "?") delay = 200; // pausa em pontuação
-        if (char === ",") delay = 100; // pausa menor em vírgula
-        if (char === "\n") delay = 150; // pausa em quebra de linha
-
-        typingIntervalRef.current = setTimeout(typeNextChar, delay);
-      } else {
-        setIsTyping(false);
+  const showMessagesSequentially = async (paragraphs: string[]) => {
+    for (let i = 0; i < paragraphs.length; i++) {
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
-    };
-
-    typeNextChar();
+      
+      setMessages(prev => [...prev, {
+        id: `${Date.now()}_${i}_${Math.random()}`,
+        role: "assistant",
+        content: paragraphs[i],
+        timestamp: new Date(),
+      }]);
+    }
+    setIsTyping(false);
   };
 
   const handleSend = async () => {
@@ -171,15 +152,6 @@ const AIAgent = () => {
       const decoder = new TextDecoder();
       
       let aiContent = "";
-      const aiMessageId = (Date.now() + 1).toString();
-
-      // Criar mensagem vazia imediatamente
-      setMessages((prev) => [...prev, {
-        id: aiMessageId,
-        role: "assistant" as const,
-        content: "",
-        timestamp: new Date(),
-      }]);
 
       if (reader) {
         let done = false;
@@ -212,17 +184,9 @@ const AIAgent = () => {
           }
         }
 
-        // Após coletar todo o conteúdo, atualizar a mensagem e iniciar animação de digitação
-        setMessages((prev) => 
-          prev.map(msg => 
-            msg.id === aiMessageId 
-              ? { ...msg, content: aiContent }
-              : msg
-          )
-        );
-
-        // Iniciar efeito de digitação
-        typeCharacterByCharacter(aiMessageId, aiContent);
+        // Quebrar em parágrafos e mostrar sequencialmente
+        const paragraphs = splitIntoMessages(aiContent);
+        await showMessagesSequentially(paragraphs);
       }
 
     } catch (error) {
@@ -381,7 +345,7 @@ const AIAgent = () => {
                             ),
                           }}
                         >
-                          {displayedContent[message.id] || message.content}
+                          {message.content}
                         </ReactMarkdown>
                       </div>
                     ) : (
