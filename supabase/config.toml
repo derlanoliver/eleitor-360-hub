@@ -2,3 +2,6 @@ project_id = "eydqducvsddckhyatcux"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.create-admin-user]
+verify_jwt = false

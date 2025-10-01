@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 interface User {
   id: string;
@@ -15,9 +16,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
-  logout: () => void;
-  checkAuth: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, name: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,135 +28,122 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  // Initialize with local data to avoid loading screen
-  const getInitialUser = () => {
-    const storedUser = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
-    if (storedUser) {
-      try {
-        return JSON.parse(storedUser);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  };
-
-  const [user, setUser] = useState<User | null>(getInitialUser);
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !!session;
 
-  const verifySession = useCallback(async () => {
-    const sessionToken = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    
-    if (!sessionToken) {
-      setUser(null);
-      return;
-    }
-
+  // Fetch user profile from profiles table
+  const fetchUserProfile = async (userId: string): Promise<{ id: string; email: string; name: string; role: string } | null> => {
     try {
-      const { data, error } = await supabase.functions.invoke('verify-session', {
-        body: { sessionToken }
-      });
+      const { data, error } = await supabase
+        .from('profiles' as any)
+        .select('id, email, name, role')
+        .eq('id', userId)
+        .single();
 
-      if (error || !data?.valid) {
-        console.log('Session invalid or expired');
-        logout();
+      if (error || !data) {
+        console.error('Error fetching profile:', error);
+        return null;
       }
-      // Se a sessão é válida, não faz nada - evita re-render desnecessário
-      // O usuário já está setado do storage local
-    } catch (error) {
-      console.error('Error verifying session:', error);
+
+      return {
+        id: data.id as string,
+        email: data.email as string,
+        name: data.name as string,
+        role: data.role as string
+      };
+    } catch (err) {
+      console.error('Exception fetching profile:', err);
+      return null;
     }
-  }, []);
+  };
 
-  const checkAuth = useCallback(async () => {
-    const storedToken = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-    const userStr = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
-    
-    // If we have local data, user is already set in initial state
-    // Just verify silently in background
-    if (userStr && storedToken) {
-      try {
-        // Silent background verification
-        const { data, error } = await supabase.functions.invoke('verify-session', {
-          body: { sessionToken: storedToken }
-        });
-
-        if (error || !data?.valid) {
-          // Session invalid - clear and logout silently
-          localStorage.removeItem("auth_user");
-          localStorage.removeItem("auth_token");
-          sessionStorage.removeItem("auth_user");
-          sessionStorage.removeItem("auth_token");
+  // Initialize auth state
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event);
+        setSession(session);
+        
+        if (session?.user) {
+          // Defer profile fetch to avoid blocking
+          setTimeout(async () => {
+            const profile = await fetchUserProfile(session.user.id);
+            if (profile) {
+              setUser({
+                id: profile.id,
+                email: profile.email,
+                name: profile.name,
+                role: profile.role,
+                avatar: "/src/assets/logo-rafael-prudente.png"
+              });
+            }
+          }, 0);
+        } else {
           setUser(null);
         }
-      } catch (error) {
-        console.error("Silent auth verification failed:", error);
+        
+        setIsLoading(false);
       }
-    } else {
-      // No local data - clear user state
-      setUser(null);
-    }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        setTimeout(async () => {
+          const profile = await fetchUserProfile(session.user.id);
+          if (profile) {
+            setUser({
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role,
+              avatar: "/src/assets/logo-rafael-prudente.png"
+            });
+          }
+          setIsLoading(false);
+        }, 0);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Check authentication on app load and set up session refresh
-  useEffect(() => {
-    checkAuth();
-    
-    // Set up automatic session check every 5 minutes
-    const interval = setInterval(() => {
-      verifySession();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [checkAuth, verifySession]);
-
-  const login = async (email: string, password: string, rememberMe = false): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('admin-login', {
-        body: { email, password }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
 
-      if (error || !data?.success) {
+      if (error) {
         toast({
           title: "Credenciais inválidas",
-          description: data?.error || "E-mail ou senha incorretos.",
+          description: error.message || "E-mail ou senha incorretos.",
           variant: "destructive"
         });
         return false;
       }
 
-      const userData: User = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name,
-        role: data.user.role,
-        avatar: "/src/assets/logo-rafael-prudente.png"
-      };
-
-      const userJson = JSON.stringify(userData);
-      
-      if (rememberMe) {
-        localStorage.setItem("auth_user", userJson);
-        localStorage.setItem("auth_token", data.session.token);
-      } else {
-        sessionStorage.setItem("auth_user", userJson);
-        sessionStorage.setItem("auth_token", data.session.token);
+      if (data.user) {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: `Bem-vindo de volta!`
+        });
+        return true;
       }
-      
-      setUser(userData);
-      
-      toast({
-        title: "Login realizado com sucesso!",
-        description: `Bem-vindo, ${userData.name}`
-      });
-      
-      return true;
+
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       toast({
@@ -169,34 +157,73 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = async () => {
-    const sessionToken = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+  const signup = async (email: string, password: string, name: string): Promise<boolean> => {
+    setIsLoading(true);
     
-    // Call logout endpoint to invalidate session
-    if (sessionToken) {
-      try {
-        await supabase.functions.invoke('admin-logout', {
-          body: { sessionToken }
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            name,
+            role: 'admin'
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no cadastro",
+          description: error.message,
+          variant: "destructive"
         });
-      } catch (error) {
-        console.error('Logout error:', error);
+        return false;
       }
+
+      if (data.user) {
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Você já pode fazer login."
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast({
+        title: "Erro no cadastro",
+        description: "Ocorreu um erro durante o cadastro. Tente novamente.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Clear all stored data
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("auth_token");
-    sessionStorage.removeItem("auth_user");
-    sessionStorage.removeItem("auth_token");
-    
-    setUser(null);
-    
-    toast({
-      title: "Logout realizado",
-      description: "Você foi desconectado com sucesso."
-    });
-    
-    navigate("/login");
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso."
+      });
+      
+      navigate("/login");
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Erro ao sair",
+        description: "Ocorreu um erro ao desconectar.",
+        variant: "destructive"
+      });
+    }
   };
 
   const value: AuthContextType = {
@@ -204,8 +231,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading,
     isAuthenticated,
     login,
-    logout,
-    checkAuth
+    signup,
+    logout
   };
 
   return (
