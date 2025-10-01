@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,19 +34,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user;
 
-  // Check authentication on app load and set up session refresh
-  useEffect(() => {
-    checkAuth();
-    
-    // Set up automatic session check every 5 minutes
-    const interval = setInterval(() => {
-      verifySession();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const verifySession = async () => {
+  const verifySession = useCallback(async () => {
     const sessionToken = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     
     if (!sessionToken) {
@@ -77,9 +65,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (error) {
       console.error('Error verifying session:', error);
     }
-  };
+  }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     setIsLoading(true);
     
     const storedUser = localStorage.getItem("auth_user");
@@ -117,7 +105,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
     
     setIsLoading(false);
-  };
+  }, []);
+
+  // Check authentication on app load and set up session refresh
+  useEffect(() => {
+    checkAuth();
+    
+    // Set up automatic session check every 5 minutes
+    const interval = setInterval(() => {
+      verifySession();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [checkAuth, verifySession]);
 
   const login = async (email: string, password: string, rememberMe = false): Promise<boolean> => {
     setIsLoading(true);
