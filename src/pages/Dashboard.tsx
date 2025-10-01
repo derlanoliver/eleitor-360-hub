@@ -118,33 +118,33 @@ const Dashboard = () => {
   const totalCadastros = rankingRA.reduce((sum, item) => sum + item.cadastros, 0);
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Dashboard
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Visão geral do desempenho e ranking de lideranças
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Ranking de Lideranças - Pódio + TOP 5 */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card className="card-default">
-              <CardHeader>
-                <CardTitle className="flex items-center">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
                   <Trophy className="h-5 w-5 text-primary-600 mr-2" />
                   Ranking de Lideranças - TOP 5
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6 pt-0">
                 {/* Pódio TOP 3 */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">🏆 Pódio do Mês</h3>
-                  <div className="grid md:grid-cols-3 gap-4">
+                <div className="mb-6 sm:mb-8">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">🏆 Pódio do Mês</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     {podiumLeaders.map((leader) => (
                       <div
                         key={leader.id}
@@ -199,8 +199,8 @@ const Dashboard = () => {
 
                 {/* TOP 4 e 5 em lista */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Posições 4º e 5º</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">📊 Posições 4º e 5º</h3>
+                  <div className="space-y-2 sm:space-y-3">
                     {listLeaders.map((leader) => (
                       <div
                         key={leader.id}
@@ -246,16 +246,16 @@ const Dashboard = () => {
 
             {/* Novo: Ranking por RA */}
             <Card className="card-default">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <MapPin className="h-5 w-5 text-primary-500" />
+              <CardHeader className="p-4 sm:p-6 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary-500" />
                     Ranking por Região Administrativa
                   </CardTitle>
                   <FilterTabs selected={periodRA} onChange={setPeriodRA} />
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6 pt-0">
                 <RankingChart
                   title=""
                   data={raChartData}
@@ -265,16 +265,16 @@ const Dashboard = () => {
 
             {/* Novo: Ranking por Temas */}
             <Card className="card-default">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <TrendingUp className="h-5 w-5 text-primary-500" />
+              <CardHeader className="p-4 sm:p-6 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary-500" />
                     Ranking por Temas/Pautas
                   </CardTitle>
                   <FilterTabs selected={periodTemas} onChange={setPeriodTemas} />
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6 pt-0">
                 <RankingChart
                   title=""
                   data={temasChartData}
@@ -284,15 +284,15 @@ const Dashboard = () => {
           </div>
 
           {/* Estatísticas Gerais */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <Card className="card-default">
-              <CardHeader>
-                <CardTitle className="flex items-center">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
                   <Activity className="h-5 w-5 text-primary-600 mr-2" />
                   Estatísticas Gerais
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg">
                   <div className="flex items-center">
                     <Users className="h-5 w-5 text-primary-600 mr-2" />
@@ -350,10 +350,10 @@ const Dashboard = () => {
 
             {/* Quick Actions */}
             <Card className="card-default">
-              <CardHeader>
-                <CardTitle>Ações Rápidas</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Ações Rápidas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-4 sm:p-6 pt-0 space-y-2 sm:space-y-3">
                 <Button variant="outline" className="w-full justify-start" asChild>
                   <Link to="/leaders">
                     <Users className="h-4 w-4 mr-2" />

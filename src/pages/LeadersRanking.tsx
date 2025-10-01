@@ -82,24 +82,24 @@ const LeadersRanking = () => {
   const regions = [...new Set(mockRankingData.currentMonth.map(leader => leader.region))];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <div className="flex items-center mb-2">
-                <Button variant="ghost" asChild className="mr-2">
+              <div className="flex flex-col sm:flex-row sm:items-center mb-2">
+                <Button variant="ghost" asChild className="mr-2 w-fit">
                   <Link to="/leaders">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar
                   </Link>
                 </Button>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   Ranking Detalhado de Lideranças
                 </h1>
               </div>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 Classificação completa com histórico de desempenho
               </p>
             </div>
@@ -108,14 +108,14 @@ const LeadersRanking = () => {
 
         {/* Filtros */}
         <Card className="card-default mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mr-2">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <label className="text-sm font-medium text-gray-700">
                   Período:
                 </label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -127,12 +127,12 @@ const LeadersRanking = () => {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-gray-700 mr-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <label className="text-sm font-medium text-gray-700">
                   Região:
                 </label>
                 <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -146,8 +146,8 @@ const LeadersRanking = () => {
                 </Select>
               </div>
 
-              <div className="ml-auto">
-                <Badge className="badge-brand">
+              <div className="sm:ml-auto w-full sm:w-auto">
+                <Badge className="badge-brand w-full sm:w-auto justify-center">
                   {filteredRanking.length} líderes no ranking
                 </Badge>
               </div>
@@ -157,14 +157,14 @@ const LeadersRanking = () => {
 
         {/* Pódio TOP 3 */}
         <Card className="card-default mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center text-base sm:text-lg">
               <Trophy className="h-5 w-5 text-primary-600 mr-2" />
               🏆 Pódio dos Campeões
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
+          <CardContent className="p-4 sm:p-6 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {filteredRanking.slice(0, 3).map((leader, index) => (
                 <div
                   key={leader.id}

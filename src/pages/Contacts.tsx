@@ -193,21 +193,21 @@ const Contacts = () => {
   const totalWithEmail = contacts.filter(c => c.consentEmail).length;
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                 Base de Contatos
               </h1>
-              <p className="text-gray-600">
-                {filteredContacts.length} contatos encontrados • 
+              <p className="text-sm sm:text-base text-gray-600">
+                {filteredContacts.length} contatos • 
                 {totalWithWhatsApp} WhatsApp • {totalWithEmail} E-mail
               </p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
               <Button variant="outline">
                 <Users className="h-4 w-4 mr-2" />
                 Importar Contatos
@@ -220,17 +220,17 @@ const Contacts = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Filtros */}
           <div className="lg:col-span-1">
             <Card className="card-default">
-              <CardHeader>
-                <CardTitle className="flex items-center">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
                   <Filter className="h-5 w-5 text-primary-600 mr-2" />
                   Filtros
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Buscar contato
@@ -287,13 +287,13 @@ const Contacts = () => {
 
           {/* Lista de Contatos */}
           <div className="lg:col-span-3">
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {filteredContacts.map((contact) => (
                 <Card key={contact.id} className="card-default hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="grid md:grid-cols-12 gap-4 items-center">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
                       {/* Info Principal */}
-                      <div className="md:col-span-4">
+                      <div className="md:col-span-4 min-w-0">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
                             {contact.name.split(' ').map(n => n[0]).join('').substring(0, 2)}

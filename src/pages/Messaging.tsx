@@ -131,11 +131,11 @@ const Messaging = () => {
   };
   return <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Left Sidebar - Contacts List */}
-      <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="w-full sm:w-96 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Conversas</h2>
+        <div className="p-4 sm:p-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Conversas</h2>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm">
                 <Filter className="h-4 w-4" />

@@ -240,16 +240,16 @@ const Events = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                 Gestão de Eventos
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 {filteredEvents.length} eventos encontrados
               </p>
             </div>
@@ -274,26 +274,26 @@ const Events = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="events" className="space-y-6">
+        <Tabs defaultValue="events" className="space-y-4 sm:space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="events">Eventos</TabsTrigger>
-            <TabsTrigger value="checkin">Check-in</TabsTrigger>
-            <TabsTrigger value="reports">Relatórios</TabsTrigger>
+            <TabsTrigger value="events" className="text-xs sm:text-sm">Eventos</TabsTrigger>
+            <TabsTrigger value="checkin" className="text-xs sm:text-sm">Check-in</TabsTrigger>
+            <TabsTrigger value="reports" className="text-xs sm:text-sm">Relatórios</TabsTrigger>
           </TabsList>
 
           {/* Lista de Eventos */}
           <TabsContent value="events">
-            <div className="grid lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
               {/* Filtros */}
               <div className="lg:col-span-1">
                 <Card className="card-default">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-base sm:text-lg">
                       <Filter className="h-5 w-5 text-primary-600 mr-2" />
                       Filtros
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
                     <div>
                       <Label>Buscar evento</Label>
                       <div className="relative">
@@ -342,11 +342,11 @@ const Events = () => {
               </div>
 
               {/* Lista */}
-              <div className="lg:col-span-3 space-y-4">
+              <div className="lg:col-span-3 space-y-3 sm:space-y-4">
                 {filteredEvents.map((event) => (
                   <Card key={event.id} className="card-default hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="grid lg:grid-cols-12 gap-6">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
                         {/* Info Principal */}
                         <div className="lg:col-span-4">
                           <div className="flex items-start justify-between mb-3">
