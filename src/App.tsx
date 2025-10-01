@@ -21,6 +21,7 @@ import Projects from "./pages/Projects";
 import AIAgent from "./pages/AIAgent";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
+import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/reset-success" element={<ResetSuccess />} />
+            <Route path="/setup-users" element={<SetupUsers />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={
