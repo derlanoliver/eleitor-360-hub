@@ -3,14 +3,13 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import UserMenu from "./UserMenu";
 import { Menu } from "lucide-react";
-
 interface DashboardLayoutProps {
   children: ReactNode;
 }
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
-  return (
-    <SidebarProvider>
+export function DashboardLayout({
+  children
+}: DashboardLayoutProps) {
+  return <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
         <AppSidebar />
         
@@ -22,9 +21,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </SidebarTrigger>
             
             <div className="flex-1">
-              <h1 className="text-lg font-semibold text-gray-900">
-                eleitor360
-              </h1>
+              
             </div>
 
             {/* User Menu */}
@@ -37,6 +34,5 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </main>
         </div>
       </div>
-    </SidebarProvider>
-  );
+    </SidebarProvider>;
 }
