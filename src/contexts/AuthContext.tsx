@@ -37,24 +37,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isAuthenticated = !!user && !!session;
 
   // Fetch user profile from profiles table
-  const fetchUserProfile = async (userId: string): Promise<{ id: string; email: string; name: string; role: string } | null> => {
+  const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
-        .from('profiles' as any)
-        .select('id, email, name, role')
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
         console.error('Error fetching profile:', error);
         return null;
       }
 
+      if (!data) {
+        console.log('No profile found for user:', userId);
+        return null;
+      }
+
       return {
-        id: data.id as string,
-        email: data.email as string,
-        name: data.name as string,
-        role: data.role as string
+        id: userId,
+        email: data.email || '',
+        name: data.name || 'User',
+        role: data.role || 'admin',
+        avatar: "/src/assets/logo-rafael-prudente.png"
       };
     } catch (err) {
       console.error('Exception fetching profile:', err);
@@ -75,13 +81,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setTimeout(async () => {
             const profile = await fetchUserProfile(session.user.id);
             if (profile) {
-              setUser({
-                id: profile.id,
-                email: profile.email,
-                name: profile.name,
-                role: profile.role,
-                avatar: "/src/assets/logo-rafael-prudente.png"
-              });
+              setUser(profile);
             }
           }, 0);
         } else {
@@ -99,13 +99,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setTimeout(async () => {
           const profile = await fetchUserProfile(session.user.id);
           if (profile) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role,
-              avatar: "/src/assets/logo-rafael-prudente.png"
-            });
+            setUser(profile);
           }
           setIsLoading(false);
         }, 0);
