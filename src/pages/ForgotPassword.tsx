@@ -179,7 +179,7 @@ const ForgotPassword = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-600 mt-6">
-          © 2024 Rafael Prudente - Deputado Federal
+          © 2025 Rafael Prudente - Deputado Federal
         </p>
       </div>
     </div>

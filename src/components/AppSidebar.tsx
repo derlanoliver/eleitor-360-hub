@@ -67,12 +67,12 @@ export function AppSidebar() {
           {!isCollapsed ? (
             <div>
               <h2 className="text-lg font-bold text-primary-600">
-                eleitor360
+                Rafael Prudente 360.ai
               </h2>
             </div>
           ) : (
             <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
+              <span className="text-white font-bold text-sm">R</span>
             </div>
           )}
         </div>

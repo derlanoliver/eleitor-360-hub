@@ -21,7 +21,7 @@ const Index = () => {
               />
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900">
-                  Plataforma 360 Eleitor/DF
+                  Rafael Prudente 360.ai
                 </h1>
                 <p className="text-gray-600">
                   Hub para conectar, compreender e mobilizar eleitores e lideranças
@@ -161,11 +161,11 @@ const Index = () => {
                 className="h-8 w-auto"
               />
               <p className="text-gray-600">
-                © 2024 Rafael Prudente - Deputado Federal
+                © 2025 Rafael Prudente - Deputado Federal
               </p>
             </div>
             <p className="text-sm text-gray-500">
-              Plataforma 360 Eleitor/DF v1.0
+              Rafael Prudente 360.ai v1.0
             </p>
           </div>
         </div>
