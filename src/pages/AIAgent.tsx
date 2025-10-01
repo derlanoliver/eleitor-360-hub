@@ -40,8 +40,10 @@ const AIAgent = () => {
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [displayedContent, setDisplayedContent] = useState<{ [key: string]: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Auto-scroll para a última mensagem
@@ -53,6 +55,19 @@ const AIAgent = () => {
       }
     }
   }, [messages, isTyping]);
+
+  // Inicializar displayedContent para mensagem inicial
+  useEffect(() => {
+    if (messages.length > 0) {
+      const initialMessage = messages[0];
+      if (initialMessage.role === "assistant" && !displayedContent[initialMessage.id]) {
+        setDisplayedContent((prev) => ({
+          ...prev,
+          [initialMessage.id]: initialMessage.content,
+        }));
+      }
+    }
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -77,6 +92,34 @@ const AIAgent = () => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const typeCharacterByCharacter = (messageId: string, fullContent: string) => {
+    let currentIndex = 0;
+    setDisplayedContent((prev) => ({ ...prev, [messageId]: "" }));
+
+    const typeNextChar = () => {
+      if (currentIndex < fullContent.length) {
+        const char = fullContent[currentIndex];
+        setDisplayedContent((prev) => ({
+          ...prev,
+          [messageId]: fullContent.substring(0, currentIndex + 1),
+        }));
+        currentIndex++;
+
+        // Velocidade variável baseada no caractere
+        let delay = 20; // padrão rápido
+        if (char === "." || char === "!" || char === "?") delay = 200; // pausa em pontuação
+        if (char === ",") delay = 100; // pausa menor em vírgula
+        if (char === "\n") delay = 150; // pausa em quebra de linha
+
+        typingIntervalRef.current = setTimeout(typeNextChar, delay);
+      } else {
+        setIsTyping(false);
+      }
+    };
+
+    typeNextChar();
+  };
+
   const handleSend = async () => {
     if (!input.trim() && attachedFiles.length === 0) return;
 
@@ -95,21 +138,16 @@ const AIAgent = () => {
     setIsTyping(true);
 
     try {
-      // Preparar histórico de mensagens para a API
       const apiMessages = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Adicionar mensagem atual
       apiMessages.push({
         role: "user",
         content: currentInput
       });
 
-      console.log('Calling chat edge function with session:', sessionId);
-
-      // Chamar a edge function com streaming
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
         {
@@ -135,6 +173,14 @@ const AIAgent = () => {
       let aiContent = "";
       const aiMessageId = (Date.now() + 1).toString();
 
+      // Criar mensagem vazia imediatamente
+      setMessages((prev) => [...prev, {
+        id: aiMessageId,
+        role: "assistant" as const,
+        content: "",
+        timestamp: new Date(),
+      }]);
+
       if (reader) {
         let done = false;
         
@@ -157,25 +203,6 @@ const AIAgent = () => {
                   
                   if (content) {
                     aiContent += content;
-                    
-                    // Atualizar mensagem em tempo real
-                    setMessages((prev) => {
-                      const lastMsg = prev[prev.length - 1];
-                      if (lastMsg?.id === aiMessageId) {
-                        return prev.map(msg => 
-                          msg.id === aiMessageId 
-                            ? { ...msg, content: aiContent }
-                            : msg
-                        );
-                      } else {
-                        return [...prev, {
-                          id: aiMessageId,
-                          role: "assistant" as const,
-                          content: aiContent,
-                          timestamp: new Date(),
-                        }];
-                      }
-                    });
                   }
                 } catch (e) {
                   // Ignorar erros de parse
@@ -184,9 +211,19 @@ const AIAgent = () => {
             }
           }
         }
-      }
 
-      setIsTyping(false);
+        // Após coletar todo o conteúdo, atualizar a mensagem e iniciar animação de digitação
+        setMessages((prev) => 
+          prev.map(msg => 
+            msg.id === aiMessageId 
+              ? { ...msg, content: aiContent }
+              : msg
+          )
+        );
+
+        // Iniciar efeito de digitação
+        typeCharacterByCharacter(aiMessageId, aiContent);
+      }
 
     } catch (error) {
       console.error('Error calling AI:', error);
@@ -202,7 +239,6 @@ const AIAgent = () => {
         variant: "destructive",
       });
 
-      // Adicionar mensagem de erro
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -258,7 +294,7 @@ const AIAgent = () => {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.role === "assistant" && (
                   <Avatar className="h-8 w-8 flex-shrink-0">
@@ -271,7 +307,7 @@ const AIAgent = () => {
                 <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
                   <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
                     {message.role === "assistant" ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-3 prose-p:leading-relaxed">
+                      <div className="space-y-0">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
@@ -282,37 +318,74 @@ const AIAgent = () => {
                                   style={vscDarkPlus}
                                   language={match[1]}
                                   PreTag="div"
+                                  className="text-sm my-3 rounded"
                                   {...props}
                                 >
                                   {String(children).replace(/\n$/, '')}
                                 </SyntaxHighlighter>
                               ) : (
-                                <code className={`${className} bg-gray-100 px-1.5 py-0.5 rounded text-sm`} {...props}>
+                                <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">
                                   {children}
                                 </code>
                               );
                             },
-                            p: ({ children }: any) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
-                            ul: ({ children }: any) => <ul className="my-2 ml-4 list-disc space-y-1">{children}</ul>,
-                            ol: ({ children }: any) => <ol className="my-2 ml-4 list-decimal space-y-1">{children}</ol>,
-                            li: ({ children }: any) => <li className="my-1">{children}</li>,
-                            strong: ({ children }: any) => <strong className="font-bold text-primary-700">{children}</strong>,
-                            em: ({ children }: any) => <em className="italic">{children}</em>,
-                            h1: ({ children }: any) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
-                            h2: ({ children }: any) => <h2 className="text-lg font-bold mt-3 mb-2">{children}</h2>,
-                            h3: ({ children }: any) => <h3 className="text-base font-bold mt-2 mb-1">{children}</h3>,
+                            p: ({ children }: any) => (
+                              <p className="text-sm leading-relaxed mb-3 last:mb-0">
+                                {children}
+                              </p>
+                            ),
+                            ul: ({ children }: any) => (
+                              <ul className="my-2 ml-4 list-disc space-y-1 text-sm">
+                                {children}
+                              </ul>
+                            ),
+                            ol: ({ children }: any) => (
+                              <ol className="my-2 ml-4 list-decimal space-y-1 text-sm">
+                                {children}
+                              </ol>
+                            ),
+                            li: ({ children }: any) => (
+                              <li className="text-sm leading-relaxed">
+                                {children}
+                              </li>
+                            ),
+                            strong: ({ children }: any) => (
+                              <strong className="font-semibold text-gray-900">
+                                {children}
+                              </strong>
+                            ),
+                            em: ({ children }: any) => (
+                              <em className="italic text-gray-700">
+                                {children}
+                              </em>
+                            ),
+                            h1: ({ children }: any) => (
+                              <h1 className="text-base font-semibold mt-4 mb-2 first:mt-0">
+                                {children}
+                              </h1>
+                            ),
+                            h2: ({ children }: any) => (
+                              <h2 className="text-sm font-semibold mt-3 mb-2 first:mt-0">
+                                {children}
+                              </h2>
+                            ),
+                            h3: ({ children }: any) => (
+                              <h3 className="text-sm font-semibold mt-2 mb-1 first:mt-0">
+                                {children}
+                              </h3>
+                            ),
                             blockquote: ({ children }: any) => (
-                              <blockquote className="border-l-4 border-primary-300 pl-4 italic my-2">
+                              <blockquote className="border-l-3 border-primary-400 pl-3 italic my-2 text-sm text-gray-600">
                                 {children}
                               </blockquote>
                             ),
                           }}
                         >
-                          {message.content}
+                          {displayedContent[message.id] || message.content}
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <div className="text-sm whitespace-pre-wrap">
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed">
                         {message.content}
                       </div>
                     )}
