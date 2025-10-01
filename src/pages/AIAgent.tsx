@@ -8,6 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, Copy, Trash2, Sparkles, FileText, Image as ImageIcon, Bot, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
   id: string;
@@ -24,11 +28,12 @@ interface AttachedFile {
 }
 
 const AIAgent = () => {
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       role: "assistant",
-      content: "👋 Olá! Sou seu assistente de IA especializado em análise de dados políticos!\n\n📊 Posso te ajudar a:\n• Consultar rankings de cadastros por região\n• Analisar performance de coordenadores\n• Verificar temas mais populares\n• Analisar perfil demográfico\n\nÉ só perguntar! Por exemplo: \"Quais foram as regiões que mais trouxeram cadastros?\"",
+      content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico dos eleitores",
       timestamp: new Date(),
     }
   ]);
@@ -102,7 +107,7 @@ const AIAgent = () => {
         content: currentInput
       });
 
-      console.log('Calling chat edge function...');
+      console.log('Calling chat edge function with session:', sessionId);
 
       // Chamar a edge function com streaming
       const response = await fetch(
@@ -113,7 +118,10 @@ const AIAgent = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ messages: apiMessages }),
+          body: JSON.stringify({ 
+            messages: apiMessages,
+            sessionId 
+          }),
         }
       );
 
@@ -205,18 +213,8 @@ const AIAgent = () => {
   };
 
   const handleClearConversation = () => {
-    setMessages([
-      {
-        id: "1",
-        role: "assistant",
-        content: "👋 Conversa limpa! Como posso te ajudar com a análise de dados da campanha?",
-        timestamp: new Date(),
-      }
-    ]);
-    toast({
-      title: "Conversa limpa",
-      description: "O histórico foi removido com sucesso.",
-    });
+    // Recarregar página para criar nova sessão e limpar memória completamente
+    window.location.reload();
   };
 
   const copyMessage = (content: string) => {
@@ -237,8 +235,8 @@ const AIAgent = () => {
               <Bot className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Agente IA - Análise de Dados</h1>
-              <p className="text-sm text-gray-500">Consultas inteligentes em tempo real</p>
+              <h1 className="text-lg font-semibold text-gray-900">Assistente do Deputado Rafael Prudente</h1>
+              <p className="text-sm text-gray-500">Análise de dados políticos em tempo real</p>
             </div>
           </div>
           
@@ -272,23 +270,52 @@ const AIAgent = () => {
                 
                 <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
                   <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
-                    <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none">
-                      {message.content.split('\n').map((line, idx) => {
-                        // Process bold text **text**
-                        const parts = line.split(/(\*\*.*?\*\*)/g);
-                        return (
-                          <span key={idx}>
-                            {parts.map((part, partIdx) => {
-                              if (part.startsWith('**') && part.endsWith('**')) {
-                                return <strong key={partIdx}>{part.slice(2, -2)}</strong>;
-                              }
-                              return <span key={partIdx}>{part}</span>;
-                            })}
-                            {idx < message.content.split('\n').length - 1 && <br />}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {message.role === "assistant" ? (
+                      <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-3 prose-p:leading-relaxed">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code({ node, inline, className, children, ...props }: any) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <SyntaxHighlighter
+                                  style={vscDarkPlus}
+                                  language={match[1]}
+                                  PreTag="div"
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                              ) : (
+                                <code className={`${className} bg-gray-100 px-1.5 py-0.5 rounded text-sm`} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                            p: ({ children }: any) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+                            ul: ({ children }: any) => <ul className="my-2 ml-4 list-disc space-y-1">{children}</ul>,
+                            ol: ({ children }: any) => <ol className="my-2 ml-4 list-decimal space-y-1">{children}</ol>,
+                            li: ({ children }: any) => <li className="my-1">{children}</li>,
+                            strong: ({ children }: any) => <strong className="font-bold text-primary-700">{children}</strong>,
+                            em: ({ children }: any) => <em className="italic">{children}</em>,
+                            h1: ({ children }: any) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
+                            h2: ({ children }: any) => <h2 className="text-lg font-bold mt-3 mb-2">{children}</h2>,
+                            h3: ({ children }: any) => <h3 className="text-base font-bold mt-2 mb-1">{children}</h3>,
+                            blockquote: ({ children }: any) => (
+                              <blockquote className="border-l-4 border-primary-300 pl-4 italic my-2">
+                                {children}
+                              </blockquote>
+                            ),
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="text-sm whitespace-pre-wrap">
+                        {message.content}
+                      </div>
+                    )}
                     
                     {message.files && message.files.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
