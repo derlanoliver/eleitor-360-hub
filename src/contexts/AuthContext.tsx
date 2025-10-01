@@ -27,8 +27,21 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize with local data to avoid loading screen
+  const getInitialUser = () => {
+    const storedUser = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const [user, setUser] = useState<User | null>(getInitialUser);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -68,43 +81,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const checkAuth = useCallback(async () => {
-    setIsLoading(true);
+    const storedToken = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const userStr = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
     
-    const storedUser = localStorage.getItem("auth_user");
-    const storedToken = localStorage.getItem("auth_token");
-    const sessionUser = sessionStorage.getItem("auth_user");
-    const sessionToken = sessionStorage.getItem("auth_token");
-    
-    const token = storedToken || sessionToken;
-    const userStr = storedUser || sessionUser;
-    
-    if (userStr && token) {
+    // If we have local data, user is already set in initial state
+    // Just verify silently in background
+    if (userStr && storedToken) {
       try {
-        const userData = JSON.parse(userStr);
-        
-        // Verify session with backend
+        // Silent background verification
         const { data, error } = await supabase.functions.invoke('verify-session', {
-          body: { sessionToken: token }
+          body: { sessionToken: storedToken }
         });
 
         if (error || !data?.valid) {
-          console.log('Session verification failed');
-          // Clear invalid session
+          // Session invalid - clear and logout silently
           localStorage.removeItem("auth_user");
           localStorage.removeItem("auth_token");
           sessionStorage.removeItem("auth_user");
           sessionStorage.removeItem("auth_token");
           setUser(null);
-        } else {
-          setUser(userData);
         }
       } catch (error) {
-        console.error("Error checking auth:", error);
-        logout();
+        console.error("Silent auth verification failed:", error);
       }
+    } else {
+      // No local data - clear user state
+      setUser(null);
     }
-    
-    setIsLoading(false);
   }, []);
 
   // Check authentication on app load and set up session refresh
