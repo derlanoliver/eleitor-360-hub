@@ -34,7 +34,7 @@ serve(async (req) => {
       .single();
 
     if (userError || !user) {
-      console.log('User not found:', email);
+      console.log('Authentication attempt failed - user not found');
       return new Response(
         JSON.stringify({ error: 'Credenciais inválidas' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -45,7 +45,7 @@ serve(async (req) => {
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
-      console.log('Password mismatch for user:', email);
+      console.log('Authentication attempt failed - invalid credentials');
       return new Response(
         JSON.stringify({ error: 'Credenciais inválidas' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -84,7 +84,7 @@ serve(async (req) => {
       .update({ last_login: new Date().toISOString() })
       .eq('id', user.id);
 
-    console.log('Login successful for user:', email);
+    console.log('Authentication successful');
 
     return new Response(
       JSON.stringify({

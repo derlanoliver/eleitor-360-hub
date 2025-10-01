@@ -272,11 +272,23 @@ const AIAgent = () => {
                 
                 <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
                   <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
-                    <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ 
-                      __html: message.content
-                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                        .replace(/\n/g, '<br />')
-                    }} />
+                    <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none">
+                      {message.content.split('\n').map((line, idx) => {
+                        // Process bold text **text**
+                        const parts = line.split(/(\*\*.*?\*\*)/g);
+                        return (
+                          <span key={idx}>
+                            {parts.map((part, partIdx) => {
+                              if (part.startsWith('**') && part.endsWith('**')) {
+                                return <strong key={partIdx}>{part.slice(2, -2)}</strong>;
+                              }
+                              return <span key={partIdx}>{part}</span>;
+                            })}
+                            {idx < message.content.split('\n').length - 1 && <br />}
+                          </span>
+                        );
+                      })}
+                    </div>
                     
                     {message.files && message.files.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
