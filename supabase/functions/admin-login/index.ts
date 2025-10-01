@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,31 +25,31 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user by email
-    const { data: user, error: userError } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .single();
+    // Authenticate user using PostgreSQL function with pgcrypto
+    const { data: users, error: authError } = await supabase
+      .rpc('authenticate_admin_user', {
+        p_email: email,
+        p_password: password
+      });
 
-    if (userError || !user) {
-      console.log('Authentication attempt failed - user not found');
+    if (authError) {
+      console.error('Authentication error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Credenciais inválidas' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Erro ao autenticar' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Verify password
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!passwordMatch) {
+    // Check if authentication was successful
+    if (!users || users.length === 0) {
       console.log('Authentication attempt failed - invalid credentials');
       return new Response(
         JSON.stringify({ error: 'Credenciais inválidas' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const user = users[0];
 
     // Create session token
     const sessionToken = crypto.randomUUID();
