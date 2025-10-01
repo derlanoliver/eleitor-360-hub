@@ -19,6 +19,7 @@ interface Message {
   content: string;
   timestamp: Date;
   files?: AttachedFile[];
+  conversationGroup?: string;
 }
 
 interface AttachedFile {
@@ -85,17 +86,19 @@ const AIAgent = () => {
       .filter(paragraph => paragraph.length > 0);
   };
 
-  const showMessagesSequentially = async (paragraphs: string[]) => {
+  const showMessagesSequentially = async (paragraphs: string[], groupId: string) => {
+    const timestamp = new Date();
     for (let i = 0; i < paragraphs.length; i++) {
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
       
       setMessages(prev => [...prev, {
-        id: `${Date.now()}_${i}_${Math.random()}`,
+        id: `${groupId}_${i}`,
         role: "assistant",
         content: paragraphs[i],
-        timestamp: new Date(),
+        timestamp,
+        conversationGroup: groupId,
       }]);
     }
     setIsTyping(false);
@@ -186,7 +189,8 @@ const AIAgent = () => {
 
         // Quebrar em parágrafos e mostrar sequencialmente
         const paragraphs = splitIntoMessages(aiContent);
-        await showMessagesSequentially(paragraphs);
+        const groupId = `group_${Date.now()}`;
+        await showMessagesSequentially(paragraphs, groupId);
       }
 
     } catch (error) {
@@ -217,8 +221,14 @@ const AIAgent = () => {
     window.location.reload();
   };
 
-  const copyMessage = (content: string) => {
-    navigator.clipboard.writeText(content);
+  const copyMessage = (groupId: string) => {
+    // Encontrar todas as mensagens do mesmo grupo e concatenar
+    const groupMessages = messages
+      .filter(msg => msg.conversationGroup === groupId)
+      .map(msg => msg.content)
+      .join('\n\n');
+    
+    navigator.clipboard.writeText(groupMessages);
     toast({
       title: "Copiado!",
       description: "Mensagem copiada para a área de transferência.",
@@ -255,151 +265,172 @@ const AIAgent = () => {
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="max-w-4xl mx-auto p-4 space-y-6">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {message.role === "assistant" && (
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-primary-100 text-primary-700">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                
-                <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
-                  <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
-                    {message.role === "assistant" ? (
-                      <div className="space-y-0">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ node, inline, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <SyntaxHighlighter
-                                  style={vscDarkPlus}
-                                  language={match[1]}
-                                  PreTag="div"
-                                  className="text-sm my-3 rounded"
-                                  {...props}
-                                >
-                                  {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                              ) : (
-                                <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">
-                                  {children}
-                                </code>
-                              );
-                            },
-                            p: ({ children }: any) => (
-                              <p className="text-sm leading-relaxed mb-3 last:mb-0">
-                                {children}
-                              </p>
-                            ),
-                            ul: ({ children }: any) => (
-                              <ul className="my-2 ml-4 list-disc space-y-1 text-sm">
-                                {children}
-                              </ul>
-                            ),
-                            ol: ({ children }: any) => (
-                              <ol className="my-2 ml-4 list-decimal space-y-1 text-sm">
-                                {children}
-                              </ol>
-                            ),
-                            li: ({ children }: any) => (
-                              <li className="text-sm leading-relaxed">
-                                {children}
-                              </li>
-                            ),
-                            strong: ({ children }: any) => (
-                              <strong className="font-semibold text-gray-900">
-                                {children}
-                              </strong>
-                            ),
-                            em: ({ children }: any) => (
-                              <em className="italic text-gray-700">
-                                {children}
-                              </em>
-                            ),
-                            h1: ({ children }: any) => (
-                              <h1 className="text-base font-semibold mt-4 mb-2 first:mt-0">
-                                {children}
-                              </h1>
-                            ),
-                            h2: ({ children }: any) => (
-                              <h2 className="text-sm font-semibold mt-3 mb-2 first:mt-0">
-                                {children}
-                              </h2>
-                            ),
-                            h3: ({ children }: any) => (
-                              <h3 className="text-sm font-semibold mt-2 mb-1 first:mt-0">
-                                {children}
-                              </h3>
-                            ),
-                            blockquote: ({ children }: any) => (
-                              <blockquote className="border-l-3 border-primary-400 pl-3 italic my-2 text-sm text-gray-600">
-                                {children}
-                              </blockquote>
-                            ),
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </div>
-                    )}
-                    
-                    {message.files && message.files.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {message.files.map((file, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="secondary"
-                            className={message.role === "user" ? "bg-white/20 text-white" : ""}
-                          >
-                            {file.type === "image" ? (
-                              <ImageIcon className="h-3 w-3 mr-1" />
-                            ) : (
-                              <FileText className="h-3 w-3 mr-1" />
-                            )}
-                            {file.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </Card>
+            {messages.map((message, index) => {
+              // Verificar se é a primeira mensagem de um grupo
+              const isFirstInGroup = message.conversationGroup 
+                ? (index === 0 || messages[index - 1].conversationGroup !== message.conversationGroup)
+                : true;
+              
+              // Verificar se é a última mensagem de um grupo
+              const isLastInGroup = message.conversationGroup
+                ? (index === messages.length - 1 || messages[index + 1].conversationGroup !== message.conversationGroup)
+                : true;
+              
+              // Reduzir espaçamento entre mensagens do mesmo grupo
+              const marginClass = !isFirstInGroup ? "-mt-4" : "";
+              
+              return (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"} ${marginClass}`}
+                >
+                  {message.role === "assistant" && isFirstInGroup && (
+                    <Avatar className="h-8 w-8 flex-shrink-0 self-start">
+                      <AvatarFallback className="bg-primary-100 text-primary-700">
+                        <Bot className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                   
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">
-                      {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {message.role === "assistant" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={() => copyMessage(message.content)}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                  {message.role === "assistant" && !isFirstInGroup && (
+                    <div className="h-8 w-8 flex-shrink-0" />
+                  )}
+                  
+                  <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
+                    <Card className={`p-4 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
+                      {message.role === "assistant" ? (
+                        <div className="space-y-0">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              code({ node, inline, className, children, ...props }: any) {
+                                const match = /language-(\w+)/.exec(className || '');
+                                return !inline && match ? (
+                                  <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    className="text-sm my-3 rounded"
+                                    {...props}
+                                  >
+                                    {String(children).replace(/\n$/, '')}
+                                  </SyntaxHighlighter>
+                                ) : (
+                                  <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              p: ({ children }: any) => (
+                                <p className="text-sm leading-relaxed mb-3 last:mb-0">
+                                  {children}
+                                </p>
+                              ),
+                              ul: ({ children }: any) => (
+                                <ul className="my-2 ml-4 list-disc space-y-1 text-sm">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({ children }: any) => (
+                                <ol className="my-2 ml-4 list-decimal space-y-1 text-sm">
+                                  {children}
+                                </ol>
+                              ),
+                              li: ({ children }: any) => (
+                                <li className="text-sm leading-relaxed">
+                                  {children}
+                                </li>
+                              ),
+                              strong: ({ children }: any) => (
+                                <strong className="font-semibold text-gray-900">
+                                  {children}
+                                </strong>
+                              ),
+                              em: ({ children }: any) => (
+                                <em className="italic text-gray-700">
+                                  {children}
+                                </em>
+                              ),
+                              h1: ({ children }: any) => (
+                                <h1 className="text-base font-semibold mt-4 mb-2 first:mt-0">
+                                  {children}
+                                </h1>
+                              ),
+                              h2: ({ children }: any) => (
+                                <h2 className="text-sm font-semibold mt-3 mb-2 first:mt-0">
+                                  {children}
+                                </h2>
+                              ),
+                              h3: ({ children }: any) => (
+                                <h3 className="text-sm font-semibold mt-2 mb-1 first:mt-0">
+                                  {children}
+                                </h3>
+                              ),
+                              blockquote: ({ children }: any) => (
+                                <blockquote className="border-l-3 border-primary-400 pl-3 italic my-2 text-sm text-gray-600">
+                                  {children}
+                                </blockquote>
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </div>
+                      )}
+                      
+                      {message.files && message.files.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {message.files.map((file, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="secondary"
+                              className={message.role === "user" ? "bg-white/20 text-white" : ""}
+                            >
+                              {file.type === "image" ? (
+                                <ImageIcon className="h-3 w-3 mr-1" />
+                              ) : (
+                                <FileText className="h-3 w-3 mr-1" />
+                              )}
+                              {file.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                    
+                    {isLastInGroup && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {message.role === "assistant" && message.conversationGroup && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={() => copyMessage(message.conversationGroup!)}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
+                  
+                  {message.role === "user" && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-gray-200 text-gray-700">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
-                
-                {message.role === "user" && (
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-gray-200 text-gray-700">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
             {isTyping && (
               <div className="flex gap-3 justify-start">
