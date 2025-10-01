@@ -72,10 +72,10 @@ export function AppSidebar() {
           end 
           className={({ isActive }) => `
             ${getNavCls(isActive)} 
-            flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'px-3 py-2'} rounded-lg text-sm font-medium transition-colors w-full
+            flex items-center ${isCollapsed ? 'justify-center px-0 py-4' : 'px-3 py-2'} rounded-lg text-sm font-medium transition-colors w-full
           `}
         >
-          <item.icon className={`${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} shrink-0`} />
+          <item.icon className={`${isCollapsed ? 'h-7 w-7' : 'h-5 w-5'} shrink-0`} />
           {!isCollapsed && <span className="ml-3">{item.title}</span>}
         </NavLink>
       </SidebarMenuButton>
@@ -98,10 +98,10 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-20" : "w-64"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-24" : "w-64"} collapsible="icon">
       <SidebarContent className="bg-white border-r border-gray-200">
         {/* Logo/Header */}
-        <div className={`p-4 ${!isCollapsed ? 'border-b border-gray-200' : ''}`}>
+        <div className={`${isCollapsed ? 'py-6' : 'p-4'} ${!isCollapsed ? 'border-b border-gray-200' : ''}`}>
           {!isCollapsed ? (
             <div>
               <h2 className="text-lg font-bold text-primary-600">
@@ -109,8 +109,8 @@ export function AppSidebar() {
               </h2>
             </div>
           ) : (
-            <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center mx-auto">
-              <span className="text-white font-bold text-base">R</span>
+            <div className="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center mx-auto">
+              <span className="text-white font-bold text-lg">R</span>
             </div>
           )}
         </div>
@@ -188,16 +188,16 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Logout */}
-        <div className={`mt-auto p-4 ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
+        <div className={`mt-auto ${isCollapsed ? 'py-6' : 'p-4'} ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
           {isCollapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <SidebarMenuButton asChild>
                   <NavLink 
                     to="/login" 
-                    className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-3 rounded-lg text-sm font-medium transition-colors"
+                    className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-4 rounded-lg text-sm font-medium transition-colors"
                   >
-                    <LogOut className="h-6 w-6" />
+                    <LogOut className="h-7 w-7" />
                   </NavLink>
                 </SidebarMenuButton>
               </TooltipTrigger>
