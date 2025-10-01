@@ -90,7 +90,7 @@ const AIAgent = () => {
     const timestamp = new Date();
     for (let i = 0; i < paragraphs.length; i++) {
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise(resolve => setTimeout(resolve, 1200));
       }
       
       setMessages(prev => [...prev, {
@@ -282,7 +282,7 @@ const AIAgent = () => {
               return (
                 <div
                   key={message.id}
-                  className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"} ${marginClass}`}
+                  className={`flex gap-3 animate-message-slide-in ${message.role === "user" ? "justify-end" : "justify-start"} ${marginClass}`}
                 >
                   {message.role === "assistant" && isLastInGroup && (
                     <Avatar className="h-8 w-8 flex-shrink-0 self-start transition-all duration-300">
