@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, Copy, Trash2, Sparkles, FileText, Image as ImageIcon, Bot, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from 'react-markdown';
@@ -32,6 +33,7 @@ interface AttachedFile {
 
 const AIAgent = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -240,35 +242,47 @@ const AIAgent = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50">
+    <div className="flex flex-col h-[calc(100vh-8rem)] sm:h-[calc(100vh-4rem)] bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
+      <div className="bg-white border-b border-gray-200 p-2 sm:p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-white" />
+          {isMobile ? (
+            // Mobile: Header simplificado
+            <div className="flex-1">
+              <h1 className="text-base font-semibold text-gray-900">
+                Assistente do Deputado Rafael Prudente
+              </h1>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Assistente do Deputado Rafael Prudente</h1>
-              <p className="text-sm text-gray-500">Análise de dados políticos em tempo real</p>
-            </div>
-          </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearConversation}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Limpar conversa
-          </Button>
+          ) : (
+            // Desktop: Header completo
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">Assistente do Deputado Rafael Prudente</h1>
+                  <p className="text-sm text-gray-500">Análise de dados políticos em tempo real</p>
+                </div>
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearConversation}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Limpar conversa
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full" ref={scrollAreaRef}>
-          <div className="max-w-4xl mx-auto p-4 space-y-3">
+          <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-3">
             {messages.map((message, index) => {
               // Verificar se é a primeira mensagem de um grupo
               const isFirstInGroup = message.conversationGroup 
@@ -457,7 +471,7 @@ const AIAgent = () => {
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
+      <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto">
           {/* Attached Files */}
           {attachedFiles.length > 0 && (
@@ -522,6 +536,19 @@ const AIAgent = () => {
           </p>
         </div>
       </div>
+
+      {/* Floating Clear Button - Mobile Only */}
+      {isMobile && (
+        <Button
+          variant="destructive"
+          size="icon"
+          onClick={handleClearConversation}
+          className="fixed bottom-24 right-4 h-12 w-12 rounded-full shadow-lg z-50 hover:scale-110 transition-transform"
+          title="Limpar conversa"
+        >
+          <Trash2 className="h-5 w-5" />
+        </Button>
+      )}
     </div>
   );
 };
