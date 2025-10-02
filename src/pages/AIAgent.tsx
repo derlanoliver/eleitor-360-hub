@@ -247,12 +247,21 @@ const AIAgent = () => {
       <div className="bg-white border-b border-gray-200 p-2 sm:p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           {isMobile ? (
-            // Mobile: Header simplificado
-            <div className="flex-1">
-              <h1 className="text-base font-semibold text-gray-900">
+            // Mobile: Título e botão limpar lado a lado
+            <>
+              <h1 className="text-base font-semibold text-gray-900 flex-1">
                 Assistente do Deputado Rafael Prudente
               </h1>
-            </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClearConversation}
+                className="h-8 w-8 flex-shrink-0"
+                title="Limpar conversa"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
           ) : (
             // Desktop: Header completo
             <>
@@ -537,18 +546,6 @@ const AIAgent = () => {
         </div>
       </div>
 
-      {/* Floating Clear Button - Mobile Only */}
-      {isMobile && (
-        <Button
-          variant="destructive"
-          size="icon"
-          onClick={handleClearConversation}
-          className="fixed bottom-24 right-4 h-12 w-12 rounded-full shadow-lg z-50 hover:scale-110 transition-transform"
-          title="Limpar conversa"
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
-      )}
     </div>
   );
 };
