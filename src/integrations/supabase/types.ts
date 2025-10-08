@@ -297,21 +297,85 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      current_tenant: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_single_tenant_for_user: {
         Args: { _user_id: string }
         Returns: string
       }
+      grant_role_by_email: {
+        Args: {
+          _email: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _tenant_slug?: string
+        }
+        Returns: undefined
+      }
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _tenant_id?: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
-        Args: { _role: string; _tenant_id?: string; _user_id: string }
+        Args:
+          | {
+              _role: Database["public"]["Enums"]["app_role"]
+              _tenant_id?: string
+              _user_id: string
+            }
+          | { _role: string; _tenant_id?: string; _user_id: string }
         Returns: boolean
       }
     }
     Enums: {
+      app_role:
+        | "super_admin"
+        | "super_user"
+        | "admin"
+        | "atendente"
+        | "checkin_operator"
       tenant_status: "active" | "suspended" | "cancelled"
     }
     CompositeTypes: {
@@ -440,6 +504,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: [
+        "super_admin",
+        "super_user",
+        "admin",
+        "atendente",
+        "checkin_operator",
+      ],
       tenant_status: ["active", "suspended", "cancelled"],
     },
   },
