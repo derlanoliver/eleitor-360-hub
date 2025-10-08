@@ -177,7 +177,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    (async () => {
+    // CRÍTICO: Aguardar AuthContext estabelecer sessão
+    setTimeout(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         
@@ -189,12 +190,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         console.log('👤 TenantContext: Inicializando para user', user.id);
 
-        // Get user context to check if platform_admin
-        const { data: contextData } = await supabase.rpc('get_user_context', {
-          user_id: user.id
-        });
+        // Query direta ao invés de RPC para evitar erro
+        const { data: platformAdmin } = await supabase
+          .from('platform_admins')
+          .select('role')
+          .eq('id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
 
-        const userType = contextData?.[0]?.user_type;
+        const userType = platformAdmin ? 'platform_admin' : 'tenant_admin';
         console.log('🔑 TenantContext: User type:', userType);
 
         // Load available tenants (for platform admins)
@@ -278,7 +282,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       } finally {
         if (mounted) setIsLoading(false);
       }
-    })();
+    }, 300); // Delay de 300ms para AuthContext estabelecer sessão
 
     return () => {
       mounted = false;
