@@ -302,7 +302,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_single_tenant_for_user: {
+        Args: { _user_id: string }
+        Returns: string
+      }
+      has_role: {
+        Args: { _role: string; _tenant_id?: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       tenant_status: "active" | "suspended" | "cancelled"
