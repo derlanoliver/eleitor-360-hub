@@ -156,8 +156,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -190,8 +188,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         variant: "destructive"
       });
       return false;
-    } finally {
-      setIsLoading(false);
     }
   };
 
