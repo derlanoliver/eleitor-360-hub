@@ -39,38 +39,65 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user && !!session;
 
-  // Fetch user profile using get_user_context
+  // Fetch user profile with direct queries (avoiding RPC issues)
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase.rpc('get_user_context', {
-        user_id: userId
-      });
+      console.log('🔍 Fetching user profile for:', userId);
 
-      if (error) {
-        console.error('Error fetching user context:', error);
-        return null;
+      // Try platform_admins first
+      const { data: platformAdmin, error: adminError } = await supabase
+        .from('platform_admins')
+        .select('*')
+        .eq('id', userId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (platformAdmin && !adminError) {
+        console.log('✅ Found platform_admin:', platformAdmin.email);
+        
+        // Get accessible tenants for platform admin
+        const { data: tenants } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('status', 'active');
+
+        return {
+          id: userId,
+          email: platformAdmin.email,
+          name: platformAdmin.name,
+          role: platformAdmin.role,
+          avatar: "/src/assets/logo-rafael-prudente.png",
+          userType: 'platform_admin',
+          accessibleTenants: tenants?.map(t => t.id) || [],
+          currentTenantId: null
+        };
       }
 
-      if (!data || data.length === 0 || data[0].user_type === 'unknown') {
-        console.log('No user context found for user:', userId);
-        return null;
+      // If not platform admin, try profiles (tenant admin)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profile && !profileError) {
+        console.log('✅ Found tenant profile:', profile.email);
+        return {
+          id: userId,
+          email: profile.email,
+          name: profile.name,
+          role: profile.role,
+          avatar: "/src/assets/logo-rafael-prudente.png",
+          userType: 'tenant_admin',
+          accessibleTenants: [profile.tenant_id],
+          currentTenantId: profile.tenant_id
+        };
       }
 
-      const context = data[0];
-      const userData = context.user_data as any;
-
-      return {
-        id: userId,
-        email: userData.email || '',
-        name: userData.name || 'User',
-        role: userData.role || 'admin',
-        avatar: "/src/assets/logo-rafael-prudente.png",
-        userType: context.user_type as 'platform_admin' | 'tenant_admin',
-        accessibleTenants: context.accessible_tenants || [],
-        currentTenantId: userData.tenant_id || null
-      };
+      console.warn('⚠️ No user profile found for:', userId);
+      return null;
     } catch (err) {
-      console.error('Exception fetching user context:', err);
+      console.error('❌ Exception fetching user profile:', err);
       return null;
     }
   };
@@ -81,7 +108,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('🔐 Auth state changed:', event);
         
         if (!mounted) return;
@@ -89,34 +116,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         
         if (session?.user) {
-          console.log('👤 Fetching user profile for:', session.user.id);
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile && mounted) {
-            console.log('✅ User profile loaded:', profile.userType, profile.accessibleTenants);
-            setUser(profile);
-          }
+          // CRITICAL: Use setTimeout(0) to avoid Supabase deadlock
+          setTimeout(async () => {
+            if (!mounted) return;
+            
+            console.log('👤 Fetching user profile for:', session.user.id);
+            const profile = await fetchUserProfile(session.user.id);
+            
+            if (profile && mounted) {
+              console.log('✅ User profile loaded:', profile.userType);
+              setUser(profile);
+            } else {
+              console.warn('⚠️ Failed to load user profile');
+            }
+            
+            setIsLoading(false);
+          }, 0);
         } else {
           setUser(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Check for existing session after setting up listener
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
-      setSession(session);
-      if (session?.user) {
-        console.log('👤 Initial session - fetching user profile for:', session.user.id);
-        const profile = await fetchUserProfile(session.user.id);
-        if (profile && mounted) {
-          console.log('✅ Initial user profile loaded:', profile.userType, profile.accessibleTenants);
-          setUser(profile);
-        }
+      if (!session) {
+        setIsLoading(false);
       }
-      setIsLoading(false);
+      // onAuthStateChange will handle the rest
     });
 
     return () => {
