@@ -27,28 +27,37 @@ export default function BrandingPage() {
   });
 
   useEffect(() => {
-    if (!tenantId) return;
-    
     (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      
-      if (data) {
-        setBrand({
-          id: data.id,
-          primary_color: data.primary_color || '#F25822',
-          logo_url: data.logo_url || '',
-          favicon_url: data.favicon_url || '',
-        });
+      try {
+        setLoading(true);
+
+        if (!tenantId) {
+          setLoading(false);
+          return;
+        }
+
+        const { data } = await supabase
+          .from('tenant_branding')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        
+        if (data) {
+          setBrand({
+            id: data.id,
+            primary_color: data.primary_color || '#F25822',
+            logo_url: data.logo_url || '',
+            favicon_url: data.favicon_url || '',
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Erro ao carregar branding', variant: 'destructive' });
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     })();
-  }, [tenantId]);
+  }, [tenantId, toast]);
 
   async function save() {
     if (!tenantId) return;
@@ -103,6 +112,23 @@ export default function BrandingPage() {
         <SettingsTabs />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!tenantId) {
+    return (
+      <div className="p-6">
+        <SettingsTabs />
+        <div className="mt-8 p-6 border border-destructive/50 rounded-lg bg-destructive/10 max-w-3xl">
+          <h2 className="text-lg font-semibold text-destructive mb-2">Erro ao carregar tenant</h2>
+          <p className="text-muted-foreground mb-4">
+            Não foi possível identificar sua organização. Por favor, tente recarregar a página.
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Recarregar página
+          </Button>
         </div>
       </div>
     );

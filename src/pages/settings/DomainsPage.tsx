@@ -24,19 +24,29 @@ export default function DomainsPage() {
   const [processing, setProcessing] = useState<string | null>(null);
 
   async function load() {
-    if (!tenantId) return;
-    
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('tenant_domains')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('is_primary', { ascending: false });
-    
-    if (!error && data) {
-      setRows(data as DomainRow[]);
+    try {
+      setLoading(true);
+
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('tenant_domains')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('is_primary', { ascending: false });
+      
+      if (!error && data) {
+        setRows(data as DomainRow[]);
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro ao listar domínios', variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -166,6 +176,23 @@ export default function DomainsPage() {
         <SettingsTabs />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!tenantId) {
+    return (
+      <div className="p-6">
+        <SettingsTabs />
+        <div className="mt-8 p-6 border border-destructive/50 rounded-lg bg-destructive/10 max-w-3xl">
+          <h2 className="text-lg font-semibold text-destructive mb-2">Erro ao carregar tenant</h2>
+          <p className="text-muted-foreground mb-4">
+            Não foi possível identificar sua organização. Por favor, tente recarregar a página.
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Recarregar página
+          </Button>
         </div>
       </div>
     );

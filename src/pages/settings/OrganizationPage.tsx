@@ -42,32 +42,40 @@ export default function OrganizationPage() {
   });
 
   useEffect(() => {
-    if (!tenantId) return;
-    
     (async () => {
-      setLoading(true);
-      
-      // Buscar RAs disponíveis
-      const { data: rasData } = await supabase
-        .from('regiao_administrativa')
-        .select('id, ra')
-        .order('ra');
-      if (rasData) setRas(rasData);
+      try {
+        setLoading(true);
 
-      // Buscar configurações da organização
-      const { data } = await supabase
-        .from('tenant_settings')
-        .select('organization_data')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      
-      if (data?.organization_data && typeof data.organization_data === 'object') {
-        setOrg({ ...org, ...data.organization_data as Partial<OrganizationData> });
+        // Buscar RAs
+        const { data: rasData } = await supabase
+          .from('regiao_administrativa')
+          .select('id, ra')
+          .order('ra');
+        if (rasData) setRas(rasData);
+
+        if (!tenantId) {
+          setLoading(false);
+          return;
+        }
+
+        // Buscar tenant_settings
+        const { data } = await supabase
+          .from('tenant_settings')
+          .select('organization_data')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+
+        if (data?.organization_data && typeof data.organization_data === 'object') {
+          setOrg({ ...org, ...data.organization_data as Partial<OrganizationData> });
+        }
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Erro ao carregar configurações', variant: 'destructive' });
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     })();
-  }, [tenantId]);
+  }, [tenantId, toast]);
 
   async function save() {
     if (!tenantId) return;
@@ -103,6 +111,23 @@ export default function OrganizationPage() {
         <SettingsTabs />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!tenantId) {
+    return (
+      <div className="p-6">
+        <SettingsTabs />
+        <div className="mt-8 p-6 border border-destructive/50 rounded-lg bg-destructive/10 max-w-3xl">
+          <h2 className="text-lg font-semibold text-destructive mb-2">Erro ao carregar tenant</h2>
+          <p className="text-muted-foreground mb-4">
+            Não foi possível identificar sua organização. Por favor, tente recarregar a página.
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Recarregar página
+          </Button>
         </div>
       </div>
     );

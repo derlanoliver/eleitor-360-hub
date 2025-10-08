@@ -5,7 +5,7 @@ type Branding = {
   primary_color?: string;
   logo_url?: string;
   favicon_url?: string;
-  typography_settings?: Record<string, any>;
+  typography_settings?: any;
 };
 
 type TenantDomain = {
@@ -40,6 +40,33 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Função auxiliar para aplicar branding
+  const applyBranding = (tenantData: TenantInfo) => {
+    const brand = tenantData?.tenant_branding?.[0] || {};
+    const root = document.documentElement;
+
+    // Aplicar cor primária (default: #F25822)
+    const primaryColor = brand.primary_color || '#F25822';
+    root.style.setProperty('--primary', primaryColor);
+    root.style.setProperty('--primary-600', primaryColor);
+
+    // Aplicar logo no localStorage para uso global (se necessário)
+    if (brand.logo_url) {
+      localStorage.setItem('tenant-logo', brand.logo_url);
+    }
+
+    // Aplicar favicon dinamicamente
+    if (brand.favicon_url) {
+      let linkEl = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+      if (!linkEl) {
+        linkEl = document.createElement('link');
+        linkEl.rel = 'icon';
+        document.head.appendChild(linkEl);
+      }
+      linkEl.href = brand.favicon_url;
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -59,30 +86,51 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         if (data) {
           setTenant(data);
+          applyBranding(data);
+        } else {
+          // Fallback: buscar tenant_id do profile do usuário logado
+          console.log('Tentando fallback: buscar tenant do profile do usuário');
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .eq('id', user.id)
+              .maybeSingle();
 
-          // Aplicar branding dinâmico
-          const brand = data?.tenant_branding?.[0] || {};
-          const root = document.documentElement;
+            if (profile?.tenant_id) {
+              const { data: tenantData } = await supabase
+                .from('tenants')
+                .select(`
+                  id,
+                  name,
+                  slug,
+                  status,
+                  tenant_branding (*),
+                  tenant_settings (*),
+                  tenant_domains (*)
+                `)
+                .eq('id', profile.tenant_id)
+                .maybeSingle();
 
-          // Aplicar cor primária (default: #F25822)
-          const primaryColor = brand.primary_color || '#F25822';
-          root.style.setProperty('--primary', primaryColor);
-          root.style.setProperty('--primary-600', primaryColor);
-
-          // Aplicar logo no localStorage para uso global (se necessário)
-          if (brand.logo_url) {
-            localStorage.setItem('tenant-logo', brand.logo_url);
-          }
-
-          // Aplicar favicon dinamicamente
-          if (brand.favicon_url) {
-            let linkEl = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
-            if (!linkEl) {
-              linkEl = document.createElement('link');
-              linkEl.rel = 'icon';
-              document.head.appendChild(linkEl);
+              if (tenantData && mounted) {
+                const formattedData: TenantInfo = {
+                  ...tenantData,
+                  tenant_branding: Array.isArray(tenantData.tenant_branding) 
+                    ? tenantData.tenant_branding 
+                    : [tenantData.tenant_branding],
+                  tenant_settings: Array.isArray(tenantData.tenant_settings)
+                    ? tenantData.tenant_settings
+                    : [tenantData.tenant_settings],
+                  tenant_domains: Array.isArray(tenantData.tenant_domains)
+                    ? tenantData.tenant_domains
+                    : [tenantData.tenant_domains]
+                };
+                setTenant(formattedData);
+                applyBranding(formattedData);
+              }
             }
-            linkEl.href = brand.favicon_url;
           }
         }
       } catch (err) {
@@ -95,7 +143,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Injetar header x-tenant-id globalmente no client Supabase
   useEffect(() => {
