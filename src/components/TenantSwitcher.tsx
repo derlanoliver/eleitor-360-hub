@@ -34,7 +34,7 @@ export function TenantSwitcher() {
   };
 
   // Show skeleton while loading
-  if (isLoading || !tenant) {
+  if (isLoading) {
     return (
       <div className="w-full px-2 py-6">
         <div className="flex items-center gap-3">
@@ -45,6 +45,18 @@ export function TenantSwitcher() {
           </div>
           <Skeleton className="h-4 w-4" />
         </div>
+      </div>
+    );
+  }
+
+  // If no tenant loaded yet, show message
+  if (!tenant && availableTenants.length > 0) {
+    console.log('⚠️ TenantSwitcher: Tenant não carregado mas existem tenants disponíveis');
+    return (
+      <div className="w-full px-2 py-2">
+        <p className="text-xs text-muted-foreground text-center">
+          Selecione um cliente
+        </p>
       </div>
     );
   }

@@ -255,49 +255,12 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Tenant Switcher & Logout */}
-        <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} space-y-4 ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
-          {/* Tenant Switcher - apenas para platform admins */}
-          {isPlatformAdmin && (
-            <div className={`${!isCollapsed ? 'pb-4 border-b border-gray-200' : ''}`}>
-              {!isCollapsed ? (
-                <TenantSwitcher />
-              ) : (
-                <div className="flex justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
-              )}
-            </div>
-          )}
-          
-          {isCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarMenuButton asChild>
-                  <NavLink 
-                    to="/login" 
-                    className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-3 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    <LogOut className="h-6 w-6" />
-                  </NavLink>
-                </SidebarMenuButton>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="font-medium">
-                Sair
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarMenuButton asChild>
-              <NavLink 
-                to="/login" 
-                className="text-red-600 hover:bg-red-50 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span className="ml-3">Sair</span>
-              </NavLink>
-            </SidebarMenuButton>
-          )}
-        </div>
+        {/* Tenant Switcher - apenas para platform admins */}
+        {isPlatformAdmin && (
+          <div className={`mt-auto ${!isCollapsed ? 'p-4 border-t border-gray-200' : 'py-6'}`}>
+            <TenantSwitcher />
+          </div>
+        )}
       </SidebarContent>
     </Sidebar>
   );

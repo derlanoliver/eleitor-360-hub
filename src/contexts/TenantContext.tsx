@@ -218,6 +218,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // Se platform admin e não tem tenant selecionado, selecionar o primeiro disponível
+        if (userType === 'platform_admin' && !activeTenantId) {
+          console.log('🎯 TenantContext: Nenhum tenant ativo, buscando tenants disponíveis...');
+          const { data: tenants } = await supabase
+            .from('tenants')
+            .select('id, name')
+            .eq('status', 'active')
+            .order('name')
+            .limit(1);
+
+          if (tenants && tenants.length > 0 && mounted) {
+            const firstTenant = tenants[0];
+            console.log('✅ TenantContext: Selecionando primeiro tenant:', firstTenant.name);
+            await switchTenant(firstTenant.id);
+            return;
+          }
+        }
+
         // Fallback: tentar por domínio
         const domain = window.location.hostname;
         console.log('🌐 TenantContext: Tentando por domínio:', domain);
