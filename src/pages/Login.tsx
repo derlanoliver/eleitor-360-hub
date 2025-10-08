@@ -51,12 +51,8 @@ const Login = () => {
 
     try {
       loginSchema.parse(loginData);
-      const success = await login(loginData.email, loginData.password);
-      
-      if (success) {
-        const from = (location.state as any)?.from || "/dashboard";
-        navigate(from, { replace: true });
-      }
+      await login(loginData.email, loginData.password);
+      // Navigation será feita automaticamente pelo useEffect quando isAuthenticated mudar
     } catch (err) {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
