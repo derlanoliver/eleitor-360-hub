@@ -40,7 +40,8 @@ serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         name,
-        role
+        role,
+        tenant_id: tenantId
       }
     });
 
