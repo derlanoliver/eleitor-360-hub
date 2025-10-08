@@ -31,6 +31,8 @@ import IntegrationsPage from "./pages/settings/IntegrationsPage";
 import BillingPage from "./pages/settings/BillingPage";
 import PrivacyPage from "./pages/settings/PrivacyPage";
 import SetupUsers from "./pages/SetupUsers";
+import Tenants from "./pages/platform/Tenants";
+import PlatformAdmins from "./pages/platform/PlatformAdmins";
 import ForceLogout from "./pages/ForceLogout";
 import NotFound from "./pages/NotFound";
 import { RequireRole } from "./components/RequireRole";
@@ -192,6 +194,26 @@ const App = () => (
                 <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
                   <DashboardLayout>
                     <AIProviders />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            
+            {/* Platform Routes (only for platform admins) */}
+            <Route path="/platform/tenants" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user']}>
+                  <DashboardLayout>
+                    <Tenants />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/platform/admins" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin']}>
+                  <DashboardLayout>
+                    <PlatformAdmins />
                   </DashboardLayout>
                 </RequireRole>
               </ProtectedRoute>

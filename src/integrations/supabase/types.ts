@@ -70,6 +70,39 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          last_login: string | null
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          is_active?: boolean
+          last_login?: string | null
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          name?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -345,6 +378,14 @@ export type Database = {
       get_single_tenant_for_user: {
         Args: { _user_id: string }
         Returns: string
+      }
+      get_user_context: {
+        Args: { user_id: string }
+        Returns: {
+          accessible_tenants: string[]
+          user_data: Json
+          user_type: string
+        }[]
       }
       grant_role_by_email: {
         Args: {

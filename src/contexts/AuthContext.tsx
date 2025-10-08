@@ -10,6 +10,9 @@ interface User {
   name: string;
   role: string;
   avatar?: string;
+  userType: 'platform_admin' | 'tenant_admin';
+  accessibleTenants: string[];
+  currentTenantId?: string | null;
 }
 
 interface AuthContextType {
@@ -36,34 +39,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user && !!session;
 
-  // Fetch user profile from profiles table
+  // Fetch user profile using get_user_context
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_user_context', {
+        user_id: userId
+      });
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Error fetching user context:', error);
         return null;
       }
 
-      if (!data) {
-        console.log('No profile found for user:', userId);
+      if (!data || data.length === 0 || data[0].user_type === 'unknown') {
+        console.log('No user context found for user:', userId);
         return null;
       }
+
+      const context = data[0];
+      const userData = context.user_data as any;
 
       return {
         id: userId,
-        email: data.email || '',
-        name: data.name || 'User',
-        role: data.role || 'admin',
-        avatar: "/src/assets/logo-rafael-prudente.png"
+        email: userData.email || '',
+        name: userData.name || 'User',
+        role: userData.role || 'admin',
+        avatar: "/src/assets/logo-rafael-prudente.png",
+        userType: context.user_type as 'platform_admin' | 'tenant_admin',
+        accessibleTenants: context.accessible_tenants || [],
+        currentTenantId: userData.tenant_id || null
       };
     } catch (err) {
-      console.error('Exception fetching profile:', err);
+      console.error('Exception fetching user context:', err);
       return null;
     }
   };
