@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,8 +56,7 @@ export default function Tenants() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -126,6 +124,5 @@ export default function Tenants() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
   );
 }
