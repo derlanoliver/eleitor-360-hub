@@ -14,30 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      cadastros_ra: {
-        Row: {
-          cadastros: number
-          created_at: string
-          id: string
-          ra: string
-          updated_at: string
-        }
-        Insert: {
-          cadastros?: number
-          created_at?: string
-          id?: string
-          ra: string
-          updated_at?: string
-        }
-        Update: {
-          cadastros?: number
-          created_at?: string
-          id?: string
-          ra?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       coordenadores: {
         Row: {
           cadastros: number
@@ -110,7 +86,31 @@ export type Database = {
         }
         Relationships: []
       }
-      temas_interesse: {
+      regiao_administrativa: {
+        Row: {
+          cadastros: number
+          created_at: string
+          id: string
+          ra: string
+          updated_at: string
+        }
+        Insert: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          ra: string
+          updated_at?: string
+        }
+        Update: {
+          cadastros?: number
+          created_at?: string
+          id?: string
+          ra?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      temas: {
         Row: {
           cadastros: number
           created_at: string
