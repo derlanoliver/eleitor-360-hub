@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, ChevronRight, Search } from 'lucide-react';
 import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function TenantSwitcher() {
   const { tenant, availableTenants, switchTenant, isLoading } = useTenant();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    console.log('🔄 TenantSwitcher render:', {
+      tenant: tenant?.name,
+      availableCount: availableTenants.length,
+      isLoading,
+      tenantsList: availableTenants.map(t => ({ id: t.id, name: t.name, code: t.account_code }))
+    });
+  }, [tenant, availableTenants, isLoading]);
 
   const filteredTenants = availableTenants.filter((t) =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -23,7 +33,26 @@ export function TenantSwitcher() {
     setSearchQuery('');
   };
 
-  if (!tenant || availableTenants.length === 0) return null;
+  // Show skeleton while loading
+  if (isLoading || !tenant) {
+    return (
+      <div className="w-full px-2 py-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <Skeleton className="h-4 w-4" />
+        </div>
+      </div>
+    );
+  }
+
+  if (availableTenants.length === 0) {
+    console.log('⚠️ TenantSwitcher: No available tenants to display');
+    return null;
+  }
 
   const logoUrl = tenant.tenant_branding?.[0]?.logo_url;
   const tenantInitials = tenant.name

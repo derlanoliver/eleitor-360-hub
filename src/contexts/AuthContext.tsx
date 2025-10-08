@@ -77,20 +77,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Initialize auth state
   useEffect(() => {
+    let mounted = true;
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log('🔐 Auth state changed:', event);
+        
+        if (!mounted) return;
+        
         setSession(session);
         
         if (session?.user) {
-          // Defer profile fetch to avoid blocking
-          setTimeout(async () => {
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile) {
-              setUser(profile);
-            }
-          }, 0);
+          console.log('👤 Fetching user profile for:', session.user.id);
+          const profile = await fetchUserProfile(session.user.id);
+          if (profile && mounted) {
+            console.log('✅ User profile loaded:', profile.userType, profile.accessibleTenants);
+            setUser(profile);
+          }
         } else {
           setUser(null);
         }
@@ -100,22 +104,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       if (session?.user) {
-        setTimeout(async () => {
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile) {
-            setUser(profile);
-          }
-          setIsLoading(false);
-        }, 0);
-      } else {
-        setIsLoading(false);
+        console.log('👤 Initial session - fetching user profile for:', session.user.id);
+        const profile = await fetchUserProfile(session.user.id);
+        if (profile && mounted) {
+          console.log('✅ Initial user profile loaded:', profile.userType, profile.accessibleTenants);
+          setUser(profile);
+        }
       }
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {

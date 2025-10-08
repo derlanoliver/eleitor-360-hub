@@ -181,62 +181,82 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         
-        if (user) {
-          // Carregar lista de tenants disponíveis
+        if (!user) {
+          console.log('🔒 TenantContext: Usuário não autenticado');
+          if (mounted) setIsLoading(false);
+          return;
+        }
+
+        console.log('👤 TenantContext: Inicializando para user', user.id);
+
+        // Get user context to check if platform_admin
+        const { data: contextData } = await supabase.rpc('get_user_context', {
+          user_id: user.id
+        });
+
+        const userType = contextData?.[0]?.user_type;
+        console.log('🔑 TenantContext: User type:', userType);
+
+        // Load available tenants (for platform admins)
+        if (userType === 'platform_admin') {
+          console.log('🏢 TenantContext: Platform admin detectado - carregando tenants');
           await loadAvailableTenants();
-          
-          // Verificar se há tenant ativo no localStorage (para platform admins)
-          const activeTenantId = localStorage.getItem('active-tenant-id');
-          
-          if (activeTenantId) {
-            const tenantData = await loadTenantData(activeTenantId);
-            if (tenantData && mounted) {
-              setTenant(tenantData);
-              applyBranding(tenantData);
-              setIsLoading(false);
-              return;
-            }
+        }
+        
+        // Verificar se há tenant ativo no localStorage (para platform admins)
+        const activeTenantId = localStorage.getItem('active-tenant-id');
+        
+        if (activeTenantId && userType === 'platform_admin') {
+          console.log('💾 TenantContext: Tentando usar tenant armazenado:', activeTenantId);
+          const tenantData = await loadTenantData(activeTenantId);
+          if (tenantData && mounted) {
+            console.log('✅ TenantContext: Tenant carregado do localStorage');
+            setTenant(tenantData);
+            applyBranding(tenantData);
+            setIsLoading(false);
+            return;
           }
         }
 
         // Fallback: tentar por domínio
         const domain = window.location.hostname;
+        console.log('🌐 TenantContext: Tentando por domínio:', domain);
         const { data, error } = await supabase.functions.invoke('tenant-config', {
           body: { domain },
         });
 
         if (error) {
-          console.error('tenant-config error:', error);
+          console.error('❌ TenantContext: tenant-config error:', error);
         }
 
         if (!mounted) return;
 
         if (data) {
+          console.log('✅ TenantContext: Tenant encontrado via edge function');
           setTenant(data);
           applyBranding(data);
         } else {
           // Fallback: buscar tenant_id do profile do usuário logado
-          console.log('Tentando fallback: buscar tenant do profile do usuário');
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('tenant_id')
-              .eq('id', user.id)
-              .maybeSingle();
+          console.log('🔄 TenantContext: Fallback - buscar tenant do profile');
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('id', user.id)
+            .maybeSingle();
 
-            if (profile?.tenant_id) {
-              const tenantData = await loadTenantData(profile.tenant_id);
-              if (tenantData && mounted) {
-                setTenant(tenantData);
-                applyBranding(tenantData);
-              }
+          if (profile?.tenant_id) {
+            console.log('✅ TenantContext: Tenant encontrado via profile');
+            const tenantData = await loadTenantData(profile.tenant_id);
+            if (tenantData && mounted) {
+              setTenant(tenantData);
+              applyBranding(tenantData);
             }
+          } else {
+            console.log('⚠️ TenantContext: Nenhum tenant encontrado');
           }
         }
       } catch (err) {
-        console.error('Erro ao buscar configuração do tenant:', err);
+        console.error('💥 TenantContext: Erro ao buscar configuração:', err);
       } finally {
         if (mounted) setIsLoading(false);
       }

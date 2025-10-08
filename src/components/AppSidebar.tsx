@@ -258,9 +258,15 @@ export function AppSidebar() {
         {/* Tenant Switcher & Logout */}
         <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} space-y-4 ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
           {/* Tenant Switcher - apenas para platform admins */}
-          {isPlatformAdmin && !isCollapsed && (
-            <div className="pb-4 border-b border-gray-200">
-              <TenantSwitcher />
+          {isPlatformAdmin && (
+            <div className={`${!isCollapsed ? 'pb-4 border-b border-gray-200' : ''}`}>
+              {!isCollapsed ? (
+                <TenantSwitcher />
+              ) : (
+                <div className="flex justify-center">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+              )}
             </div>
           )}
           
