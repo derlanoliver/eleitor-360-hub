@@ -164,9 +164,17 @@ const Index = () => {
                 © 2025 Rafael Prudente - Deputado Federal
               </p>
             </div>
-            <p className="text-sm text-gray-500">
-              Rafael Prudente 360.ai v1.0
-            </p>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate("/setup-users")}
+                className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Setup
+              </button>
+              <p className="text-sm text-gray-500">
+                Rafael Prudente 360.ai v1.0
+              </p>
+            </div>
           </div>
         </div>
       </footer>

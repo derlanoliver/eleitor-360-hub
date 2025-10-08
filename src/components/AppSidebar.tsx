@@ -11,8 +11,11 @@ import {
   Settings,
   Shield,
   Building,
-  LogOut
+  LogOut,
+  UserCog
 } from "lucide-react";
+import { useRoles } from "@/hooks/useRoles";
+import { isSuperUser } from "@/lib/rbac";
 
 import {
   Sidebar,
@@ -54,11 +57,17 @@ const settingsItems = [
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
+const adminItems = [
+  { title: "Setup Usuários", url: "/setup-users", icon: UserCog },
+];
+
 export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const isMobile = useIsMobile();
+  const { roles } = useRoles();
+  const isSuper = isSuperUser(roles);
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -195,6 +204,26 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin (apenas super_admin) */}
+        {isSuper && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-red-500 text-xs font-medium uppercase tracking-wider">
+                Admin
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Logout */}
         <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
