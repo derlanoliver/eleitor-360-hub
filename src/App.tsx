@@ -31,6 +31,7 @@ import IntegrationsPage from "./pages/settings/IntegrationsPage";
 import BillingPage from "./pages/settings/BillingPage";
 import PrivacyPage from "./pages/settings/PrivacyPage";
 import SetupUsers from "./pages/SetupUsers";
+import ForceLogout from "./pages/ForceLogout";
 import NotFound from "./pages/NotFound";
 import { RequireRole } from "./components/RequireRole";
 
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/reset-success" element={<ResetSuccess />} />
             <Route path="/setup-users" element={<SetupUsers />} />
+            <Route path="/force-logout" element={<ForceLogout />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={

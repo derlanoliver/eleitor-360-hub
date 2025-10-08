@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 const ADMIN_USERS = [
-  { email: "admin@rafaelprudente.com", password: "Admin@2025#Seguro", name: "Admin Rafael" },
-  { email: "gabriela@rafaelprudente.com", password: "Gabriela@2025", name: "Gabriela" },
-  { email: "joao@rafaelprudente.com", password: "Joao@2025", name: "João" },
-  { email: "david@rafaelprudente.com", password: "David@2025", name: "David" },
+  { email: "anderlan@eleitor360.ai", password: "SuperAdmin@2025#Forte!", name: "Anderlan Super Admin", role: "super_admin", tenantId: null },
+  { email: "admin@rafaelprudente.com", password: "Admin@2025#Seguro", name: "Admin Rafael", role: "admin", tenantId: null },
+  { email: "gabriela@rafaelprudente.com", password: "Gabriela@2025", name: "Gabriela", role: "admin", tenantId: null },
+  { email: "joao@rafaelprudente.com", password: "Joao@2025", name: "João", role: "admin", tenantId: null },
+  { email: "david@rafaelprudente.com", password: "David@2025", name: "David", role: "admin", tenantId: null },
 ];
 
 const SetupUsers = () => {
@@ -27,7 +28,8 @@ const SetupUsers = () => {
             email: user.email,
             password: user.password,
             name: user.name,
-            role: 'admin'
+            role: user.role || 'admin',
+            tenantId: user.tenantId
           }
         });
 
