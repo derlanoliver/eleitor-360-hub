@@ -23,9 +23,15 @@ serve(async (req) => {
       }
     });
 
-    const { email, password, name, role = 'admin' } = await req.json();
+    const { email, password, name, role = 'admin', tenantId = null } = await req.json();
 
-    console.log('Creating admin user:', { email, name, role });
+    // Validação: super_admin só pode ser criado com domínio @eleitor360.ai
+    if (role === 'super_admin' && !email.endsWith('@eleitor360.ai')) {
+      console.error('Tentativa de criar super_admin com domínio inválido:', email);
+      throw new Error('Super Admin só pode ser criado com e-mail @eleitor360.ai');
+    }
+
+    console.log('Creating admin user:', { email, name, role, tenantId });
 
     // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -61,6 +67,22 @@ serve(async (req) => {
     } else {
       console.log('Profile created successfully:', profile);
     }
+
+    // Insert role into user_roles table
+    const { error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
+        user_id: authData.user.id,
+        role: role,
+        tenant_id: tenantId // NULL for global roles (super_admin, super_user)
+      });
+
+    if (roleError) {
+      console.error('Error inserting user role:', roleError);
+      throw roleError;
+    }
+
+    console.log('User role inserted successfully:', { userId: authData.user.id, role, tenantId });
 
     return new Response(
       JSON.stringify({ 

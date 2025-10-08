@@ -53,8 +53,23 @@ export function RequireRole({
   // Verificar permissão
   const hasPermission = hasAnyRole(roles, anyOf, tenantId);
   
-  // Renderizar children ou fallback
-  if (!hasPermission) return <>{fallback}</>;
+  // Renderizar children ou fallback informativo
+  if (!hasPermission) {
+    return fallback ? <>{fallback}</> : (
+      <div className="flex items-center justify-center min-h-[400px] p-6">
+        <div className="text-center space-y-3 max-w-md">
+          <div className="text-5xl mb-2">🔒</div>
+          <h2 className="text-2xl font-bold">Acesso Negado</h2>
+          <p className="text-muted-foreground">
+            Você não tem permissão para acessar esta funcionalidade.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Papéis necessários: <span className="font-mono">{anyOf.join(', ')}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   return <>{children}</>;
 }

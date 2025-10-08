@@ -18,14 +18,44 @@ export function useRoles() {
       try {
         setLoading(true);
         
-        // Buscar papéis do usuário atual
-        const { data, error: queryError } = await supabase
+        // Buscar papéis do usuário atual na tabela user_roles
+        const { data: userRolesData, error: userRolesError } = await supabase
           .from('user_roles')
           .select('role, tenant_id');
         
-        if (queryError) throw queryError;
+        if (userRolesError) throw userRolesError;
+
+        // Se user_roles tem dados, usa eles como fonte primária
+        if (userRolesData && userRolesData.length > 0) {
+          setRoles(userRolesData as UserRole[]);
+          setError(null);
+        } else {
+          // Fallback: buscar role global do profiles (para compatibilidade retroativa)
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            if (profileError) throw profileError;
+
+            // Converter profiles.role em formato UserRole (global, tenant_id = null)
+            if (profileData?.role) {
+              setRoles([{ 
+                role: profileData.role as AppRole, 
+                tenant_id: null // Role global
+              }]);
+            } else {
+              setRoles([]);
+            }
+          } else {
+            setRoles([]);
+          }
+        }
         
-        setRoles((data || []) as UserRole[]);
         setError(null);
       } catch (err) {
         console.error('Erro ao buscar papéis do usuário:', err);
