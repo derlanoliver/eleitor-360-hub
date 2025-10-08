@@ -16,6 +16,7 @@ import {
   Building2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { TenantSwitcher } from "./TenantSwitcher";
 import { useRoles } from "@/hooks/useRoles";
 import { isSuperUser } from "@/lib/rbac";
 
@@ -254,8 +255,15 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Logout */}
-        <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
+        {/* Tenant Switcher & Logout */}
+        <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} space-y-4 ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
+          {/* Tenant Switcher - apenas para platform admins */}
+          {isPlatformAdmin && !isCollapsed && (
+            <div className="pb-4 border-b border-gray-200">
+              <TenantSwitcher />
+            </div>
+          )}
+          
           {isCollapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>

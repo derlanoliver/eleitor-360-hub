@@ -19,6 +19,7 @@ type TenantInfo = {
   name: string;
   slug: string;
   status: 'active' | 'suspended' | 'cancelled';
+  account_code?: number;
   tenant_branding?: Branding[];
   tenant_settings?: any[];
   tenant_domains?: TenantDomain[];
@@ -28,17 +29,22 @@ type TenantContextType = {
   tenantId: string | null;
   tenant: TenantInfo | null;
   isLoading: boolean;
+  availableTenants: TenantInfo[];
+  switchTenant: (tenantId: string) => Promise<void>;
 };
 
 const TenantContext = createContext<TenantContextType>({
   tenantId: null,
   tenant: null,
   isLoading: true,
+  availableTenants: [],
+  switchTenant: async () => {},
 });
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableTenants, setAvailableTenants] = useState<TenantInfo[]>([]);
 
   // Função auxiliar para aplicar branding
   const applyBranding = (tenantData: TenantInfo) => {
@@ -67,13 +73,134 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Função para carregar dados de um tenant específico
+  const loadTenantData = async (tenantId: string): Promise<TenantInfo | null> => {
+    const { data: tenantData } = await supabase
+      .from('tenants')
+      .select(`
+        id,
+        name,
+        slug,
+        status,
+        account_code,
+        tenant_branding (*),
+        tenant_settings (*),
+        tenant_domains (*)
+      `)
+      .eq('id', tenantId)
+      .maybeSingle();
+
+    if (tenantData) {
+      return {
+        ...tenantData,
+        tenant_branding: Array.isArray(tenantData.tenant_branding) 
+          ? tenantData.tenant_branding 
+          : [tenantData.tenant_branding],
+        tenant_settings: Array.isArray(tenantData.tenant_settings)
+          ? tenantData.tenant_settings
+          : [tenantData.tenant_settings],
+        tenant_domains: Array.isArray(tenantData.tenant_domains)
+          ? tenantData.tenant_domains
+          : [tenantData.tenant_domains]
+      };
+    }
+    return null;
+  };
+
+  // Função para carregar lista de tenants disponíveis (para platform admins)
+  const loadAvailableTenants = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Verificar se é platform admin
+    const { data: platformAdmin } = await supabase
+      .from('platform_admins')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (platformAdmin) {
+      // Platform admins podem ver todos os tenants ativos
+      const { data: tenants } = await supabase
+        .from('tenants')
+        .select(`
+          id,
+          name,
+          slug,
+          status,
+          account_code,
+          tenant_branding (logo_url)
+        `)
+        .eq('status', 'active')
+        .order('name');
+
+      if (tenants) {
+        const formattedTenants = tenants.map((t: any) => ({
+          ...t,
+          tenant_branding: Array.isArray(t.tenant_branding) 
+            ? t.tenant_branding 
+            : t.tenant_branding ? [t.tenant_branding] : [],
+          tenant_settings: [],
+          tenant_domains: []
+        }));
+        setAvailableTenants(formattedTenants);
+      }
+    }
+  };
+
+  // Função para trocar de tenant (para platform admins)
+  const switchTenant = async (tenantId: string) => {
+    setIsLoading(true);
+    
+    const tenantData = await loadTenantData(tenantId);
+    
+    if (tenantData) {
+      setTenant(tenantData);
+      applyBranding(tenantData);
+      
+      // Persistir tenant ativo no localStorage
+      localStorage.setItem('active-tenant-id', tenantId);
+      
+      // Atualizar header x-tenant-id
+      (supabase as any).rest = {
+        ...(supabase as any).rest,
+        headers: {
+          ...((supabase as any).rest?.headers || {}),
+          'x-tenant-id': tenantId,
+        },
+      };
+    }
+    
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        const domain = window.location.hostname;
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Carregar lista de tenants disponíveis
+          await loadAvailableTenants();
+          
+          // Verificar se há tenant ativo no localStorage (para platform admins)
+          const activeTenantId = localStorage.getItem('active-tenant-id');
+          
+          if (activeTenantId) {
+            const tenantData = await loadTenantData(activeTenantId);
+            if (tenantData && mounted) {
+              setTenant(tenantData);
+              applyBranding(tenantData);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
 
+        // Fallback: tentar por domínio
+        const domain = window.location.hostname;
         const { data, error } = await supabase.functions.invoke('tenant-config', {
           body: { domain },
         });
@@ -100,35 +227,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
               .maybeSingle();
 
             if (profile?.tenant_id) {
-              const { data: tenantData } = await supabase
-                .from('tenants')
-                .select(`
-                  id,
-                  name,
-                  slug,
-                  status,
-                  tenant_branding (*),
-                  tenant_settings (*),
-                  tenant_domains (*)
-                `)
-                .eq('id', profile.tenant_id)
-                .maybeSingle();
-
+              const tenantData = await loadTenantData(profile.tenant_id);
               if (tenantData && mounted) {
-                const formattedData: TenantInfo = {
-                  ...tenantData,
-                  tenant_branding: Array.isArray(tenantData.tenant_branding) 
-                    ? tenantData.tenant_branding 
-                    : [tenantData.tenant_branding],
-                  tenant_settings: Array.isArray(tenantData.tenant_settings)
-                    ? tenantData.tenant_settings
-                    : [tenantData.tenant_settings],
-                  tenant_domains: Array.isArray(tenantData.tenant_domains)
-                    ? tenantData.tenant_domains
-                    : [tenantData.tenant_domains]
-                };
-                setTenant(formattedData);
-                applyBranding(formattedData);
+                setTenant(tenantData);
+                applyBranding(tenantData);
               }
             }
           }
@@ -170,8 +272,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenantId: tenant?.id ?? null,
       tenant,
       isLoading,
+      availableTenants,
+      switchTenant,
     }),
-    [tenant, isLoading]
+    [tenant, isLoading, availableTenants]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

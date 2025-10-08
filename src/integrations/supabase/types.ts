@@ -305,6 +305,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          account_code: number
           created_at: string
           id: string
           name: string
@@ -313,6 +314,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_code?: number
           created_at?: string
           id?: string
           name: string
@@ -321,6 +323,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_code?: number
           created_at?: string
           id?: string
           name?: string
@@ -367,6 +370,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       current_tenant: {
         Args: Record<PropertyKey, never>
         Returns: string
