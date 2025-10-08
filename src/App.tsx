@@ -23,8 +23,16 @@ import Projects from "./pages/Projects";
 import AIAgent from "./pages/AIAgent";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
+import OrganizationPage from "./pages/settings/OrganizationPage";
+import BrandingPage from "./pages/settings/BrandingPage";
+import DomainsPage from "./pages/settings/DomainsPage";
+import TeamPage from "./pages/settings/TeamPage";
+import IntegrationsPage from "./pages/settings/IntegrationsPage";
+import BillingPage from "./pages/settings/BillingPage";
+import PrivacyPage from "./pages/settings/PrivacyPage";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
+import { RequireRole } from "./components/RequireRole";
 
 const queryClient = new QueryClient();
 
@@ -114,29 +122,76 @@ const App = () => (
                 </DashboardLayout>
               </ProtectedRoute>
             } />
-            <Route path="/settings/ai-providers" element={
+            <Route path="/settings/organization" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <AIProviders />
-                </DashboardLayout>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <OrganizationPage />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/branding" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <BrandingPage />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/domains" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <DomainsPage />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/team" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <TeamPage />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/integrations" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <IntegrationsPage />
+                  </DashboardLayout>
+                </RequireRole>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/billing" element={
+              <ProtectedRoute>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <BillingPage />
+                  </DashboardLayout>
+                </RequireRole>
               </ProtectedRoute>
             } />
             <Route path="/settings/privacy" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Configurações de Privacidade (Em desenvolvimento)</h1>
-                  </div>
-                </DashboardLayout>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <PrivacyPage />
+                  </DashboardLayout>
+                </RequireRole>
               </ProtectedRoute>
             } />
-            <Route path="/settings/organization" element={
+            <Route path="/settings/ai-providers" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Configurações da Organização (Em desenvolvimento)</h1>
-                  </div>
-                </DashboardLayout>
+                <RequireRole anyOf={['super_admin', 'super_user', 'admin']}>
+                  <DashboardLayout>
+                    <AIProviders />
+                  </DashboardLayout>
+                </RequireRole>
               </ProtectedRoute>
             } />
             

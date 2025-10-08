@@ -51,8 +51,7 @@ const communicationItems = [
 ];
 
 const settingsItems = [
-  { title: "Privacidade", url: "/settings/privacy", icon: Shield },
-  { title: "Organização", url: "/settings/organization", icon: Building },
+  { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

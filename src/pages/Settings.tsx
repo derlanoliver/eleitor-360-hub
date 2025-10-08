@@ -8,7 +8,8 @@ import {
   Palette, 
   Shield,
   Plug,
-  ChevronRight
+  ChevronRight,
+  Globe
 } from "lucide-react";
 
 const Settings = () => {
@@ -18,27 +19,27 @@ const Settings = () => {
       description: "Configure os dados do político e informações da campanha",
       icon: Building2,
       href: "/settings/organization",
-      available: false,
+      available: true,
+    },
+    {
+      title: "Branding",
+      description: "Personalize cores, logos e identidade visual",
+      icon: Palette,
+      href: "/settings/branding",
+      available: true,
+    },
+    {
+      title: "Domínios",
+      description: "Gerencie domínios customizados da sua plataforma",
+      icon: Globe,
+      href: "/settings/domains",
+      available: true,
     },
     {
       title: "Equipe",
       description: "Gerencie usuários, permissões e convites",
       icon: Users,
       href: "/settings/team",
-      available: false,
-    },
-    {
-      title: "Provedores de IA",
-      description: "Configure as credenciais para integração com serviços de IA",
-      icon: Bot,
-      href: "/settings/ai-providers",
-      available: true,
-    },
-    {
-      title: "Faturamento",
-      description: "Gerencie seu plano, pagamentos e uso da plataforma",
-      icon: CreditCard,
-      href: "/settings/billing",
       available: false,
     },
     {
@@ -49,10 +50,10 @@ const Settings = () => {
       available: false,
     },
     {
-      title: "Branding",
-      description: "Personalize cores, logos e identidade visual",
-      icon: Palette,
-      href: "/settings/branding",
+      title: "Faturamento",
+      description: "Gerencie seu plano, pagamentos e uso da plataforma",
+      icon: CreditCard,
+      href: "/settings/billing",
       available: false,
     },
     {
@@ -61,6 +62,13 @@ const Settings = () => {
       icon: Shield,
       href: "/settings/privacy",
       available: false,
+    },
+    {
+      title: "Provedores de IA",
+      description: "Configure as credenciais para integração com serviços de IA",
+      icon: Bot,
+      href: "/settings/ai-providers",
+      available: true,
     },
   ];
 
