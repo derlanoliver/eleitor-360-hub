@@ -424,6 +424,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      is_platform_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
