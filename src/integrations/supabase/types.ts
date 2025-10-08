@@ -338,6 +338,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      effective_tenant: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_single_tenant_for_user: {
         Args: { _user_id: string }
         Returns: string
@@ -367,6 +371,10 @@ export type Database = {
             }
           | { _role: string; _tenant_id?: string; _user_id: string }
         Returns: boolean
+      }
+      header_tenant: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
     }
     Enums: {

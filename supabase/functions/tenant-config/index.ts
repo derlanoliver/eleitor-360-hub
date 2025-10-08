@@ -74,13 +74,14 @@ serve(async (req) => {
       );
     }
 
-    // Buscar tenant com branding e settings
+    // Buscar tenant com branding, settings e domínios
     const { data: tenant, error: tErr } = await supabase
       .from("tenants")
       .select(`
         id, name, slug, status, created_at, updated_at,
         tenant_branding(*),
-        tenant_settings(*)
+        tenant_settings(*),
+        tenant_domains(*)
       `)
       .eq("id", domainRow.tenant_id)
       .maybeSingle();
