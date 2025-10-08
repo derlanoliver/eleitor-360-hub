@@ -14,12 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
-      coordenadores: {
+      lideres: {
         Row: {
           cadastros: number
           created_at: string
           id: string
           nome: string
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -34,9 +36,18 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          tenant_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coordenadores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       perfil_demografico: {
         Row: {
@@ -66,6 +77,7 @@ export type Database = {
           id: string
           name: string
           role: string
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -74,6 +86,7 @@ export type Database = {
           id: string
           name: string
           role?: string
+          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -82,9 +95,18 @@ export type Database = {
           id?: string
           name?: string
           role?: string
+          tenant_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       regiao_administrativa: {
         Row: {
