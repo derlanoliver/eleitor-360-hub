@@ -56,7 +56,7 @@ const App = () => (
             <Route path="/setup-users" element={<SetupUsers />} />
             
             {/* Public route for visit form */}
-            <Route path="/visita-gabinete/:visitId/:leaderId/:userId" element={<ScheduleVisit />} />
+            <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={

@@ -27,14 +27,14 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
   
   useEffect(() => {
     if (open && visit) {
-      const link = generateVisitFormUrl(visit.id, visit.leader_id, visit.contact_id);
+      const link = generateVisitFormUrl(visit.id);
       QRCode.toDataURL(link).then(setQrCode);
     }
   }, [open, visit]);
   
   if (!visit) return null;
   
-  const link = generateVisitFormUrl(visit.id, visit.leader_id, visit.contact_id);
+  const link = generateVisitFormUrl(visit.id);
   
   const handleCopyLink = () => {
     navigator.clipboard.writeText(link);

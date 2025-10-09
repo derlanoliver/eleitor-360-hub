@@ -52,7 +52,7 @@ export default function NewVisit() {
       
       setVisitCreated(visit);
       
-      const link = generateVisitFormUrl(visit.id, visit.leader_id, visit.contact_id);
+      const link = generateVisitFormUrl(visit.id);
       const qr = await QRCode.toDataURL(link);
       setQrCode(qr);
       
@@ -71,7 +71,7 @@ export default function NewVisit() {
   };
   
   if (visitCreated) {
-    const link = generateVisitFormUrl(visitCreated.id, visitCreated.leader_id, visitCreated.contact_id);
+    const link = generateVisitFormUrl(visitCreated.id);
     
     return (
       <div className="container mx-auto py-6 max-w-4xl">

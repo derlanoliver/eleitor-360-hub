@@ -1,15 +1,14 @@
 /**
  * Retorna a URL base da aplicação
- * Em produção: usa window.location.origin
- * Em desenvolvimento: também usa window.location.origin
+ * Fixada para app.rafaelprudente.com
  */
 export function getBaseUrl(): string {
-  return window.location.origin;
+  return "https://app.rafaelprudente.com";
 }
 
 /**
  * Gera o link do formulário de visita
  */
-export function generateVisitFormUrl(visitId: string, leaderId: string, userId: string): string {
-  return `${getBaseUrl()}/visita-gabinete/${visitId}/${leaderId}/${userId}`;
+export function generateVisitFormUrl(visitId: string): string {
+  return `${getBaseUrl()}/visita-gabinete/${visitId}`;
 }
