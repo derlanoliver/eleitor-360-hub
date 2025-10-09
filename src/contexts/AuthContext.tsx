@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const user = session.user;
     const metadata = user.user_metadata || {};
     
-    console.log('👤 Creating user from session:', {
+    console.log('👤 [AuthContext] Creating user from session:', {
       id: user.id,
       email: user.email,
       metadata,
@@ -59,6 +59,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Se temos userData da tabela users, usar esses dados
     if (userData) {
       const isPlatformAdmin = userData.tenant_id === '00000000-0000-0000-0000-000000000001';
+      
+      console.log('✅ [AuthContext] User criado com dados da tabela users:', {
+        userType: isPlatformAdmin ? 'platform_admin' : 'tenant_admin',
+        tenantId: userData.tenant_id
+      });
       
       return {
         id: userData.id,
@@ -75,6 +80,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Fallback para metadados se userData não disponível
     const isPlatformAdmin = user.email?.endsWith('@eleitor360.ai');
     
+    console.log('⚠️ [AuthContext] User criado com fallback (metadata):', {
+      userType: isPlatformAdmin ? 'platform_admin' : 'tenant_admin',
+      email: user.email
+    });
+    
     return {
       id: user.id,
       email: user.email || '',
@@ -90,6 +100,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Fetch user data from unified users table
   const fetchUserData = async (userId: string) => {
     try {
+      console.log('🔍 [AuthContext] Buscando dados do usuário:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -97,13 +108,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .maybeSingle();
       
       if (error && error.code !== 'PGRST116') {
-        console.error('❌ Erro ao buscar user:', error);
+        console.error('❌ [AuthContext] Erro ao buscar user:', error);
         return null;
       }
       
+      console.log('✅ [AuthContext] Dados do usuário carregados:', data);
       return data;
     } catch (error) {
-      console.error('❌ Erro ao buscar dados do usuário:', error);
+      console.error('❌ [AuthContext] Erro ao buscar dados do usuário:', error);
       return null;
     }
   };
@@ -111,11 +123,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Initialize auth state
   useEffect(() => {
     let mounted = true;
+    console.log('🚀 [AuthContext] Inicializando autenticação');
     
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth event:', event, 'Session:', !!session);
+        console.log('🔐 [AuthContext] Auth event:', event, 'Session:', !!session);
         
         if (!mounted) return;
         
@@ -125,16 +138,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Fetch user data from users table
           const userData = await fetchUserData(session.user.id);
           const userObj = createUserFromSession(session, userData);
-          console.log('✅ User set from session:', userObj.userType, userObj.email);
+          console.log('✅ [AuthContext] User set from session:', userObj.userType, userObj.email);
           setUser(userObj);
         } else {
-          console.log('❌ No session, clearing user');
+          console.log('❌ [AuthContext] No session, clearing user');
           setUser(null);
           setUserRoles([]);
         }
         
         setIsLoading(false);
-        console.log('🎯 Auth ready - isLoading = false, isAuthenticated =', !!session?.user);
+        console.log('🎯 [AuthContext] Auth ready - isLoading = false, isAuthenticated =', !!session?.user);
       }
     );
 
@@ -142,9 +155,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       
+      console.log('🔍 [AuthContext] Checking for existing session...');
+      
       if (!session) {
+        console.log('⚠️ [AuthContext] No existing session found');
         setIsLoading(false);
       } else if (session.user) {
+        console.log('✅ [AuthContext] Existing session found:', session.user.email);
         // Fetch user data from users table
         const userData = await fetchUserData(session.user.id);
         const userObj = createUserFromSession(session, userData);
@@ -154,6 +171,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
 
     return () => {
+      console.log('🧹 [AuthContext] Cleanup');
       mounted = false;
       subscription.unsubscribe();
     };

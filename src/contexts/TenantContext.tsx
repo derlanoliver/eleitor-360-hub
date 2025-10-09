@@ -45,6 +45,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableTenants, setAvailableTenants] = useState<TenantInfo[]>([]);
+  
+  // Timeout de segurança para evitar loading infinito
+  useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.error('⏱️ [TenantContext] TIMEOUT: Loading travado por mais de 15s. Forçando conclusão.');
+        setIsLoading(false);
+      }
+    }, 15000); // 15 segundos
+
+    return () => clearTimeout(safetyTimeout);
+  }, [isLoading]);
 
   // Função auxiliar para aplicar branding
   const applyBranding = (tenantData: TenantInfo) => {
@@ -75,6 +87,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   // Função para carregar dados de um tenant específico
   const loadTenantData = async (tenantId: string): Promise<TenantInfo | null> => {
+    console.log('🏢 [TenantContext] Carregando dados do tenant:', tenantId);
     const { data: tenantData } = await supabase
       .from('tenants')
       .select(`
@@ -91,6 +104,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (tenantData) {
+      console.log('✅ [TenantContext] Tenant carregado:', tenantData.name);
       return {
         ...tenantData,
         tenant_branding: Array.isArray(tenantData.tenant_branding) 
@@ -104,13 +118,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           : [tenantData.tenant_domains]
       };
     }
+    console.error('❌ [TenantContext] Tenant não encontrado:', tenantId);
     return null;
   };
 
   // Função para carregar lista de tenants disponíveis (para platform admins)
   const loadAvailableTenants = async () => {
+    console.log('🔍 [TenantContext] Verificando tenants disponíveis...');
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      console.log('⚠️ [TenantContext] Sem usuário para carregar tenants');
+      return;
+    }
 
     // Verificar se é platform admin na tabela users
     const { data: userData } = await supabase
@@ -122,6 +141,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const isPlatformAdmin = userData?.tenant_id === '00000000-0000-0000-0000-000000000001';
 
     if (isPlatformAdmin) {
+      console.log('👑 [TenantContext] Platform admin detectado, carregando todos os tenants');
       // Platform admins podem ver todos os tenants ativos
       const { data: tenants } = await supabase
         .from('tenants')
@@ -137,6 +157,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         .order('name');
 
       if (tenants) {
+        console.log(`✅ [TenantContext] ${tenants.length} tenants carregados`);
         const formattedTenants = tenants.map((t: any) => ({
           ...t,
           tenant_branding: Array.isArray(t.tenant_branding) 
@@ -147,6 +168,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         }));
         setAvailableTenants(formattedTenants);
       }
+    } else {
+      console.log('⚠️ [TenantContext] Usuário não é platform admin');
     }
   };
 
@@ -178,19 +201,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    console.log('🚀 [TenantContext] Iniciando inicialização');
 
-    // CRÍTICO: Aguardar AuthContext estabelecer sessão
+    // Reduzido de 300ms para 100ms
     setTimeout(async () => {
       try {
+        console.log('🔍 [TenantContext] Buscando usuário autenticado...');
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          console.log('🔒 TenantContext: Usuário não autenticado');
+          console.log('🔒 [TenantContext] Usuário não autenticado');
           if (mounted) setIsLoading(false);
           return;
         }
 
-        console.log('👤 TenantContext: Inicializando para user', user.id);
+        console.log('👤 [TenantContext] Inicializando para user', user.email);
 
         // Query direta na tabela users unificada
         const { data: userData } = await supabase
@@ -202,22 +227,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         const isPlatformAdmin = userData?.tenant_id === '00000000-0000-0000-0000-000000000001';
         const userType = isPlatformAdmin ? 'platform_admin' : 'tenant_admin';
-        console.log('🔑 TenantContext: User type:', userType);
+        console.log('🔑 [TenantContext] User type:', userType);
 
-        // Load available tenants (for platform admins)
+        // Load available tenants (for platform admins) - NÃO BLOQUEAR
         if (userType === 'platform_admin') {
-          console.log('🏢 TenantContext: Platform admin detectado - carregando tenants');
-          await loadAvailableTenants();
+          console.log('🏢 [TenantContext] Platform admin detectado');
+          loadAvailableTenants().catch(err => 
+            console.error('❌ [TenantContext] Erro ao carregar tenants disponíveis:', err)
+          );
         }
         
         // Verificar se há tenant ativo no localStorage (para platform admins)
         const activeTenantId = localStorage.getItem('active-tenant-id');
         
         if (activeTenantId && userType === 'platform_admin') {
-          console.log('💾 TenantContext: Tentando usar tenant armazenado:', activeTenantId);
+          console.log('💾 [TenantContext] Tentando usar tenant armazenado:', activeTenantId);
           const tenantData = await loadTenantData(activeTenantId);
           if (tenantData && mounted) {
-            console.log('✅ TenantContext: Tenant carregado do localStorage');
+            console.log('✅ [TenantContext] Tenant carregado do localStorage');
             setTenant(tenantData);
             applyBranding(tenantData);
             setIsLoading(false);
@@ -227,7 +254,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         // Se platform admin e não tem tenant selecionado, selecionar o primeiro disponível
         if (userType === 'platform_admin' && !activeTenantId) {
-          console.log('🎯 TenantContext: Nenhum tenant ativo, buscando tenants disponíveis...');
+          console.log('🎯 [TenantContext] Nenhum tenant ativo, buscando primeiro tenant...');
           const { data: tenants } = await supabase
             .from('tenants')
             .select('id, name')
@@ -237,57 +264,41 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
           if (tenants && tenants.length > 0 && mounted) {
             const firstTenant = tenants[0];
-            console.log('✅ TenantContext: Selecionando primeiro tenant:', firstTenant.name);
-            await switchTenant(firstTenant.id);
+            console.log('✅ [TenantContext] Selecionando primeiro tenant:', firstTenant.name);
+            const tenantData = await loadTenantData(firstTenant.id);
+            if (tenantData) {
+              setTenant(tenantData);
+              applyBranding(tenantData);
+              localStorage.setItem('active-tenant-id', firstTenant.id);
+            }
+            setIsLoading(false);
             return;
           }
         }
 
-        // Fallback: tentar por domínio
-        const domain = window.location.hostname;
-        console.log('🌐 TenantContext: Tentando por domínio:', domain);
-        const { data, error } = await supabase.functions.invoke('tenant-config', {
-          body: { domain },
-        });
-
-        if (error) {
-          console.error('❌ TenantContext: tenant-config error:', error);
-        }
-
-        if (!mounted) return;
-
-        if (data) {
-          console.log('✅ TenantContext: Tenant encontrado via edge function');
-          setTenant(data);
-          applyBranding(data);
-        } else {
-          // Fallback: buscar tenant_id do usuário logado
-          console.log('🔄 TenantContext: Fallback - buscar tenant do user');
-          const { data: userData } = await supabase
-            .from('users')
-            .select('tenant_id')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (userData?.tenant_id) {
-            console.log('✅ TenantContext: Tenant encontrado via user');
-            const tenantData = await loadTenantData(userData.tenant_id);
-            if (tenantData && mounted) {
-              setTenant(tenantData);
-              applyBranding(tenantData);
-            }
-          } else {
-            console.log('⚠️ TenantContext: Nenhum tenant encontrado');
+        // Para tenant admins, usar tenant do userData
+        if (userType === 'tenant_admin' && userData?.tenant_id) {
+          console.log('🏢 [TenantContext] Tenant do usuário:', userData.tenant_id);
+          const tenantData = await loadTenantData(userData.tenant_id);
+          if (tenantData && mounted) {
+            setTenant(tenantData);
+            applyBranding(tenantData);
           }
+        } else {
+          console.log('⚠️ [TenantContext] Nenhum tenant identificado');
         }
       } catch (err) {
-        console.error('💥 TenantContext: Erro ao buscar configuração:', err);
+        console.error('💥 [TenantContext] Erro ao buscar configuração:', err);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          console.log('✅ [TenantContext] Finalizado (setIsLoading(false))');
+          setIsLoading(false);
+        }
       }
-    }, 300); // Delay de 300ms para AuthContext estabelecer sessão
+    }, 100); // Reduzido para 100ms
 
     return () => {
+      console.log('🧹 [TenantContext] Cleanup');
       mounted = false;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
