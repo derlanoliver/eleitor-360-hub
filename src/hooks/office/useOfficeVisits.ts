@@ -7,6 +7,7 @@ import {
   getVisitWithForm
 } from "@/services/office/officeService";
 import { postWebhook } from "@/services/office/webhookService";
+import { generateVisitFormUrl } from "@/lib/urlHelper";
 import type { CreateOfficeVisitDTO, OfficeVisitsFilters, WebhookPayload } from "@/types/office";
 import { toast } from "sonner";
 
@@ -52,7 +53,9 @@ export function useCreateOfficeVisit() {
         user_id: visit.contact_id,
         city_id: visit.city_id,
         leader_id: visit.leader_id,
-        whatsapp: visit.contact!.telefone_norm
+        whatsapp: visit.contact!.telefone_norm,
+        nome: dto.nome,
+        form_link: generateVisitFormUrl(visit.id, visit.leader_id)
       };
       
       postWebhook(visit.id, payload, webhookUrl).then(result => {

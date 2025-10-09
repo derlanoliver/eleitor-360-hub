@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { generateVisitFormUrl } from "@/lib/urlHelper";
 import type { WebhookPayload } from "@/types/office";
 
 // =====================================================
@@ -122,7 +123,9 @@ export async function retryWebhook(visitId: string) {
     user_id: visit.contact_id,
     city_id: visit.city_id,
     leader_id: visit.leader_id,
-    whatsapp: visit.contact.telefone_norm
+    whatsapp: visit.contact.telefone_norm,
+    nome: visit.contact.nome,
+    form_link: generateVisitFormUrl(visitId, visit.leader_id)
   };
   
   return postWebhook(visitId, payload, webhookUrl);

@@ -31,6 +31,7 @@ import NewVisit from "./pages/office/NewVisit";
 import Queue from "./pages/office/Queue";
 import History from "./pages/office/History";
 import OfficeSettings from "./pages/office/Settings";
+import ScheduleVisit from "./pages/ScheduleVisit";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,9 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/reset-success" element={<ResetSuccess />} />
             <Route path="/setup-users" element={<SetupUsers />} />
+            
+            {/* Public route for visit form */}
+            <Route path="/agendar-visita/:visitId/:leaderId" element={<ScheduleVisit />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={

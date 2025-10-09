@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOfficeVisits } from "@/hooks/office/useOfficeVisits";
 import { Loader2, Clock, Send, FileText, CheckCircle } from "lucide-react";
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
+import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
 import { formatPhoneBR } from "@/services/office/officeService";
 
 export default function Queue() {
   const { data: visits, isLoading } = useOfficeVisits();
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
   
   if (isLoading) {
     return (
@@ -43,7 +46,11 @@ export default function Queue() {
           </CardHeader>
           <CardContent className="space-y-3">
             {registered.map((visit) => (
-              <div key={visit.id} className="p-3 bg-muted rounded-lg space-y-2">
+              <div 
+                key={visit.id} 
+                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => setSelectedVisit(visit)}
+              >
                 <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
                 <p className="font-medium text-sm">{visit.contact?.nome}</p>
                 <p className="text-xs text-muted-foreground">
@@ -71,7 +78,11 @@ export default function Queue() {
           </CardHeader>
           <CardContent className="space-y-3">
             {opened.map((visit) => (
-              <div key={visit.id} className="p-3 bg-muted rounded-lg space-y-2">
+              <div 
+                key={visit.id} 
+                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => setSelectedVisit(visit)}
+              >
                 <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
                 <p className="font-medium text-sm">{visit.contact?.nome}</p>
                 <p className="text-xs text-muted-foreground">
@@ -99,7 +110,11 @@ export default function Queue() {
           </CardHeader>
           <CardContent className="space-y-3">
             {submitted.map((visit) => (
-              <div key={visit.id} className="p-3 bg-muted rounded-lg space-y-2">
+              <div 
+                key={visit.id} 
+                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => setSelectedVisit(visit)}
+              >
                 <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
                 <p className="font-medium text-sm">{visit.contact?.nome}</p>
                 <p className="text-xs text-muted-foreground">
@@ -127,7 +142,11 @@ export default function Queue() {
           </CardHeader>
           <CardContent className="space-y-3">
             {checkedIn.map((visit) => (
-              <div key={visit.id} className="p-3 bg-muted rounded-lg space-y-2">
+              <div 
+                key={visit.id} 
+                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => setSelectedVisit(visit)}
+              >
                 <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
                 <p className="font-medium text-sm">{visit.contact?.nome}</p>
                 <p className="text-xs text-muted-foreground">
@@ -144,6 +163,12 @@ export default function Queue() {
           </CardContent>
         </Card>
       </div>
+      
+      <VisitDetailsDialog
+        visit={selectedVisit}
+        open={!!selectedVisit}
+        onOpenChange={(open) => !open && setSelectedVisit(null)}
+      />
     </div>
   );
 }

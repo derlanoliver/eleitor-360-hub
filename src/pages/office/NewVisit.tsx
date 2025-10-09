@@ -12,6 +12,7 @@ import { useOfficeSettings } from "@/hooks/office/useOfficeSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, UserPlus, QrCode } from "lucide-react";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
+import { generateVisitFormUrl } from "@/lib/urlHelper";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 
@@ -51,7 +52,7 @@ export default function NewVisit() {
       
       setVisitCreated(visit);
       
-      const link = `${window.location.origin}/visita-gabinete/${visit.leader_id}/${visit.contact_id}?token=${visit.token}`;
+      const link = generateVisitFormUrl(visit.id, visit.leader_id);
       const qr = await QRCode.toDataURL(link);
       setQrCode(qr);
       
@@ -70,7 +71,7 @@ export default function NewVisit() {
   };
   
   if (visitCreated) {
-    const link = `${window.location.origin}/visita-gabinete/${visitCreated.leader_id}/${visitCreated.contact_id}?token=${visitCreated.token}`;
+    const link = generateVisitFormUrl(visitCreated.id, visitCreated.leader_id);
     
     return (
       <div className="container mx-auto py-6 max-w-4xl">

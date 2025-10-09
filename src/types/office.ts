@@ -149,6 +149,8 @@ export interface WebhookPayload {
   city_id: string;
   leader_id: string;
   whatsapp: string; // E.164 format
+  nome: string;
+  form_link: string;
 }
 
 export interface OfficeEvent {
