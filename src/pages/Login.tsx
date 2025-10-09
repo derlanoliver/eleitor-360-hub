@@ -34,14 +34,14 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, signup, isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   // Redirect if already authenticated - navegação imediata
   useEffect(() => {
     console.log('🔄 Login useEffect:', { 
       isAuthenticated, 
       authLoading, 
-      hasUser: !!useAuth().user 
+      hasUser: !!user 
     });
     
     if (isAuthenticated) {
@@ -49,7 +49,7 @@ const Login = () => {
       const from = (location.state as any)?.from || "/dashboard";
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location, authLoading]);
+  }, [isAuthenticated, navigate, location, authLoading, user]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
