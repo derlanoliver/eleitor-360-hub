@@ -47,8 +47,8 @@ export function hasRole(
     // Papel global (tenant_id NULL) vale para qualquer tenant
     if (r.tenant_id === null) return true;
     
-    // Se tenantId não foi especificado, aceita qualquer papel com esse role
-    if (!tenantId) return true;
+    // Se tenantId não foi especificado ou é null, só papéis globais passam
+    if (tenantId === undefined || tenantId === null) return false;
     
     // Verifica papel no tenant específico
     return r.tenant_id === tenantId;

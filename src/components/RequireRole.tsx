@@ -45,6 +45,12 @@ export function RequireRole({
 }: RequireRoleProps) {
   const { roles, loading } = useRoles();
   
+  // Debug logs
+  console.log('🔐 RequireRole - Papéis:', roles);
+  console.log('🔐 RequireRole - Requerido:', anyOf);
+  console.log('🔐 RequireRole - TenantId:', tenantId);
+  console.log('🔐 RequireRole - Loading:', loading);
+  
   // Enquanto carrega
   if (loading) {
     return showLoading ? <>Carregando...</> : null;
@@ -52,6 +58,7 @@ export function RequireRole({
   
   // Verificar permissão
   const hasPermission = hasAnyRole(roles, anyOf, tenantId);
+  console.log('🔐 RequireRole - Permissão concedida:', hasPermission);
   
   // Renderizar children ou fallback informativo
   if (!hasPermission) {
