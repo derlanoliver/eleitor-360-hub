@@ -48,6 +48,18 @@ export default function ScheduleVisit() {
 
       if (error) throw error;
       setVisit(data);
+      
+      // Atualizar status para FORM_OPENED se ainda estiver em LINK_SENT
+      if (data.status === "LINK_SENT") {
+        const { error: updateError } = await supabase
+          .from("office_visits")
+          .update({ status: "FORM_OPENED" })
+          .eq("id", visitId);
+        
+        if (updateError) {
+          console.error("Error updating status to FORM_OPENED:", updateError);
+        }
+      }
     } catch (error: any) {
       console.error("Error loading visit:", error);
       toast({
