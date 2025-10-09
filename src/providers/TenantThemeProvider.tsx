@@ -4,11 +4,8 @@ import { useTenant } from '@/contexts/TenantContext';
 export function TenantThemeProvider({ children }: { children: ReactNode }) {
   const { tenant, isLoading } = useTenant();
 
-  console.log('🎨 [TenantThemeProvider] Estado:', { isLoading, tenant: tenant?.name });
-
   // Loading state
   if (isLoading) {
-    console.log('⏳ [TenantThemeProvider] Mostrando tela de carregamento');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
