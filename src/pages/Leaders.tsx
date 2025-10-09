@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Filter, Trophy, Eye, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle } from "lucide-react";
+import { Users, Search, Filter, Trophy, Eye, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download } from "lucide-react";
+import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
@@ -46,6 +47,41 @@ const Leaders = () => {
     setCopiedId(leader.id);
     setTimeout(() => setCopiedId(null), 2000);
     toast.success("Link de indicação copiado!");
+  };
+
+  const handleDownloadQRCode = async (leader: OfficeLeader) => {
+    if (!leader.affiliate_token) {
+      toast.error("Token de afiliado não disponível");
+      return;
+    }
+
+    try {
+      const affiliateLink = `${window.location.origin}/affiliate/${leader.affiliate_token}`;
+      
+      // Gerar QR code em alta definição (1024x1024)
+      const qrDataURL = await QRCode.toDataURL(affiliateLink, {
+        width: 1024,
+        margin: 4,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+
+      // Criar nome do arquivo: qr-lider-[nome]-[token].png
+      const fileName = `qr-lider-${leader.nome_completo.toLowerCase().replace(/\s+/g, '-')}-${leader.affiliate_token.substring(0, 8)}.png`;
+      
+      // Download
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = qrDataURL;
+      link.click();
+
+      toast.success("QR Code baixado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar QR Code:", error);
+      toast.error("Erro ao gerar QR Code");
+    }
   };
 
   // Filtros
@@ -244,6 +280,15 @@ const Leaders = () => {
                                 ) : (
                                   <Copy className="h-4 w-4" />
                                 )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownloadQRCode(leader)}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                title="Baixar QR Code do link de indicação"
+                              >
+                                <Download className="h-4 w-4" />
                               </Button>
                               {leader.telefone && (
                                 <Button
