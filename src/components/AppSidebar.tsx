@@ -11,14 +11,8 @@ import {
   Settings,
   Shield,
   Building,
-  LogOut,
-  UserCog,
-  Building2
+  LogOut
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { TenantSwitcher } from "./TenantSwitcher";
-import { useRoles } from "@/hooks/useRoles";
-import { isSuperUser } from "@/lib/rbac";
 
 import {
   Sidebar,
@@ -57,16 +51,8 @@ const communicationItems = [
 ];
 
 const settingsItems = [
-  { title: "Configurações", url: "/settings", icon: Settings },
-];
-
-const adminItems = [
-  { title: "Setup Usuários", url: "/setup-users", icon: UserCog },
-];
-
-const platformItems = [
-  { title: "Gerenciar Tenants", url: "/platform/tenants", icon: Building2 },
-  { title: "Usuários Globais", url: "/platform/admins", icon: Shield },
+  { title: "Privacidade", url: "/settings/privacy", icon: Shield },
+  { title: "Organização", url: "/settings/organization", icon: Building },
 ];
 
 export function AppSidebar() {
@@ -74,10 +60,6 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const isMobile = useIsMobile();
-  const { user } = useAuth();
-  const { roles } = useRoles();
-  const isSuper = isSuperUser(roles);
-  const isPlatformAdmin = user?.userType === 'platform_admin';
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -215,52 +197,36 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Plataforma (apenas platform_admin) */}
-        {isPlatformAdmin && (
-          <SidebarGroup>
-            {!isCollapsed && (
-              <SidebarGroupLabel className="text-orange-600 text-xs font-medium uppercase tracking-wider">
-                Plataforma
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {platformItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    {renderMenuItem(item)}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Admin (apenas super_admin) */}
-        {isSuper && (
-          <SidebarGroup>
-            {!isCollapsed && (
-              <SidebarGroupLabel className="text-red-500 text-xs font-medium uppercase tracking-wider">
-                Admin
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    {renderMenuItem(item)}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Tenant Switcher - apenas para platform admins */}
-        {isPlatformAdmin && (
-          <div className={`mt-auto ${!isCollapsed ? 'p-4 border-t border-gray-200' : 'py-6'}`}>
-            <TenantSwitcher />
-          </div>
-        )}
+        {/* Logout */}
+        <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>
+          {isCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton asChild>
+                  <NavLink 
+                    to="/login" 
+                    className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-3 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <LogOut className="h-6 w-6" />
+                  </NavLink>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="font-medium">
+                Sair
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <SidebarMenuButton asChild>
+              <NavLink 
+                to="/login" 
+                className="text-red-600 hover:bg-red-50 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="ml-3">Sair</span>
+              </NavLink>
+            </SidebarMenuButton>
+          )}
+        </div>
       </SidebarContent>
     </Sidebar>
   );

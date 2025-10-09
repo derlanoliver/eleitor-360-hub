@@ -34,22 +34,15 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Redirect if already authenticated - navegação imediata
+  // Redirect if already authenticated - using useEffect
   useEffect(() => {
-    console.log('🔄 Login useEffect:', { 
-      isAuthenticated, 
-      authLoading, 
-      hasUser: !!user 
-    });
-    
-    if (isAuthenticated) {
-      console.log('✅ Navegando para dashboard...');
+    if (isAuthenticated && !authLoading) {
       const from = (location.state as any)?.from || "/dashboard";
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location, authLoading, user]);
+  }, [isAuthenticated, authLoading, navigate, location]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +51,12 @@ const Login = () => {
 
     try {
       loginSchema.parse(loginData);
-      await login(loginData.email, loginData.password);
-      // Navigation será feita automaticamente pelo useEffect quando isAuthenticated mudar
+      const success = await login(loginData.email, loginData.password);
+      
+      if (success) {
+        const from = (location.state as any)?.from || "/dashboard";
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
