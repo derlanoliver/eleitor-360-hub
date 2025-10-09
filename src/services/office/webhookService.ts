@@ -98,7 +98,6 @@ export async function postWebhook(
  * Tenta reenviar webhook manualmente
  */
 export async function retryWebhook(visitId: string) {
-  // Buscar dados da visita
   const { data: visit, error: visitError } = await supabase
     .from("office_visits")
     .select(`
@@ -112,16 +111,13 @@ export async function retryWebhook(visitId: string) {
   
   if (visitError) throw visitError;
   
-  // Buscar settings para pegar webhook URL
   const { data: settings } = await supabase
     .from("office_settings")
     .select("webhook_url")
-    .eq("tenant_id", visit.tenant_id)
-    .single();
+    .maybeSingle();
   
   const webhookUrl = settings?.webhook_url || "https://webhook.escaladigital.ai/webhook/gabinete/envio-formulario";
   
-  // Preparar payload
   const payload: WebhookPayload = {
     user_id: visit.contact_id,
     city_id: visit.city_id,

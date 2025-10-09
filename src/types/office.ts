@@ -31,7 +31,6 @@ export interface OfficeLeader {
   nome_completo: string;
   cidade_id: string;
   cidade?: OfficeCity; // populated join
-  tenant_id: string;
   status: OfficeLeaderStatus;
   pontuacao_total: number;
   created_at: string;
@@ -44,7 +43,6 @@ export interface OfficeContact {
   telefone_norm: string; // E.164 format (+5561999999999)
   cidade_id: string;
   cidade?: OfficeCity;
-  tenant_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -58,7 +56,6 @@ export interface OfficeVisit {
   leader?: OfficeLeader;
   city_id: string;
   city?: OfficeCity;
-  tenant_id: string;
   status: OfficeVisitStatus;
   token?: string;
   token_expires_at?: string;
@@ -87,7 +84,6 @@ export interface OfficeVisitForm {
 
 export interface OfficeSettings {
   id: string;
-  tenant_id: string;
   protocolo_prefix: string;
   sound_notification_url?: string;
   pontos_form_submitted: number;

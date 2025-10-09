@@ -40,18 +40,14 @@ export function useCreateOfficeVisit() {
     mutationFn: async ({
       dto,
       userId,
-      tenantId,
       webhookUrl
     }: {
       dto: CreateOfficeVisitDTO;
       userId: string;
-      tenantId: string;
       webhookUrl: string;
     }) => {
-      // Criar visita
-      const visit = await createVisit(dto, userId, tenantId);
+      const visit = await createVisit(dto, userId);
       
-      // Preparar payload do webhook
       const payload: WebhookPayload = {
         user_id: visit.contact_id,
         city_id: visit.city_id,
@@ -59,7 +55,6 @@ export function useCreateOfficeVisit() {
         whatsapp: visit.contact!.telefone_norm
       };
       
-      // Enviar webhook (não bloqueia)
       postWebhook(visit.id, payload, webhookUrl).then(result => {
         if (result.success) {
           updateVisitStatus(visit.id, "LINK_SENT");

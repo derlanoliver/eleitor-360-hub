@@ -155,16 +155,13 @@ export async function findContactByPhone(phone: string) {
 export async function createOrUpdateContact(
   nome: string,
   telefone: string,
-  cidade_id: string,
-  tenant_id: string
+  cidade_id: string
 ): Promise<OfficeContact> {
   const telefone_norm = normalizePhone(telefone);
   
-  // Tentar buscar contato existente
   const existing = await findContactByPhone(telefone);
   
   if (existing) {
-    // Atualizar se mudou algum dado
     const { data, error } = await supabase
       .from("office_contacts")
       .update({ nome, cidade_id })
@@ -176,10 +173,9 @@ export async function createOrUpdateContact(
     return data as OfficeContact;
   }
   
-  // Criar novo
   const { data, error } = await supabase
     .from("office_contacts")
-    .insert({ nome, telefone_norm, cidade_id, tenant_id })
+    .insert({ nome, telefone_norm, cidade_id })
     .select("*, cidade:office_cities(*)")
     .single();
   
@@ -266,30 +262,22 @@ export async function getVisitByProtocol(protocolo: string) {
   return data as OfficeVisit | null;
 }
 
-export async function createVisit(dto: CreateOfficeVisitDTO, userId: string, tenantId: string) {
-  // 1. Criar/atualizar contato
+export async function createVisit(dto: CreateOfficeVisitDTO, userId: string) {
   const contact = await createOrUpdateContact(
     dto.nome,
     dto.whatsapp,
-    dto.cidade_id,
-    tenantId
+    dto.cidade_id
   );
   
-  // 2. Gerar protocolo via função do banco
   const { data: protocolData, error: protocolError } = await supabase
-    .rpc("generate_office_protocol", {
-      _tenant_id: tenantId,
-      _prefix: "RP-GB"
-    });
+    .rpc("generate_office_protocol", { _prefix: "RP-GB" });
   
   if (protocolError) throw protocolError;
   const protocolo = protocolData as string;
   
-  // 3. Gerar token
   const token = generateMockToken("pending", contact.id, dto.leader_id);
   const token_expires_at = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
   
-  // 4. Criar visita
   const { data, error } = await supabase
     .from("office_visits")
     .insert({
@@ -297,7 +285,6 @@ export async function createVisit(dto: CreateOfficeVisitDTO, userId: string, ten
       contact_id: contact.id,
       leader_id: dto.leader_id,
       city_id: dto.cidade_id,
-      tenant_id: tenantId,
       status: "REGISTERED",
       token,
       token_expires_at,
@@ -384,21 +371,18 @@ export async function getVisitWithForm(visitId: string) {
 // SETTINGS
 // =====================================================
 
-export async function getSettings(tenantId: string) {
+export async function getSettings() {
   const { data, error } = await supabase
     .from("office_settings")
     .select("*")
-    .eq("tenant_id", tenantId)
     .maybeSingle();
   
   if (error) throw error;
   
-  // Se não existir, criar com valores padrão
   if (!data) {
     const { data: newSettings, error: createError } = await supabase
       .from("office_settings")
       .insert({
-        tenant_id: tenantId,
         protocolo_prefix: "RP-GB",
         pontos_form_submitted: 1,
         pontos_aceita_reuniao: 3,
@@ -414,11 +398,18 @@ export async function getSettings(tenantId: string) {
   return data as OfficeSettings;
 }
 
-export async function updateSettings(tenantId: string, updates: Partial<OfficeSettings>) {
+export async function updateSettings(updates: Partial<OfficeSettings>) {
+  const { data: existing } = await supabase
+    .from("office_settings")
+    .select("id")
+    .maybeSingle();
+
+  if (!existing) throw new Error("Settings not found");
+
   const { data, error } = await supabase
     .from("office_settings")
     .update(updates)
-    .eq("tenant_id", tenantId)
+    .eq("id", existing.id)
     .select()
     .single();
   

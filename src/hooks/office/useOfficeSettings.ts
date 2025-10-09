@@ -3,22 +3,21 @@ import { getSettings, updateSettings } from "@/services/office/officeService";
 import type { OfficeSettings } from "@/types/office";
 import { toast } from "sonner";
 
-export function useOfficeSettings(tenantId: string) {
+export function useOfficeSettings() {
   return useQuery({
-    queryKey: ["office_settings", tenantId],
-    queryFn: () => getSettings(tenantId),
-    enabled: !!tenantId
+    queryKey: ["office_settings"],
+    queryFn: () => getSettings()
   });
 }
 
-export function useUpdateOfficeSettings(tenantId: string) {
+export function useUpdateOfficeSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: (updates: Partial<OfficeSettings>) =>
-      updateSettings(tenantId, updates),
+      updateSettings(updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["office_settings", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["office_settings"] });
       toast.success("Configurações atualizadas com sucesso!");
     },
     onError: (error: Error) => {

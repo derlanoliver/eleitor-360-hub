@@ -9,9 +9,8 @@ import { useState, useEffect } from "react";
 
 export default function Settings() {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "";
-  const { data: settings, isLoading } = useOfficeSettings(tenantId);
-  const updateSettings = useUpdateOfficeSettings(tenantId);
+  const { data: settings, isLoading } = useOfficeSettings();
+  const updateSettings = useUpdateOfficeSettings();
   
   const [prefix, setPrefix] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");

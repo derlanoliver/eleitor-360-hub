@@ -18,7 +18,6 @@ import { toast } from "sonner";
 export default function NewVisit() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "";
   
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -27,13 +26,13 @@ export default function NewVisit() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [visitCreated, setVisitCreated] = useState<any>(null);
   
-  const { data: settings } = useOfficeSettings(tenantId);
+  const { data: settings } = useOfficeSettings();
   const createVisit = useCreateOfficeVisit();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !tenantId) {
+    if (!user) {
       toast.error("Usuário não encontrado");
       return;
     }
@@ -47,13 +46,11 @@ export default function NewVisit() {
       const visit = await createVisit.mutateAsync({
         dto: { nome, whatsapp, cidade_id: cidadeId, leader_id: leaderId },
         userId: user.id,
-        tenantId: tenantId,
         webhookUrl: settings?.webhook_url || "https://webhook.escaladigital.ai/webhook/gabinete/envio-formulario"
       });
       
       setVisitCreated(visit);
       
-      // Gerar QR Code do link
       const link = `${window.location.origin}/visita-gabinete/${visit.leader_id}/${visit.contact_id}?token=${visit.token}`;
       const qr = await QRCode.toDataURL(link);
       setQrCode(qr);
