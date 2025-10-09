@@ -9,7 +9,7 @@ type PlatformAdmin = {
   id: string;
   email: string;
   name: string;
-  role: string;
+  tenant_id: string;
   is_active: boolean;
   created_at: string;
   last_login: string | null;
@@ -36,8 +36,9 @@ export default function PlatformAdmins() {
       
       const result = await safeQuery<PlatformAdmin[]>(async () => {
         const { data, error } = await supabase
-          .from('platform_admins')
+          .from('users')
           .select('*')
+          .eq('tenant_id', '00000000-0000-0000-0000-000000000001')
           .order('created_at', { ascending: false });
         
         return { data, error };
@@ -55,12 +56,8 @@ export default function PlatformAdmins() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
-    return role === 'super_admin' ? (
-      <Badge variant="destructive">Super Admin</Badge>
-    ) : (
-      <Badge variant="secondary">Super User</Badge>
-    );
+  const getUserBadge = () => {
+    return <Badge variant="destructive">Platform Admin</Badge>;
   };
 
   return (
@@ -95,7 +92,7 @@ export default function PlatformAdmins() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead>Tipo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Último Login</TableHead>
                     <TableHead>Criado em</TableHead>
@@ -106,7 +103,7 @@ export default function PlatformAdmins() {
                     <TableRow key={admin.id}>
                       <TableCell className="font-medium">{admin.name}</TableCell>
                       <TableCell>{admin.email}</TableCell>
-                      <TableCell>{getRoleBadge(admin.role)}</TableCell>
+                      <TableCell>{getUserBadge()}</TableCell>
                       <TableCell>
                         <Badge variant={admin.is_active ? "default" : "secondary"}>
                           {admin.is_active ? "Ativo" : "Inativo"}

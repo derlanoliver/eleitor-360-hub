@@ -28,12 +28,12 @@ const SetupUsers = () => {
 
   const checkExistingUsers = async () => {
     try {
-      const { data: profiles } = await supabase
-        .from('profiles')
+      const { data: users } = await supabase
+        .from('users')
         .select('email')
         .in('email', ADMIN_USERS.map(u => u.email));
       
-      const existing = profiles?.map(p => p.email) || [];
+      const existing = users?.map(u => u.email) || [];
       setExistingUsers(existing);
     } catch (error) {
       console.error('Erro ao verificar usuários existentes:', error);

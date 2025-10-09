@@ -112,14 +112,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Verificar se é platform admin
-    const { data: platformAdmin } = await supabase
-      .from('platform_admins')
-      .select('role')
+    // Verificar se é platform admin na tabela users
+    const { data: userData } = await supabase
+      .from('users')
+      .select('tenant_id')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (platformAdmin) {
+    const isPlatformAdmin = userData?.tenant_id === '00000000-0000-0000-0000-000000000001';
+
+    if (isPlatformAdmin) {
       // Platform admins podem ver todos os tenants ativos
       const { data: tenants } = await supabase
         .from('tenants')
@@ -190,15 +192,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         console.log('👤 TenantContext: Inicializando para user', user.id);
 
-        // Query direta ao invés de RPC para evitar erro
-        const { data: platformAdmin } = await supabase
-          .from('platform_admins')
-          .select('role')
+        // Query direta na tabela users unificada
+        const { data: userData } = await supabase
+          .from('users')
+          .select('tenant_id, is_active')
           .eq('id', user.id)
           .eq('is_active', true)
           .maybeSingle();
 
-        const userType = platformAdmin ? 'platform_admin' : 'tenant_admin';
+        const isPlatformAdmin = userData?.tenant_id === '00000000-0000-0000-0000-000000000001';
+        const userType = isPlatformAdmin ? 'platform_admin' : 'tenant_admin';
         console.log('🔑 TenantContext: User type:', userType);
 
         // Load available tenants (for platform admins)
@@ -258,17 +261,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setTenant(data);
           applyBranding(data);
         } else {
-          // Fallback: buscar tenant_id do profile do usuário logado
-          console.log('🔄 TenantContext: Fallback - buscar tenant do profile');
-          const { data: profile } = await supabase
-            .from('profiles')
+          // Fallback: buscar tenant_id do usuário logado
+          console.log('🔄 TenantContext: Fallback - buscar tenant do user');
+          const { data: userData } = await supabase
+            .from('users')
             .select('tenant_id')
             .eq('id', user.id)
             .maybeSingle();
 
-          if (profile?.tenant_id) {
-            console.log('✅ TenantContext: Tenant encontrado via profile');
-            const tenantData = await loadTenantData(profile.tenant_id);
+          if (userData?.tenant_id) {
+            console.log('✅ TenantContext: Tenant encontrado via user');
+            const tenantData = await loadTenantData(userData.tenant_id);
             if (tenantData && mounted) {
               setTenant(tenantData);
               applyBranding(tenantData);

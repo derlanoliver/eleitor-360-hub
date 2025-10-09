@@ -45,26 +45,67 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isAuthenticated = !!user && !!session;
 
   // Create user object from session data
-  const createUserFromSession = (session: Session): User => {
+  const createUserFromSession = (session: Session, userData?: any): User => {
     const user = session.user;
     const metadata = user.user_metadata || {};
     
     console.log('👤 Creating user from session:', {
       id: user.id,
       email: user.email,
-      metadata
+      metadata,
+      userData
     });
 
+    // Se temos userData da tabela users, usar esses dados
+    if (userData) {
+      const isPlatformAdmin = userData.tenant_id === '00000000-0000-0000-0000-000000000001';
+      
+      return {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: metadata.role || 'user',
+        avatar: "/src/assets/logo-rafael-prudente.png",
+        userType: isPlatformAdmin ? 'platform_admin' : 'tenant_admin',
+        accessibleTenants: [],
+        currentTenantId: isPlatformAdmin ? null : userData.tenant_id
+      };
+    }
+
+    // Fallback para metadados se userData não disponível
+    const isPlatformAdmin = user.email?.endsWith('@eleitor360.ai');
+    
     return {
       id: user.id,
       email: user.email || '',
       name: metadata.name || user.email?.split('@')[0] || 'User',
       role: metadata.role || 'user',
       avatar: "/src/assets/logo-rafael-prudente.png",
-      userType: metadata.role === 'super_admin' ? 'platform_admin' : 'tenant_admin',
+      userType: isPlatformAdmin ? 'platform_admin' : 'tenant_admin',
       accessibleTenants: [],
       currentTenantId: metadata.tenant_id || null
     };
+  };
+
+  // Fetch user data from unified users table
+  const fetchUserData = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ Erro ao buscar user:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados do usuário:', error);
+      return null;
+    }
   };
 
   // Initialize auth state
@@ -73,7 +114,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('🔐 Auth event:', event, 'Session:', !!session);
         
         if (!mounted) return;
@@ -81,10 +122,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         
         if (session?.user) {
-          // Create user object directly from session
-          const userData = createUserFromSession(session);
-          console.log('✅ User set from session:', userData.userType, userData.email);
-          setUser(userData);
+          // Fetch user data from users table
+          const userData = await fetchUserData(session.user.id);
+          const userObj = createUserFromSession(session, userData);
+          console.log('✅ User set from session:', userObj.userType, userObj.email);
+          setUser(userObj);
         } else {
           console.log('❌ No session, clearing user');
           setUser(null);
@@ -97,11 +139,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     );
 
     // Check for existing session after setting up listener
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       
       if (!session) {
         setIsLoading(false);
+      } else if (session.user) {
+        // Fetch user data from users table
+        const userData = await fetchUserData(session.user.id);
+        const userObj = createUserFromSession(session, userData);
+        setUser(userObj);
       }
       // onAuthStateChange will handle the rest
     });
