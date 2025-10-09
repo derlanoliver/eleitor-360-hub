@@ -55,7 +55,7 @@ export function useCreateOfficeVisit() {
         leader_id: visit.leader_id,
         whatsapp: visit.contact!.telefone_norm,
         nome: dto.nome,
-        form_link: generateVisitFormUrl(visit.id, visit.leader_id)
+        form_link: generateVisitFormUrl(visit.id, visit.leader_id, visit.contact_id)
       };
       
       postWebhook(visit.id, payload, webhookUrl).then(result => {

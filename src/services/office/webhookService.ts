@@ -125,7 +125,7 @@ export async function retryWebhook(visitId: string) {
     leader_id: visit.leader_id,
     whatsapp: visit.contact.telefone_norm,
     nome: visit.contact.nome,
-    form_link: generateVisitFormUrl(visitId, visit.leader_id)
+    form_link: generateVisitFormUrl(visitId, visit.leader_id, visit.contact_id)
   };
   
   return postWebhook(visitId, payload, webhookUrl);

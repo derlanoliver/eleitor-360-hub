@@ -1,112 +1,123 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CalendarIcon, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 export default function ScheduleVisit() {
-  const { visitId, leaderId } = useParams();
-  
+  const { visitId, leaderId, userId } = useParams();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [visit, setVisit] = useState<any>(null);
-  
-  // Form state
-  const [dataNascimento, setDataNascimento] = useState<Date>();
+
+  // Form data
+  const [dataNascimento, setDataNascimento] = useState("");
   const [endereco, setEndereco] = useState("");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
-  const [aceitaReuniao, setAceitaReuniao] = useState(false);
-  const [continuaProjeto, setContinuaProjeto] = useState(false);
+  const [aceitaReuniao, setAceitaReuniao] = useState<string>("");
+  const [continuaProjeto, setContinuaProjeto] = useState<string>("");
   const [observacoes, setObservacoes] = useState("");
-  
+
   useEffect(() => {
     loadVisit();
   }, [visitId]);
-  
+
   const loadVisit = async () => {
+    if (!visitId) return;
+
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("office_visits")
         .select(`
           *,
-          contact:office_contacts(*),
-          leader:lideres(*),
-          city:office_cities(*)
+          contact:office_contacts(nome, telefone_norm),
+          city:office_cities(nome)
         `)
         .eq("id", visitId)
         .single();
-      
+
       if (error) throw error;
-      
       setVisit(data);
-    } catch (error) {
-      console.error("Erro ao carregar visita:", error);
-      toast.error("Visita não encontrada");
+    } catch (error: any) {
+      console.error("Error loading visit:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados da visita",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!dataNascimento || !endereco) {
-      toast.error("Preencha todos os campos obrigatórios");
+
+    // Validate required fields
+    if (!dataNascimento || !endereco || !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
       return;
     }
-    
-    setSubmitting(true);
-    
+
     try {
-      // Inserir formulário
+      setSubmitting(true);
+
+      // Insert form data
       const { error: formError } = await supabase
         .from("office_visit_forms")
         .insert({
           visit_id: visitId,
-          data_nascimento: format(dataNascimento, "yyyy-MM-dd"),
+          data_nascimento: dataNascimento,
           endereco,
-          instagram: instagram || null,
-          facebook: facebook || null,
-          aceita_reuniao: aceitaReuniao,
-          continua_projeto: continuaProjeto,
-          observacoes: observacoes || null,
-          submitted_at: new Date().toISOString()
+          instagram,
+          facebook,
+          aceita_reuniao: aceitaReuniao === "sim",
+          continua_projeto: continuaProjeto === "sim",
+          observacoes,
+          submitted_at: new Date().toISOString(),
         });
-      
+
       if (formError) throw formError;
-      
-      // Atualizar status da visita
-      const { error: updateError } = await supabase
+
+      // Update visit status
+      const { error: visitError } = await supabase
         .from("office_visits")
         .update({ status: "FORM_SUBMITTED" })
         .eq("id", visitId);
-      
-      if (updateError) throw updateError;
-      
+
+      if (visitError) throw visitError;
+
       setSubmitted(true);
-      toast.success("Formulário enviado com sucesso!");
-      
-    } catch (error) {
-      console.error("Erro ao enviar formulário:", error);
-      toast.error("Erro ao enviar formulário");
+      toast({
+        title: "Formulário enviado!",
+        description: "Obrigado por preencher o formulário",
+      });
+    } catch (error: any) {
+      console.error("Error submitting form:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar formulário. Tente novamente.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -114,176 +125,169 @@ export default function ScheduleVisit() {
       </div>
     );
   }
-  
+
   if (!visit) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Visita não encontrada</CardTitle>
-            <CardDescription>
-              O link que você acessou não é válido ou expirou.
-            </CardDescription>
           </CardHeader>
         </Card>
       </div>
     );
   }
-  
+
   if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <CardTitle>Formulário Enviado!</CardTitle>
-              <CardDescription>
-                Obrigado por preencher o formulário. Em breve entraremos em contato.
-              </CardDescription>
-            </div>
+            <CardTitle className="text-green-600">✓ Formulário Enviado</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Obrigado por preencher o formulário! Entraremos em contato em breve.
+            </p>
           </CardHeader>
         </Card>
       </div>
     );
   }
-  
+
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-background p-4 py-8">
+      <div className="max-w-3xl mx-auto">
         <Card>
-          <CardHeader>
-            <CardTitle>Agendar Visita ao Gabinete</CardTitle>
-            <CardDescription>
-              Olá, {visit.contact?.nome}! Por favor, preencha os dados abaixo.
-            </CardDescription>
+          <CardHeader className="bg-orange-500 text-white rounded-t-lg">
+            <CardTitle className="text-center text-xl md:text-2xl font-bold">
+              FICHA CADASTRAL - BANCO DE DADOS - REDES SOCIAIS
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Data de Nascimento */}
-              <div className="space-y-2">
-                <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dataNascimento && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataNascimento ? (
-                        format(dataNascimento, "PPP", { locale: ptBR })
-                      ) : (
-                        <span>Selecione uma data</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dataNascimento}
-                      onSelect={setDataNascimento}
-                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+              {/* Pre-filled fields (disabled) */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome Completo</Label>
+                  <Input
+                    id="nome"
+                    value={visit.contact?.nome || ""}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefone">Telefone</Label>
+                  <Input
+                    id="telefone"
+                    value={visit.contact?.telefone_norm || ""}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
               </div>
-              
-              {/* Endereço */}
+
+              <div className="space-y-2">
+                <Label htmlFor="cidade">Cidade</Label>
+                <Input
+                  id="cidade"
+                  value={visit.city?.nome || ""}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              {/* Required fields */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
+                  <Input
+                    id="dataNascimento"
+                    type="date"
+                    value={dataNascimento}
+                    onChange={(e) => setDataNascimento(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="endereco">Endereço Completo *</Label>
                 <Textarea
                   id="endereco"
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
-                  placeholder="Digite seu endereço completo"
+                  placeholder="Rua, número, complemento, bairro, CEP"
                   required
                   rows={3}
                 />
               </div>
-              
-              {/* Instagram */}
-              <div className="space-y-2">
-                <Label htmlFor="instagram">Instagram (opcional)</Label>
-                <Input
-                  id="instagram"
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                  placeholder="@seu_instagram"
-                />
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="instagram">Instagram *</Label>
+                  <Input
+                    id="instagram"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="@seu_instagram"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="facebook">Facebook *</Label>
+                  <Input
+                    id="facebook"
+                    value={facebook}
+                    onChange={(e) => setFacebook(e.target.value)}
+                    placeholder="facebook.com/seu_perfil"
+                    required
+                  />
+                </div>
               </div>
-              
-              {/* Facebook */}
-              <div className="space-y-2">
-                <Label htmlFor="facebook">Facebook (opcional)</Label>
-                <Input
-                  id="facebook"
-                  value={facebook}
-                  onChange={(e) => setFacebook(e.target.value)}
-                  placeholder="Nome do perfil"
-                />
-              </div>
-              
-              {/* Checkboxes */}
+
+              {/* Radio buttons */}
               <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="aceitaReuniao"
-                    checked={aceitaReuniao}
-                    onCheckedChange={(checked) => setAceitaReuniao(checked as boolean)}
-                  />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="aceitaReuniao"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Aceita uma reunião futura?
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Gostaríamos de agendar uma conversa com você
-                    </p>
-                  </div>
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Aceita fazer reunião? *</Label>
+                  <RadioGroup value={aceitaReuniao} onValueChange={setAceitaReuniao} required>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="sim" id="reuniao-sim" />
+                      <Label htmlFor="reuniao-sim" className="font-normal cursor-pointer">SIM</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nao" id="reuniao-nao" />
+                      <Label htmlFor="reuniao-nao" className="font-normal cursor-pointer">NÃO</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                
-                <div className="flex items-start space-x-3">
-                  <Checkbox
-                    id="continuaProjeto"
-                    checked={continuaProjeto}
-                    onCheckedChange={(checked) => setContinuaProjeto(checked as boolean)}
-                  />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="continuaProjeto"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Gostaria de continuar acompanhando nosso projeto?
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Receba atualizações sobre nossas iniciativas
-                    </p>
-                  </div>
+
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Continua no Projeto? *</Label>
+                  <RadioGroup value={continuaProjeto} onValueChange={setContinuaProjeto} required>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="sim" id="projeto-sim" />
+                      <Label htmlFor="projeto-sim" className="font-normal cursor-pointer">SIM</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nao" id="projeto-nao" />
+                      <Label htmlFor="projeto-nao" className="font-normal cursor-pointer">NÃO</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
-              
-              {/* Observações */}
+
               <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações (opcional)</Label>
+                <Label htmlFor="observacoes">Observações *</Label>
                 <Textarea
                   id="observacoes"
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Alguma informação adicional que gostaria de compartilhar?"
+                  placeholder="Digite aqui suas observações"
+                  required
                   rows={4}
                 />
               </div>
-              
-              {/* Botão Submit */}
+
               <Button
                 type="submit"
                 className="w-full"

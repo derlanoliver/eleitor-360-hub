@@ -10,6 +10,6 @@ export function getBaseUrl(): string {
 /**
  * Gera o link do formulário de visita
  */
-export function generateVisitFormUrl(visitId: string, leaderId: string): string {
-  return `${getBaseUrl()}/agendar-visita/${visitId}/${leaderId}`;
+export function generateVisitFormUrl(visitId: string, leaderId: string, userId: string): string {
+  return `${getBaseUrl()}/visita-gabinete/${visitId}/${leaderId}/${userId}`;
 }
