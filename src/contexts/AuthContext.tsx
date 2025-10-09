@@ -39,67 +39,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user && !!session;
 
-  // Fetch user profile with direct queries (avoiding RPC issues)
-  const fetchUserProfile = async (userId: string): Promise<User | null> => {
-    try {
-      console.log('🔍 Fetching user profile for:', userId);
+  // Create user object from session data
+  const createUserFromSession = (session: Session): User => {
+    const user = session.user;
+    const metadata = user.user_metadata || {};
+    
+    console.log('👤 Creating user from session:', {
+      id: user.id,
+      email: user.email,
+      metadata
+    });
 
-      // Try platform_admins first
-      const { data: platformAdmin, error: adminError } = await supabase
-        .from('platform_admins')
-        .select('*')
-        .eq('id', userId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (platformAdmin && !adminError) {
-        console.log('✅ Found platform_admin:', platformAdmin.email);
-        
-        // Get accessible tenants for platform admin
-        const { data: tenants } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('status', 'active');
-
-        return {
-          id: userId,
-          email: platformAdmin.email,
-          name: platformAdmin.name,
-          role: platformAdmin.role,
-          avatar: "/src/assets/logo-rafael-prudente.png",
-          userType: 'platform_admin',
-          accessibleTenants: tenants?.map(t => t.id) || [],
-          currentTenantId: null
-        };
-      }
-
-      // If not platform admin, try profiles (tenant admin)
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profile && !profileError) {
-        console.log('✅ Found tenant profile:', profile.email);
-        return {
-          id: userId,
-          email: profile.email,
-          name: profile.name,
-          role: profile.role,
-          avatar: "/src/assets/logo-rafael-prudente.png",
-          userType: 'tenant_admin',
-          accessibleTenants: [profile.tenant_id],
-          currentTenantId: profile.tenant_id
-        };
-      }
-
-      console.warn('⚠️ No user profile found for:', userId);
-      return null;
-    } catch (err) {
-      console.error('❌ Exception fetching user profile:', err);
-      return null;
-    }
+    return {
+      id: user.id,
+      email: user.email || '',
+      name: metadata.name || user.email?.split('@')[0] || 'User',
+      role: metadata.role || 'user',
+      avatar: "/src/assets/logo-rafael-prudente.png",
+      userType: metadata.role === 'super_admin' ? 'platform_admin' : 'tenant_admin',
+      accessibleTenants: [],
+      currentTenantId: metadata.tenant_id || null
+    };
   };
 
   // Initialize auth state
@@ -109,33 +69,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔐 Auth state changed:', event);
+        console.log('🔐 Auth event:', event, 'Session:', !!session);
         
         if (!mounted) return;
         
         setSession(session);
         
         if (session?.user) {
-          // CRITICAL: Use setTimeout(0) to avoid Supabase deadlock
-          setTimeout(async () => {
-            if (!mounted) return;
-            
-            console.log('👤 Fetching user profile for:', session.user.id);
-            const profile = await fetchUserProfile(session.user.id);
-            
-            if (profile && mounted) {
-              console.log('✅ User profile loaded:', profile.userType);
-              setUser(profile);
-              setIsLoading(false);
-            } else {
-              console.warn('⚠️ Failed to load user profile');
-              if (mounted) setIsLoading(false);
-            }
-          }, 0);
+          // Create user object directly from session
+          const userData = createUserFromSession(session);
+          console.log('✅ User set from session:', userData.userType, userData.email);
+          setUser(userData);
         } else {
+          console.log('❌ No session, clearing user');
           setUser(null);
-          setIsLoading(false);
         }
+        
+        setIsLoading(false);
+        console.log('🎯 Auth ready - isLoading = false, isAuthenticated =', !!session?.user);
       }
     );
 

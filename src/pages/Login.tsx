@@ -38,11 +38,18 @@ const Login = () => {
 
   // Redirect if already authenticated - navegação imediata
   useEffect(() => {
+    console.log('🔄 Login useEffect:', { 
+      isAuthenticated, 
+      authLoading, 
+      hasUser: !!useAuth().user 
+    });
+    
     if (isAuthenticated) {
+      console.log('✅ Navegando para dashboard...');
       const from = (location.state as any)?.from || "/dashboard";
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate, location, authLoading]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
