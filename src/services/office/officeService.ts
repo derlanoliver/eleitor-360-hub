@@ -136,7 +136,7 @@ export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> 
 export async function getLeaders(filters?: { cidade_id?: string; search?: string }) {
   let query = supabase
     .from("lideres")
-    .select("*, cidade:office_cities(id, nome, codigo_ra, status)")
+    .select("*, cidade:office_cities(*)")
     .eq("status", "active");
   
   if (filters?.cidade_id) {
@@ -197,6 +197,25 @@ export async function updateContactDetails(
   
   if (error) throw error;
   return data as OfficeContact;
+}
+
+/**
+ * Buscar líder por affiliate_token (público)
+ */
+export async function getLeaderByAffiliateToken(token: string): Promise<OfficeLeader | null> {
+  const { data, error } = await supabase
+    .from("lideres")
+    .select("id, nome_completo, cidade_id, cidade:office_cities(*)")
+    .eq("affiliate_token", token)
+    .eq("is_active", true)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("Error fetching leader by token:", error);
+    return null;
+  }
+  
+  return data as OfficeLeader;
 }
 
 export async function createOrUpdateContact(

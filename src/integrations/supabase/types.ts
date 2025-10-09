@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       lideres: {
         Row: {
+          affiliate_token: string | null
           cadastros: number
           cidade_id: string | null
           created_at: string
@@ -31,6 +32,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          affiliate_token?: string | null
           cadastros?: number
           cidade_id?: string | null
           created_at?: string
@@ -46,6 +48,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          affiliate_token?: string | null
           cadastros?: number
           cidade_id?: string | null
           created_at?: string
@@ -495,6 +498,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_leader_affiliate_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_office_protocol: {
         Args: { _prefix?: string } | { _prefix?: string; _tenant_id: string }
         Returns: string

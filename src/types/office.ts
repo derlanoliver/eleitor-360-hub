@@ -37,6 +37,7 @@ export interface OfficeLeader {
   pontuacao_total: number;
   cadastros: number;
   is_active: boolean;
+  affiliate_token?: string;
   last_activity?: string;
   join_date?: string;
   created_at: string;
@@ -138,6 +139,20 @@ export interface UpdateOfficeVisitDTO {
   whatsapp?: string;
   cidade_id?: string;
   leader_id?: string;
+}
+
+export interface CreateAffiliateVisitDTO {
+  leader_token: string;
+  nome: string;
+  telefone: string;
+  cidade_id: string;
+  endereco: string;
+  data_nascimento: string;
+  instagram: string;
+  facebook: string;
+  aceita_reuniao: boolean;
+  continua_projeto: boolean;
+  observacoes: string;
 }
 
 // =====================================================

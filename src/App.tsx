@@ -32,6 +32,7 @@ import Queue from "./pages/office/Queue";
 import History from "./pages/office/History";
 import OfficeSettings from "./pages/office/Settings";
 import ScheduleVisit from "./pages/ScheduleVisit";
+import AffiliateForm from "./pages/AffiliateForm";
 
 const queryClient = new QueryClient();
 
@@ -55,8 +56,9 @@ const App = () => (
             <Route path="/reset-success" element={<ResetSuccess />} />
             <Route path="/setup-users" element={<SetupUsers />} />
             
-            {/* Public route for visit form */}
+            {/* Public routes */}
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
+            <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={

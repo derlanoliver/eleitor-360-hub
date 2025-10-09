@@ -4,17 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Filter, Trophy, Eye, Phone, Loader2, MapPin, Calendar } from "lucide-react";
+import { Users, Search, Filter, Trophy, Eye, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
+import { toast } from "sonner";
+import type { OfficeLeader } from "@/types/office";
 
 const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: cities } = useOfficeCities();
   const { data: leaders, isLoading } = useQuery({
@@ -31,6 +34,18 @@ const Leaders = () => {
       const whatsappUrl = `https://wa.me/${normalizedPhone}`;
       window.open(whatsappUrl, '_blank');
     }
+  };
+
+  const handleCopyAffiliateLink = (leader: OfficeLeader) => {
+    if (!leader.affiliate_token) {
+      toast.error("Token de afiliado não disponível");
+      return;
+    }
+    const link = `${window.location.origin}/affiliate/${leader.affiliate_token}`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(leader.id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast.success("Link de indicação copiado!");
   };
 
   // Filtros
@@ -217,6 +232,19 @@ const Leaders = () => {
                             </Badge>
                             
                             <div className="flex space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopyAffiliateLink(leader)}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                title="Copiar link de indicação"
+                              >
+                                {copiedId === leader.id ? (
+                                  <CheckCircle className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
                               {leader.telefone && (
                                 <Button
                                   variant="ghost"
