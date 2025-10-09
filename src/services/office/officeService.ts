@@ -111,8 +111,8 @@ export async function getCityById(id: string) {
 
 export async function getLeaders(filters?: { cidade_id?: string; search?: string }) {
   let query = supabase
-    .from("office_leaders")
-    .select("*, cidade:office_cities(*)")
+    .from("lideres")
+    .select("*, cidade:office_cities(id, nome, codigo_ra, status)")
     .eq("status", "active");
   
   if (filters?.cidade_id) {
@@ -193,7 +193,7 @@ export async function getVisits(filters?: OfficeVisitsFilters) {
     .select(`
       *,
       contact:office_contacts(*),
-      leader:office_leaders(*),
+      leader:lideres(*),
       city:office_cities(*)
     `);
   
@@ -236,7 +236,7 @@ export async function getVisitById(id: string) {
     .select(`
       *,
       contact:office_contacts(*),
-      leader:office_leaders(*),
+      leader:lideres(*),
       city:office_cities(*)
     `)
     .eq("id", id)
@@ -252,7 +252,7 @@ export async function getVisitByProtocol(protocolo: string) {
     .select(`
       *,
       contact:office_contacts(*),
-      leader:office_leaders(*),
+      leader:lideres(*),
       city:office_cities(*)
     `)
     .eq("protocolo", protocolo)
@@ -293,7 +293,7 @@ export async function createVisit(dto: CreateOfficeVisitDTO, userId: string) {
     .select(`
       *,
       contact:office_contacts(*),
-      leader:office_leaders(*),
+      leader:lideres(*),
       city:office_cities(*)
     `)
     .single();
@@ -310,7 +310,7 @@ export async function updateVisitStatus(id: string, status: OfficeVisit["status"
     .select(`
       *,
       contact:office_contacts(*),
-      leader:office_leaders(*),
+      leader:lideres(*),
       city:office_cities(*)
     `)
     .single();

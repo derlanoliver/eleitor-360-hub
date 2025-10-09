@@ -29,10 +29,16 @@ export interface OfficeCity {
 export interface OfficeLeader {
   id: string;
   nome_completo: string;
-  cidade_id: string;
+  email?: string;
+  telefone?: string;
+  cidade_id?: string;
   cidade?: OfficeCity; // populated join
   status: OfficeLeaderStatus;
   pontuacao_total: number;
+  cadastros: number;
+  is_active: boolean;
+  last_activity?: string;
+  join_date?: string;
   created_at: string;
   updated_at: string;
 }

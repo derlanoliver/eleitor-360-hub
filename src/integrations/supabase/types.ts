@@ -17,26 +17,58 @@ export type Database = {
       lideres: {
         Row: {
           cadastros: number
+          cidade_id: string | null
           created_at: string
+          email: string | null
           id: string
-          nome: string
+          is_active: boolean
+          join_date: string | null
+          last_activity: string | null
+          nome_completo: string
+          pontuacao_total: number
+          status: Database["public"]["Enums"]["office_leader_status"]
+          telefone: string | null
           updated_at: string
         }
         Insert: {
           cadastros?: number
+          cidade_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
-          nome: string
+          is_active?: boolean
+          join_date?: string | null
+          last_activity?: string | null
+          nome_completo: string
+          pontuacao_total?: number
+          status?: Database["public"]["Enums"]["office_leader_status"]
+          telefone?: string | null
           updated_at?: string
         }
         Update: {
           cadastros?: number
+          cidade_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
-          nome?: string
+          is_active?: boolean
+          join_date?: string | null
+          last_activity?: string | null
+          nome_completo?: string
+          pontuacao_total?: number
+          status?: Database["public"]["Enums"]["office_leader_status"]
+          telefone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lideres_cidade_id_fkey"
+            columns: ["cidade_id"]
+            isOneToOne: false
+            referencedRelation: "office_cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       office_cities: {
         Row: {
@@ -93,44 +125,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "office_contacts_cidade_id_fkey"
-            columns: ["cidade_id"]
-            isOneToOne: false
-            referencedRelation: "office_cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      office_leaders: {
-        Row: {
-          cidade_id: string
-          created_at: string
-          id: string
-          nome_completo: string
-          pontuacao_total: number
-          status: Database["public"]["Enums"]["office_leader_status"]
-          updated_at: string
-        }
-        Insert: {
-          cidade_id: string
-          created_at?: string
-          id?: string
-          nome_completo: string
-          pontuacao_total?: number
-          status?: Database["public"]["Enums"]["office_leader_status"]
-          updated_at?: string
-        }
-        Update: {
-          cidade_id?: string
-          created_at?: string
-          id?: string
-          nome_completo?: string
-          pontuacao_total?: number
-          status?: Database["public"]["Enums"]["office_leader_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "office_leaders_cidade_id_fkey"
             columns: ["cidade_id"]
             isOneToOne: false
             referencedRelation: "office_cities"
@@ -299,7 +293,7 @@ export type Database = {
             foreignKeyName: "office_visits_leader_id_fkey"
             columns: ["leader_id"]
             isOneToOne: false
-            referencedRelation: "office_leaders"
+            referencedRelation: "lideres"
             referencedColumns: ["id"]
           },
         ]
