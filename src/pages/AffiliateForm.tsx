@@ -107,7 +107,7 @@ export default function AffiliateForm() {
           leader_id: leader.id,
           city_id: cidadeId,
           status: "FORM_SUBMITTED",
-          created_by: leader.id,
+          created_by: null, // NULL = criado via formulário público de afiliado
         })
         .select()
         .single();

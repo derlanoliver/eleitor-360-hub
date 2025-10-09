@@ -98,6 +98,17 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
             </div>
           )}
           
+          {/* Criado por */}
+          <div>
+            <Label>Criado por</Label>
+            <p className="text-sm mt-1">
+              {visit.created_by 
+                ? "Atendente do Gabinete" 
+                : `Formulário de Afiliado${visit.leader ? ` (via ${visit.leader.nome_completo})` : ""}`
+              }
+            </p>
+          </div>
+          
           {/* Link do Formulário */}
           <div>
             <Label>Link do Formulário</Label>

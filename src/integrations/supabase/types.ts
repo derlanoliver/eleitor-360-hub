@@ -238,7 +238,7 @@ export type Database = {
           city_id: string
           contact_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           leader_id: string
           protocolo: string
@@ -254,7 +254,7 @@ export type Database = {
           city_id: string
           contact_id: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           leader_id: string
           protocolo: string
@@ -270,7 +270,7 @@ export type Database = {
           city_id?: string
           contact_id?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           leader_id?: string
           protocolo?: string
