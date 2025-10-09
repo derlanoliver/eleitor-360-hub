@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
+import type { UserRole } from "@/lib/rbac";
 
 interface User {
   id: string;
@@ -19,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  userRoles: UserRole[];
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -83,6 +86,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           console.log('❌ No session, clearing user');
           setUser(null);
+          setUserRoles([]);
         }
         
         setIsLoading(false);
@@ -105,6 +109,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Fetch user roles after login (non-blocking)
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (!user?.id) {
+        setUserRoles([]);
+        return;
+      }
+
+      try {
+        console.log('🔍 Buscando papéis para usuário:', user.id);
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role, tenant_id')
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        setUserRoles(data || []);
+        console.log('✅ Papéis carregados:', data);
+      } catch (err) {
+        console.error('❌ Erro ao buscar papéis:', err);
+        setUserRoles([]);
+      }
+    };
+
+    fetchUserRoles();
+  }, [user?.id]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -215,6 +246,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     user,
     isLoading,
     isAuthenticated,
+    userRoles,
     login,
     signup,
     logout
