@@ -3,10 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { useSafeSupabase } from "@/hooks/useSafeSupabase";
 import { useNavigate } from "react-router-dom";
 import { Plus, Building2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 type Tenant = {
   id: string;
@@ -20,7 +19,7 @@ export default function Tenants() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { safeQuery, supabase } = useSafeSupabase();
 
   useEffect(() => {
     fetchTenants();
@@ -28,19 +27,24 @@ export default function Tenants() {
 
   const fetchTenants = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTenants(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Erro ao carregar tenants",
-        description: error.message,
-        variant: "destructive"
+      console.log('🔍 Carregando tenants...');
+      
+      const result = await safeQuery<Tenant[]>(async () => {
+        const { data, error } = await supabase
+          .from('tenants')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        return { data, error };
       });
+
+      if (result.error) throw result.error;
+      
+      console.log('✅ Tenants carregados:', result.data?.length || 0);
+      setTenants(result.data || []);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar tenants:', error);
+      setTenants([]);
     } finally {
       setIsLoading(false);
     }

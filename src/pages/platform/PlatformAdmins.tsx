@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { useSafeSupabase } from "@/hooks/useSafeSupabase";
 import { UserCog } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 type PlatformAdmin = {
   id: string;
@@ -19,7 +18,7 @@ type PlatformAdmin = {
 export default function PlatformAdmins() {
   const [admins, setAdmins] = useState<PlatformAdmin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const { safeQuery, supabase } = useSafeSupabase();
 
   useEffect(() => {
     fetchAdmins();
@@ -27,19 +26,24 @@ export default function PlatformAdmins() {
 
   const fetchAdmins = async () => {
     try {
-      const { data, error } = await supabase
-        .from('platform_admins')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAdmins(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Erro ao carregar usuários",
-        description: error.message,
-        variant: "destructive"
+      console.log('🔍 Carregando usuários globais...');
+      
+      const result = await safeQuery<PlatformAdmin[]>(async () => {
+        const { data, error } = await supabase
+          .from('platform_admins')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        return { data, error };
       });
+
+      if (result.error) throw result.error;
+      
+      console.log('✅ Usuários globais carregados:', result.data?.length || 0);
+      setAdmins(result.data || []);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar usuários:', error);
+      setAdmins([]);
     } finally {
       setIsLoading(false);
     }

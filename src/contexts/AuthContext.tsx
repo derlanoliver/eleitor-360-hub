@@ -120,16 +120,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       try {
         console.log('🔍 Buscando papéis para usuário:', user.id);
+        
+        // Validar se Supabase está disponível antes de fazer query
+        if (!supabase || typeof supabase.from !== 'function') {
+          console.error('❌ Supabase client não está disponível para buscar roles');
+          setUserRoles([]);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from('user_roles')
           .select('role, tenant_id')
           .eq('user_id', user.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Erro ao buscar papéis:', error);
+          throw error;
+        }
+        
         setUserRoles(data || []);
         console.log('✅ Papéis carregados:', data);
       } catch (err) {
-        console.error('❌ Erro ao buscar papéis:', err);
+        console.error('❌ Erro crítico ao buscar papéis:', err);
         setUserRoles([]);
       }
     };
