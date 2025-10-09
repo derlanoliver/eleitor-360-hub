@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 
 const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,10 +65,12 @@ const Leaders = () => {
                   Ver Ranking Completo
                 </Link>
               </Button>
-              <Button variant="outline">
-                <Users className="h-4 w-4 mr-2" />
-                Adicionar Líder
-              </Button>
+              <AddLeaderDialog>
+                <Button variant="outline">
+                  <Users className="h-4 w-4 mr-2" />
+                  Adicionar Líder
+                </Button>
+              </AddLeaderDialog>
             </div>
           </div>
         </div>

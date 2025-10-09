@@ -6,6 +6,7 @@ import type {
   OfficeVisit,
   OfficeVisitForm,
   OfficeSettings,
+  CreateLeaderDTO,
   CreateOfficeVisitDTO,
   SubmitOfficeFormDTO,
   OfficeVisitsFilters,
@@ -108,6 +109,29 @@ export async function getCityById(id: string) {
 // =====================================================
 // LEADERS
 // =====================================================
+
+export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> {
+  const { data, error } = await supabase
+    .from('lideres')
+    .insert({
+      nome_completo: dto.nome_completo,
+      email: dto.email,
+      telefone: dto.telefone,
+      cidade_id: dto.cidade_id,
+      is_active: dto.is_active,
+      status: 'active',
+      cadastros: 0,
+      pontuacao_total: 0,
+    })
+    .select(`
+      *,
+      cidade:office_cities(*)
+    `)
+    .single();
+
+  if (error) throw error;
+  return data as OfficeLeader;
+}
 
 export async function getLeaders(filters?: { cidade_id?: string; search?: string }) {
   let query = supabase

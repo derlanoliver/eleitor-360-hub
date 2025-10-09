@@ -34,18 +34,8 @@ export function LeaderAutocomplete({
     [leaders, value]
   );
   
-  // Fallback: Se não houver líderes, usar "Deputado Rafael Prudente"
-  const deputadoFallback = useMemo(
-    () => leaders?.find((l) => l.nome_completo.includes("Rafael Prudente")),
-    [leaders]
-  );
-  
-  const displayLeaders = useMemo(() => {
-    if (!leaders || leaders.length === 0) {
-      return deputadoFallback ? [deputadoFallback] : [];
-    }
-    return leaders;
-  }, [leaders, deputadoFallback]);
+  const hasLeaders = leaders && leaders.length > 0;
+  const isDisabled = disabled || !cityId;
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -55,7 +45,7 @@ export function LeaderAutocomplete({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
-          disabled={disabled || isLoading}
+          disabled={isDisabled || isLoading}
         >
           {isLoading ? (
             <>
@@ -71,6 +61,8 @@ export function LeaderAutocomplete({
                 </span>
               )}
             </>
+          ) : !cityId ? (
+            "Selecione a cidade primeiro"
           ) : (
             placeholder
           )}
@@ -86,12 +78,14 @@ export function LeaderAutocomplete({
           />
           <CommandList>
             <CommandEmpty>
-              {cityId
-                ? "Nenhum líder encontrado nesta cidade. Usando deputado como padrão."
-                : "Selecione uma cidade primeiro"}
+              {!cityId
+                ? "Selecione uma cidade primeiro"
+                : !hasLeaders
+                ? "Nenhum líder cadastrado nesta região. Cadastre um líder primeiro."
+                : "Nenhum líder encontrado"}
             </CommandEmpty>
             <CommandGroup>
-              {displayLeaders.map((leader) => (
+              {leaders?.map((leader) => (
                 <CommandItem
                   key={leader.id}
                   value={leader.id}

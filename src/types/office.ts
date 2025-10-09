@@ -103,6 +103,14 @@ export interface OfficeSettings {
 // DTOs PARA FORMULÁRIOS
 // =====================================================
 
+export interface CreateLeaderDTO {
+  nome_completo: string;
+  email: string;
+  telefone: string;
+  cidade_id: string;
+  is_active: boolean;
+}
+
 export interface CreateOfficeVisitDTO {
   nome: string;
   whatsapp: string; // Formato BR (61) 99999-9999
