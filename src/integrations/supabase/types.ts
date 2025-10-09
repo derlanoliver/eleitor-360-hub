@@ -101,7 +101,11 @@ export type Database = {
         Row: {
           cidade_id: string
           created_at: string
+          data_nascimento: string | null
+          endereco: string | null
+          facebook: string | null
           id: string
+          instagram: string | null
           nome: string
           telefone_norm: string
           updated_at: string
@@ -109,7 +113,11 @@ export type Database = {
         Insert: {
           cidade_id: string
           created_at?: string
+          data_nascimento?: string | null
+          endereco?: string | null
+          facebook?: string | null
           id?: string
+          instagram?: string | null
           nome: string
           telefone_norm: string
           updated_at?: string
@@ -117,7 +125,11 @@ export type Database = {
         Update: {
           cidade_id?: string
           created_at?: string
+          data_nascimento?: string | null
+          endereco?: string | null
+          facebook?: string | null
           id?: string
+          instagram?: string | null
           nome?: string
           telefone_norm?: string
           updated_at?: string

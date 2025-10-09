@@ -88,7 +88,7 @@ export default function ScheduleVisit() {
     try {
       setSubmitting(true);
 
-      // Insert form data
+      // 1. Insert form data into office_visit_forms
       const { error: formError } = await supabase
         .from("office_visit_forms")
         .insert({
@@ -105,7 +105,20 @@ export default function ScheduleVisit() {
 
       if (formError) throw formError;
 
-      // Update visit status
+      // 2. Update contact with form data
+      const { error: contactError } = await supabase
+        .from("office_contacts")
+        .update({
+          endereco,
+          data_nascimento: dataNascimento,
+          instagram,
+          facebook,
+        })
+        .eq("id", visit?.contact_id);
+
+      if (contactError) throw contactError;
+
+      // 3. Update visit status
       const { error: visitError } = await supabase
         .from("office_visits")
         .update({ status: "FORM_SUBMITTED" })

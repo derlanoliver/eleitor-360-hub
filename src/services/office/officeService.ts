@@ -176,6 +176,29 @@ export async function findContactByPhone(phone: string) {
   return data as OfficeContact | null;
 }
 
+/**
+ * Atualiza detalhes de um contato
+ */
+export async function updateContactDetails(
+  contactId: string,
+  details: {
+    endereco?: string;
+    data_nascimento?: string; // YYYY-MM-DD
+    instagram?: string;
+    facebook?: string;
+  }
+): Promise<OfficeContact> {
+  const { data, error } = await supabase
+    .from("office_contacts")
+    .update(details)
+    .eq("id", contactId)
+    .select("*, cidade:office_cities(*)")
+    .single();
+  
+  if (error) throw error;
+  return data as OfficeContact;
+}
+
 export async function createOrUpdateContact(
   nome: string,
   telefone: string,

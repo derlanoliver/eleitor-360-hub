@@ -49,6 +49,10 @@ export interface OfficeContact {
   telefone_norm: string; // E.164 format (+5561999999999)
   cidade_id: string;
   cidade?: OfficeCity;
+  endereco?: string;
+  data_nascimento?: string; // YYYY-MM-DD
+  instagram?: string;
+  facebook?: string;
   created_at: string;
   updated_at: string;
 }
