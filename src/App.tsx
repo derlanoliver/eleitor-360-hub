@@ -18,11 +18,19 @@ import Contacts from "./pages/Contacts";
 import Campaigns from "./pages/Campaigns";
 import Events from "./pages/Events";
 import Projects from "./pages/Projects";
+import Messaging from "./pages/Messaging";
+import Segments from "./pages/Segments";
 import AIAgent from "./pages/AIAgent";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
+
+// Office module pages
+import NewVisit from "./pages/office/NewVisit";
+import Queue from "./pages/office/Queue";
+import History from "./pages/office/History";
+import OfficeSettings from "./pages/office/Settings";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +140,36 @@ const App = () => (
                   <div className="p-6">
                     <h1 className="text-2xl font-bold">Configurações da Organização (Em desenvolvimento)</h1>
                   </div>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Office module routes */}
+            <Route path="/office/new" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <NewVisit />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/office/queue" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Queue />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/office/history" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <History />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/office/settings" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <OfficeSettings />
                 </DashboardLayout>
               </ProtectedRoute>
             } />

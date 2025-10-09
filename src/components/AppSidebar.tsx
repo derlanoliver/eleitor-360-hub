@@ -11,7 +11,11 @@ import {
   Settings,
   Shield,
   Building,
-  LogOut
+  LogOut,
+  Briefcase,
+  UserPlus,
+  List,
+  History as HistoryIcon
 } from "lucide-react";
 
 import {
@@ -48,6 +52,13 @@ const campaignItems = [
 
 const communicationItems = [
   { title: "Agente IA", url: "/ai-agent", icon: Bot },
+];
+
+const officeItems = [
+  { title: "Nova Visita", url: "/office/new", icon: UserPlus },
+  { title: "Fila do Dia", url: "/office/queue", icon: List },
+  { title: "Histórico", url: "/office/history", icon: HistoryIcon },
+  { title: "Configurações", url: "/office/settings", icon: Settings },
 ];
 
 const settingsItems = [
@@ -171,6 +182,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {communicationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  {renderMenuItem(item)}
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Gabinete */}
+        <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+              Gabinete
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {officeItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {renderMenuItem(item)}
                 </SidebarMenuItem>
