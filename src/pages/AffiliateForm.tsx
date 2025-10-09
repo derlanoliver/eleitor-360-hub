@@ -99,15 +99,23 @@ export default function AffiliateForm() {
 
       if (contactError) throw contactError;
 
+      // Gerar protocolo
+      const { data: protocolData, error: protocolError } = await supabase
+        .rpc("generate_office_protocol", { _prefix: "RP-GB" });
+
+      if (protocolError) throw protocolError;
+      const protocolo = protocolData as string;
+
+      // Criar visita
       const { data: visit, error: visitError } = await supabase
         .from("office_visits")
         .insert({
-          protocolo: "",
+          protocolo,
           contact_id: contact.id,
           leader_id: leader.id,
           city_id: cidadeId,
           status: "FORM_SUBMITTED",
-          created_by: null, // NULL = criado via formulário público de afiliado
+          created_by: null,
         })
         .select()
         .single();
