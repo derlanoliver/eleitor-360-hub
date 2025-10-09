@@ -21,6 +21,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   userRoles: UserRole[];
+  rolesLoaded: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -115,6 +117,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const fetchUserRoles = async () => {
       if (!user?.id) {
         setUserRoles([]);
+        setRolesLoaded(true);
         return;
       }
 
@@ -125,6 +128,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (!supabase || typeof supabase.from !== 'function') {
           console.error('❌ Supabase client não está disponível para buscar roles');
           setUserRoles([]);
+          setRolesLoaded(true);
           return;
         }
         
@@ -143,9 +147,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (err) {
         console.error('❌ Erro crítico ao buscar papéis:', err);
         setUserRoles([]);
+      } finally {
+        setRolesLoaded(true);
       }
     };
 
+    setRolesLoaded(false);
     fetchUserRoles();
   }, [user?.id]);
 
@@ -259,6 +266,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading,
     isAuthenticated,
     userRoles,
+    rolesLoaded,
     login,
     signup,
     logout

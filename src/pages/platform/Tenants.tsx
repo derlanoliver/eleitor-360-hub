@@ -22,7 +22,13 @@ export default function Tenants() {
   const { safeQuery, supabase } = useSafeSupabase();
 
   useEffect(() => {
-    fetchTenants();
+    // Pequeno delay para evitar race condition com AuthContext
+    const timer = setTimeout(() => {
+      console.log('⏰ Iniciando fetch de tenants após delay...');
+      fetchTenants();
+    }, 150); // 150ms é suficiente para AuthContext completar
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchTenants = async () => {

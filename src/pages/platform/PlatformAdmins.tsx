@@ -21,7 +21,13 @@ export default function PlatformAdmins() {
   const { safeQuery, supabase } = useSafeSupabase();
 
   useEffect(() => {
-    fetchAdmins();
+    // Pequeno delay para evitar race condition com AuthContext
+    const timer = setTimeout(() => {
+      console.log('⏰ Iniciando fetch de admins após delay...');
+      fetchAdmins();
+    }, 150);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchAdmins = async () => {
