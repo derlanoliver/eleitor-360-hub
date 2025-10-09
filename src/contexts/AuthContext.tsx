@@ -126,11 +126,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (profile && mounted) {
               console.log('✅ User profile loaded:', profile.userType);
               setUser(profile);
+              
+              // CRÍTICO: Aguardar React processar setUser antes de definir isLoading = false
+              setTimeout(() => {
+                if (mounted) {
+                  console.log('🎯 AuthContext: isLoading = false, isAuthenticated = true');
+                  setIsLoading(false);
+                }
+              }, 0);
             } else {
               console.warn('⚠️ Failed to load user profile');
+              if (mounted) setIsLoading(false);
             }
-            
-            setIsLoading(false);
           }, 0);
         } else {
           setUser(null);
