@@ -12,60 +12,96 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Funções disponíveis para o agente IA
 const availableFunctions: Record<string, (params: any) => Promise<any>> = {
-  consultar_regioes: async (params: { periodo?: string, limit?: number }) => {
+  consultar_regioes: async (params: { limit?: number }) => {
     console.log('Executando consultar_regioes com params:', params);
     const query = supabase
-      .from('cadastros_ra')
-      .select('*')
+      .from('regiao_administrativa')
+      .select('id, ra, cadastros')
       .order('cadastros', { ascending: false });
     
     if (params.limit) query.limit(params.limit);
     
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao consultar regiões:', error);
+      throw error;
+    }
     console.log('Resultado consultar_regioes:', data);
-    return data;
+    return data || [];
   },
   
-  consultar_coordenadores: async (params: { limit?: number }) => {
-    console.log('Executando consultar_coordenadores com params:', params);
-    const query = supabase
-      .from('coordenadores')
-      .select('*')
-      .order('cadastros', { ascending: false });
+  consultar_lideres: async (params: { limit?: number, cidade_id?: string }) => {
+    console.log('Executando consultar_lideres com params:', params);
+    let query = supabase
+      .from('lideres')
+      .select('id, nome_completo, email, telefone, cadastros, pontuacao_total, status')
+      .eq('is_active', true)
+      .order('pontuacao_total', { ascending: false });
+    
+    if (params.cidade_id) {
+      query = query.eq('cidade_id', params.cidade_id);
+    }
     
     if (params.limit) query.limit(params.limit);
     
     const { data, error } = await query;
-    if (error) throw error;
-    console.log('Resultado consultar_coordenadores:', data);
-    return data;
+    if (error) {
+      console.error('Erro ao consultar líderes:', error);
+      throw error;
+    }
+    console.log('Resultado consultar_lideres:', data);
+    return data || [];
   },
   
   consultar_temas: async (params: { limit?: number }) => {
     console.log('Executando consultar_temas com params:', params);
     const query = supabase
-      .from('temas_interesse')
-      .select('*')
+      .from('temas')
+      .select('id, tema, cadastros')
       .order('cadastros', { ascending: false });
     
     if (params.limit) query.limit(params.limit);
     
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao consultar temas:', error);
+      throw error;
+    }
     console.log('Resultado consultar_temas:', data);
-    return data;
+    return data || [];
   },
   
   consultar_perfil_demografico: async () => {
     console.log('Executando consultar_perfil_demografico');
     const { data, error } = await supabase
       .from('perfil_demografico')
-      .select('*');
+      .select('id, genero, valor');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao consultar perfil:', error);
+      throw error;
+    }
     console.log('Resultado consultar_perfil_demografico:', data);
-    return data;
+    return data || [];
+  },
+
+  consultar_cidades: async (params: { status?: string }) => {
+    console.log('Executando consultar_cidades com params:', params);
+    let query = supabase
+      .from('office_cities')
+      .select('id, nome, codigo_ra, status');
+    
+    if (params.status) {
+      query = query.eq('status', params.status);
+    }
+    
+    const { data, error } = await query;
+    if (error) {
+      console.error('Erro ao consultar cidades:', error);
+      throw error;
+    }
+    console.log('Resultado consultar_cidades:', data);
+    return data || [];
   }
 };
 
@@ -74,17 +110,13 @@ const toolDefinitions = [
     type: 'function',
     function: {
       name: 'consultar_regioes',
-      description: 'Consulta dados de cadastros por região administrativa (RA). Use para responder perguntas sobre performance regional, cidades com mais cadastros, etc.',
+      description: 'Consulta dados de cadastros por região administrativa (RA) do Distrito Federal. Retorna ranking de RAs por número de cadastros.',
       parameters: {
         type: 'object',
         properties: {
-          periodo: {
-            type: 'string',
-            description: 'Período para filtro (ex: "mes_atual", "ultimos_30_dias")'
-          },
           limit: {
             type: 'number',
-            description: 'Número máximo de resultados a retornar'
+            description: 'Número máximo de resultados (padrão: 10)'
           }
         }
       }
@@ -93,14 +125,18 @@ const toolDefinitions = [
   {
     type: 'function',
     function: {
-      name: 'consultar_coordenadores',
-      description: 'Consulta performance dos coordenadores de campanha. Use para responder sobre rankings de coordenadores, quem está trazendo mais cadastros, etc.',
+      name: 'consultar_lideres',
+      description: 'Consulta performance dos líderes comunitários. Retorna ranking por pontuação total e número de cadastros realizados.',
       parameters: {
         type: 'object',
         properties: {
           limit: {
             type: 'number',
-            description: 'Número máximo de resultados a retornar'
+            description: 'Número máximo de resultados (padrão: 10)'
+          },
+          cidade_id: {
+            type: 'string',
+            description: 'Filtrar por ID da cidade (opcional)'
           }
         }
       }
@@ -110,13 +146,13 @@ const toolDefinitions = [
     type: 'function',
     function: {
       name: 'consultar_temas',
-      description: 'Consulta temas de interesse mais populares entre os eleitores. Use para entender quais pautas estão gerando mais engajamento.',
+      description: 'Consulta temas de interesse mais populares entre os cidadãos. Mostra quais pautas têm mais engajamento.',
       parameters: {
         type: 'object',
         properties: {
           limit: {
             type: 'number',
-            description: 'Número máximo de resultados a retornar'
+            description: 'Número máximo de resultados (padrão: 10)'
           }
         }
       }
@@ -126,10 +162,26 @@ const toolDefinitions = [
     type: 'function',
     function: {
       name: 'consultar_perfil_demografico',
-      description: 'Consulta dados demográficos dos eleitores (gênero, idade média, etc). Use para análises de perfil do eleitorado.',
+      description: 'Consulta distribuição demográfica por gênero. Retorna percentuais de masculino e feminino.',
       parameters: {
         type: 'object',
         properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consultar_cidades',
+      description: 'Consulta lista de cidades/regiões cadastradas no sistema com seus códigos de RA.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            description: 'Filtrar por status (active/inactive)'
+          }
+        }
       }
     }
   }
@@ -249,11 +301,33 @@ SUA FUNÇÃO:
 - Representar os valores e compromissos do Deputado Rafael Prudente
 
 DADOS DISPONÍVEIS:
-Você tem acesso a funções que consultam dados em tempo real:
-- consultar_regioes: Rankings de cadastros por região administrativa
-- consultar_coordenadores: Performance dos coordenadores
-- consultar_temas: Temas de interesse mais populares entre eleitores
-- consultar_perfil_demografico: Dados demográficos dos eleitores
+Você tem acesso a funções que consultam dados em tempo real do banco de dados:
+
+📊 **consultar_regioes**: Rankings de cadastros por Região Administrativa (RA)
+  - Retorna: nome da RA e número de cadastros
+  - Use para: "Quais as RAs com mais cadastros?", "Ranking de regiões"
+
+👥 **consultar_lideres**: Performance dos líderes comunitários
+  - Retorna: nome, email, telefone, cadastros, pontuação total
+  - Use para: "Quem são os melhores líderes?", "Ranking de coordenadores"
+
+💡 **consultar_temas**: Temas de interesse mais populares
+  - Retorna: nome do tema e número de cadastros relacionados
+  - Use para: "Quais pautas interessam mais?", "Temas em alta"
+
+📈 **consultar_perfil_demografico**: Distribuição por gênero
+  - Retorna: gênero e percentual
+  - Use para: "Qual o perfil demográfico?", "Distribuição por gênero"
+
+🏙️ **consultar_cidades**: Lista de cidades/RAs cadastradas
+  - Retorna: nome, código RA, status
+  - Use para: "Quais cidades estão cadastradas?"
+
+**IMPORTANTE SOBRE QUERIES:**
+- Sempre use os nomes EXATOS das funções acima
+- Os dados são reais e atualizados do banco de dados
+- Quando não houver dados, informe isso claramente ao usuário
+- Apresente os números de forma clara e contextualizada
 
 FORMATAÇÃO DAS RESPOSTAS:
 - Use **negrito** para destacar informações importantes e números-chave
@@ -321,18 +395,33 @@ ${firstName ? `- SEMPRE chame o usuário de "${firstName}" de forma natural e am
 
           const functionResponse = await functionToCall(functionArgs);
           
-          // Adicionar resultado da função ao histórico
-          updatedMessages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(functionResponse)
-          });
+          // Validar resposta vazia
+          if (!functionResponse || (Array.isArray(functionResponse) && functionResponse.length === 0)) {
+            console.warn(`Função ${functionName} retornou dados vazios`);
+            updatedMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ 
+                data: [], 
+                message: 'Nenhum dado encontrado' 
+              })
+            });
+          } else {
+            updatedMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(functionResponse)
+            });
+          }
         } catch (error) {
           console.error(`Erro ao executar função ${functionName}:`, error);
           updatedMessages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
-            content: JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' })
+            content: JSON.stringify({ 
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              details: error
+            })
           });
         }
       }
