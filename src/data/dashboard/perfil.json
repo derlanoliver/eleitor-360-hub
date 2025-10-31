@@ -1,8 +1,0 @@
-{
-  "genero": [
-    {"label": "Feminino", "valor": 56},
-    {"label": "Masculino", "valor": 44}
-  ],
-  "idade_media": 34,
-  "participacao_eventos_pct": 37
-}
