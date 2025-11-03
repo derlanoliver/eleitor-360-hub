@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +111,6 @@ const mockAttributionData = [
 ];
 
 const Campaigns = () => {
-  const [campaigns, setCampaigns] = useState(mockCampaignsData);
   const [leaderLinks] = useState(mockLeaderLinksData);
   const [newCampaign, setNewCampaign] = useState({
     name: "",
@@ -121,7 +122,40 @@ const Campaigns = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleCreateCampaign = () => {
+  // Buscar campanhas reais do banco
+  const { data: campaigns = [], isLoading, refetch } = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Transformar dados para formato compatível com a UI
+      return (data || []).map((campaign: any) => ({
+        id: campaign.id,
+        name: campaign.nome,
+        description: campaign.descricao || '',
+        utmSource: campaign.utm_source,
+        utmMedium: campaign.utm_medium || '',
+        utmCampaign: campaign.utm_campaign,
+        link: generateCampaignUrl(
+          campaign.utm_source,
+          campaign.utm_medium || 'direct',
+          campaign.utm_campaign
+        ),
+        qrCode: `data:image/svg+xml;base64,${btoa(`<svg width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="black">${campaign.utm_campaign}</text></svg>`)}`,
+        createdAt: new Date(campaign.created_at).toISOString().split('T')[0],
+        status: campaign.status,
+        registrations: campaign.total_cadastros,
+        conversions: Math.floor(campaign.total_cadastros * 0.3) // Mock conversions (30% de conversão)
+      }));
+    }
+  });
+
+  const handleCreateCampaign = async () => {
     if (!newCampaign.name || !newCampaign.utmSource || !newCampaign.utmCampaign) {
       toast({
         title: "Campos obrigatórios",
@@ -131,32 +165,36 @@ const Campaigns = () => {
       return;
     }
 
-    const campaignId = campaigns.length + 1;
-    const link = generateCampaignUrl(
-      newCampaign.utmSource,
-      newCampaign.utmMedium || 'direct',
-      newCampaign.utmCampaign
-    );
-    
-    const campaign = {
-      id: campaignId,
-      ...newCampaign,
-      link,
-      qrCode: `data:image/svg+xml;base64,${btoa(`<svg width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="black">${newCampaign.utmCampaign}</text></svg>`)}`,
-      createdAt: new Date().toISOString().split('T')[0],
-      status: "active" as const,
-      registrations: 0,
-      conversions: 0
-    };
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .insert({
+          nome: newCampaign.name,
+          descricao: newCampaign.description,
+          utm_source: newCampaign.utmSource,
+          utm_medium: newCampaign.utmMedium || null,
+          utm_campaign: newCampaign.utmCampaign,
+          status: 'active'
+        });
 
-    setCampaigns([...campaigns, campaign]);
-    setNewCampaign({ name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
-    setIsCreateDialogOpen(false);
-    
-    toast({
-      title: "Campanha criada!",
-      description: "Link e QR Code gerados com sucesso."
-    });
+      if (error) throw error;
+
+      toast({
+        title: "Campanha criada!",
+        description: "A campanha foi criada com sucesso."
+      });
+
+      setNewCampaign({ name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
+      setIsCreateDialogOpen(false);
+      refetch();
+    } catch (error) {
+      console.error('Erro ao criar campanha:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a campanha.",
+        variant: "destructive"
+      });
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -179,12 +217,33 @@ const Campaigns = () => {
     });
   };
 
-  const toggleCampaignStatus = (campaignId: number) => {
-    setCampaigns(campaigns.map(campaign => 
-      campaign.id === campaignId 
-        ? { ...campaign, status: campaign.status === "active" ? "paused" : "active" }
-        : campaign
-    ));
+  const toggleCampaignStatus = async (campaignId: string) => {
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+
+    const newStatus = campaign.status === 'active' ? 'paused' : 'active';
+
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ status: newStatus })
+        .eq('id', campaignId);
+
+      if (error) throw error;
+
+      refetch(); // Recarregar campanhas
+      toast({
+        title: "Status atualizado!",
+        description: `Campanha ${newStatus === 'active' ? 'ativada' : 'pausada'} com sucesso.`
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

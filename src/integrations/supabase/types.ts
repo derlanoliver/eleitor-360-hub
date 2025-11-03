@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          status: string
+          total_cadastros: number
+          updated_at: string
+          utm_campaign: string
+          utm_medium: string | null
+          utm_source: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          status?: string
+          total_cadastros?: number
+          updated_at?: string
+          utm_campaign: string
+          utm_medium?: string | null
+          utm_source: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          total_cadastros?: number
+          updated_at?: string
+          utm_campaign?: string
+          utm_medium?: string | null
+          utm_source?: string
+        }
+        Relationships: []
+      }
       lideres: {
         Row: {
           affiliate_token: string | null
@@ -110,8 +149,14 @@ export type Database = {
           id: string
           instagram: string | null
           nome: string
+          source_id: string | null
+          source_type: string | null
           telefone_norm: string
           updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
         }
         Insert: {
           cidade_id: string
@@ -122,8 +167,14 @@ export type Database = {
           id?: string
           instagram?: string | null
           nome: string
+          source_id?: string | null
+          source_type?: string | null
           telefone_norm: string
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Update: {
           cidade_id?: string
@@ -134,8 +185,14 @@ export type Database = {
           id?: string
           instagram?: string | null
           nome?: string
+          source_id?: string | null
+          source_type?: string | null
           telefone_norm?: string
           updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Relationships: [
           {
@@ -498,14 +555,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_leader_affiliate_token: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_office_protocol: {
-        Args: { _prefix?: string } | { _prefix?: string; _tenant_id: string }
-        Returns: string
-      }
+      generate_leader_affiliate_token: { Args: never; Returns: string }
+      generate_office_protocol:
+        | { Args: { _prefix?: string }; Returns: string }
+        | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
       get_user_context: {
         Args: { user_id: string }
         Returns: {
@@ -529,14 +582,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_platform_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_super_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:

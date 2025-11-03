@@ -1,10 +1,14 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
+import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { 
   Users, 
   Phone, 
@@ -22,8 +26,8 @@ import {
   ExternalLink
 } from "lucide-react";
 
-// Mock data para contatos
-const mockContactsData = [
+// Mock data antigo removido - agora usa dados reais
+const mockContactsData_OLD = [
   {
     id: 1,
     name: "Ana Carolina Silva",
@@ -158,11 +162,50 @@ const categoryColors: { [key: string]: string } = {
 };
 
 const Contacts = () => {
-  const [contacts] = useState(mockContactsData);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [consentFilter, setConsentFilter] = useState("all");
   const [selectedContact, setSelectedContact] = useState<any>(null);
+
+  // Buscar contatos reais do banco
+  const { data: contacts = [], isLoading } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('office_contacts')
+        .select(`
+          *,
+          cidade:office_cities(nome, codigo_ra),
+          lider:lideres!source_id(nome_completo),
+          campanha:campaigns!source_id(nome, utm_campaign)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Transformar dados para formato compatível com a UI
+      return (data || []).map((contact: any) => ({
+        id: contact.id,
+        name: contact.nome,
+        phone: formatPhoneToBR(contact.telefone_norm),
+        email: contact.email || '',
+        region: contact.cidade?.nome || 'N/A',
+        profession: '',
+        registrationDate: new Date(contact.created_at).toISOString().split('T')[0],
+        source: contact.source_type === 'lider' 
+          ? `Líder: ${contact.lider?.nome_completo || 'Desconhecido'}`
+          : contact.source_type === 'campanha'
+          ? `Campanha: ${contact.campanha?.nome || 'Desconhecida'}`
+          : 'Manual',
+        consentWhatsApp: true,
+        consentEmail: !!contact.email,
+        consentEvents: true,
+        lastActivity: new Date(contact.updated_at).toISOString().split('T')[0],
+        conversations: [],
+        events: []
+      }));
+    }
+  });
 
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -208,10 +251,7 @@ const Contacts = () => {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-              <Button variant="outline">
-                <Users className="h-4 w-4 mr-2" />
-                Importar Contatos
-              </Button>
+              <ImportContactsDialog />
               <Button>
                 <Users className="h-4 w-4 mr-2" />
                 Adicionar Contato
