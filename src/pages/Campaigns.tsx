@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { generateCampaignUrl, generateLeaderReferralUrl } from "@/lib/urlHelper";
 import { 
   Target, 
   Plus, 
@@ -34,7 +35,7 @@ const mockCampaignsData = [
     utmSource: "facebook",
     utmMedium: "social",
     utmCampaign: "educacao_jan24",
-    link: "https://plataforma360.com/cadastro?utm_source=facebook&utm_medium=social&utm_campaign=educacao_jan24",
+    link: generateCampaignUrl("facebook", "social", "educacao_jan24"),
     qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPkVkdWNhw6fDo28gSmFuMjQ8L3RleHQ+PC9zdmc+",
     createdAt: "2024-01-10",
     status: "active",
@@ -48,7 +49,7 @@ const mockCampaignsData = [
     utmSource: "instagram",
     utmMedium: "stories",
     utmCampaign: "saude_stories",
-    link: "https://plataforma360.com/cadastro?utm_source=instagram&utm_medium=stories&utm_campaign=saude_stories",
+    link: generateCampaignUrl("instagram", "stories", "saude_stories"),
     qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPlNhw7pkZSBTdG9yaWVzPC90ZXh0Pjwvc3ZnPg==",
     createdAt: "2024-01-08",
     status: "active",
@@ -62,7 +63,7 @@ const mockCampaignsData = [
     utmSource: "whatsapp",
     utmMedium: "business",
     utmCampaign: "mobilidade_whats",
-    link: "https://plataforma360.com/cadastro?utm_source=whatsapp&utm_medium=business&utm_campaign=mobilidade_whats",
+    link: generateCampaignUrl("whatsapp", "business", "mobilidade_whats"),
     qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPk1vYmlsaWRhZGU8L3RleHQ+PC9zdmc+",
     createdAt: "2024-01-05",
     status: "paused",
@@ -78,7 +79,7 @@ const mockLeaderLinksData = [
     leaderName: "Maria Silva Santos",
     leaderPhone: "61987654321",
     personalCode: "MSS2024",
-    link: "https://plataforma360.com/indicacao/MSS2024",
+    link: generateLeaderReferralUrl("MSS2024"),
     qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPk1TUzIwMjQ8L3RleHQ+PC9zdmc+",
     createdAt: "2024-01-15",
     registrations: 45,
@@ -89,7 +90,7 @@ const mockLeaderLinksData = [
     leaderName: "João Pedro Oliveira",
     leaderPhone: "61912345678",
     personalCode: "JPO2024",
-    link: "https://plataforma360.com/indicacao/JPO2024",
+    link: generateLeaderReferralUrl("JPO2024"),
     qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPkpQTzIwMjQ8L3RleHQ+PC9zdmc+",
     createdAt: "2024-01-12",
     registrations: 38,
@@ -131,7 +132,11 @@ const Campaigns = () => {
     }
 
     const campaignId = campaigns.length + 1;
-    const link = `https://plataforma360.com/cadastro?utm_source=${newCampaign.utmSource}&utm_medium=${newCampaign.utmMedium || 'direct'}&utm_campaign=${newCampaign.utmCampaign}`;
+    const link = generateCampaignUrl(
+      newCampaign.utmSource,
+      newCampaign.utmMedium || 'direct',
+      newCampaign.utmCampaign
+    );
     
     const campaign = {
       id: campaignId,

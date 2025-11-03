@@ -13,6 +13,7 @@ import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
+import { generateAffiliateUrl } from "@/lib/urlHelper";
 
 const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,7 +43,7 @@ const Leaders = () => {
       toast.error("Token de afiliado não disponível");
       return;
     }
-    const link = `${window.location.origin}/affiliate/${leader.affiliate_token}`;
+    const link = generateAffiliateUrl(leader.affiliate_token);
     navigator.clipboard.writeText(link);
     setCopiedId(leader.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -56,7 +57,7 @@ const Leaders = () => {
     }
 
     try {
-      const affiliateLink = `${window.location.origin}/affiliate/${leader.affiliate_token}`;
+      const affiliateLink = generateAffiliateUrl(leader.affiliate_token);
       
       // Gerar QR code em alta definição (1024x1024)
       const qrDataURL = await QRCode.toDataURL(affiliateLink, {

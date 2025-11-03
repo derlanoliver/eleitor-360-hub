@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, QrCode, Copy, MessageCircle, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import QRCode from 'qrcode';
+import { generateEventRegistrationUrl } from "@/lib/urlHelper";
 
 interface EventQRCodeProps {
   event: {
@@ -49,7 +50,7 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
   const eventSlug = formatEventSlug(event.name);
   const whatsappMessage = encodeURIComponent(`#${trackingCode} - Quero me cadastrar para o Evento ${event.name}`);
   const whatsappURL = `https://wa.me/5561987654321?text=${whatsappMessage}`;
-  const registrationURL = `https://cadastro.rafaelprudente.com/${eventSlug}?utm_source=qr&utm_medium=offline&utm_campaign=evento_${event.id}&utm_content=${trackingCode}`;
+  const registrationURL = generateEventRegistrationUrl(eventSlug, event.id, trackingCode);
 
   useEffect(() => {
     // Gerar QR Codes
