@@ -125,9 +125,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseClient = createClient(
+    // Cliente para autenticação (ANON_KEY com Authorization header)
+    const authClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
           headers: { Authorization: authHeader },
@@ -139,11 +140,11 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Verificar autenticação
+    // Verificar autenticação usando authClient
     const {
       data: { user },
       error: authError,
-    } = await supabaseClient.auth.getUser();
+    } = await authClient.auth.getUser();
 
     if (authError || !user) {
       console.error('Erro de autenticação:', authError);
@@ -155,7 +156,19 @@ Deno.serve(async (req) => {
 
     console.log('User ID autenticado:', user.id);
 
-    // Verificar se é admin
+    // Cliente para operações no banco (SERVICE_ROLE_KEY sem Authorization header)
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Verificar se é admin usando supabaseClient
     const { data: userRoles } = await supabaseClient
       .from('user_roles')
       .select('role')
