@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -98,7 +99,9 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {children}
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
