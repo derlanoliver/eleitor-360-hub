@@ -3,42 +3,59 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Trophy, 
   Phone, 
   ArrowLeft,
-  Calendar,
   TrendingUp,
   Award,
   Medal,
   Crown
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLeadersRanking } from "@/hooks/leaders/useLeadersRanking";
+import { useRegions } from "@/hooks/useRegions";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
-// Mock data para ranking histórico
-const mockRankingData = {
-  currentMonth: [
-    { id: 1, name: "Maria Silva Santos", phone: "61987654321", points: 48, registrations: 45, events: 3, region: "Águas Claras", trend: "up" },
-    { id: 2, name: "João Pedro Oliveira", phone: "61912345678", points: 41, registrations: 38, events: 3, region: "Taguatinga", trend: "up" },
-    { id: 3, name: "Ana Carolina Ferreira", phone: "61998765432", points: 35, registrations: 32, events: 3, region: "Brasília", trend: "stable" },
-    { id: 4, name: "Carlos Eduardo Lima", phone: "61987123456", points: 31, registrations: 28, events: 3, region: "Ceilândia", trend: "down" },
-    { id: 5, name: "Fernanda Costa Rocha", phone: "61912348765", points: 28, registrations: 25, events: 3, region: "Samambaia", trend: "up" },
-    { id: 6, name: "Ricardo Mendes Silva", phone: "61987987987", points: 25, registrations: 22, events: 3, region: "Planaltina", trend: "up" },
-    { id: 7, name: "Patricia Santos Lima", phone: "61912912912", points: 22, registrations: 19, events: 3, region: "Gama", trend: "stable" },
-    { id: 8, name: "Roberto Carlos Souza", phone: "61998998998", points: 19, registrations: 16, events: 3, region: "Santa Maria", trend: "down" },
-    { id: 9, name: "Juliana Pereira", phone: "61987654987", points: 17, registrations: 14, events: 3, region: "Recanto das Emas", trend: "up" },
-    { id: 10, name: "Anderson Silva", phone: "61912345987", points: 15, registrations: 12, events: 3, region: "São Sebastião", trend: "stable" }
-  ]
-};
+const ITEMS_PER_PAGE = 20;
 
 const LeadersRanking = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [selectedRegion, setSelectedRegion] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Buscar dados reais do banco
+  const { data: rankingData = [], isLoading } = useLeadersRanking({ 
+    region: selectedRegion,
+    period: selectedPeriod 
+  });
+
+  const { data: allRegions = [] } = useRegions();
+  const regions = allRegions.map(r => r.nome).sort();
 
   const handleWhatsAppClick = (phone: string) => {
+    if (!phone) return;
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const formatPhone = (phone: string) => {
+    if (!phone) return "Sem telefone";
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length === 13) {
+      return `(${clean.slice(2,4)}) ${clean.slice(4,9)}-${clean.slice(9)}`;
+    }
+    return phone;
   };
 
   const getTrophyIcon = (position: number) => {
@@ -75,11 +92,17 @@ const LeadersRanking = () => {
     }
   };
 
-  const filteredRanking = mockRankingData.currentMonth.filter(leader => 
-    selectedRegion === "all" || leader.region === selectedRegion
-  );
+  // Paginação
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedRanking = rankingData.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(rankingData.length / ITEMS_PER_PAGE);
 
-  const regions = [...new Set(mockRankingData.currentMonth.map(leader => leader.region))];
+  // Reset página ao mudar filtros
+  const handleFilterChange = (callback: () => void) => {
+    callback();
+    setCurrentPage(1);
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
@@ -114,7 +137,7 @@ const LeadersRanking = () => {
                 <label className="text-sm font-medium text-gray-700">
                   Período:
                 </label>
-                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <Select value={selectedPeriod} onValueChange={(v) => handleFilterChange(() => setSelectedPeriod(v))}>
                   <SelectTrigger className="w-full sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
@@ -131,7 +154,7 @@ const LeadersRanking = () => {
                 <label className="text-sm font-medium text-gray-700">
                   Região:
                 </label>
-                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <Select value={selectedRegion} onValueChange={(v) => handleFilterChange(() => setSelectedRegion(v))}>
                   <SelectTrigger className="w-full sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
@@ -148,24 +171,59 @@ const LeadersRanking = () => {
 
               <div className="sm:ml-auto w-full sm:w-auto">
                 <Badge className="badge-brand w-full sm:w-auto justify-center">
-                  {filteredRanking.length} líderes no ranking
+                  {rankingData.length} líderes no ranking
                 </Badge>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Pódio TOP 3 */}
-        <Card className="card-default mb-6">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="flex items-center text-base sm:text-lg">
-              <Trophy className="h-5 w-5 text-primary-600 mr-2" />
-              🏆 Pódio dos Campeões
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              {filteredRanking.slice(0, 3).map((leader, index) => (
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="space-y-6">
+            <Card className="card-default">
+              <CardContent className="p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+                      <Skeleton className="h-6 w-32 mx-auto" />
+                      <Skeleton className="h-8 w-16 mx-auto" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : rankingData.length === 0 ? (
+          /* Mensagem quando vazio */
+          <Card className="card-default">
+            <CardContent className="p-8 text-center">
+              <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Nenhum líder encontrado
+              </h3>
+              <p className="text-gray-600">
+                {selectedRegion !== 'all' 
+                  ? 'Não há líderes ativos nesta região.'
+                  : 'Não há líderes cadastrados no momento.'}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Pódio TOP 3 */}
+            {rankingData.length >= 1 && (
+              <Card className="card-default mb-6">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center text-base sm:text-lg">
+                    <Trophy className="h-5 w-5 text-primary-600 mr-2" />
+                    🏆 Pódio dos Campeões
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                    {rankingData.slice(0, 3).map((leader, index) => (
                 <div
                   key={leader.id}
                   className={`relative p-6 rounded-xl border-2 ${getTrophyBg(index + 1)}`}
@@ -188,6 +246,12 @@ const LeadersRanking = () => {
                       {leader.name}
                     </h3>
                     
+                    {leader.region === 'Sem região' ? (
+                      <Badge variant="outline" className="text-gray-500 mb-2">Sem região</Badge>
+                    ) : (
+                      <p className="text-sm text-gray-600 mb-2">{leader.region}</p>
+                    )}
+                    
                     <div className="space-y-3">
                       <div className="text-center">
                         <p className="text-2xl font-bold text-primary-600">
@@ -207,15 +271,19 @@ const LeadersRanking = () => {
                         </div>
                       </div>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleWhatsAppClick(leader.phone)}
-                        className="text-green-600 hover:text-green-700 hover:bg-green-50 w-full"
-                      >
-                        <Phone className="h-4 w-4 mr-2" />
-                        WhatsApp
-                      </Button>
+                      {leader.phone ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleWhatsAppClick(leader.phone)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50 w-full"
+                        >
+                          <Phone className="h-4 w-4 mr-2" />
+                          {formatPhone(leader.phone)}
+                        </Button>
+                      ) : (
+                        <div className="text-sm text-gray-500">Sem telefone</div>
+                      )}
 
                       <div className="flex items-center justify-center space-x-1">
                         {getTrendIcon(leader.trend)}
@@ -227,35 +295,42 @@ const LeadersRanking = () => {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ranking Completo */}
-        <Card className="card-default">
-          <CardHeader>
-            <CardTitle>📊 Ranking Completo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {filteredRanking.map((leader, index) => (
-                <div
-                  key={leader.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
-                    index < 3 ? getTrophyBg(index + 1) : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-600 rounded-lg font-bold">
-                      {index + 1}º
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{leader.name}</h4>
-                      <p className="text-sm text-gray-600">{leader.region}</p>
-                    </div>
+                    ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Ranking Completo */}
+            <Card className="card-default">
+              <CardHeader>
+                <CardTitle>📊 Ranking Completo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {paginatedRanking.map((leader, index) => {
+                    const globalIndex = startIndex + index;
+                    return (
+                      <div
+                        key={leader.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border ${
+                          globalIndex < 3 ? getTrophyBg(globalIndex + 1) : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-600 rounded-lg font-bold">
+                            {globalIndex + 1}º
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{leader.name}</h4>
+                            {leader.region === 'Sem região' ? (
+                              <Badge variant="outline" className="text-gray-500 text-xs">Sem região</Badge>
+                            ) : (
+                              <p className="text-sm text-gray-600">{leader.region}</p>
+                            )}
+                          </div>
+                        </div>
 
                   <div className="flex items-center space-x-6">
                     <div className="text-center">
@@ -273,23 +348,83 @@ const LeadersRanking = () => {
                       <p className="text-xs text-gray-600">eventos</p>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      {getTrendIcon(leader.trend)}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleWhatsAppClick(leader.phone)}
-                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
+                        <div className="flex items-center space-x-2">
+                          {getTrendIcon(leader.trend)}
+                          {leader.phone ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleWhatsAppClick(leader.phone)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title={formatPhone(leader.phone)}
+                            >
+                              <Phone className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <div className="text-xs text-gray-400">Sem telefone</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
+                {/* Paginação */}
+                {totalPages > 1 && (
+                  <div className="mt-6">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        
+                        {[...Array(totalPages)].map((_, i) => {
+                          const pageNum = i + 1;
+                          // Mostrar apenas algumas páginas
+                          if (
+                            pageNum === 1 || 
+                            pageNum === totalPages || 
+                            (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                          ) {
+                            return (
+                              <PaginationItem key={pageNum}>
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  isActive={currentPage === pageNum}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                            return (
+                              <PaginationItem key={pageNum}>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                            );
+                          }
+                          return null;
+                        })}
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* Informações do Sistema de Pontuação */}
         <Card className="card-default mt-6">
