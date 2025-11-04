@@ -4,8 +4,7 @@ import { getLeaders, getLeadersByCity } from "@/services/office/officeService";
 export function useOfficeLeaders(filters?: { cidade_id?: string; search?: string }) {
   return useQuery({
     queryKey: ["office_leaders", filters],
-    queryFn: () => getLeaders(filters),
-    enabled: !!filters?.cidade_id // Só busca se tiver cidade_id
+    queryFn: () => getLeaders(filters)
   });
 }
 

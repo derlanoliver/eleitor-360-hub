@@ -29,7 +29,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [genero, setGenero] = useState(contact.genero || "Não identificado");
   
   const { data: regions = [] } = useRegions();
-  const { data: leaders = [] } = useOfficeLeaders({ cidade_id: undefined });
+  const { data: leaders = [] } = useOfficeLeaders();
   const updateContact = useUpdateContact();
 
   const handleSave = () => {
