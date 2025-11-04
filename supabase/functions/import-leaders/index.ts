@@ -125,14 +125,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Cliente para autenticação (ANON_KEY com Authorization header)
+    // Extrair o token JWT do header "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Token extraído, comprimento:', token.length);
+
+    // Cliente para autenticação (ANON_KEY)
     const authClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        global: {
-          headers: { Authorization: authHeader },
-        },
         auth: {
           autoRefreshToken: false,
           persistSession: false
@@ -140,11 +141,11 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Verificar autenticação usando authClient
+    // Verificar autenticação passando o token explicitamente
     const {
       data: { user },
       error: authError,
-    } = await authClient.auth.getUser();
+    } = await authClient.auth.getUser(token);
 
     if (authError || !user) {
       console.error('Erro de autenticação:', authError);
