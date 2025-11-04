@@ -128,10 +128,10 @@ const Dashboard = () => {
   const listLeaders = mockLeaders.slice(3, 5);
 
   // Preparar dados dos gráficos
-  const raChartData = rankingRA.slice(0, 8).map(item => ({
+  const raChartData = rankingRA?.slice(0, 8).map(item => ({
     name: item.ra,
     value: item.cadastros
-  }));
+  })) || [];
 
   const temasChartData = rankingTemas.slice(0, 8).map(item => ({
     name: item.tema,
@@ -139,7 +139,7 @@ const Dashboard = () => {
   }));
 
   // Calcular total de cadastros a partir dos dados
-  const totalCadastros = rankingRA.reduce((sum, item) => sum + item.cadastros, 0);
+  const totalCadastros = rankingRA?.reduce((sum, item) => sum + item.cadastros, 0) || 0;
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
@@ -333,19 +333,21 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Cidades Alcançadas</span>
                   </div>
                   <span className="text-lg font-bold text-blue-600">
-                    {rankingRA.length} RAs
+                    {rankingRA?.length || 0} RAs
                   </span>
                 </div>
 
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center mb-1">
-                    <MapPin className="h-4 w-4 text-green-600 mr-2" />
-                    <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
+                {rankingRA && rankingRA.length > 0 && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="flex items-center mb-1">
+                      <MapPin className="h-4 w-4 text-green-600 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
+                    </div>
+                    <span className="text-base font-semibold text-green-600">
+                      {rankingRA[0].ra}
+                    </span>
                   </div>
-                  <span className="text-base font-semibold text-green-600">
-                    {rankingRA[0].ra}
-                  </span>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                   <div className="flex items-center">
