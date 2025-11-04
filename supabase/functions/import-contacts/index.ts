@@ -32,6 +32,11 @@ function normalizePhone(phone: string | number): string {
     return `+${cleaned}`;
   }
   
+  // 12 dígitos com 55 no início (sem 0)
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    return `+${cleaned}`;
+  }
+  
   // 12 dígitos com 0 na frente (055...)
   if (cleaned.length === 12 && cleaned.startsWith('0')) {
     const withoutZero = cleaned.substring(1); // Remove 0
@@ -201,15 +206,10 @@ serve(async (req) => {
 
     console.log(`Iniciando importação de ${contacts.length} contatos`);
 
-    const result: ImportResult = {
-      success: true,
-      total: contacts.length,
-      inserted: 0,
-      updated: 0,
-      errors: [],
-    };
+    // Processar e validar todos os contatos primeiro
+    const validContacts: any[] = [];
+    const errors: Array<{ line: number; error: string }> = [];
 
-    // Processar cada contato
     for (let i = 0; i < contacts.length; i++) {
       const contact: ContactImport = contacts[i];
       const lineNumber = i + 2; // +2 porque linha 1 é cabeçalho
@@ -232,7 +232,7 @@ serve(async (req) => {
         // Normalizar telefone
         const telefone_norm = normalizePhone(contact.whatsapp);
 
-        // Buscar ou criar cidade_id (opcional - usar padrão se não fornecido)
+        // Buscar cidade_id (opcional - usar padrão se não fornecido)
         let cidade_id: string | null = null;
 
         if (contact.cidade) {
@@ -263,66 +263,86 @@ serve(async (req) => {
           throw new Error('Nenhuma cidade disponível no sistema');
         }
 
-        // Preparar dados do contato
-        const contactData = {
+        // Adicionar à lista de contatos válidos
+        validContacts.push({
           nome: contact.nome_completo.trim(),
           telefone_norm,
           cidade_id,
           endereco: contact.endereco.trim(),
           data_nascimento: parseDate(contact.data_nascimento),
+          observacao: contact.observacao?.trim() || null,
           source_type: 'manual',
           source_id: null,
           utm_source: null,
           utm_medium: null,
           utm_campaign: null,
-          utm_content: contact.observacao?.trim() || null,
-        };
+          utm_content: null,
+        });
 
-        // Verificar se contato já existe (por telefone)
-        const { data: existingContact } = await supabaseClient
-          .from('office_contacts')
-          .select('id')
-          .eq('telefone_norm', telefone_norm)
-          .single();
-
-        if (existingContact) {
-          // Atualizar contato existente (mantém created_at original)
-          const { error: updateError } = await supabaseClient
-            .from('office_contacts')
-            .update(contactData)
-            .eq('id', existingContact.id);
-
-          if (updateError) throw updateError;
-          result.updated++;
-          console.log(`Contato ${lineNumber} atualizado: ${contact.nome_completo}`);
-        } else {
-          // Inserir novo contato (created_at é gerado automaticamente pelo DB)
-          const { error: insertError } = await supabaseClient
-            .from('office_contacts')
-            .insert(contactData);
-
-          if (insertError) throw insertError;
-          result.inserted++;
-          console.log(`Contato ${lineNumber} inserido: ${contact.nome_completo}`);
-        }
+        console.log(`Contato ${lineNumber} validado: ${contact.nome_completo}`);
 
       } catch (error) {
         console.error(`Erro na linha ${lineNumber}:`, error);
-        result.errors.push({
+        errors.push({
           line: lineNumber,
           error: error instanceof Error ? error.message : 'Erro desconhecido',
         });
         
         // Log detalhado do contato problemático
-        console.error(`Dados do contato problemático:`, {
+        console.error(`Dados do contato problemático (linha ${lineNumber}):`, {
           nome: contact.nome_completo,
           whatsapp: contact.whatsapp,
-          data_nascimento: contact.data_nascimento
+          data_nascimento: contact.data_nascimento,
+          endereco: contact.endereco,
+          observacao: contact.observacao,
         });
       }
     }
 
-    result.success = result.errors.length === 0;
+    console.log(`Validação concluída: ${validContacts.length} válidos, ${errors.length} erros`);
+
+    // Fazer UPSERT em lote (batch) para todos os contatos válidos
+    let inserted = 0;
+    let updated = 0;
+
+    if (validContacts.length > 0) {
+      console.log('Iniciando upsert em lote...');
+      
+      const { data: upsertData, error: upsertError } = await supabaseClient
+        .from('office_contacts')
+        .upsert(validContacts, {
+          onConflict: 'telefone_norm',
+          ignoreDuplicates: false // Atualiza se já existe
+        })
+        .select('id, created_at');
+
+      if (upsertError) {
+        console.error('Erro no upsert em lote:', upsertError);
+        throw new Error(`Erro no upsert em lote: ${upsertError.message}`);
+      }
+
+      console.log(`Upsert concluído: ${upsertData?.length || 0} registros processados`);
+
+      // Calcular inseridos vs atualizados comparando created_at com now()
+      const now = new Date();
+      const recentlyCreated = upsertData?.filter(c => {
+        const created = new Date(c.created_at);
+        return (now.getTime() - created.getTime()) < 10000; // Criado nos últimos 10 segundos
+      }) || [];
+
+      inserted = recentlyCreated.length;
+      updated = validContacts.length - inserted;
+
+      console.log(`Inseridos: ${inserted}, Atualizados: ${updated}`);
+    }
+
+    const result: ImportResult = {
+      success: errors.length === 0,
+      total: contacts.length,
+      inserted,
+      updated,
+      errors,
+    };
 
     console.log('Importação concluída:', {
       inserted: result.inserted,

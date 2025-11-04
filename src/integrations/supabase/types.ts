@@ -155,6 +155,7 @@ export type Database = {
           id: string
           instagram: string | null
           nome: string
+          observacao: string | null
           source_id: string | null
           source_type: string | null
           telefone_norm: string
@@ -173,6 +174,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           nome: string
+          observacao?: string | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm: string
@@ -191,6 +193,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           nome?: string
+          observacao?: string | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm?: string

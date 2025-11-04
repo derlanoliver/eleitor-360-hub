@@ -274,38 +274,47 @@ export function ImportContactsExcelDialog() {
 
           {/* Import Result */}
           {importResult && (
-            <Alert variant={importResult.success ? "default" : "destructive"}>
-              {importResult.success ? (
-                <CheckCircle2 className="h-4 w-4" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <AlertDescription>
-                <div className="font-medium mb-2">
-                  {importResult.success
-                    ? "Importação concluída com sucesso!"
-                    : "Importação concluída com erros"}
-                </div>
-                <div className="text-sm space-y-1">
-                  <p>✓ {importResult.inserted} contatos inseridos</p>
-                  <p>↻ {importResult.updated} contatos atualizados</p>
-                  {importResult.errors && importResult.errors.length > 0 && (
-                    <div className="mt-2">
-                      <p className="font-medium">Erros:</p>
-                      <ScrollArea className="h-24 mt-1">
-                        <ul className="text-xs space-y-1">
-                          {importResult.errors.map((err: any, idx: number) => (
-                            <li key={idx}>
-                              Linha {err.line}: {err.error}
-                            </li>
-                          ))}
-                        </ul>
-                      </ScrollArea>
+            <div className="space-y-3">
+              <Alert variant={importResult.success ? "default" : "destructive"}>
+                {importResult.success ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <AlertDescription>
+                  <div className="font-medium mb-2">
+                    {importResult.success
+                      ? "✅ Importação concluída com sucesso!"
+                      : "⚠️ Importação concluída com erros"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p>✓ {importResult.inserted} contatos inseridos</p>
+                    <p>↻ {importResult.updated} contatos atualizados</p>
+                    {importResult.errors && importResult.errors.length > 0 && (
+                      <p className="text-destructive">✗ {importResult.errors.length} erros encontrados</p>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+              
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-destructive">
+                    Erros detalhados ({importResult.errors.length}):
+                  </p>
+                  <ScrollArea className="h-32 rounded border p-2 bg-muted/50">
+                    <div className="space-y-2">
+                      {importResult.errors.map((error: any, idx: number) => (
+                        <div key={idx} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
+                          <span className="font-mono font-bold text-destructive">Linha {error.line}:</span>
+                          <span className="ml-2">{error.error}</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </ScrollArea>
                 </div>
-              </AlertDescription>
-            </Alert>
+              )}
+            </div>
           )}
         </div>
 
