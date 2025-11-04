@@ -23,18 +23,45 @@ interface ImportResult {
   errors: Array<{ line: number; error: string }>;
 }
 
-function normalizePhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
+function normalizePhone(phone: string | number): string {
+  // Converter para string e limpar caracteres não-numéricos
+  const cleaned = String(phone).replace(/\D/g, '');
   
+  // 13 dígitos com 55 (internacional completo)
   if (cleaned.length === 13 && cleaned.startsWith('55')) {
     return `+${cleaned}`;
   }
   
+  // 12 dígitos com 0 na frente (055...)
+  if (cleaned.length === 12 && cleaned.startsWith('0')) {
+    const withoutZero = cleaned.substring(1); // Remove 0
+    return `+55${withoutZero}`;
+  }
+  
+  // 11 dígitos (DDDNÚMERO com 9)
   if (cleaned.length === 11) {
     return `+55${cleaned}`;
   }
   
-  throw new Error('Telefone deve ter 13 dígitos (DDIDDDNÚMERO) ou 11 dígitos (DDDNÚMERO)');
+  // 10 dígitos (DDDNÚMERO sem 9 - números antigos)
+  if (cleaned.length === 10) {
+    // Adiciona 9 após o DDD (2 primeiros dígitos)
+    const ddd = cleaned.substring(0, 2);
+    const numero = cleaned.substring(2);
+    return `+55${ddd}9${numero}`;
+  }
+  
+  // 9 dígitos (número sem DDD - usar DDD padrão 61 - Brasília)
+  if (cleaned.length === 9) {
+    return `+5561${cleaned}`;
+  }
+  
+  // 8 dígitos (número sem DDD e sem 9 - adicionar ambos)
+  if (cleaned.length === 8) {
+    return `+55619${cleaned}`;
+  }
+  
+  throw new Error(`Telefone inválido: ${phone}. Formato esperado: (DD)9XXXX-XXXX ou variações`);
 }
 
 function parseDate(dateInput?: string | number): string | null {
@@ -284,6 +311,13 @@ serve(async (req) => {
         result.errors.push({
           line: lineNumber,
           error: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+        
+        // Log detalhado do contato problemático
+        console.error(`Dados do contato problemático:`, {
+          nome: contact.nome_completo,
+          whatsapp: contact.whatsapp,
+          data_nascimento: contact.data_nascimento
         });
       }
     }

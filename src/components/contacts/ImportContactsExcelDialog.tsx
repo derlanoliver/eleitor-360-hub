@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,8 +28,45 @@ export function ImportContactsExcelDialog() {
   const [parsedData, setParsedData] = useState<ContactImportRow[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<any>(null);
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    percentage: 0
+  });
 
   const importMutation = useImportContacts();
+
+  // Simular progresso em tempo real durante a importação
+  useEffect(() => {
+    if (importMutation.isPending && parsedData.length > 0) {
+      const total = parsedData.length;
+      const estimatedTimePerContact = 400; // 400ms por contato
+      const totalTime = total * estimatedTimePerContact;
+      const updateInterval = 100; // Atualizar a cada 100ms
+      const maxProgress = 95; // Parar em 95% até resposta real
+      
+      let elapsed = 0;
+      const interval = setInterval(() => {
+        elapsed += updateInterval;
+        const progress = Math.min((elapsed / totalTime) * 100, maxProgress);
+        const current = Math.floor((progress / 100) * total);
+        
+        setImportProgress({
+          current,
+          total,
+          percentage: Math.floor(progress)
+        });
+        
+        if (progress >= maxProgress) {
+          clearInterval(interval);
+        }
+      }, updateInterval);
+      
+      return () => clearInterval(interval);
+    } else {
+      setImportProgress({ current: 0, total: 0, percentage: 0 });
+    }
+  }, [importMutation.isPending, parsedData.length]);
 
   const handleDownloadTemplate = () => {
     generateContactsTemplate();
@@ -70,6 +107,14 @@ export function ImportContactsExcelDialog() {
     if (parsedData.length === 0 || validationErrors.length > 0) return;
 
     const result = await importMutation.mutateAsync(parsedData as any);
+    
+    // Completar progresso para 100%
+    setImportProgress({
+      current: parsedData.length,
+      total: parsedData.length,
+      percentage: 100
+    });
+    
     setImportResult(result);
 
     if (result.success) {
@@ -204,11 +249,26 @@ export function ImportContactsExcelDialog() {
           {/* Import Progress */}
           {importMutation.isPending && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Importando contatos...</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Importando contatos...</span>
+                </div>
+                <Badge variant="secondary" className="font-mono">
+                  {importProgress.current} / {importProgress.total}
+                </Badge>
               </div>
-              <Progress value={50} className="w-full" />
+              
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Processados: {importProgress.current}</span>
+                  <span>Restantes: {importProgress.total - importProgress.current}</span>
+                </div>
+                <Progress value={importProgress.percentage} className="w-full h-2" />
+                <p className="text-xs text-center text-muted-foreground">
+                  {importProgress.percentage}% concluído
+                </p>
+              </div>
             </div>
           )}
 
