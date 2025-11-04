@@ -1,0 +1,282 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Upload, Download, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  parseContactsExcelFile,
+  generateContactsTemplate,
+  validateContactImportData,
+  ContactImportRow,
+} from "@/utils/excelParser";
+import { useImportContacts } from "@/hooks/contacts/useImportContacts";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+
+export function ImportContactsExcelDialog() {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<ContactImportRow[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [importResult, setImportResult] = useState<any>(null);
+
+  const importMutation = useImportContacts();
+
+  const handleDownloadTemplate = () => {
+    generateContactsTemplate();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    // Validar extensão
+    if (!selectedFile.name.match(/\.(xlsx|xls)$/i)) {
+      alert('Por favor, selecione um arquivo Excel (.xlsx ou .xls)');
+      return;
+    }
+
+    // Validar tamanho (10MB)
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      alert('Arquivo muito grande. Máximo: 10MB');
+      return;
+    }
+
+    setFile(selectedFile);
+    setImportResult(null);
+
+    try {
+      const data = await parseContactsExcelFile(selectedFile);
+      const validation = validateContactImportData(data);
+
+      setParsedData(data);
+      setValidationErrors(validation.errors);
+    } catch (error) {
+      alert(`Erro ao processar arquivo: ${error}`);
+      setFile(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (parsedData.length === 0 || validationErrors.length > 0) return;
+
+    const result = await importMutation.mutateAsync(parsedData as any);
+    setImportResult(result);
+
+    if (result.success) {
+      setTimeout(() => {
+        handleClose();
+      }, 3000);
+    }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setTimeout(() => {
+      setFile(null);
+      setParsedData([]);
+      setValidationErrors([]);
+      setImportResult(null);
+    }, 200);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Upload className="h-4 w-4 mr-2" />
+          Importar Contatos
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Importar Contatos via Excel</DialogTitle>
+          <DialogDescription>
+            Faça o upload de um arquivo Excel (.xlsx ou .xls) com os dados dos contatos
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Download Template */}
+          <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Baixar modelo de planilha</p>
+              <p className="text-xs text-muted-foreground">
+                Use este modelo para garantir que os dados estão no formato correto
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              Baixar
+            </Button>
+          </div>
+
+          {/* File Upload */}
+          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm font-medium">Clique para selecionar o arquivo</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Apenas arquivos .xlsx ou .xls (máx. 10MB)
+              </p>
+            </label>
+            {file && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <FileSpreadsheet className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{file.name}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium mb-2">Erros encontrados na planilha:</div>
+                <ScrollArea className="h-32">
+                  <ul className="text-sm space-y-1">
+                    {validationErrors.map((error, idx) => (
+                      <li key={idx}>• {error}</li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Preview Data */}
+          {parsedData.length > 0 && validationErrors.length === 0 && !importResult && (
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium">
+                  Preview dos dados ({parsedData.length} contatos)
+                </h4>
+                <Badge variant="outline">{parsedData.length} linhas</Badge>
+              </div>
+              <ScrollArea className="h-48">
+                <div className="space-y-2">
+                  {parsedData.slice(0, 5).map((row, idx) => (
+                    <div key={idx} className="text-xs p-2 bg-muted rounded">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-medium">Nome:</span> {row.nome_completo}
+                        </div>
+                        <div>
+                          <span className="font-medium">WhatsApp:</span> {row.whatsapp}
+                        </div>
+                        <div>
+                          <span className="font-medium">Data Nasc:</span> {row.data_nascimento}
+                        </div>
+                        <div>
+                          <span className="font-medium">Cidade:</span> {row.cidade || 'Padrão'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {parsedData.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      ... e mais {parsedData.length - 5} contatos
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Import Progress */}
+          {importMutation.isPending && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Importando contatos...</span>
+              </div>
+              <Progress value={50} className="w-full" />
+            </div>
+          )}
+
+          {/* Import Result */}
+          {importResult && (
+            <Alert variant={importResult.success ? "default" : "destructive"}>
+              {importResult.success ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <AlertDescription>
+                <div className="font-medium mb-2">
+                  {importResult.success
+                    ? "Importação concluída com sucesso!"
+                    : "Importação concluída com erros"}
+                </div>
+                <div className="text-sm space-y-1">
+                  <p>✓ {importResult.inserted} contatos inseridos</p>
+                  <p>↻ {importResult.updated} contatos atualizados</p>
+                  {importResult.errors && importResult.errors.length > 0 && (
+                    <div className="mt-2">
+                      <p className="font-medium">Erros:</p>
+                      <ScrollArea className="h-24 mt-1">
+                        <ul className="text-xs space-y-1">
+                          {importResult.errors.map((err: any, idx: number) => (
+                            <li key={idx}>
+                              Linha {err.line}: {err.error}
+                            </li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={importMutation.isPending}>
+            {importResult ? "Fechar" : "Cancelar"}
+          </Button>
+          {!importResult && (
+            <Button
+              onClick={handleImport}
+              disabled={
+                parsedData.length === 0 ||
+                validationErrors.length > 0 ||
+                importMutation.isPending
+              }
+            >
+              {importMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar {parsedData.length} contatos
+                </>
+              )}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

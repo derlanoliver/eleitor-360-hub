@@ -7,16 +7,12 @@ const corsHeaders = {
 };
 
 interface ContactImport {
-  nome: string;
-  telefone: string;
-  cidade: string;
-  email?: string;
-  endereco?: string;
-  data_nascimento?: string;
-  instagram?: string;
-  facebook?: string;
-  source_type: 'lider' | 'campanha' | 'evento' | 'afiliado' | 'manual';
-  source_name: string;
+  nome_completo: string;
+  whatsapp: string;
+  data_nascimento: string;
+  endereco: string;
+  observacao: string;
+  cidade?: string;
 }
 
 interface ImportResult {
@@ -27,30 +23,60 @@ interface ImportResult {
   errors: Array<{ line: number; error: string }>;
 }
 
-function normalizeTelefone(telefone: string): string {
-  // Remove tudo exceto números
-  const digits = telefone.replace(/\D/g, '');
+function normalizePhone(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '');
   
-  // Formato E.164: +5561999999999
-  if (digits.length === 11) {
-    return `+55${digits}`;
-  } else if (digits.length === 13 && digits.startsWith('55')) {
-    return `+${digits}`;
+  if (cleaned.length === 13 && cleaned.startsWith('55')) {
+    return `+${cleaned}`;
   }
   
-  throw new Error(`Telefone inválido: ${telefone}`);
+  if (cleaned.length === 11) {
+    return `+55${cleaned}`;
+  }
+  
+  throw new Error('Telefone deve ter 13 dígitos (DDIDDDNÚMERO) ou 11 dígitos (DDDNÚMERO)');
 }
 
-function parseDataNascimento(data: string): string | null {
-  if (!data) return null;
-  
-  // Formato DD/MM/AAAA -> AAAA-MM-DD
-  const match = data.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (match) {
-    return `${match[3]}-${match[2]}-${match[1]}`;
+function parseDate(dateInput?: string | number): string | null {
+  if (!dateInput) return null;
+
+  try {
+    let date: Date;
+
+    // Se for número (timestamp Excel)
+    if (typeof dateInput === 'number') {
+      const excelEpoch = new Date(1899, 11, 30);
+      date = new Date(excelEpoch.getTime() + dateInput * 86400000);
+    } else {
+      const dateStr = String(dateInput).trim();
+      
+      // DD/MM/YYYY ou DD-MM-YYYY
+      const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+      if (ddmmyyyyMatch) {
+        const [, day, month, year] = ddmmyyyyMatch;
+        date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      }
+      // YYYY-MM-DD ou YYYY/MM/DD
+      else if (dateStr.match(/^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}$/)) {
+        date = new Date(dateStr);
+      } else {
+        date = new Date(dateStr);
+      }
+    }
+
+    if (isNaN(date.getTime())) {
+      throw new Error('Data inválida');
+    }
+
+    // Formatar YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    throw new Error(`Erro ao processar data: ${error}`);
   }
-  
-  return null;
 }
 
 serve(async (req) => {
@@ -59,45 +85,94 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Verificar autenticação
+    // Verificar Authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header presente:', !!authHeader);
+
     if (!authHeader) {
-      throw new Error('Não autorizado');
+      return new Response(
+        JSON.stringify({ error: 'Token de autenticação não fornecido' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
+    // Extrair o token JWT do header "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Token extraído, comprimento:', token.length);
+
+    // Cliente para autenticação (ANON_KEY)
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     );
+
+    // Verificar autenticação passando o token explicitamente
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser(token);
 
     if (authError || !user) {
-      throw new Error('Não autorizado');
+      console.error('Erro de autenticação:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Verificar role (admin ou atendente)
-    const { data: roles } = await supabaseClient
+    console.log('User ID autenticado:', user.id);
+
+    // Cliente para operações no banco (SERVICE_ROLE_KEY)
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Verificar se usuário tem role admin ou atendente
+    const { data: userRoles } = await supabaseClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .single();
 
-    const hasPermission = roles?.some(r => r.role === 'admin' || r.role === 'atendente');
-    if (!hasPermission) {
-      throw new Error('Permissão negada');
+    console.log('Role do usuário:', userRoles?.role);
+
+    if (!userRoles || !['admin', 'atendente'].includes(userRoles.role)) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autorizado' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { contacts } = await req.json();
     
     if (!Array.isArray(contacts) || contacts.length === 0) {
-      throw new Error('Nenhum contato fornecido');
+      return new Response(
+        JSON.stringify({ error: 'Nenhum contato fornecido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (contacts.length > 1000) {
-      throw new Error('Máximo de 1000 contatos por importação');
+      return new Response(
+        JSON.stringify({ error: 'Máximo de 1000 contatos por importação' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    console.log(`Iniciando importação de ${contacts.length} contatos`);
 
     const result: ImportResult = {
       success: true,
@@ -114,69 +189,70 @@ serve(async (req) => {
 
       try {
         // Validações básicas
-        if (!contact.nome || contact.nome.trim().length === 0) {
-          throw new Error('Nome é obrigatório');
+        if (!contact.nome_completo || contact.nome_completo.trim().length === 0) {
+          throw new Error('Nome completo é obrigatório');
         }
-        if (!contact.telefone) {
-          throw new Error('Telefone é obrigatório');
+        if (!contact.whatsapp) {
+          throw new Error('WhatsApp é obrigatório');
         }
-        if (!contact.cidade) {
-          throw new Error('Cidade é obrigatória');
+        if (!contact.data_nascimento) {
+          throw new Error('Data de nascimento é obrigatória');
         }
-        if (!contact.source_type) {
-          throw new Error('Tipo de origem é obrigatório');
+        if (!contact.endereco || contact.endereco.trim().length === 0) {
+          throw new Error('Endereço é obrigatório');
         }
-        if (!contact.source_name) {
-          throw new Error('Nome da origem é obrigatório');
+        if (!contact.observacao || contact.observacao.trim().length === 0) {
+          throw new Error('Observação é obrigatória');
         }
 
         // Normalizar telefone
-        const telefone_norm = normalizeTelefone(contact.telefone);
+        const telefone_norm = normalizePhone(contact.whatsapp);
 
-        // Buscar cidade_id
-        const { data: cidade } = await supabaseClient
-          .from('office_cities')
-          .select('id')
-          .ilike('nome', contact.cidade)
-          .single();
+        // Buscar ou criar cidade_id (opcional - usar padrão se não fornecido)
+        let cidade_id: string | null = null;
 
-        if (!cidade) {
-          throw new Error(`Cidade "${contact.cidade}" não encontrada`);
-        }
-
-        // Resolver source_id
-        let source_id: string | null = null;
-        let utm_source: string | null = null;
-        let utm_medium: string | null = null;
-        let utm_campaign: string | null = null;
-
-        if (contact.source_type === 'lider') {
-          const { data: lider } = await supabaseClient
-            .from('lideres')
+        if (contact.cidade) {
+          const { data: cidade } = await supabaseClient
+            .from('office_cities')
             .select('id')
-            .ilike('nome_completo', contact.source_name)
+            .ilike('nome', contact.cidade)
             .single();
 
-          if (!lider) {
-            throw new Error(`Líder "${contact.source_name}" não encontrado`);
+          if (cidade) {
+            cidade_id = cidade.id;
           }
-          source_id = lider.id;
-
-        } else if (contact.source_type === 'campanha') {
-          const { data: campanha } = await supabaseClient
-            .from('campaigns')
-            .select('id, utm_source, utm_medium, utm_campaign')
-            .eq('utm_campaign', contact.source_name)
-            .single();
-
-          if (!campanha) {
-            throw new Error(`Campanha "${contact.source_name}" não encontrada`);
-          }
-          source_id = campanha.id;
-          utm_source = campanha.utm_source;
-          utm_medium = campanha.utm_medium;
-          utm_campaign = campanha.utm_campaign;
         }
+
+        // Se não encontrou cidade, usar primeira cidade ativa como fallback
+        if (!cidade_id) {
+          const { data: cidadePadrao } = await supabaseClient
+            .from('office_cities')
+            .select('id')
+            .eq('status', 'active')
+            .limit(1)
+            .single();
+          
+          cidade_id = cidadePadrao?.id || null;
+        }
+
+        if (!cidade_id) {
+          throw new Error('Nenhuma cidade disponível no sistema');
+        }
+
+        // Preparar dados do contato
+        const contactData = {
+          nome: contact.nome_completo.trim(),
+          telefone_norm,
+          cidade_id,
+          endereco: contact.endereco.trim(),
+          data_nascimento: parseDate(contact.data_nascimento),
+          source_type: 'manual',
+          source_id: null,
+          utm_source: null,
+          utm_medium: null,
+          utm_campaign: null,
+          utm_content: contact.observacao?.trim() || null,
+        };
 
         // Verificar se contato já existe (por telefone)
         const { data: existingContact } = await supabaseClient
@@ -185,24 +261,8 @@ serve(async (req) => {
           .eq('telefone_norm', telefone_norm)
           .single();
 
-        const contactData = {
-          nome: contact.nome.trim(),
-          telefone_norm,
-          cidade_id: cidade.id,
-          email: contact.email?.trim() || null,
-          endereco: contact.endereco?.trim() || null,
-          data_nascimento: parseDataNascimento(contact.data_nascimento || ''),
-          instagram: contact.instagram?.trim() || null,
-          facebook: contact.facebook?.trim() || null,
-          source_type: contact.source_type,
-          source_id,
-          utm_source,
-          utm_medium,
-          utm_campaign,
-        };
-
         if (existingContact) {
-          // Atualizar contato existente
+          // Atualizar contato existente (mantém created_at original)
           const { error: updateError } = await supabaseClient
             .from('office_contacts')
             .update(contactData)
@@ -210,15 +270,16 @@ serve(async (req) => {
 
           if (updateError) throw updateError;
           result.updated++;
-
+          console.log(`Contato ${lineNumber} atualizado: ${contact.nome_completo}`);
         } else {
-          // Inserir novo contato
+          // Inserir novo contato (created_at é gerado automaticamente pelo DB)
           const { error: insertError } = await supabaseClient
             .from('office_contacts')
             .insert(contactData);
 
           if (insertError) throw insertError;
           result.inserted++;
+          console.log(`Contato ${lineNumber} inserido: ${contact.nome_completo}`);
         }
 
       } catch (error) {
@@ -232,6 +293,12 @@ serve(async (req) => {
 
     result.success = result.errors.length === 0;
 
+    console.log('Importação concluída:', {
+      inserted: result.inserted,
+      updated: result.updated,
+      errors: result.errors.length,
+    });
+
     return new Response(
       JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -242,7 +309,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
       { 
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

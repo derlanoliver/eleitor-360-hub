@@ -3,16 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 interface ContactImport {
-  nome: string;
-  telefone: string;
-  cidade: string;
-  email?: string;
-  endereco?: string;
-  data_nascimento?: string;
-  instagram?: string;
-  facebook?: string;
-  source_type: 'lider' | 'campanha' | 'evento' | 'afiliado' | 'manual';
-  source_name: string;
+  nome_completo: string;
+  whatsapp: string;
+  data_nascimento: string;
+  endereco: string;
+  observacao: string;
+  cidade?: string;
 }
 
 interface ImportResult {

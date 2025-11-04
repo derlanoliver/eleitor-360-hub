@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
+import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { 
   Users, 
@@ -251,7 +251,7 @@ const Contacts = () => {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-              <ImportContactsDialog />
+              <ImportContactsExcelDialog />
               <Button>
                 <Users className="h-4 w-4 mr-2" />
                 Adicionar Contato
