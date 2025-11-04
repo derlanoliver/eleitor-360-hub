@@ -106,12 +106,12 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
           {/* Líder */}
           <div>
             <Label>Líder Responsável</Label>
-            <Select value={leaderId} onValueChange={setLeaderId}>
+            <Select value={leaderId || "none"} onValueChange={(value) => setLeaderId(value === "none" ? "" : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Nenhum líder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum líder</SelectItem>
+                <SelectItem value="none">Nenhum líder</SelectItem>
                 {leaders.map((leader) => (
                   <SelectItem key={leader.id} value={leader.id}>
                     {leader.nome_completo}

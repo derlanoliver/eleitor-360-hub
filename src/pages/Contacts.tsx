@@ -509,7 +509,7 @@ const Contacts = () => {
                             <div className="flex space-x-2">
                               <Button 
                                 size="sm" 
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => setEditingContact({
                                   id: contact.id,
                                   nome: contact.name,
@@ -519,9 +519,9 @@ const Contacts = () => {
                                   source_id: contact.source_id,
                                   genero: contact.genero
                                 })}
+                                className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
                               >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Editar
+                                <Edit className="h-4 w-4" />
                               </Button>
                               {contact.consentWhatsApp && (
                                 <Button
