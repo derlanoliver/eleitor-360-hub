@@ -275,41 +275,77 @@ export function ImportContactsExcelDialog() {
           {/* Import Result */}
           {importResult && (
             <div className="space-y-3">
-              <Alert variant={importResult.success ? "default" : "destructive"}>
-                {importResult.success ? (
+              {/* Success or Partial Success */}
+              <Alert variant={importResult.success && importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length === 0 ? "default" : "destructive"}>
+                {importResult.success && importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length === 0 ? (
                   <CheckCircle2 className="h-4 w-4" />
                 ) : (
                   <AlertCircle className="h-4 w-4" />
                 )}
                 <AlertDescription>
                   <div className="font-medium mb-2">
-                    {importResult.success
+                    {importResult.success && importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length === 0
                       ? "✅ Importação concluída com sucesso!"
-                      : "⚠️ Importação concluída com erros"}
+                      : "⚠️ Importação concluída com problemas"}
                   </div>
                   <div className="text-sm space-y-1">
                     <p>✓ {importResult.inserted} contatos inseridos</p>
                     <p>↻ {importResult.updated} contatos atualizados</p>
                     {importResult.errors && importResult.errors.length > 0 && (
-                      <p className="text-destructive">✗ {importResult.errors.length} erros encontrados</p>
+                      <>
+                        {importResult.errors.filter((e: any) => e.error.includes('duplicado')).length > 0 && (
+                          <p className="text-yellow-600">⚠ {importResult.errors.filter((e: any) => e.error.includes('duplicado')).length} duplicados ignorados</p>
+                        )}
+                        {importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length > 0 && (
+                          <p className="text-destructive">✗ {importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length} erros críticos</p>
+                        )}
+                      </>
                     )}
                   </div>
                 </AlertDescription>
               </Alert>
               
-              {importResult.errors && importResult.errors.length > 0 && (
+              {/* Warnings Section (Duplicates) */}
+              {importResult.errors && importResult.errors.filter((e: any) => e.error.includes('duplicado')).length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-destructive">
-                    Erros detalhados ({importResult.errors.length}):
+                  <p className="text-sm font-medium text-yellow-700 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Telefones duplicados ignorados ({importResult.errors.filter((e: any) => e.error.includes('duplicado')).length})
                   </p>
-                  <ScrollArea className="h-32 rounded border p-2 bg-muted/50">
+                  <ScrollArea className="h-24 rounded border border-yellow-200 p-2 bg-yellow-50">
+                    <div className="space-y-1.5">
+                      {importResult.errors
+                        .filter((e: any) => e.error.includes('duplicado'))
+                        .map((error: any, idx: number) => (
+                          <div key={idx} className="text-xs p-1.5 bg-yellow-100 rounded border border-yellow-200">
+                            <span className="font-mono font-bold text-yellow-800">Linha {error.line}:</span>
+                            <span className="ml-2 text-yellow-700">{error.error}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Critical Errors Section */}
+              {importResult.errors && importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Erros críticos encontrados ({importResult.errors.filter((e: any) => !e.error.includes('duplicado')).length})
+                  </p>
+                  <ScrollArea className="h-32 rounded border border-destructive p-2 bg-destructive/5">
                     <div className="space-y-2">
-                      {importResult.errors.map((error: any, idx: number) => (
-                        <div key={idx} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
-                          <span className="font-mono font-bold text-destructive">Linha {error.line}:</span>
-                          <span className="ml-2">{error.error}</span>
-                        </div>
-                      ))}
+                      {importResult.errors
+                        .filter((e: any) => !e.error.includes('duplicado'))
+                        .map((error: any, idx: number) => (
+                          <div key={idx} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
+                            <span className="font-mono font-bold text-destructive">Linha {error.line}:</span>
+                            <span className="ml-2">{error.error}</span>
+                          </div>
+                        ))
+                      }
                     </div>
                   </ScrollArea>
                 </div>

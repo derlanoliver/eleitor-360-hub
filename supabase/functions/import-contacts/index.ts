@@ -209,6 +209,7 @@ serve(async (req) => {
     // Processar e validar todos os contatos primeiro
     const validContacts: any[] = [];
     const errors: Array<{ line: number; error: string }> = [];
+    const phonesSeen = new Map<string, number>(); // telefone -> primeira linha
 
     for (let i = 0; i < contacts.length; i++) {
       const contact: ContactImport = contacts[i];
@@ -231,6 +232,19 @@ serve(async (req) => {
 
         // Normalizar telefone
         const telefone_norm = normalizePhone(contact.whatsapp);
+
+        // Verificar duplicados NO MESMO ARQUIVO
+        if (phonesSeen.has(telefone_norm)) {
+          const firstLine = phonesSeen.get(telefone_norm);
+          errors.push({
+            line: lineNumber,
+            error: `Telefone duplicado (já apareceu na linha ${firstLine}). Ignorado.`
+          });
+          console.log(`⚠️ Linha ${lineNumber}: Telefone duplicado ${telefone_norm} (primeira ocorrência na linha ${firstLine})`);
+          continue; // Pular para próximo contato
+        }
+        
+        phonesSeen.set(telefone_norm, lineNumber);
 
         // Buscar cidade_id (opcional - usar padrão se não fornecido)
         let cidade_id: string | null = null;
@@ -279,10 +293,10 @@ serve(async (req) => {
           utm_content: null,
         });
 
-        console.log(`Contato ${lineNumber} validado: ${contact.nome_completo}`);
+        console.log(`✅ Contato ${lineNumber} validado: ${contact.nome_completo}`);
 
       } catch (error) {
-        console.error(`Erro na linha ${lineNumber}:`, error);
+        console.error(`❌ Erro na linha ${lineNumber}:`, error);
         errors.push({
           line: lineNumber,
           error: error instanceof Error ? error.message : 'Erro desconhecido',
