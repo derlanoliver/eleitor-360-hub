@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
+import { EditContactDialog } from "@/components/contacts/EditContactDialog";
+import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { 
   Users, 
@@ -24,7 +26,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Edit,
+  Sparkles,
+  Loader2
 } from "lucide-react";
 
 // Mock data antigo removido - agora usa dados reais
@@ -167,8 +172,11 @@ const Contacts = () => {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [consentFilter, setConsentFilter] = useState("all");
   const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [editingContact, setEditingContact] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
+  
+  const identifyGenders = useIdentifyGenders();
 
   // Buscar contatos reais do banco
   const { data: contacts = [], isLoading } = useQuery({
@@ -178,7 +186,7 @@ const Contacts = () => {
         .from('office_contacts')
         .select(`
           *,
-          cidade:office_cities(nome, codigo_ra)
+          cidade:office_cities(id, nome, codigo_ra)
         `)
         .order('created_at', { ascending: false });
       
@@ -226,7 +234,13 @@ const Contacts = () => {
           consentEvents: true,
           lastActivity: new Date(contact.updated_at).toISOString().split('T')[0],
           conversations: [],
-          events: []
+          events: [],
+          // Keep raw data for editing
+          cidade_id: contact.cidade_id,
+          telefone_norm: contact.telefone_norm,
+          source_type: contact.source_type,
+          source_id: contact.source_id,
+          genero: contact.genero
         };
       });
     }
@@ -291,6 +305,24 @@ const Contacts = () => {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+              <Button 
+                variant="outline" 
+                onClick={() => identifyGenders.mutate()}
+                disabled={identifyGenders.isPending}
+                className="flex-shrink-0"
+              >
+                {identifyGenders.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Identificando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Identificar Gêneros
+                  </>
+                )}
+              </Button>
               <ImportContactsExcelDialog />
               <Button>
                 <Users className="h-4 w-4 mr-2" />
@@ -475,6 +507,22 @@ const Contacts = () => {
                             </div>
                             
                             <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEditingContact({
+                                  id: contact.id,
+                                  nome: contact.name,
+                                  telefone_norm: contact.telefone_norm,
+                                  cidade_id: contact.cidade_id,
+                                  source_type: contact.source_type,
+                                  source_id: contact.source_id,
+                                  genero: contact.genero
+                                })}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Editar
+                              </Button>
                               {contact.consentWhatsApp && (
                                 <Button
                                   variant="ghost"
@@ -626,6 +674,15 @@ const Contacts = () => {
           </div>
         </div>
       </div>
+
+      {/* Dialog de Edição */}
+      {editingContact && (
+        <EditContactDialog
+          contact={editingContact}
+          open={!!editingContact}
+          onOpenChange={(open) => !open && setEditingContact(null)}
+        />
+      )}
     </div>
   );
 };

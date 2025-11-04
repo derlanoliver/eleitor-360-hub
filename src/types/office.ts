@@ -56,6 +56,9 @@ export interface OfficeContact {
   data_nascimento?: string; // YYYY-MM-DD
   instagram?: string;
   facebook?: string;
+  genero?: "Masculino" | "Feminino" | "Não identificado";
+  source_type?: "manual" | "lider" | "campanha";
+  source_id?: string;
   created_at: string;
   updated_at: string;
 }

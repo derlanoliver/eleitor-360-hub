@@ -152,6 +152,7 @@ export type Database = {
           data_nascimento: string | null
           endereco: string | null
           facebook: string | null
+          genero: string | null
           id: string
           instagram: string | null
           nome: string
@@ -171,6 +172,7 @@ export type Database = {
           data_nascimento?: string | null
           endereco?: string | null
           facebook?: string | null
+          genero?: string | null
           id?: string
           instagram?: string | null
           nome: string
@@ -190,6 +192,7 @@ export type Database = {
           data_nascimento?: string | null
           endereco?: string | null
           facebook?: string | null
+          genero?: string | null
           id?: string
           instagram?: string | null
           nome?: string
