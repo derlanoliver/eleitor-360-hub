@@ -6,9 +6,7 @@ import * as XLSX from 'xlsx';
 export interface LeaderImportRow {
   nome_completo: string;
   whatsapp: string;
-  regiao_administrativa: string;
   data_nascimento: string;
-  endereco_completo: string;
   status: string;
   observacao?: string;
   email?: string;
@@ -35,9 +33,7 @@ export async function parseExcelFile(file: File): Promise<LeaderImportRow[]> {
           header: [
             'nome_completo',
             'whatsapp',
-            'regiao_administrativa',
             'data_nascimento',
-            'endereco_completo',
             'status',
             'observacao',
             'email'
@@ -69,9 +65,7 @@ export function generateLeadersTemplate(): void {
     {
       'Nome Completo': 'João da Silva',
       'WhatsApp': '5561999887766',
-      'Região Administrativa': 'Taguatinga',
       'Data de Nascimento': '15/03/1985',
-      'Endereço Completo': 'QNL 12 Conjunto A Casa 15, Taguatinga Norte',
       'Status': 'ativo',
       'Observação': 'Líder comunitário experiente',
       'Email': 'joao.silva@email.com'
@@ -79,9 +73,7 @@ export function generateLeadersTemplate(): void {
     {
       'Nome Completo': 'Maria Santos',
       'WhatsApp': '5561988776655',
-      'Região Administrativa': 'Ceilândia',
       'Data de Nascimento': '22/07/1990',
-      'Endereço Completo': 'QNM 28 Conjunto H Casa 3, Ceilândia Norte',
       'Status': 'ativo',
       'Observação': '',
       'Email': 'maria.santos@email.com'
@@ -97,9 +89,7 @@ export function generateLeadersTemplate(): void {
   const colWidths = [
     { wch: 25 }, // Nome Completo
     { wch: 18 }, // WhatsApp
-    { wch: 22 }, // Região Administrativa
     { wch: 18 }, // Data de Nascimento
-    { wch: 40 }, // Endereço Completo
     { wch: 12 }, // Status
     { wch: 35 }, // Observação
     { wch: 30 }  // Email
@@ -134,10 +124,6 @@ export function validateImportData(data: LeaderImportRow[]): {
 
     if (!row.whatsapp?.trim()) {
       errors.push(`Linha ${lineNumber}: WhatsApp é obrigatório`);
-    }
-
-    if (!row.regiao_administrativa?.trim()) {
-      errors.push(`Linha ${lineNumber}: Região Administrativa é obrigatória`);
     }
 
     if (!row.data_nascimento) {

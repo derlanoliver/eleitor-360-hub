@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Filter, Trophy, Eye, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download } from "lucide-react";
+import { Users, Search, Filter, Trophy, Pencil, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
+import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
@@ -303,9 +304,16 @@ const Leaders = () => {
                                   <Phone className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                              <EditLeaderDialog leader={leader}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="Editar líder"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </EditLeaderDialog>
                             </div>
                           </div>
                           

@@ -61,7 +61,6 @@ export type Database = {
           created_at: string
           data_nascimento: string | null
           email: string | null
-          endereco_completo: string | null
           id: string
           is_active: boolean
           join_date: string | null
@@ -80,7 +79,6 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           email?: string | null
-          endereco_completo?: string | null
           id?: string
           is_active?: boolean
           join_date?: string | null
@@ -99,7 +97,6 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           email?: string | null
-          endereco_completo?: string | null
           id?: string
           is_active?: boolean
           join_date?: string | null

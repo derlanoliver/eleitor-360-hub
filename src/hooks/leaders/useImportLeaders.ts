@@ -5,9 +5,7 @@ import { toast } from "@/hooks/use-toast";
 interface LeaderImportData {
   nome_completo: string;
   whatsapp: string;
-  regiao_administrativa: string;
   data_nascimento: string;
-  endereco_completo: string;
   status: string;
   observacao?: string;
   email?: string;

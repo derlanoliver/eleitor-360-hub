@@ -177,7 +177,8 @@ export function ImportLeadersDialog() {
                     <div key={i} className="text-sm border-b pb-2">
                       <p className="font-medium">{leader.nome_completo}</p>
                       <p className="text-muted-foreground text-xs">
-                        {leader.whatsapp} • {leader.regiao_administrativa} • {leader.status}
+                        {leader.whatsapp} • {leader.status}
+                        {leader.email && ` • ${leader.email}`}
                       </p>
                     </div>
                   ))}

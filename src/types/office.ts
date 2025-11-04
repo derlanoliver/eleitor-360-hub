@@ -41,7 +41,6 @@ export interface OfficeLeader {
   last_activity?: string;
   join_date?: string;
   data_nascimento?: string; // YYYY-MM-DD
-  endereco_completo?: string;
   observacao?: string;
   created_at: string;
   updated_at: string;
@@ -113,12 +112,21 @@ export interface OfficeSettings {
 
 export interface CreateLeaderDTO {
   nome_completo: string;
-  email: string;
-  telefone: string;
-  cidade_id: string;
+  email?: string;
+  telefone?: string;
+  cidade_id?: string;
   is_active: boolean;
   data_nascimento?: string; // YYYY-MM-DD
-  endereco_completo?: string;
+  observacao?: string;
+}
+
+export interface UpdateLeaderDTO {
+  nome_completo?: string;
+  email?: string;
+  telefone?: string;
+  cidade_id?: string;
+  is_active?: boolean;
+  data_nascimento?: string; // YYYY-MM-DD
   observacao?: string;
 }
 

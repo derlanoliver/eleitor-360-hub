@@ -8,9 +8,7 @@ const corsHeaders = {
 interface LeaderImportData {
   nome_completo: string;
   whatsapp: string;
-  regiao_administrativa: string;
   data_nascimento: string;
-  endereco_completo: string;
   status: string;
   observacao?: string;
   email?: string;
@@ -175,15 +173,6 @@ Deno.serve(async (req) => {
       total: leaders.length,
     };
 
-    // Buscar todas as cidades uma vez
-    const { data: cities } = await supabaseClient
-      .from('office_cities')
-      .select('id, nome, codigo_ra');
-
-    const cityMap = new Map(
-      cities?.map(c => [c.nome.toLowerCase().trim(), c.id]) || []
-    );
-
     // Processar cada líder
     for (let i = 0; i < leaders.length; i++) {
       const leader = leaders[i] as LeaderImportData;
@@ -197,22 +186,11 @@ Deno.serve(async (req) => {
         if (!leader.whatsapp?.trim()) {
           throw new Error('WhatsApp é obrigatório');
         }
-        if (!leader.regiao_administrativa?.trim()) {
-          throw new Error('Região Administrativa é obrigatória');
-        }
 
         // Normalizar dados
         const telefone = normalizePhone(leader.whatsapp);
         const dataNascimento = parseDate(leader.data_nascimento);
         const isActive = parseStatus(leader.status);
-
-        // Buscar cidade_id
-        const cidadeNome = leader.regiao_administrativa.toLowerCase().trim();
-        const cidadeId = cityMap.get(cidadeNome);
-
-        if (!cidadeId) {
-          throw new Error(`Região Administrativa "${leader.regiao_administrativa}" não encontrada`);
-        }
 
         // Verificar se líder já existe (por telefone)
         const { data: existingLeader } = await supabaseClient
@@ -228,9 +206,8 @@ Deno.serve(async (req) => {
             .update({
               nome_completo: leader.nome_completo.trim(),
               email: leader.email?.trim() || null,
-              cidade_id: cidadeId,
+              cidade_id: null, // Não vincular região na importação
               data_nascimento: dataNascimento,
-              endereco_completo: leader.endereco_completo?.trim() || null,
               observacao: leader.observacao?.trim() || null,
               is_active: isActive,
               updated_at: new Date().toISOString(),
@@ -247,9 +224,8 @@ Deno.serve(async (req) => {
               nome_completo: leader.nome_completo.trim(),
               telefone,
               email: leader.email?.trim() || null,
-              cidade_id: cidadeId,
+              cidade_id: null, // Não vincular região na importação
               data_nascimento: dataNascimento,
-              endereco_completo: leader.endereco_completo?.trim() || null,
               observacao: leader.observacao?.trim() || null,
               is_active: isActive,
               status: 'active',
@@ -264,7 +240,7 @@ Deno.serve(async (req) => {
         console.error(`Erro na linha ${lineNumber}:`, error);
         result.errors.push({
           line: lineNumber,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
           data: leader,
         });
       }
@@ -277,7 +253,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Erro geral:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

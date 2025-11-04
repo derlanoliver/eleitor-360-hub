@@ -1,15 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { CreateLeaderDTO } from "@/types/office";
+import type { OfficeLeader, UpdateLeaderDTO } from "@/types/office";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -26,8 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CitySelect } from "@/components/office/CitySelect";
-import { Users, Loader2, CalendarIcon } from "lucide-react";
-import { useCreateLeader } from "@/hooks/office/useCreateLeader";
+import { Pencil, Loader2, CalendarIcon } from "lucide-react";
+import { useUpdateLeader } from "@/hooks/leaders/useUpdateLeader";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -46,49 +45,68 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-interface AddLeaderDialogProps {
+interface EditLeaderDialogProps {
+  leader: OfficeLeader;
   children: React.ReactNode;
 }
 
-export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
+export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
   const [open, setOpen] = useState(false);
-  const { mutate: createLeader, isPending } = useCreateLeader();
+  const { mutate: updateLeader, isPending } = useUpdateLeader();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      nome_completo: "",
-      email: "",
-      telefone: "",
-      cidade_id: "",
-      data_nascimento: "",
-      observacao: "",
-      is_active: true,
+      nome_completo: leader.nome_completo,
+      email: leader.email || "",
+      telefone: leader.telefone || "",
+      cidade_id: leader.cidade_id || "",
+      data_nascimento: leader.data_nascimento || "",
+      observacao: leader.observacao || "",
+      is_active: leader.is_active,
     },
   });
 
+  // Atualizar valores quando o líder mudar
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        nome_completo: leader.nome_completo,
+        email: leader.email || "",
+        telefone: leader.telefone || "",
+        cidade_id: leader.cidade_id || "",
+        data_nascimento: leader.data_nascimento || "",
+        observacao: leader.observacao || "",
+        is_active: leader.is_active,
+      });
+    }
+  }, [leader, open, form]);
+
   const onSubmit = (data: FormData) => {
-    createLeader(data as CreateLeaderDTO, {
-      onSuccess: () => {
-        setOpen(false);
-        form.reset();
+    updateLeader(
+      { 
+        id: leader.id, 
+        data: data as UpdateLeaderDTO 
       },
-    });
+      {
+        onSuccess: () => {
+          setOpen(false);
+        },
+      }
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      {children}
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Adicionar Novo Líder
+            <Pencil className="h-5 w-5 text-primary" />
+            Editar Líder
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados do novo líder. Todos os campos são obrigatórios.
+            Atualize os dados do líder. A região administrativa pode ser definida aqui.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,7 +131,7 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email (Opcional)</FormLabel>
                   <FormControl>
                     <Input 
                       type="email" 
@@ -131,7 +149,7 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
               name="telefone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Telefone</FormLabel>
+                  <FormLabel>Telefone (Opcional)</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="5561999999999" 
@@ -149,7 +167,7 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
               name="cidade_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Região Administrativa (Opcional)</FormLabel>
+                  <FormLabel>Região Administrativa</FormLabel>
                   <FormControl>
                     <CitySelect
                       value={field.value}
@@ -255,7 +273,7 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Adicionar Líder
+                Salvar Alterações
               </Button>
             </div>
           </form>
