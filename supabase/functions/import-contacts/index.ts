@@ -11,7 +11,7 @@ interface ContactImport {
   whatsapp: string;
   data_nascimento: string;
   endereco: string;
-  observacao: string;
+  observacao?: string;
   cidade?: string;
 }
 
@@ -200,9 +200,6 @@ serve(async (req) => {
         }
         if (!contact.endereco || contact.endereco.trim().length === 0) {
           throw new Error('Endereço é obrigatório');
-        }
-        if (!contact.observacao || contact.observacao.trim().length === 0) {
-          throw new Error('Observação é obrigatória');
         }
 
         // Normalizar telefone
