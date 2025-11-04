@@ -127,11 +127,15 @@ Deno.serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         global: {
           headers: { Authorization: authHeader },
         },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
       }
     );
 
@@ -142,11 +146,14 @@ Deno.serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (authError || !user) {
+      console.error('Erro de autenticação:', authError);
       return new Response(
         JSON.stringify({ error: 'Não autenticado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('User ID autenticado:', user.id);
 
     // Verificar se é admin
     const { data: userRoles } = await supabaseClient
@@ -154,6 +161,8 @@ Deno.serve(async (req) => {
       .select('role')
       .eq('user_id', user.id)
       .single();
+
+    console.log('Role do usuário:', userRoles?.role);
 
     if (!userRoles || userRoles.role !== 'admin') {
       return new Response(
