@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
+import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
@@ -117,6 +118,7 @@ const Leaders = () => {
                   Ver Ranking Completo
                 </Link>
               </Button>
+              <ImportLeadersDialog />
               <AddLeaderDialog>
                 <Button variant="outline">
                   <Users className="h-4 w-4 mr-2" />

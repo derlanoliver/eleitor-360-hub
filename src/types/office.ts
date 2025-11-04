@@ -40,6 +40,9 @@ export interface OfficeLeader {
   affiliate_token?: string;
   last_activity?: string;
   join_date?: string;
+  data_nascimento?: string; // YYYY-MM-DD
+  endereco_completo?: string;
+  observacao?: string;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +117,9 @@ export interface CreateLeaderDTO {
   telefone: string;
   cidade_id: string;
   is_active: boolean;
+  data_nascimento?: string; // YYYY-MM-DD
+  endereco_completo?: string;
+  observacao?: string;
 }
 
 export interface CreateOfficeVisitDTO {

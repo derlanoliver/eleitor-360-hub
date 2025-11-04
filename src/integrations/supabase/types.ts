@@ -59,12 +59,15 @@ export type Database = {
           cadastros: number
           cidade_id: string | null
           created_at: string
+          data_nascimento: string | null
           email: string | null
+          endereco_completo: string | null
           id: string
           is_active: boolean
           join_date: string | null
           last_activity: string | null
           nome_completo: string
+          observacao: string | null
           pontuacao_total: number
           status: Database["public"]["Enums"]["office_leader_status"]
           telefone: string | null
@@ -75,12 +78,15 @@ export type Database = {
           cadastros?: number
           cidade_id?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email?: string | null
+          endereco_completo?: string | null
           id?: string
           is_active?: boolean
           join_date?: string | null
           last_activity?: string | null
           nome_completo: string
+          observacao?: string | null
           pontuacao_total?: number
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
@@ -91,12 +97,15 @@ export type Database = {
           cadastros?: number
           cidade_id?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email?: string | null
+          endereco_completo?: string | null
           id?: string
           is_active?: boolean
           join_date?: string | null
           last_activity?: string | null
           nome_completo?: string
+          observacao?: string | null
           pontuacao_total?: number
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
