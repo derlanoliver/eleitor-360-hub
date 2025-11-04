@@ -166,6 +166,8 @@ const Contacts = () => {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [consentFilter, setConsentFilter] = useState("all");
   const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   // Buscar contatos reais do banco
   const { data: contacts = [], isLoading } = useQuery({
@@ -253,6 +255,17 @@ const Contacts = () => {
     return matchesSearch && matchesRegion && matchesConsent;
   });
 
+  // Paginação
+  const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedContacts = filteredContacts.slice(startIndex, endIndex);
+
+  // Reset para página 1 quando filtros mudarem
+  const handleFilterChange = () => {
+    setCurrentPage(1);
+  };
+
   const regions = [...new Set(contacts.map(contact => contact.region))];
   const totalWithWhatsApp = contacts.filter(c => c.consentWhatsApp).length;
   const totalWithEmail = contacts.filter(c => c.consentEmail).length;
@@ -302,7 +315,10 @@ const Contacts = () => {
                     <Input
                       placeholder="Nome, e-mail ou profissão..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        handleFilterChange();
+                      }}
                       className="pl-9"
                     />
                   </div>
@@ -312,7 +328,10 @@ const Contacts = () => {
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Região Administrativa
                   </label>
-                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                  <Select value={selectedRegion} onValueChange={(value) => {
+                    setSelectedRegion(value);
+                    handleFilterChange();
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Todas as regiões" />
                     </SelectTrigger>
@@ -331,7 +350,10 @@ const Contacts = () => {
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Consentimento
                   </label>
-                  <Select value={consentFilter} onValueChange={setConsentFilter}>
+                  <Select value={consentFilter} onValueChange={(value) => {
+                    setConsentFilter(value);
+                    handleFilterChange();
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -349,8 +371,20 @@ const Contacts = () => {
 
           {/* Lista de Contatos */}
           <div className="lg:col-span-3">
+            {/* Info da Paginação */}
+            <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div>
+                Mostrando <span className="font-medium text-foreground">{startIndex + 1}</span> a{" "}
+                <span className="font-medium text-foreground">{Math.min(endIndex, filteredContacts.length)}</span> de{" "}
+                <span className="font-medium text-foreground">{filteredContacts.length}</span> contatos
+              </div>
+              <div className="text-xs">
+                Página {currentPage} de {totalPages || 1}
+              </div>
+            </div>
+
             <div className="space-y-3 sm:space-y-4">
-              {filteredContacts.map((contact) => (
+              {paginatedContacts.map((contact) => (
                 <Card key={contact.id} className="card-default hover:shadow-md transition-shadow">
                   <CardContent className="p-4 sm:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
@@ -482,7 +516,7 @@ const Contacts = () => {
                 </Card>
               ))}
 
-              {filteredContacts.length === 0 && (
+              {paginatedContacts.length === 0 && (
                 <Card className="card-default">
                   <CardContent className="p-8 text-center">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -496,6 +530,94 @@ const Contacts = () => {
                 </Card>
               )}
             </div>
+
+            {/* Componente de Paginação */}
+            {totalPages > 1 && (
+              <Card className="card-default mt-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="gap-2"
+                    >
+                      <span className="hidden sm:inline">Anterior</span>
+                      <span className="sm:hidden">←</span>
+                    </Button>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      {/* Primeira página */}
+                      {currentPage > 3 && (
+                        <>
+                          <Button
+                            variant={currentPage === 1 ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-9 h-9 p-0"
+                          >
+                            1
+                          </Button>
+                          {currentPage > 4 && (
+                            <span className="px-1 text-muted-foreground">...</span>
+                          )}
+                        </>
+                      )}
+
+                      {/* Páginas ao redor da atual */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          return page === currentPage ||
+                                 page === currentPage - 1 ||
+                                 page === currentPage + 1 ||
+                                 (currentPage <= 2 && page <= 3) ||
+                                 (currentPage >= totalPages - 1 && page >= totalPages - 2);
+                        })
+                        .map(page => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-9 h-9 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+
+                      {/* Última página */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && (
+                            <span className="px-1 text-muted-foreground">...</span>
+                          )}
+                          <Button
+                            variant={currentPage === totalPages ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-9 h-9 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="gap-2"
+                    >
+                      <span className="hidden sm:inline">Próximo</span>
+                      <span className="sm:hidden">→</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
