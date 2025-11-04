@@ -28,6 +28,8 @@ export function useUpdateContact() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["office_leaders"] });
+      queryClient.invalidateQueries({ queryKey: ["leaders_ranking"] });
       toast({
         title: "✅ Contato atualizado",
         description: "As informações foram salvas com sucesso",
