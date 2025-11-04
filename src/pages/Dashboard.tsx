@@ -8,91 +8,54 @@ import { useState } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
 import { FilterTabs } from "@/components/dashboard/FilterTabs";
 import { ProfileStats } from "@/components/dashboard/ProfileStats";
-import rankingTemas from "@/data/dashboard/ranking_temas.json";
-import perfilData from "@/data/dashboard/perfil.json";
-import { useQuery } from "@tanstack/react-query";
+import { useDashboardStats } from "@/hooks/dashboard/useDashboardStats";
+import { useTopLeaders } from "@/hooks/dashboard/useTopLeaders";
+import { useProfileStats } from "@/hooks/dashboard/useProfileStats";
+import { useTemasRanking } from "@/hooks/dashboard/useTemasRanking";
+import { useCitiesRanking } from "@/hooks/dashboard/useCitiesRanking";
+import { formatRelativeTime } from "@/lib/dateUtils";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
-// Mock data para o ranking de lideranças
-const mockLeaders = [
-  {
-    id: 1,
-    name: "Maria Silva Santos",
-    phone: "61987654321",
-    registrations: 45,
-    position: 1,
-    isActive: true,
-  },
-  {
-    id: 2,
-    name: "João Pedro Oliveira",
-    phone: "61912345678",
-    registrations: 38,
-    position: 2,
-    isActive: true,
-  },
-  {
-    id: 3,
-    name: "Ana Carolina Ferreira",
-    phone: "61998765432",
-    registrations: 32,
-    position: 3,
-    isActive: true,
-  },
-  {
-    id: 4,
-    name: "Carlos Eduardo Lima",
-    phone: "61987123456",
-    registrations: 28,
-    position: 4,
-    isActive: false,
-  },
-  {
-    id: 5,
-    name: "Fernanda Costa Rocha",
-    phone: "61912348765",
-    registrations: 25,
-    position: 5,
-    isActive: true,
-  },
-];
-
-// Mock data para estatísticas gerais
-const mockStats = {
-  totalRegistrations: 2847,
-  citiesReached: 18,
-  topCity: "Águas Claras",
-  activeLeaders: 23,
-  lastRegistration: "Há 2 minutos",
-};
 
 const Dashboard = () => {
   const [periodRA, setPeriodRA] = useState("30d");
   const [periodTemas, setPeriodTemas] = useState("30d");
+  const queryClient = useQueryClient();
 
-  // Buscar ranking de RAs em tempo real do banco
-  const { data: rankingRA = [] } = useQuery({
-    queryKey: ['ranking_ra'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('office_contacts')
-        .select('cidade_id, cidade:office_cities(nome, codigo_ra)')
-        .order('created_at', { ascending: false });
+  // Buscar dados reais do banco
+  const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
+  const { data: topLeaders = [], isLoading: leadersLoading } = useTopLeaders();
+  const { data: profileStats, isLoading: profileLoading } = useProfileStats();
+  const { data: temasRanking = [], isLoading: temasLoading } = useTemasRanking();
+  const { data: citiesRanking = [], isLoading: citiesLoading } = useCitiesRanking();
+
+  // Mutation para atualizar status do líder
+  const toggleLeaderMutation = useMutation({
+    mutationFn: async ({ leaderId, isActive }: { leaderId: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from("lideres")
+        .update({ is_active: !isActive })
+        .eq("id", leaderId);
       
       if (error) throw error;
-      
-      // Agrupar por cidade e contar
-      const grouped = data.reduce((acc, contact) => {
-        const cidade = contact.cidade?.nome || 'Desconhecido';
-        acc[cidade] = (acc[cidade] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      // Formatar para o mesmo formato esperado
-      return Object.entries(grouped)
-        .map(([ra, cadastros]) => ({ ra, cadastros }))
-        .sort((a, b) => b.cadastros - a.cadastros);
-    }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["top_leaders"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard_stats"] });
+      toast({
+        title: "✅ Status atualizado",
+        description: "O status do líder foi alterado com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Erro ao atualizar",
+        description: error.message || "Não foi possível alterar o status",
+        variant: "destructive",
+      });
+    },
   });
 
   const handleWhatsAppClick = (phone: string) => {
@@ -101,9 +64,8 @@ const Dashboard = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  const toggleLeaderStatus = (leaderId: number) => {
-    console.log(`Toggling status for leader ${leaderId}`);
-    // Mock action - in real app, would update via API
+  const toggleLeaderStatus = (leaderId: string, isActive: boolean) => {
+    toggleLeaderMutation.mutate({ leaderId, isActive });
   };
 
   const getTrophyColor = (position: number) => {
@@ -124,22 +86,17 @@ const Dashboard = () => {
     }
   };
 
-  const podiumLeaders = mockLeaders.slice(0, 3);
-  const listLeaders = mockLeaders.slice(3, 5);
+  const podiumLeaders = topLeaders.slice(0, 3);
+  const listLeaders = topLeaders.slice(3, 5);
 
   // Preparar dados dos gráficos
-  const raChartData = rankingRA?.slice(0, 8).map(item => ({
-    name: item.ra,
-    value: item.cadastros
-  })) || [];
-
-  const temasChartData = rankingTemas.slice(0, 8).map(item => ({
+  const raChartData = citiesRanking.slice(0, 8);
+  const temasChartData = temasRanking.slice(0, 8).map(item => ({
     name: item.tema,
-    value: item.cadastros
+    value: item.cadastros,
   }));
 
-  // Calcular total de cadastros a partir dos dados
-  const totalCadastros = rankingRA?.reduce((sum, item) => sum + item.cadastros, 0) || 0;
+  const isLoading = statsLoading || leadersLoading || profileLoading || temasLoading || citiesLoading;
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
@@ -189,17 +146,19 @@ const Dashboard = () => {
                           <h4 className="font-semibold text-gray-900 text-sm mb-1">
                             {leader.name}
                           </h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleWhatsAppClick(leader.phone)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            <span className="text-xs">
-                              ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
-                            </span>
-                          </Button>
+                           {leader.phone && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleWhatsAppClick(leader.phone)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
+                            >
+                              <Phone className="h-4 w-4 mr-1" />
+                              <span className="text-xs">
+                                ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
+                              </span>
+                            </Button>
+                          )}
                           <div className="mt-2">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                               {leader.registrations} cadastros
@@ -208,11 +167,11 @@ const Dashboard = () => {
                           <div className="flex items-center justify-center mt-2 space-x-2">
                             <span className="text-xs text-gray-600">Status:</span>
                             <Switch
-                              checked={leader.isActive}
-                              onCheckedChange={() => toggleLeaderStatus(leader.id)}
+                              checked={leader.active}
+                              onCheckedChange={() => toggleLeaderStatus(leader.id, leader.active)}
                             />
-                            <span className={`text-xs ${leader.isActive ? 'text-green-600' : 'text-gray-400'}`}>
-                              {leader.isActive ? 'Ativo' : 'Inativo'}
+                            <span className={`text-xs ${leader.active ? 'text-green-600' : 'text-gray-400'}`}>
+                              {leader.active ? 'Ativo' : 'Inativo'}
                             </span>
                           </div>
                         </div>
@@ -240,24 +199,26 @@ const Dashboard = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleWhatsAppClick(leader.phone)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            <span className="text-sm">
-                              ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
-                            </span>
-                          </Button>
+                          {leader.phone && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleWhatsAppClick(leader.phone)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <Phone className="h-4 w-4 mr-1" />
+                              <span className="text-sm">
+                                ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
+                              </span>
+                            </Button>
+                          )}
                           <div className="flex items-center space-x-2">
                             <Switch
-                              checked={leader.isActive}
-                              onCheckedChange={() => toggleLeaderStatus(leader.id)}
+                              checked={leader.active}
+                              onCheckedChange={() => toggleLeaderStatus(leader.id, leader.active)}
                             />
-                            <Badge variant={leader.isActive ? "default" : "secondary"}>
-                              {leader.isActive ? 'Ativo' : 'Inativo'}
+                            <Badge variant={leader.active ? "default" : "secondary"}>
+                              {leader.active ? 'Ativo' : 'Inativo'}
                             </Badge>
                           </div>
                         </div>
@@ -323,7 +284,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Total de Cadastros</span>
                   </div>
                   <span className="text-lg font-bold text-primary-600">
-                    {totalCadastros.toLocaleString()}
+                    {dashboardStats?.totalRegistrations.toLocaleString() || 0}
                   </span>
                 </div>
 
@@ -333,18 +294,18 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Cidades Alcançadas</span>
                   </div>
                   <span className="text-lg font-bold text-blue-600">
-                    {rankingRA?.length || 0} RAs
+                    {dashboardStats?.citiesReached || 0} RAs
                   </span>
                 </div>
 
-                {rankingRA && rankingRA.length > 0 && (
+                {dashboardStats?.topCity && (
                   <div className="p-3 bg-green-50 rounded-lg">
                     <div className="flex items-center mb-1">
                       <MapPin className="h-4 w-4 text-green-600 mr-2" />
                       <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
                     </div>
                     <span className="text-base font-semibold text-green-600">
-                      {rankingRA[0].ra}
+                      {dashboardStats.topCity} ({dashboardStats.topCityCount})
                     </span>
                   </div>
                 )}
@@ -355,7 +316,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Líderes Ativos</span>
                   </div>
                   <span className="text-lg font-bold text-orange-600">
-                    {mockStats.activeLeaders}
+                    {dashboardStats?.activeLeaders || 0}
                   </span>
                 </div>
 
@@ -365,14 +326,14 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Último cadastro</span>
                   </div>
                   <span className="text-sm text-gray-600">
-                    {mockStats.lastRegistration}
+                    {formatRelativeTime(dashboardStats?.lastRegistration || null)}
                   </span>
                 </div>
               </CardContent>
             </Card>
 
             {/* Novo: Perfil dos Cadastrados */}
-            <ProfileStats data={perfilData} />
+            {profileStats && <ProfileStats data={profileStats} />}
 
             {/* Quick Actions */}
             <Card className="card-default">
