@@ -66,6 +66,14 @@ function normalizePhone(phone: string | number): string {
     return `+55619${cleaned}`;
   }
   
+  // 14 dígitos com erro comum: 5506XXXXXXXXXXX
+  // Exemplo: 55061993218831 -> deve ser 5561993218831
+  if (cleaned.length === 14 && cleaned.startsWith('5506')) {
+    const fixedNumber = '55' + cleaned.substring(4); // Remove o "06" extra
+    console.log(`⚠️ Corrigindo número com 14 dígitos: ${cleaned} -> ${fixedNumber}`);
+    return normalizePhone(fixedNumber); // Recursão com número corrigido
+  }
+  
   throw new Error(`Telefone inválido: ${phone}. Formato esperado: (DD)9XXXX-XXXX ou variações`);
 }
 

@@ -175,35 +175,57 @@ const Contacts = () => {
         .from('office_contacts')
         .select(`
           *,
-          cidade:office_cities(nome, codigo_ra),
-          lider:lideres!source_id(nome_completo),
-          campanha:campaigns!source_id(nome, utm_campaign)
+          cidade:office_cities(nome, codigo_ra)
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+
+      // Buscar TODOS os líderes e campanhas de uma vez (muito mais eficiente)
+      const liderIds = data?.filter(c => c.source_type === 'lider' && c.source_id).map(c => c.source_id) || [];
+      const campanhaIds = data?.filter(c => c.source_type === 'campanha' && c.source_id).map(c => c.source_id) || [];
+
+      const [lideresData, campanhasData] = await Promise.all([
+        liderIds.length > 0 
+          ? supabase.from('lideres').select('id, nome_completo').in('id', liderIds)
+          : Promise.resolve({ data: [] }),
+        campanhaIds.length > 0
+          ? supabase.from('campaigns').select('id, nome, utm_campaign').in('id', campanhaIds)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      const lideresMap = new Map((lideresData.data || []).map((l: any) => [l.id, l]));
+      const campanhasMap = new Map((campanhasData.data || []).map((c: any) => [c.id, c]));
       
       // Transformar dados para formato compatível com a UI
-      return (data || []).map((contact: any) => ({
-        id: contact.id,
-        name: contact.nome,
-        phone: formatPhoneToBR(contact.telefone_norm),
-        email: contact.email || '',
-        region: contact.cidade?.nome || 'N/A',
-        profession: '',
-        registrationDate: new Date(contact.created_at).toISOString().split('T')[0],
-        source: contact.source_type === 'lider' 
-          ? `Líder: ${contact.lider?.nome_completo || 'Desconhecido'}`
-          : contact.source_type === 'campanha'
-          ? `Campanha: ${contact.campanha?.nome || 'Desconhecida'}`
-          : 'Manual',
-        consentWhatsApp: true,
-        consentEmail: !!contact.email,
-        consentEvents: true,
-        lastActivity: new Date(contact.updated_at).toISOString().split('T')[0],
-        conversations: [],
-        events: []
-      }));
+      return (data || []).map((contact: any) => {
+        let sourceInfo = 'Manual';
+        
+        if (contact.source_type === 'lider' && contact.source_id) {
+          const lider = lideresMap.get(contact.source_id);
+          sourceInfo = lider ? `Líder: ${lider.nome_completo}` : 'Líder: Desconhecido';
+        } else if (contact.source_type === 'campanha' && contact.source_id) {
+          const campanha = campanhasMap.get(contact.source_id);
+          sourceInfo = campanha ? `Campanha: ${campanha.nome}` : 'Campanha: Desconhecida';
+        }
+        
+        return {
+          id: contact.id,
+          name: contact.nome,
+          phone: formatPhoneToBR(contact.telefone_norm),
+          email: contact.email || '',
+          region: contact.cidade?.nome || 'N/A',
+          profession: '',
+          registrationDate: new Date(contact.created_at).toISOString().split('T')[0],
+          source: sourceInfo,
+          consentWhatsApp: true,
+          consentEmail: !!contact.email,
+          consentEvents: true,
+          lastActivity: new Date(contact.updated_at).toISOString().split('T')[0],
+          conversations: [],
+          events: []
+        };
+      });
     }
   });
 
