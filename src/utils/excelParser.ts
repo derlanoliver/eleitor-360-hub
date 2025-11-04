@@ -114,15 +114,22 @@ export function validateImportData(data: LeaderImportRow[]): {
     return { isValid: false, errors };
   }
 
+  // Função auxiliar para validar campo
+  const validateField = (value: any): boolean => {
+    if (value === null || value === undefined) return false;
+    const strValue = String(value).trim();
+    return strValue.length > 0;
+  };
+
   // Validar campos obrigatórios
   data.forEach((row, index) => {
     const lineNumber = index + 2; // +2 porque linha 1 é header e index começa em 0
 
-    if (!row.nome_completo?.trim()) {
+    if (!validateField(row.nome_completo)) {
       errors.push(`Linha ${lineNumber}: Nome completo é obrigatório`);
     }
 
-    if (!row.whatsapp?.trim()) {
+    if (!validateField(row.whatsapp)) {
       errors.push(`Linha ${lineNumber}: WhatsApp é obrigatório`);
     }
   });
@@ -246,27 +253,34 @@ export function validateContactImportData(data: ContactImportRow[]): {
     return { isValid: false, errors };
   }
 
+  // Função auxiliar para validar campo
+  const validateField = (value: any): boolean => {
+    if (value === null || value === undefined) return false;
+    const strValue = String(value).trim();
+    return strValue.length > 0;
+  };
+
   // Validar campos obrigatórios
   data.forEach((row, index) => {
     const lineNumber = index + 2; // +2 porque linha 1 é header e index começa em 0
 
-    if (!row.nome_completo?.trim()) {
+    if (!validateField(row.nome_completo)) {
       errors.push(`Linha ${lineNumber}: Nome completo é obrigatório`);
     }
 
-    if (!row.whatsapp?.trim()) {
+    if (!validateField(row.whatsapp)) {
       errors.push(`Linha ${lineNumber}: WhatsApp é obrigatório`);
     }
 
-    if (!row.data_nascimento?.trim()) {
+    if (!validateField(row.data_nascimento)) {
       errors.push(`Linha ${lineNumber}: Data de nascimento é obrigatória`);
     }
 
-    if (!row.endereco?.trim()) {
+    if (!validateField(row.endereco)) {
       errors.push(`Linha ${lineNumber}: Endereço é obrigatório`);
     }
 
-    if (!row.observacao?.trim()) {
+    if (!validateField(row.observacao)) {
       errors.push(`Linha ${lineNumber}: Observação é obrigatória`);
     }
   });
