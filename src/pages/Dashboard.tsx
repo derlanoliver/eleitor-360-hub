@@ -8,11 +8,10 @@ import { useState } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
 import { FilterTabs } from "@/components/dashboard/FilterTabs";
 import { ProfileStats } from "@/components/dashboard/ProfileStats";
-
-// Import seed data
-import rankingRA from "@/data/dashboard/ranking_ra.json";
 import rankingTemas from "@/data/dashboard/ranking_temas.json";
 import perfilData from "@/data/dashboard/perfil.json";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock data para o ranking de lideranças
 const mockLeaders = [
@@ -70,6 +69,31 @@ const mockStats = {
 const Dashboard = () => {
   const [periodRA, setPeriodRA] = useState("30d");
   const [periodTemas, setPeriodTemas] = useState("30d");
+
+  // Buscar ranking de RAs em tempo real do banco
+  const { data: rankingRA = [] } = useQuery({
+    queryKey: ['ranking_ra'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('office_contacts')
+        .select('cidade_id, cidade:office_cities(nome, codigo_ra)')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Agrupar por cidade e contar
+      const grouped = data.reduce((acc, contact) => {
+        const cidade = contact.cidade?.nome || 'Desconhecido';
+        acc[cidade] = (acc[cidade] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Formatar para o mesmo formato esperado
+      return Object.entries(grouped)
+        .map(([ra, cadastros]) => ({ ra, cadastros }))
+        .sort((a, b) => b.cadastros - a.cadastros);
+    }
+  });
 
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');

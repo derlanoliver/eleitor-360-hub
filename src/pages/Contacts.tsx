@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRegions } from "@/hooks/useRegions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -261,12 +262,16 @@ const Contacts = () => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedContacts = filteredContacts.slice(startIndex, endIndex);
 
+  // Buscar todas as regiões administrativas
+  const { data: allRegions = [] } = useRegions();
+  
   // Reset para página 1 quando filtros mudarem
   const handleFilterChange = () => {
     setCurrentPage(1);
   };
 
-  const regions = [...new Set(contacts.map(contact => contact.region))];
+  // Usar todas as regiões administrativas disponíveis no filtro
+  const regions = allRegions.map(r => r.nome).sort();
   const totalWithWhatsApp = contacts.filter(c => c.consentWhatsApp).length;
   const totalWithEmail = contacts.filter(c => c.consentEmail).length;
 
