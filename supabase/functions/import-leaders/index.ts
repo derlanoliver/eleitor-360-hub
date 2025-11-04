@@ -8,8 +8,8 @@ const corsHeaders = {
 interface LeaderImportData {
   nome_completo: string;
   whatsapp: string;
-  data_nascimento: string;
-  status: string;
+  data_nascimento?: string;
+  status?: string;
   observacao?: string;
   email?: string;
 }
@@ -42,8 +42,8 @@ function normalizePhone(phone: string): string {
 /**
  * Converte data para formato YYYY-MM-DD
  */
-function parseDate(dateInput: string | number): string {
-  if (!dateInput) throw new Error('Data de nascimento é obrigatória');
+function parseDate(dateInput?: string | number): string | null {
+  if (!dateInput) return null;
 
   try {
     let date: Date;
@@ -94,7 +94,9 @@ function parseDate(dateInput: string | number): string {
 /**
  * Converte status string para boolean
  */
-function parseStatus(status: string): boolean {
+function parseStatus(status?: string): boolean {
+  if (!status) return true; // Padrão: ativo
+  
   const normalized = status.toLowerCase().trim();
   if (normalized === 'ativo' || normalized === 'true' || normalized === '1') {
     return true;
@@ -189,7 +191,7 @@ Deno.serve(async (req) => {
 
         // Normalizar dados
         const telefone = normalizePhone(leader.whatsapp);
-        const dataNascimento = parseDate(leader.data_nascimento);
+        const dataNascimento = leader.data_nascimento ? parseDate(leader.data_nascimento) : null;
         const isActive = parseStatus(leader.status);
 
         // Verificar se líder já existe (por telefone)

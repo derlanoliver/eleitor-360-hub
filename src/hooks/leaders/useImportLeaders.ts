@@ -5,8 +5,8 @@ import { toast } from "@/hooks/use-toast";
 interface LeaderImportData {
   nome_completo: string;
   whatsapp: string;
-  data_nascimento: string;
-  status: string;
+  data_nascimento?: string;
+  status?: string;
   observacao?: string;
   email?: string;
 }

@@ -6,8 +6,8 @@ import * as XLSX from 'xlsx';
 export interface LeaderImportRow {
   nome_completo: string;
   whatsapp: string;
-  data_nascimento: string;
-  status: string;
+  data_nascimento?: string;
+  status?: string;
   observacao?: string;
   email?: string;
 }
@@ -73,10 +73,10 @@ export function generateLeadersTemplate(): void {
     {
       'Nome Completo': 'Maria Santos',
       'WhatsApp': '5561988776655',
-      'Data de Nascimento': '22/07/1990',
-      'Status': 'ativo',
+      'Data de Nascimento': '',
+      'Status': '',
       'Observação': '',
-      'Email': 'maria.santos@email.com'
+      'Email': ''
     }
   ];
 
@@ -124,14 +124,6 @@ export function validateImportData(data: LeaderImportRow[]): {
 
     if (!row.whatsapp?.trim()) {
       errors.push(`Linha ${lineNumber}: WhatsApp é obrigatório`);
-    }
-
-    if (!row.data_nascimento) {
-      errors.push(`Linha ${lineNumber}: Data de nascimento é obrigatória`);
-    }
-
-    if (!row.status?.trim()) {
-      errors.push(`Linha ${lineNumber}: Status é obrigatório`);
     }
   });
 
