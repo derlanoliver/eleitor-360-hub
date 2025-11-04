@@ -279,10 +279,6 @@ export function validateContactImportData(data: ContactImportRow[]): {
     if (!validateField(row.endereco)) {
       errors.push(`Linha ${lineNumber}: Endereço é obrigatório`);
     }
-
-    if (!validateField(row.observacao)) {
-      errors.push(`Linha ${lineNumber}: Observação é obrigatória`);
-    }
   });
 
   return {

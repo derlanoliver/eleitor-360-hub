@@ -7,7 +7,7 @@ interface ContactImport {
   whatsapp: string;
   data_nascimento: string;
   endereco: string;
-  observacao: string;
+  observacao?: string;
   cidade?: string;
 }
 
