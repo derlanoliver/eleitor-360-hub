@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
-import { Copy, Download, QrCode as QrCodeIcon } from "lucide-react";
+import { Copy, Download, QrCode as QrCodeIcon, FileText } from "lucide-react";
 import { generateEventAffiliateUrl } from "@/lib/urlHelper";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeComponent from "qrcode";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 
 interface EventAffiliateDialogProps {
   event: {
@@ -21,9 +23,9 @@ interface EventAffiliateDialogProps {
 
 export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffiliateDialogProps) {
   const [selectedLeaderId, setSelectedLeaderId] = useState("");
-  const [selectedCityId, setSelectedCityId] = useState("");
   const [affiliateUrl, setAffiliateUrl] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { toast } = useToast();
 
   const handleGenerateLink = async () => {
@@ -70,7 +72,7 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
 
     toast({
       title: "Link gerado!",
-      description: "Link de afiliado criado com sucesso."
+      description: "Link do líder criado com sucesso."
     });
   };
 
@@ -96,9 +98,113 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
     });
   };
 
+  const handleGeneratePdfForAll = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      // Buscar todos os líderes ativos com affiliate_token
+      const { data: leaders, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, affiliate_token, cidade:office_cities(nome)")
+        .eq("is_active", true)
+        .not("affiliate_token", "is", null)
+        .order("nome_completo");
+
+      if (error) throw error;
+      if (!leaders || leaders.length === 0) {
+        toast({
+          title: "Nenhum líder encontrado",
+          description: "Não há líderes ativos com token de afiliado.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Criar PDF
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+
+      // Título
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Links do Evento: ${event.name}`, margin, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Total de líderes: ${leaders.length}`, margin, yPosition);
+      yPosition += 15;
+
+      // Processar cada líder
+      for (let i = 0; i < leaders.length; i++) {
+        const leader = leaders[i];
+        const url = generateEventAffiliateUrl(event.slug, leader.affiliate_token!);
+        
+        // Verificar se precisa de nova página
+        if (yPosition > pageHeight - 80) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        // Gerar QR Code
+        const qrDataUrl = await QRCodeComponent.toDataURL(url, {
+          width: 200,
+          margin: 1,
+        });
+
+        // Adicionar QR Code
+        pdf.addImage(qrDataUrl, "PNG", margin, yPosition, 40, 40);
+
+        // Adicionar informações do líder
+        const textX = margin + 45;
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Líder: ${leader.nome_completo}`, textX, yPosition + 5);
+        
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        if (leader.cidade) {
+          pdf.text(`Cidade: ${leader.cidade.nome}`, textX, yPosition + 12);
+        }
+        
+        pdf.setFontSize(8);
+        pdf.setTextColor(100);
+        pdf.text(url, textX, yPosition + 20, { maxWidth: pageWidth - textX - margin });
+        pdf.setTextColor(0);
+
+        yPosition += 50;
+
+        // Adicionar linha separadora
+        if (i < leaders.length - 1) {
+          pdf.setDrawColor(200);
+          pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+          yPosition += 10;
+        }
+      }
+
+      // Download
+      pdf.save(`links-lideres-${event.slug}.pdf`);
+      
+      toast({
+        title: "PDF gerado!",
+        description: `PDF com links de ${leaders.length} líderes foi baixado.`
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o PDF com os links.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleClose = () => {
     setSelectedLeaderId("");
-    setSelectedCityId("");
     setAffiliateUrl("");
     setQrCodeUrl("");
     onOpenChange(false);
@@ -108,7 +214,7 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Gerar Link de Afiliado</DialogTitle>
+          <DialogTitle>Gerar Link do Líder</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -119,19 +225,31 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
             </p>
           </div>
 
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleGeneratePdfForAll} 
+              variant="outline" 
+              className="flex-1"
+              disabled={isGeneratingPdf}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {isGeneratingPdf ? "Gerando PDF..." : "Gerar PDF para Todos os Líderes"}
+            </Button>
+          </div>
+
           <div className="space-y-4">
             <div>
               <Label>Líder</Label>
               <LeaderAutocomplete
                 value={selectedLeaderId}
                 onValueChange={setSelectedLeaderId}
-                cityId={selectedCityId}
                 placeholder="Busque por nome do líder..."
+                allowAllLeaders={true}
               />
             </div>
 
             <Button onClick={handleGenerateLink} className="w-full">
-              Gerar Link de Afiliado
+              Gerar Link do Líder
             </Button>
           </div>
 
