@@ -26,6 +26,7 @@ import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
+import EventRegistration from "./pages/EventRegistration";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -60,6 +61,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
+            <Route path="/eventos/:slug" element={<EventRegistration />} />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={
