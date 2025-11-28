@@ -93,6 +93,7 @@ export type Database = {
           email: string
           event_id: string
           id: string
+          leader_id: string | null
           nome: string
           qr_code: string | null
           utm_campaign: string | null
@@ -110,6 +111,7 @@ export type Database = {
           email: string
           event_id: string
           id?: string
+          leader_id?: string | null
           nome: string
           qr_code?: string | null
           utm_campaign?: string | null
@@ -127,6 +129,7 @@ export type Database = {
           email?: string
           event_id?: string
           id?: string
+          leader_id?: string | null
           nome?: string
           qr_code?: string | null
           utm_campaign?: string | null
@@ -155,6 +158,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
             referencedColumns: ["id"]
           },
         ]

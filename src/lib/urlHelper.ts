@@ -56,3 +56,10 @@ export function generateEventRegistrationUrl(
   });
   return `${getBaseUrl()}/eventos/${eventSlug}?${params.toString()}`;
 }
+
+/**
+ * Gera link de afiliado para evento
+ */
+export function generateEventAffiliateUrl(eventSlug: string, affiliateToken: string): string {
+  return `${getBaseUrl()}/eventos/${eventSlug}?ref=${affiliateToken}`;
+}
