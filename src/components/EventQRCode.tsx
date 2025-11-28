@@ -9,23 +9,25 @@ import { generateEventRegistrationUrl } from "@/lib/urlHelper";
 
 interface EventQRCodeProps {
   event: {
-    id: number;
+    id: string;
     name: string;
+    slug: string;
     date: string;
     category: string;
   };
 }
 
 // Função para gerar código randômico
-const generateTrackingCode = (eventId: number, eventName: string) => {
+const generateTrackingCode = (eventId: string, eventName: string) => {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   const eventPrefix = eventName
     .substring(0, 3)
     .toUpperCase()
     .replace(/[^A-Z]/g, '');
+  const eventIdShort = eventId.substring(0, 8).toUpperCase();
   
-  return `${eventPrefix}${eventId}${random}${timestamp.substring(0, 4).toUpperCase()}`;
+  return `${eventPrefix}${eventIdShort}${random}${timestamp.substring(0, 4).toUpperCase()}`;
 };
 
 // Função para formatar nome do evento para URL
@@ -47,10 +49,9 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
   const { toast } = useToast();
 
   // URLs
-  const eventSlug = formatEventSlug(event.name);
   const whatsappMessage = encodeURIComponent(`#${trackingCode} - Quero me cadastrar para o Evento ${event.name}`);
   const whatsappURL = `https://wa.me/5561987654321?text=${whatsappMessage}`;
-  const registrationURL = generateEventRegistrationUrl(eventSlug, event.id, trackingCode);
+  const registrationURL = generateEventRegistrationUrl(event.slug, event.id, trackingCode);
 
   useEffect(() => {
     // Gerar QR Codes
@@ -87,7 +88,8 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
   const downloadQRCode = async (type: 'whatsapp' | 'registration') => {
     try {
       const url = type === 'whatsapp' ? whatsappURL : registrationURL;
-      const filename = `qr-${type}-evento-${event.id}-${trackingCode}`;
+      const eventIdShort = event.id.substring(0, 8);
+      const filename = `qr-${type}-evento-${eventIdShort}-${trackingCode}`;
       
       // Gerar QR code em alta definição
       const qrDataURL = await QRCode.toDataURL(url, {

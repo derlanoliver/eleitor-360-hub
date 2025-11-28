@@ -64,6 +64,7 @@ const Events = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [qrCodeEvent, setQrCodeEvent] = useState<any>(null);
   const [newEvent, setNewEvent] = useState({
     name: "",
     slug: "",
@@ -488,6 +489,14 @@ const Events = () => {
                                 <Button
                                   variant="outline"
                                   size="icon"
+                                  onClick={() => setQrCodeEvent(event)}
+                                  title="QR Code"
+                                >
+                                  <QrCode className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
                                   onClick={() => copyEventLink(event.slug)}
                                   title="Copiar link"
                                 >
@@ -497,7 +506,10 @@ const Events = () => {
                                   variant="outline"
                                   size="icon"
                                   onClick={() => {
-                                    setEditingEvent(event);
+                                    setEditingEvent({
+                                      ...event,
+                                      coverImage: null
+                                    });
                                     setIsEditDialogOpen(true);
                                   }}
                                   title="Editar"
@@ -604,7 +616,7 @@ const Events = () => {
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Label>Nome do Evento</Label>
+                    <Label>Nome do Evento *</Label>
                     <Input
                       value={editingEvent.name}
                       onChange={(e) => setEditingEvent({ ...editingEvent, name: e.target.value })}
@@ -612,7 +624,7 @@ const Events = () => {
                   </div>
                   
                   <div className="col-span-2">
-                    <Label>Slug (URL)</Label>
+                    <Label>Slug (URL) *</Label>
                     <Input
                       value={editingEvent.slug}
                       onChange={(e) => setEditingEvent({ ...editingEvent, slug: e.target.value })}
@@ -629,7 +641,7 @@ const Events = () => {
                   </div>
 
                   <div>
-                    <Label>Data</Label>
+                    <Label>Data *</Label>
                     <Input
                       type="date"
                       value={editingEvent.date}
@@ -638,12 +650,106 @@ const Events = () => {
                   </div>
 
                   <div>
-                    <Label>Horário</Label>
+                    <Label>Horário *</Label>
                     <Input
                       type="time"
                       value={editingEvent.time}
                       onChange={(e) => setEditingEvent({ ...editingEvent, time: e.target.value })}
                     />
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>Local *</Label>
+                    <Input
+                      value={editingEvent.location}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, location: e.target.value })}
+                      placeholder="Nome do local"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>Endereço Completo</Label>
+                    <Input
+                      value={editingEvent.address || ""}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, address: e.target.value })}
+                      placeholder="Endereço completo"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Capacidade</Label>
+                    <Input
+                      type="number"
+                      value={editingEvent.capacity}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, capacity: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Categoria *</Label>
+                    <Select 
+                      value={editingEvent.category} 
+                      onValueChange={(value) => setEditingEvent({ ...editingEvent, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eventCategories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>Região *</Label>
+                    <Select 
+                      value={editingEvent.region} 
+                      onValueChange={(value) => setEditingEvent({ ...editingEvent, region: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city.id} value={city.nome}>
+                            {city.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>Imagem de Capa</Label>
+                    
+                    {editingEvent.cover_image_url && (
+                      <div className="mb-2 relative rounded-lg overflow-hidden">
+                        <img 
+                          src={editingEvent.cover_image_url} 
+                          alt="Cover atual" 
+                          className="w-full h-40 object-cover"
+                        />
+                        <Badge className="absolute top-2 left-2 bg-background/80 backdrop-blur">
+                          Imagem atual
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setEditingEvent({ 
+                        ...editingEvent, 
+                        coverImage: e.target.files?.[0] || null 
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Selecione uma nova imagem para substituir a atual (Recomendado: 1920x1080px)
+                    </p>
                   </div>
 
                   <div className="col-span-2">
@@ -673,6 +779,18 @@ const Events = () => {
                   </Button>
                 </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* QR Code Dialog */}
+        <Dialog open={!!qrCodeEvent} onOpenChange={() => setQrCodeEvent(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code - {qrCodeEvent?.name}</DialogTitle>
+            </DialogHeader>
+            {qrCodeEvent && (
+              <EventQRCode event={qrCodeEvent} />
             )}
           </DialogContent>
         </Dialog>
