@@ -45,13 +45,13 @@ export function generateAffiliateUrl(affiliateToken: string): string {
  */
 export function generateEventRegistrationUrl(
   eventSlug: string, 
-  eventId: number, 
+  eventId: string, 
   trackingCode: string
 ): string {
   const params = new URLSearchParams({
     utm_source: 'qr',
     utm_medium: 'offline',
-    utm_campaign: `evento_${eventId}`,
+    utm_campaign: `evento_${eventId.substring(0, 8)}`,
     utm_content: trackingCode
   });
   return `${getBaseUrl()}/eventos/${eventSlug}?${params.toString()}`;
