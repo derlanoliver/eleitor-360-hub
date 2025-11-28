@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 
 export default function ScheduleVisit() {
   const { visitId } = useParams();
@@ -130,6 +131,18 @@ export default function ScheduleVisit() {
       toast({
         title: "Formulário enviado!",
         description: "Obrigado por preencher o formulário",
+      });
+
+      // Track Lead event
+      trackLead({ 
+        content_name: 'visita_gabinete',
+        value: 1
+      });
+      
+      // Push to GTM dataLayer
+      pushToDataLayer('lead', { 
+        source: 'visita_gabinete',
+        visit_id: visitId
       });
     } catch (error: any) {
       console.error("Error submitting form:", error);

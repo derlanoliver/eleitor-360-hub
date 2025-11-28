@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          facebook_api_token: string | null
+          facebook_pixel_code: string | null
+          facebook_pixel_id: string | null
+          gtm_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          facebook_api_token?: string | null
+          facebook_pixel_code?: string | null
+          facebook_pixel_id?: string | null
+          gtm_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          facebook_api_token?: string | null
+          facebook_pixel_code?: string | null
+          facebook_pixel_id?: string | null
+          gtm_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           created_at: string

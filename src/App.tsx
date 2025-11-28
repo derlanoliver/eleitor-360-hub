@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { TrackingProvider } from "./components/TrackingProvider";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -24,6 +25,7 @@ import Segments from "./pages/Segments";
 import AIAgent from "./pages/AIAgent";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
+import TrackingSettings from "./pages/settings/TrackingSettings";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
 import EventRegistration from "./pages/EventRegistration";
@@ -44,13 +46,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        <AuthProvider>
+      <TrackingProvider>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -142,6 +145,13 @@ const App = () => (
                 </DashboardLayout>
               </ProtectedRoute>
             } />
+            <Route path="/settings/tracking" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TrackingSettings />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/settings/privacy" element={
               <ProtectedRoute>
                 <DashboardLayout>
@@ -195,7 +205,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+        </BrowserRouter>
+      </TrackingProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
