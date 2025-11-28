@@ -88,6 +88,7 @@ export type Database = {
           checked_in: boolean | null
           checked_in_at: string | null
           cidade_id: string | null
+          contact_id: string | null
           created_at: string | null
           email: string
           event_id: string
@@ -104,6 +105,7 @@ export type Database = {
           checked_in?: boolean | null
           checked_in_at?: string | null
           cidade_id?: string | null
+          contact_id?: string | null
           created_at?: string | null
           email: string
           event_id: string
@@ -120,6 +122,7 @@ export type Database = {
           checked_in?: boolean | null
           checked_in_at?: string | null
           cidade_id?: string | null
+          contact_id?: string | null
           created_at?: string | null
           email?: string
           event_id?: string
@@ -138,6 +141,13 @@ export type Database = {
             columns: ["cidade_id"]
             isOneToOne: false
             referencedRelation: "office_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
             referencedColumns: ["id"]
           },
           {
@@ -306,6 +316,7 @@ export type Database = {
           cidade_id: string
           created_at: string
           data_nascimento: string | null
+          email: string | null
           endereco: string | null
           facebook: string | null
           genero: string | null
@@ -326,6 +337,7 @@ export type Database = {
           cidade_id: string
           created_at?: string
           data_nascimento?: string | null
+          email?: string | null
           endereco?: string | null
           facebook?: string | null
           genero?: string | null
@@ -346,6 +358,7 @@ export type Database = {
           cidade_id?: string
           created_at?: string
           data_nascimento?: string | null
+          email?: string | null
           endereco?: string | null
           facebook?: string | null
           genero?: string | null
@@ -753,6 +766,7 @@ export type Database = {
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      normalize_phone_e164: { Args: { phone: string }; Returns: string }
     }
     Enums: {
       app_role:
