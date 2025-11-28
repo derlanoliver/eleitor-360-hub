@@ -12,6 +12,7 @@ import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode } from "lucide-rea
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
+import { getBaseUrl } from "@/lib/urlHelper";
 
 const eventCategories = {
   educacao: { label: "Educação", color: "bg-blue-500" },
@@ -58,8 +59,9 @@ export default function EventRegistration() {
         utm_content: searchParams.get("utm_content") || undefined,
       });
 
-      // Generate QR Code
-      const qrData = await QRCodeComponent.toDataURL(registration.qr_code || "", {
+      // Generate QR Code with full URL for check-in
+      const checkInUrl = `${getBaseUrl()}/checkin/${registration.qr_code}`;
+      const qrData = await QRCodeComponent.toDataURL(checkInUrl, {
         width: 300,
         margin: 2,
       });
