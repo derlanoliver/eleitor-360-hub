@@ -11,7 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
 import { EditContactDialog } from "@/components/contacts/EditContactDialog";
 import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
+import { useContactEventParticipation } from "@/hooks/contacts/useContactEventParticipation";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { 
   Users, 
   Phone, 
@@ -689,6 +692,9 @@ const Contacts = () => {
 
 // Componente de detalhes do contato
 const ContactDetails = ({ contact }: { contact: any }) => {
+  // Buscar participação em eventos real
+  const { data: eventParticipation = [], isLoading: isLoadingEvents } = useContactEventParticipation(contact.id);
+  
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -841,27 +847,48 @@ const ContactDetails = ({ contact }: { contact: any }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {contact.events.length > 0 ? (
-              contact.events.map((event: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900">{event.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {new Date(event.date).toLocaleDateString()}
-                    </p>
+          {isLoadingEvents ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {eventParticipation.length > 0 ? (
+                eventParticipation.map((participation) => (
+                  <div key={participation.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{participation.event_name}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(participation.event_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </p>
+                        {participation.event_time && (
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <p className="text-sm text-muted-foreground">
+                              {participation.event_time.substring(0, 5)}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      {participation.checked_in && participation.checked_in_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Check-in: {format(new Date(participation.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant={participation.checked_in ? "default" : "secondary"}>
+                      {participation.checked_in ? "Compareceu" : "Inscrito"}
+                    </Badge>
                   </div>
-                  <Badge variant={event.attended ? "default" : "secondary"}>
-                    {event.attended ? "Compareceu" : "Não compareceu"}
-                  </Badge>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600 text-center py-4">
-                Nenhuma participação em eventos registrada
-              </p>
-            )}
-          </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhuma participação em eventos registrada
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
