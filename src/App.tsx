@@ -27,6 +27,7 @@ import AIProviders from "./pages/settings/AIProviders";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
 import EventRegistration from "./pages/EventRegistration";
+import EventCheckin from "./pages/EventCheckin";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -62,6 +63,13 @@ const App = () => (
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
+            
+            {/* Protected check-in route */}
+            <Route path="/checkin/:qrCode" element={
+              <ProtectedRoute>
+                <EventCheckin />
+              </ProtectedRoute>
+            } />
             
             {/* Protected dashboard routes */}
             <Route path="/dashboard" element={
