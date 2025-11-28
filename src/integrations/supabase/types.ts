@@ -53,6 +53,132 @@ export type Database = {
         }
         Relationships: []
       }
+      event_registrations: {
+        Row: {
+          checked_in: boolean | null
+          checked_in_at: string | null
+          cidade_id: string | null
+          created_at: string | null
+          email: string
+          event_id: string
+          id: string
+          nome: string
+          qr_code: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          whatsapp: string
+        }
+        Insert: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          cidade_id?: string | null
+          created_at?: string | null
+          email: string
+          event_id: string
+          id?: string
+          nome: string
+          qr_code?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          whatsapp: string
+        }
+        Update: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          cidade_id?: string | null
+          created_at?: string | null
+          email?: string
+          event_id?: string
+          id?: string
+          nome?: string
+          qr_code?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          whatsapp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registrations_cidade_id_fkey"
+            columns: ["cidade_id"]
+            isOneToOne: false
+            referencedRelation: "office_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          address: string | null
+          capacity: number | null
+          category: string
+          checkedin_count: number | null
+          cover_image_url: string | null
+          created_at: string | null
+          date: string
+          description: string | null
+          id: string
+          location: string
+          name: string
+          region: string
+          registrations_count: number | null
+          slug: string
+          status: string
+          time: string
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          capacity?: number | null
+          category: string
+          checkedin_count?: number | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          location: string
+          name: string
+          region: string
+          registrations_count?: number | null
+          slug: string
+          status?: string
+          time: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          capacity?: number | null
+          category?: string
+          checkedin_count?: number | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          location?: string
+          name?: string
+          region?: string
+          registrations_count?: number | null
+          slug?: string
+          status?: string
+          time?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lideres: {
         Row: {
           affiliate_token: string | null
@@ -567,6 +693,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_event_qr_code: { Args: never; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
       generate_office_protocol:
         | { Args: { _prefix?: string }; Returns: string }
