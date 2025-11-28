@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
@@ -163,6 +163,18 @@ export default function EventRegistration() {
                 <img src={qrCodeUrl} alt="QR Code" className="mx-auto border-4 border-border rounded-lg" />
               )}
             </div>
+            
+            {/* Aviso importante sobre o QR Code */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-orange-800">
+                  <p className="font-semibold">Importante!</p>
+                  <p>Salve este QR Code! Tire um print ou uma foto para apresentar no dia do evento e garantir seu check-in.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
