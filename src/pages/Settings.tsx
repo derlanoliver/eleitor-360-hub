@@ -8,7 +8,8 @@ import {
   Palette, 
   Shield,
   Plug,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from "lucide-react";
 
 const Settings = () => {
@@ -32,6 +33,13 @@ const Settings = () => {
       description: "Configure as credenciais para integração com serviços de IA",
       icon: Bot,
       href: "/settings/ai-providers",
+      available: true,
+    },
+    {
+      title: "Rastreamento",
+      description: "Configure Facebook Pixel, Google Tag Manager e rastreamento de conversões",
+      icon: BarChart3,
+      href: "/settings/tracking",
       available: true,
     },
     {

@@ -12,6 +12,7 @@ import { Loader2, Users, CheckCircle2 } from "lucide-react";
 import { CitySelect } from "@/components/office/CitySelect";
 import { PhoneInput } from "@/components/office/PhoneInput";
 import type { OfficeLeader } from "@/types/office";
+import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 
 export default function AffiliateForm() {
   const { leaderToken } = useParams();
@@ -140,6 +141,19 @@ export default function AffiliateForm() {
 
       setSubmitted(true);
       toast.success("Cadastro realizado com sucesso!");
+
+      // Track Lead event
+      trackLead({ 
+        content_name: `indicacao_${leader?.nome_completo}`,
+        value: 1
+      });
+      
+      // Push to GTM dataLayer
+      pushToDataLayer('lead', { 
+        source: 'indicacao',
+        leader_id: leader?.id,
+        leader_name: leader?.nome_completo
+      });
     } catch (error: any) {
       console.error("Error submitting form:", error);
       toast.error("Erro ao enviar formulário. Tente novamente.");

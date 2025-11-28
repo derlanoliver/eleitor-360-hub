@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
 import { getBaseUrl } from "@/lib/urlHelper";
+import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 
 const eventCategories = {
   educacao: { label: "Educação", color: "bg-blue-500" },
@@ -67,6 +68,20 @@ export default function EventRegistration() {
       });
       setQrCodeUrl(qrData);
       setRegistrationSuccess(true);
+
+      // Track Lead event
+      trackLead({ 
+        content_name: `evento_${event.slug}`,
+        value: 1
+      });
+      
+      // Push to GTM dataLayer
+      pushToDataLayer('lead', { 
+        source: 'evento',
+        event_id: event.id,
+        event_name: event.name,
+        event_category: event.category
+      });
     } catch (error) {
       console.error("Error creating registration:", error);
     }
