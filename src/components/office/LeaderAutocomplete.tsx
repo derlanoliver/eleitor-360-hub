@@ -12,6 +12,7 @@ interface LeaderAutocompleteProps {
   cityId?: string;
   disabled?: boolean;
   placeholder?: string;
+  allowAllLeaders?: boolean;
 }
 
 export function LeaderAutocomplete({
@@ -19,7 +20,8 @@ export function LeaderAutocomplete({
   onValueChange,
   cityId,
   disabled,
-  placeholder = "Selecione o líder"
+  placeholder = "Selecione o líder",
+  allowAllLeaders = false
 }: LeaderAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -35,7 +37,7 @@ export function LeaderAutocomplete({
   );
   
   const hasLeaders = leaders && leaders.length > 0;
-  const isDisabled = disabled || !cityId;
+  const isDisabled = disabled || (!cityId && !allowAllLeaders);
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -61,7 +63,7 @@ export function LeaderAutocomplete({
                 </span>
               )}
             </>
-          ) : !cityId ? (
+          ) : !cityId && !allowAllLeaders ? (
             "Selecione a cidade primeiro"
           ) : (
             placeholder
@@ -78,7 +80,7 @@ export function LeaderAutocomplete({
           />
           <CommandList>
             <CommandEmpty>
-              {!cityId
+              {!cityId && !allowAllLeaders
                 ? "Selecione uma cidade primeiro"
                 : !hasLeaders
                 ? "Nenhum líder cadastrado nesta região. Cadastre um líder primeiro."

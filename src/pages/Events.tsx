@@ -572,14 +572,14 @@ const Events = () => {
                             <Eye className="h-4 w-4 mr-2" />
                             Ver Detalhes e Inscrições
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAffiliateDialogEvent(event)}
-                          >
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Link Afiliado
-                          </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAffiliateDialogEvent(event)}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Link do Líder
+                  </Button>
                         </div>
                       </CardContent>
                     </Card>
