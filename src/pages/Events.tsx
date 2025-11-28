@@ -26,7 +26,8 @@ import {
   Search,
   Link as LinkIcon,
   Copy,
-  Upload
+  Upload,
+  UserPlus
 } from "lucide-react";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateEvent } from "@/hooks/events/useCreateEvent";
@@ -38,6 +39,7 @@ import { generateEventUrl } from "@/lib/eventUrlHelper";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import EventQRCode from "@/components/EventQRCode";
+import { EventAffiliateDialog } from "@/components/events/EventAffiliateDialog";
 
 const eventCategories = [
   { value: "educacao", label: "Educação", color: "bg-blue-500" },
@@ -65,6 +67,7 @@ const Events = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [qrCodeEvent, setQrCodeEvent] = useState<any>(null);
+  const [affiliateDialogEvent, setAffiliateDialogEvent] = useState<any>(null);
   const [newEvent, setNewEvent] = useState({
     name: "",
     slug: "",
@@ -560,7 +563,7 @@ const Events = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-border">
+                        <div className="mt-4 pt-4 border-t border-border flex flex-wrap gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -568,6 +571,14 @@ const Events = () => {
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             Ver Detalhes e Inscrições
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAffiliateDialogEvent(event)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Link Afiliado
                           </Button>
                         </div>
                       </CardContent>
@@ -794,6 +805,15 @@ const Events = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Affiliate Link Dialog */}
+        {affiliateDialogEvent && (
+          <EventAffiliateDialog
+            event={affiliateDialogEvent}
+            open={!!affiliateDialogEvent}
+            onOpenChange={(open) => !open && setAffiliateDialogEvent(null)}
+          />
+        )}
       </div>
     </div>
   );

@@ -2,18 +2,20 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useEvent } from "@/hooks/events/useEvents";
 import { useCreateRegistration } from "@/hooks/events/useEventRegistrations";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { useLeaderByToken } from "@/hooks/events/useLeaderByToken";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode, AlertTriangle, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
 import { getBaseUrl } from "@/lib/urlHelper";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const eventCategories = {
   educacao: { label: "Educação", color: "bg-blue-500" },
@@ -29,8 +31,11 @@ const eventCategories = {
 export default function EventRegistration() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
+  const affiliateToken = searchParams.get("ref");
+  
   const { data: event, isLoading } = useEvent(slug || "");
   const { data: cities } = useOfficeCities();
+  const { data: leader } = useLeaderByToken(affiliateToken || undefined);
   const createRegistration = useCreateRegistration();
   
   const [formData, setFormData] = useState({
@@ -54,6 +59,7 @@ export default function EventRegistration() {
         email: formData.email,
         whatsapp: formData.whatsapp,
         cidade_id: formData.cidade_id || undefined,
+        leader_id: leader?.id || undefined,
         utm_source: searchParams.get("utm_source") || undefined,
         utm_medium: searchParams.get("utm_medium") || undefined,
         utm_campaign: searchParams.get("utm_campaign") || undefined,
@@ -202,6 +208,17 @@ export default function EventRegistration() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Leader Banner */}
+      {leader && (
+        <Alert className="m-6 border-primary bg-primary/5">
+          <UserCheck className="h-5 w-5 text-primary" />
+          <AlertDescription className="text-base">
+            <strong>Indicado por:</strong> {leader.nome_completo}
+            {leader.cidade && ` - ${leader.cidade.nome}`}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header with Cover Image */}
       <div className="relative h-64 md:h-80 w-full overflow-hidden">
         {event.cover_image_url ? (
