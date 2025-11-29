@@ -36,6 +36,7 @@ import NewVisit from "./pages/office/NewVisit";
 import Queue from "./pages/office/Queue";
 import History from "./pages/office/History";
 import OfficeSettings from "./pages/office/Settings";
+import VisitCheckin from "./pages/office/VisitCheckin";
 import ScheduleVisit from "./pages/ScheduleVisit";
 import AffiliateForm from "./pages/AffiliateForm";
 
@@ -67,10 +68,15 @@ const App = () => (
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             
-            {/* Protected check-in route */}
+            {/* Protected check-in routes */}
             <Route path="/checkin/:qrCode" element={
               <ProtectedRoute>
                 <EventCheckin />
+              </ProtectedRoute>
+            } />
+            <Route path="/office/checkin/:qrCode" element={
+              <ProtectedRoute>
+                <VisitCheckin />
               </ProtectedRoute>
             } />
             

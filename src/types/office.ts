@@ -79,6 +79,9 @@ export interface OfficeVisit {
   webhook_last_status?: number | null;
   webhook_error?: string | null;
   created_by: string;
+  qr_code?: string;
+  checked_in?: boolean;
+  checked_in_at?: string;
   created_at: string;
   updated_at: string;
 }
