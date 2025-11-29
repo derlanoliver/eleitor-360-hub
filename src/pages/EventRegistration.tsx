@@ -3,7 +3,8 @@ import { useEvent } from "@/hooks/events/useEvents";
 import { useCreateRegistration } from "@/hooks/events/useEventRegistrations";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { useLeaderByToken } from "@/hooks/events/useLeaderByToken";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +47,29 @@ export default function EventRegistration() {
   });
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+
+  // Registrar page view quando a página carrega
+  useEffect(() => {
+    if (event && slug) {
+      // Gerar ou recuperar session_id para evitar contagem duplicada
+      let sessionId = sessionStorage.getItem('visitor_session');
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        sessionStorage.setItem('visitor_session', sessionId);
+      }
+      
+      // Registrar visualização
+      supabase.from('page_views').insert({
+        page_type: 'event',
+        page_identifier: slug,
+        utm_source: searchParams.get("utm_source"),
+        utm_medium: searchParams.get("utm_medium"),
+        utm_campaign: searchParams.get("utm_campaign"),
+        utm_content: searchParams.get("utm_content"),
+        session_id: sessionId
+      });
+    }
+  }, [event, slug, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -644,6 +644,42 @@ export type Database = {
           },
         ]
       }
+      page_views: {
+        Row: {
+          created_at: string | null
+          id: string
+          page_identifier: string
+          page_type: string
+          session_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          page_identifier: string
+          page_type: string
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          page_identifier?: string
+          page_type?: string
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
       perfil_demografico: {
         Row: {
           created_at: string
