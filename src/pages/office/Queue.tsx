@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useOfficeVisits } from "@/hooks/office/useOfficeVisits";
-import { Loader2, Clock, Send, FileText, CheckCircle, CheckCircle2, XCircle, CalendarClock } from "lucide-react";
+import { Loader2, Clock, Send, FileText, CheckCircle, CheckCircle2, XCircle, CalendarClock, Search } from "lucide-react";
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
@@ -24,6 +25,7 @@ export default function Queue() {
   const [rescheduleVisit, setRescheduleVisit] = useState<any>(null);
   const [completeMeetingVisit, setCompleteMeetingVisit] = useState<any>(null);
   const [minutesVisit, setMinutesVisit] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const { completeMeeting, cancelMeeting, rescheduleMeeting } = useVisitMeetingActions();
   
   if (isLoading) {
@@ -34,16 +36,46 @@ export default function Queue() {
     );
   }
   
+  // Função para normalizar telefone na busca
+  const normalizeSearchPhone = (phone: string) => {
+    return phone.replace(/\D/g, "");
+  };
+
+  // Função para filtrar visitas pela busca
+  const filterVisits = (visits: any[]) => {
+    if (!searchTerm.trim()) return visits;
+    
+    const term = searchTerm.toLowerCase().trim();
+    const termNumbers = normalizeSearchPhone(term);
+    
+    return visits.filter((visit) => {
+      // Busca por protocolo
+      const matchProtocol = visit.protocolo?.toLowerCase().includes(term);
+      
+      // Busca por nome do visitante
+      const matchName = visit.contact?.nome?.toLowerCase().includes(term);
+      
+      // Busca por telefone (normalizado)
+      const phoneNorm = visit.contact?.telefone_norm || "";
+      const matchPhone = termNumbers.length >= 3 && phoneNorm.includes(termNumbers);
+      
+      return matchProtocol || matchName || matchPhone;
+    });
+  };
+
   // Filtrar apenas visitas ativas (excluir finalizadas)
   const activeStatuses = ["REGISTERED", "LINK_SENT", "FORM_OPENED", "FORM_SUBMITTED", "CHECKED_IN", "RESCHEDULED"];
   const activeVisits = visits?.filter((v) => activeStatuses.includes(v.status)) || [];
   
-  // Agrupar por status
-  const registered = activeVisits.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT");
-  const opened = activeVisits.filter((v) => v.status === "FORM_OPENED");
+  // Aplicar filtro de busca
+  const filteredVisits = filterVisits(activeVisits);
+  
+  // Agrupar por status usando visitas filtradas
+  const registered = filteredVisits.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT");
+  const opened = filteredVisits.filter((v) => v.status === "FORM_OPENED");
   
   // Form Enviado: reagendadas primeiro
-  const submitted = activeVisits
+  const submitted = filteredVisits
     .filter((v) => v.status === "FORM_SUBMITTED" || v.status === "RESCHEDULED")
     .sort((a, b) => {
       if (a.status === "RESCHEDULED" && b.status !== "RESCHEDULED") return -1;
@@ -51,7 +83,7 @@ export default function Queue() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   
-  const checkedIn = activeVisits.filter((v) => v.status === "CHECKED_IN");
+  const checkedIn = filteredVisits.filter((v) => v.status === "CHECKED_IN");
   
   const handleReschedule = (visitId: string, newDate: Date) => {
     rescheduleMeeting.mutate({ visitId, newDate });
@@ -59,11 +91,28 @@ export default function Queue() {
   
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Fila do Dia</h1>
-        <p className="text-muted-foreground">
-          Acompanhe o status das visitas em tempo real
-        </p>
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Fila do Dia</h1>
+          <p className="text-muted-foreground">
+            Acompanhe o status das visitas em tempo real
+          </p>
+          {searchTerm && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {filteredVisits.length} resultado(s) encontrado(s)
+            </p>
+          )}
+        </div>
+        
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar por protocolo, nome ou WhatsApp..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
