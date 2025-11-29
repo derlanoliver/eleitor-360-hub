@@ -74,5 +74,64 @@ export function useVisitMeetingActions() {
     }
   });
 
-  return { completeMeeting, cancelMeeting, rescheduleMeeting };
+  const saveMeetingMinutes = useMutation({
+    mutationFn: async ({ 
+      visitId, 
+      contentType, 
+      contentText, 
+      file 
+    }: { 
+      visitId: string; 
+      contentType: 'text' | 'file';
+      contentText?: string;
+      file?: File;
+    }) => {
+      let filePath, fileName, fileMimeType;
+      
+      if (contentType === 'file' && file) {
+        // Upload do arquivo para storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('meeting-minutes')
+          .upload(`${visitId}/${file.name}`, file);
+        if (uploadError) throw uploadError;
+        filePath = uploadData.path;
+        fileName = file.name;
+        fileMimeType = file.type;
+      }
+      
+      // Inserir registro na tabela
+      const { error: insertError } = await supabase
+        .from('office_meeting_minutes')
+        .insert({
+          visit_id: visitId,
+          content_type: contentType,
+          content_text: contentType === 'text' ? contentText : null,
+          file_path: filePath,
+          file_name: fileName,
+          file_mime_type: fileMimeType
+        });
+      if (insertError) throw insertError;
+      
+      // Atualizar status da visita
+      const { data, error } = await supabase
+        .from('office_visits')
+        .update({ status: 'MEETING_COMPLETED' })
+        .eq('id', visitId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['office_visits'] });
+      queryClient.invalidateQueries({ queryKey: ['meeting_minutes'] });
+      toast.success('Ata salva e reunião finalizada!');
+    },
+    onError: (error) => {
+      console.error('Error saving meeting minutes:', error);
+      toast.error('Erro ao salvar ata');
+    }
+  });
+
+  return { completeMeeting, cancelMeeting, rescheduleMeeting, saveMeetingMinutes };
 }
