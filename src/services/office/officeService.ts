@@ -397,7 +397,7 @@ export async function submitForm(dto: SubmitOfficeFormDTO) {
   
   const { data, error } = await supabase
     .from("office_visit_forms")
-    .insert({
+    .upsert({
       visit_id: dto.visit_id,
       endereco: dto.endereco,
       data_nascimento,
@@ -406,7 +406,10 @@ export async function submitForm(dto: SubmitOfficeFormDTO) {
       instagram: dto.instagram,
       facebook: dto.facebook,
       observacoes: dto.observacoes,
-      submitted_at: new Date().toISOString()
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'visit_id',
     })
     .select()
     .single();
