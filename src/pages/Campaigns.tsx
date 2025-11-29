@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUrl } from "@/lib/urlHelper";
 import { useEvents } from "@/hooks/events/useEvents";
 import { format } from "date-fns";
+import CampaignReportDialog from "@/components/campaigns/CampaignReportDialog";
 import { 
   Target, 
   Plus, 
@@ -124,6 +125,8 @@ const Campaigns = () => {
     utmCampaign: ""
   });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<{ utmCampaign: string; name: string } | null>(null);
   const { toast } = useToast();
   
   const { data: events = [] } = useEvents();
@@ -140,33 +143,48 @@ const Campaigns = () => {
       
       if (error) throw error;
       
-      // Transformar dados para formato compatível com a UI
-      return (data || []).map((campaign: any) => ({
-        id: campaign.id,
-        name: campaign.nome,
-        description: campaign.descricao || '',
-        utmSource: campaign.utm_source,
-        utmMedium: campaign.utm_medium || '',
-        utmCampaign: campaign.utm_campaign,
-        eventSlug: campaign.event_slug,
-        link: campaign.event_slug 
-          ? generateEventCampaignUrl(
-              campaign.event_slug,
-              campaign.utm_source,
-              campaign.utm_medium || 'direct',
-              campaign.utm_campaign
-            )
-          : generateCampaignUrl(
-              campaign.utm_source,
-              campaign.utm_medium || 'direct',
-              campaign.utm_campaign
-            ),
-        qrCode: `data:image/svg+xml;base64,${btoa(`<svg width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="black">${campaign.utm_campaign}</text></svg>`)}`,
-        createdAt: new Date(campaign.created_at).toISOString().split('T')[0],
-        status: campaign.status,
-        registrations: campaign.total_cadastros,
-        conversions: Math.floor(campaign.total_cadastros * 0.3) // Mock conversions (30% de conversão)
+      // Para cada campanha, buscar visitantes (page_views)
+      const campaignsWithMetrics = await Promise.all((data || []).map(async (campaign: any) => {
+        // Buscar page_views
+        const { count: pageViewsCount } = await supabase
+          .from('page_views')
+          .select('*', { count: 'exact', head: true })
+          .eq('utm_campaign', campaign.utm_campaign);
+
+        const pageViews = pageViewsCount || 0;
+        const registrations = campaign.total_cadastros;
+        const conversionRate = pageViews > 0 ? ((registrations / pageViews) * 100).toFixed(1) : "0.0";
+
+        return {
+          id: campaign.id,
+          name: campaign.nome,
+          description: campaign.descricao || '',
+          utmSource: campaign.utm_source,
+          utmMedium: campaign.utm_medium || '',
+          utmCampaign: campaign.utm_campaign,
+          eventSlug: campaign.event_slug,
+          link: campaign.event_slug 
+            ? generateEventCampaignUrl(
+                campaign.event_slug,
+                campaign.utm_source,
+                campaign.utm_medium || 'direct',
+                campaign.utm_campaign
+              )
+            : generateCampaignUrl(
+                campaign.utm_source,
+                campaign.utm_medium || 'direct',
+                campaign.utm_campaign
+              ),
+          qrCode: `data:image/svg+xml;base64,${btoa(`<svg width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="black">${campaign.utm_campaign}</text></svg>`)}`,
+          createdAt: new Date(campaign.created_at).toISOString().split('T')[0],
+          status: campaign.status,
+          registrations,
+          pageViews,
+          conversionRate
+        };
       }));
+
+      return campaignsWithMetrics;
     }
   });
 
@@ -344,14 +362,18 @@ const Campaigns = () => {
 
                       {/* Métricas */}
                       <div className="md:col-span-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="text-center p-3 bg-purple-50 rounded-lg">
+                            <p className="text-sm text-gray-600">Visitantes</p>
+                            <p className="font-bold text-purple-600">{campaign.pageViews}</p>
+                          </div>
                           <div className="text-center p-3 bg-blue-50 rounded-lg">
                             <p className="text-sm text-gray-600">Cadastros</p>
                             <p className="font-bold text-blue-600">{campaign.registrations}</p>
                           </div>
                           <div className="text-center p-3 bg-green-50 rounded-lg">
-                            <p className="text-sm text-gray-600">Conversões</p>
-                            <p className="font-bold text-green-600">{campaign.conversions}</p>
+                            <p className="text-sm text-gray-600">Conversão</p>
+                            <p className="font-bold text-green-600">{campaign.conversionRate}%</p>
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 text-center mt-2">
@@ -394,7 +416,17 @@ const Campaigns = () => {
                               <QrCode className="h-4 w-4 mr-2" />
                               Baixar QR
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCampaign({ 
+                                  utmCampaign: campaign.utmCampaign, 
+                                  name: campaign.name 
+                                });
+                                setReportDialogOpen(true);
+                              }}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm">
@@ -584,6 +616,16 @@ const Campaigns = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Relatório */}
+        {selectedCampaign && (
+          <CampaignReportDialog
+            open={reportDialogOpen}
+            onOpenChange={setReportDialogOpen}
+            campaignUtmCampaign={selectedCampaign.utmCampaign}
+            campaignName={selectedCampaign.name}
+          />
+        )}
       </div>
     </div>
   );
