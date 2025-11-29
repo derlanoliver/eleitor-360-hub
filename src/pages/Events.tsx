@@ -27,7 +27,12 @@ import {
   Link as LinkIcon,
   Copy,
   Upload,
-  UserPlus
+  UserPlus,
+  TrendingUp,
+  Award,
+  Trophy,
+  Target,
+  Tag
 } from "lucide-react";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateEvent } from "@/hooks/events/useCreateEvent";
@@ -35,6 +40,9 @@ import { useUpdateEvent } from "@/hooks/events/useUpdateEvent";
 import { useDeleteEvent } from "@/hooks/events/useDeleteEvent";
 import { useEventRegistrations, useUpdateCheckIn } from "@/hooks/events/useEventRegistrations";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { useEventStats } from "@/hooks/events/useEventStats";
+import { useLeadersEventRanking } from "@/hooks/events/useLeadersEventRanking";
+import { useCitiesEventStats } from "@/hooks/events/useCitiesEventStats";
 import { generateEventUrl } from "@/lib/eventUrlHelper";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -980,65 +988,265 @@ function CheckInSection({ events }: { events: any[] }) {
 
 // Reports Component
 function EventReports({ events }: { events: any[] }) {
-  const totalEvents = events.length;
-  const activeEvents = events.filter(e => e.status === "active").length;
-  const totalRegistrations = events.reduce((sum, e) => sum + e.registrations_count, 0);
-  const totalCheckIns = events.reduce((sum, e) => sum + e.checkedin_count, 0);
+  const { data: stats } = useEventStats();
+  const { data: leadersRanking } = useLeadersEventRanking();
+  const { data: citiesStats } = useCitiesEventStats();
+
+  const categoryCounts = events.reduce((acc, event) => {
+    acc[event.category] = (acc[event.category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const getConversionColor = (rate: number) => {
+    if (rate >= 70) return "text-success-500";
+    if (rate >= 50) return "text-warning-500";
+    return "text-danger-500";
+  };
+
+  const getConversionBg = (rate: number) => {
+    if (rate >= 70) return "bg-success-500";
+    if (rate >= 50) return "bg-warning-500";
+    return "bg-danger-500";
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid gap-6">
+      {/* Dashboard Geral */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total de Eventos</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalEvents}</p>
+            <div className="text-2xl font-bold">{stats?.totalEvents || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.activeEvents || 0} ativos
+            </p>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Eventos Ativos</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Taxa de Conversão Geral</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{activeEvents}</p>
+            <div className="text-2xl font-bold">
+              {stats?.overallConversionRate.toFixed(1) || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.totalCheckins || 0} de {stats?.totalRegistrations || 0} inscrições
+            </p>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Inscrições</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Capacidade Média</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalRegistrations}</p>
+            <div className="text-2xl font-bold">
+              {stats?.averageCapacityUtilization.toFixed(1) || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Utilização média dos eventos
+            </p>
           </CardContent>
         </Card>
+        
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Check-ins</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Eventos por Categoria</CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalCheckIns}</p>
+            <div className="space-y-2">
+              {Object.entries(categoryCounts).map(([category, count]) => (
+                <div key={category} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{eventCategories.find(c => c.value === category)?.label || category}</span>
+                  <span className="font-medium">{count as number}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Destaques */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Award className="h-5 w-5 text-primary-500" />
+              Evento Mais Popular
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.mostPopularEvent ? (
+              <div>
+                <p className="font-semibold text-lg">{stats.mostPopularEvent.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {stats.mostPopularEvent.registrations} inscrições
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum evento cadastrado</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-success-500" />
+              Melhor Taxa de Conversão
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.bestConversionEvent ? (
+              <div>
+                <p className="font-semibold text-lg">{stats.bestConversionEvent.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {stats.bestConversionEvent.rate.toFixed(1)}% de conversão
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum evento cadastrado</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Taxa de Conversão por Evento */}
       <Card>
         <CardHeader>
-          <CardTitle>Eventos por Categoria</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Taxa de Conversão por Evento
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {eventCategories.map((cat) => {
-              const count = events.filter(e => e.category === cat.value).length;
-              if (count === 0) return null;
+          <div className="space-y-4">
+            {events.map((event) => {
+              const registrations = event.registrations_count || 0;
+              const checkins = event.checkedin_count || 0;
+              const rate = registrations > 0 ? (checkins / registrations) * 100 : 0;
+
               return (
-                <div key={cat.value} className="flex items-center justify-between p-2 border border-border rounded">
-                  <span>{cat.label}</span>
-                  <Badge className={`${cat.color} text-white`}>{count}</Badge>
+                <div key={event.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{event.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {checkins} de {registrations} confirmados
+                      </p>
+                    </div>
+                    <span className={`text-lg font-bold ${getConversionColor(rate)}`}>
+                      {rate.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${getConversionBg(rate)}`}
+                      style={{ width: `${Math.min(rate, 100)}%` }}
+                    />
+                  </div>
                 </div>
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Ranking de Líderes */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Ranking de Líderes por Inscrições
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {leadersRanking && leadersRanking.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 font-medium">#</th>
+                    <th className="text-left py-2 font-medium">Líder</th>
+                    <th className="text-left py-2 font-medium">Cidade</th>
+                    <th className="text-right py-2 font-medium">Inscrições</th>
+                    <th className="text-right py-2 font-medium">Check-ins</th>
+                    <th className="text-right py-2 font-medium">Taxa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leadersRanking.map((leader, index) => (
+                    <tr key={leader.leaderId} className="border-b">
+                      <td className="py-3 text-muted-foreground">{index + 1}</td>
+                      <td className="py-3 font-medium">{leader.leaderName}</td>
+                      <td className="py-3 text-muted-foreground">
+                        {leader.cityName || "-"}
+                      </td>
+                      <td className="py-3 text-right">{leader.registrations}</td>
+                      <td className="py-3 text-right">{leader.checkins}</td>
+                      <td className={`py-3 text-right font-medium ${getConversionColor(leader.conversionRate)}`}>
+                        {leader.conversionRate.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhuma inscrição via líder encontrada
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Distribuição por Cidade */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Inscrições por Cidade/RA
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {citiesStats && citiesStats.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 font-medium">Cidade</th>
+                    <th className="text-right py-2 font-medium">Inscrições</th>
+                    <th className="text-right py-2 font-medium">Check-ins</th>
+                    <th className="text-right py-2 font-medium">Taxa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {citiesStats.map((city) => (
+                    <tr key={city.cityId} className="border-b">
+                      <td className="py-3 font-medium">{city.cityName}</td>
+                      <td className="py-3 text-right">{city.registrations}</td>
+                      <td className="py-3 text-right">{city.checkins}</td>
+                      <td className={`py-3 text-right font-medium ${getConversionColor(city.conversionRate)}`}>
+                        {city.conversionRate.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhuma inscrição com cidade encontrada
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
