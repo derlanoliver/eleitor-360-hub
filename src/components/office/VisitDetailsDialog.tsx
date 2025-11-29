@@ -202,7 +202,12 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
   };
   
   const formData = visit.form?.[0] || visit.form;
-  const isFormSubmitted = visit.status === 'FORM_SUBMITTED' || visit.status === 'CHECKED_IN';
+  const isFinished = visit.status === 'MEETING_COMPLETED' || visit.status === 'CANCELLED';
+  const hasFormData = visit.status === 'FORM_SUBMITTED' || 
+                      visit.status === 'CHECKED_IN' || 
+                      visit.status === 'MEETING_COMPLETED' || 
+                      visit.status === 'CANCELLED' ||
+                      visit.status === 'RESCHEDULED';
   const isCheckedIn = visit.status === 'CHECKED_IN' || visit.checked_in;
 
   return (
@@ -268,7 +273,7 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
           )}
 
           {/* Dados do Formulário (se disponível) */}
-          {isFormSubmitted && formData && (
+          {hasFormData && formData && (
             <>
               <div className="border-t pt-4">
                 <h3 className="font-semibold mb-3">Dados do Formulário</h3>
@@ -350,8 +355,8 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
             </div>
           )}
 
-          {/* Botões de Ação */}
-          {isFormSubmitted && (
+          {/* Botões de Ação - apenas para visitas em andamento */}
+          {hasFormData && !isFinished && (
             <div className="flex gap-3 pt-4 border-t">
               {!isCheckedIn ? (
                 <Button
@@ -397,29 +402,41 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
             </div>
           )}
 
-          {/* Link do Formulário/Check-in */}
-          <div>
-            <Label>{isFormSubmitted && visit.qr_code ? 'Link de Check-in' : 'Link do Formulário'}</Label>
-            <div className="mt-2 p-3 bg-muted rounded-md break-all text-sm font-mono">
-              {link}
+          {/* Botão Imprimir para visitas finalizadas */}
+          {isFinished && (
+            <div className="flex gap-3 pt-4 border-t">
+              <Button onClick={handlePrint} variant="outline" className="flex-1">
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir Ficha
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2"
-              onClick={handleCopyLink}
-            >
-              <Copy className="mr-2 h-4 w-4" />
-              Copiar Link
-            </Button>
-          </div>
+          )}
+
+          {/* Link do Formulário/Check-in - apenas para visitas em andamento */}
+          {!isFinished && (
+            <div>
+              <Label>{hasFormData && visit.qr_code ? 'Link de Check-in' : 'Link do Formulário'}</Label>
+              <div className="mt-2 p-3 bg-muted rounded-md break-all text-sm font-mono">
+                {link}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={handleCopyLink}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar Link
+              </Button>
+            </div>
+          )}
           
-          {/* QR Code */}
-          {qrCode && (
+          {/* QR Code - apenas para visitas em andamento */}
+          {!isFinished && qrCode && (
             <div>
               <Label className="flex items-center gap-2">
                 <QrCode className="h-4 w-4" />
-                QR Code {isFormSubmitted && visit.qr_code ? 'para Check-in' : 'do Formulário'}
+                QR Code {hasFormData && visit.qr_code ? 'para Check-in' : 'do Formulário'}
               </Label>
               <div className="mt-2 flex justify-center p-4 bg-muted rounded-lg">
                 <img src={qrCode} alt="QR Code" className="w-48 h-48" />
