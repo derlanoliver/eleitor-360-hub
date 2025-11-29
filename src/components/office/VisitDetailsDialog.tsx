@@ -134,6 +134,11 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
           ${formData ? `
           <div class="section">
             <div class="section-title">Dados da Reunião</div>
+            ${formData.tema ? `
+            <div class="field">
+              <span class="field-label">Pauta/Tema:</span>
+              <span class="field-value">${formData.tema.tema}</span>
+            </div>` : ''}
             <div class="field">
               <span class="field-label">Aceita Reunião:</span>
               <span class="field-value">${formData.aceita_reuniao ? 'Sim' : 'Não'}</span>
@@ -283,6 +288,22 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
                     <p className="text-sm mt-1">
                       <Badge variant={formData.aceita_reuniao ? "default" : "secondary"}>
                         {formData.aceita_reuniao ? "Sim" : "Não"}
+                      </Badge>
+                    </p>
+                  </div>
+                  
+                  {formData.tema && (
+                    <div>
+                      <Label>Pauta/Tema</Label>
+                      <p className="text-sm mt-1">{formData.tema.tema}</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label>Continua no Projeto</Label>
+                    <p className="text-sm mt-1">
+                      <Badge variant={formData.continua_projeto ? "default" : "secondary"}>
+                        {formData.continua_projeto ? "Sim" : "Não"}
                       </Badge>
                     </p>
                   </div>

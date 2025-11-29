@@ -503,6 +503,8 @@ export type Database = {
           leader_id: string
           protocolo: string
           qr_code: string | null
+          rescheduled_at: string | null
+          rescheduled_date: string | null
           status: Database["public"]["Enums"]["office_visit_status"]
           token: string | null
           token_expires_at: string | null
@@ -522,6 +524,8 @@ export type Database = {
           leader_id: string
           protocolo: string
           qr_code?: string | null
+          rescheduled_at?: string | null
+          rescheduled_date?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -541,6 +545,8 @@ export type Database = {
           leader_id?: string
           protocolo?: string
           qr_code?: string | null
+          rescheduled_at?: string | null
+          rescheduled_date?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -814,6 +820,8 @@ export type Database = {
         | "FORM_SUBMITTED"
         | "CHECKED_IN"
         | "CANCELLED"
+        | "MEETING_COMPLETED"
+        | "RESCHEDULED"
       tenant_status: "active" | "suspended" | "cancelled"
     }
     CompositeTypes: {
@@ -958,6 +966,8 @@ export const Constants = {
         "FORM_SUBMITTED",
         "CHECKED_IN",
         "CANCELLED",
+        "MEETING_COMPLETED",
+        "RESCHEDULED",
       ],
       tenant_status: ["active", "suspended", "cancelled"],
     },

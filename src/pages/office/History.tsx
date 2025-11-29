@@ -18,6 +18,10 @@ import { ptBR } from "date-fns/locale";
 export default function History() {
   const { data: visits, isLoading } = useOfficeVisits();
   
+  // Filtrar apenas visitas finalizadas
+  const finishedStatuses = ["MEETING_COMPLETED", "CANCELLED"];
+  const finishedVisits = visits?.filter((v) => finishedStatuses.includes(v.status)) || [];
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -37,7 +41,7 @@ export default function History() {
       
       <Card>
         <CardHeader>
-          <CardTitle>Todas as Visitas</CardTitle>
+          <CardTitle>Visitas Finalizadas</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -49,11 +53,12 @@ export default function History() {
                 <TableHead>Cidade</TableHead>
                 <TableHead>Líder</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Data</TableHead>
+                <TableHead>Data Registro</TableHead>
+                <TableHead>Check-in</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visits?.map((visit) => (
+              {finishedVisits.map((visit) => (
                 <TableRow key={visit.id}>
                   <TableCell>
                     <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
@@ -74,12 +79,21 @@ export default function History() {
                       locale: ptBR
                     })}
                   </TableCell>
+                  <TableCell>
+                    {visit.checked_in_at ? (
+                      format(new Date(visit.checked_in_at), "dd/MM/yyyy HH:mm", {
+                        locale: ptBR
+                      })
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
-              {(!visits || visits.length === 0) && (
+              {finishedVisits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    Nenhuma visita registrada ainda
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    Nenhuma visita finalizada ainda
                   </TableCell>
                 </TableRow>
               )}
