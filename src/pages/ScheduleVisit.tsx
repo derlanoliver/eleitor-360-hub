@@ -96,10 +96,10 @@ export default function ScheduleVisit() {
     try {
       setSubmitting(true);
 
-      // 1. Insert form data into office_visit_forms
+      // 1. Upsert form data into office_visit_forms
       const { error: formError } = await supabase
         .from("office_visit_forms")
-        .insert({
+        .upsert({
           visit_id: visitId,
           data_nascimento: dataNascimento,
           endereco,
@@ -110,6 +110,9 @@ export default function ScheduleVisit() {
           observacoes,
           tema_id: temaId,
           submitted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'visit_id',
         });
 
       if (formError) throw formError;
