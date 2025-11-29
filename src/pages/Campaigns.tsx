@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { generateCampaignUrl, generateLeaderReferralUrl } from "@/lib/urlHelper";
+import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUrl } from "@/lib/urlHelper";
+import { useEvents } from "@/hooks/events/useEvents";
+import { format } from "date-fns";
 import { 
   Target, 
   Plus, 
@@ -113,6 +115,8 @@ const mockAttributionData = [
 const Campaigns = () => {
   const [leaderLinks] = useState(mockLeaderLinksData);
   const [newCampaign, setNewCampaign] = useState({
+    eventId: "",
+    eventSlug: "",
     name: "",
     description: "",
     utmSource: "",
@@ -121,6 +125,9 @@ const Campaigns = () => {
   });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
+  
+  const { data: events = [] } = useEvents();
+  const activeEvents = events.filter(e => e.status === 'active');
 
   // Buscar campanhas reais do banco
   const { data: campaigns = [], isLoading, refetch } = useQuery({
@@ -141,11 +148,19 @@ const Campaigns = () => {
         utmSource: campaign.utm_source,
         utmMedium: campaign.utm_medium || '',
         utmCampaign: campaign.utm_campaign,
-        link: generateCampaignUrl(
-          campaign.utm_source,
-          campaign.utm_medium || 'direct',
-          campaign.utm_campaign
-        ),
+        eventSlug: campaign.event_slug,
+        link: campaign.event_slug 
+          ? generateEventCampaignUrl(
+              campaign.event_slug,
+              campaign.utm_source,
+              campaign.utm_medium || 'direct',
+              campaign.utm_campaign
+            )
+          : generateCampaignUrl(
+              campaign.utm_source,
+              campaign.utm_medium || 'direct',
+              campaign.utm_campaign
+            ),
         qrCode: `data:image/svg+xml;base64,${btoa(`<svg width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="black">${campaign.utm_campaign}</text></svg>`)}`,
         createdAt: new Date(campaign.created_at).toISOString().split('T')[0],
         status: campaign.status,
@@ -156,10 +171,10 @@ const Campaigns = () => {
   });
 
   const handleCreateCampaign = async () => {
-    if (!newCampaign.name || !newCampaign.utmSource || !newCampaign.utmCampaign) {
+    if (!newCampaign.eventId || !newCampaign.utmSource || !newCampaign.utmCampaign) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha pelo menos o nome, fonte e campanha UTM.",
+        description: "Preencha o evento, fonte e campanha UTM.",
         variant: "destructive"
       });
       return;
@@ -169,6 +184,8 @@ const Campaigns = () => {
       const { error } = await supabase
         .from('campaigns')
         .insert({
+          event_id: newCampaign.eventId,
+          event_slug: newCampaign.eventSlug,
           nome: newCampaign.name,
           descricao: newCampaign.description,
           utm_source: newCampaign.utmSource,
@@ -184,7 +201,7 @@ const Campaigns = () => {
         description: "A campanha foi criada com sucesso."
       });
 
-      setNewCampaign({ name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
+      setNewCampaign({ eventId: "", eventSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
       setIsCreateDialogOpen(false);
       refetch();
     } catch (error) {
@@ -275,6 +292,7 @@ const Campaigns = () => {
                   newCampaign={newCampaign}
                   setNewCampaign={setNewCampaign}
                   onSubmit={handleCreateCampaign}
+                  activeEvents={activeEvents}
                 />
               </DialogContent>
             </Dialog>
@@ -575,23 +593,46 @@ const Campaigns = () => {
 const CreateCampaignForm = ({ 
   newCampaign, 
   setNewCampaign, 
-  onSubmit 
+  onSubmit,
+  activeEvents
 }: {
   newCampaign: any;
   setNewCampaign: (campaign: any) => void;
   onSubmit: () => void;
+  activeEvents: any[];
 }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="name">Nome da Campanha *</Label>
-          <Input
-            id="name"
-            value={newCampaign.name}
-            onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
-            placeholder="Ex: Facebook Janeiro 2024"
-          />
+          <Label htmlFor="event">Evento *</Label>
+          <Select 
+            value={newCampaign.eventId} 
+            onValueChange={(eventId) => {
+              const event = activeEvents.find(e => e.id === eventId);
+              setNewCampaign({ 
+                ...newCampaign, 
+                eventId,
+                eventSlug: event?.slug || '',
+                name: event?.name || ''
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um evento" />
+            </SelectTrigger>
+            <SelectContent>
+              {activeEvents.length === 0 ? (
+                <SelectItem value="empty" disabled>Nenhum evento ativo disponível</SelectItem>
+              ) : (
+                activeEvents.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name} - {format(new Date(event.date), 'dd/MM/yyyy')}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
         
         <div>
@@ -661,7 +702,7 @@ const CreateCampaignForm = ({
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
-        <Button variant="outline" onClick={() => setNewCampaign({ name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" })}>
+        <Button variant="outline" onClick={() => setNewCampaign({ eventId: "", eventSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" })}>
           Limpar
         </Button>
         <Button onClick={onSubmit}>

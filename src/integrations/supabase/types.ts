@@ -48,6 +48,8 @@ export type Database = {
         Row: {
           created_at: string
           descricao: string | null
+          event_id: string | null
+          event_slug: string | null
           id: string
           nome: string
           status: string
@@ -60,6 +62,8 @@ export type Database = {
         Insert: {
           created_at?: string
           descricao?: string | null
+          event_id?: string | null
+          event_slug?: string | null
           id?: string
           nome: string
           status?: string
@@ -72,6 +76,8 @@ export type Database = {
         Update: {
           created_at?: string
           descricao?: string | null
+          event_id?: string | null
+          event_slug?: string | null
           id?: string
           nome?: string
           status?: string
@@ -81,7 +87,15 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_registrations: {
         Row: {
