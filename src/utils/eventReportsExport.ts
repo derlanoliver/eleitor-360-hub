@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 
 interface EventExportData {
@@ -117,7 +117,7 @@ export function exportReportsToPdf(data: {
     ],
   ];
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: 45,
     head: [["Métrica", "Valor"]],
     body: kpis,
@@ -127,7 +127,8 @@ export function exportReportsToPdf(data: {
 
   // Top 10 Eventos
   doc.setFontSize(14);
-  doc.text("Top 10 Eventos (Por Inscrições)", 14, (doc as any).lastAutoTable.finalY + 15);
+  const finalY1 = (doc as any).lastAutoTable.finalY || 90;
+  doc.text("Top 10 Eventos (Por Inscrições)", 14, finalY1 + 15);
 
   const topEvents = data.events
     .sort((a, b) => (b.registrations_count || 0) - (a.registrations_count || 0))
@@ -144,8 +145,9 @@ export function exportReportsToPdf(data: {
       }%`,
     ]);
 
-  (doc as any).autoTable({
-    startY: (doc as any).lastAutoTable.finalY + 20,
+  const finalY2 = (doc as any).lastAutoTable.finalY || 90;
+  autoTable(doc, {
+    startY: finalY2 + 20,
     head: [["Evento", "Data", "Inscrições", "Check-ins", "Conversão"]],
     body: topEvents,
     theme: "striped",
@@ -153,7 +155,8 @@ export function exportReportsToPdf(data: {
   });
 
   // Ranking de Líderes
-  if ((doc as any).lastAutoTable.finalY > 240) {
+  const finalY3 = (doc as any).lastAutoTable.finalY || 140;
+  if (finalY3 > 240) {
     doc.addPage();
   }
 
@@ -161,7 +164,7 @@ export function exportReportsToPdf(data: {
   doc.text(
     "Ranking de Líderes",
     14,
-    (doc as any).lastAutoTable.finalY > 240 ? 20 : (doc as any).lastAutoTable.finalY + 15
+    finalY3 > 240 ? 20 : finalY3 + 15
   );
 
   const leadersData = data.leadersRanking.slice(0, 10).map((leader, idx) => [
@@ -173,8 +176,9 @@ export function exportReportsToPdf(data: {
     `${leader.conversionRate.toFixed(1)}%`,
   ]);
 
-  (doc as any).autoTable({
-    startY: (doc as any).lastAutoTable.finalY > 240 ? 25 : (doc as any).lastAutoTable.finalY + 20,
+  const finalY4 = (doc as any).lastAutoTable.finalY || 140;
+  autoTable(doc, {
+    startY: finalY4 > 240 ? 25 : finalY4 + 20,
     head: [["#", "Nome", "Cidade", "Inscrições", "Check-ins", "Conversão"]],
     body: leadersData,
     theme: "striped",
