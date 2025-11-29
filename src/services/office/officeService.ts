@@ -260,7 +260,8 @@ export async function getVisits(filters?: OfficeVisitsFilters) {
       *,
       contact:office_contacts(*),
       leader:lideres(*),
-      city:office_cities(*)
+      city:office_cities(*),
+      form:office_visit_forms(*, tema:temas(*))
     `);
   
   if (filters?.status && filters.status.length > 0) {

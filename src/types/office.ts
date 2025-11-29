@@ -8,7 +8,9 @@ export type OfficeVisitStatus =
   | "FORM_OPENED"
   | "FORM_SUBMITTED"
   | "CHECKED_IN"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "MEETING_COMPLETED"
+  | "RESCHEDULED";
 
 export type OfficeCityStatus = "active" | "inactive";
 export type OfficeLeaderStatus = "active" | "inactive";
@@ -82,6 +84,8 @@ export interface OfficeVisit {
   qr_code?: string;
   checked_in?: boolean;
   checked_in_at?: string;
+  rescheduled_date?: string;
+  rescheduled_at?: string;
   created_at: string;
   updated_at: string;
 }

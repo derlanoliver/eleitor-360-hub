@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useOfficeVisits } from "@/hooks/office/useOfficeVisits";
-import { Loader2, Clock, Send, FileText, CheckCircle } from "lucide-react";
+import { Loader2, Clock, Send, FileText, CheckCircle, CheckCircle2, XCircle, CalendarClock } from "lucide-react";
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
+import { RescheduleVisitDialog } from "@/components/office/RescheduleVisitDialog";
+import { useVisitMeetingActions } from "@/hooks/office/useVisitMeetingActions";
 import { formatPhoneBR } from "@/services/office/officeService";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Queue() {
   const { data: visits, isLoading } = useOfficeVisits();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
+  const [rescheduleVisit, setRescheduleVisit] = useState<any>(null);
+  const { completeMeeting, cancelMeeting, rescheduleMeeting } = useVisitMeetingActions();
   
   if (isLoading) {
     return (
@@ -19,11 +30,28 @@ export default function Queue() {
     );
   }
   
+  // Filtrar apenas visitas ativas (excluir finalizadas)
+  const activeStatuses = ["REGISTERED", "LINK_SENT", "FORM_OPENED", "FORM_SUBMITTED", "CHECKED_IN", "RESCHEDULED"];
+  const activeVisits = visits?.filter((v) => activeStatuses.includes(v.status)) || [];
+  
   // Agrupar por status
-  const registered = visits?.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT") || [];
-  const opened = visits?.filter((v) => v.status === "FORM_OPENED") || [];
-  const submitted = visits?.filter((v) => v.status === "FORM_SUBMITTED") || [];
-  const checkedIn = visits?.filter((v) => v.status === "CHECKED_IN") || [];
+  const registered = activeVisits.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT");
+  const opened = activeVisits.filter((v) => v.status === "FORM_OPENED");
+  
+  // Form Enviado: reagendadas primeiro
+  const submitted = activeVisits
+    .filter((v) => v.status === "FORM_SUBMITTED" || v.status === "RESCHEDULED")
+    .sort((a, b) => {
+      if (a.status === "RESCHEDULED" && b.status !== "RESCHEDULED") return -1;
+      if (a.status !== "RESCHEDULED" && b.status === "RESCHEDULED") return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  
+  const checkedIn = activeVisits.filter((v) => v.status === "CHECKED_IN");
+  
+  const handleReschedule = (visitId: string, newDate: Date) => {
+    rescheduleMeeting.mutate({ visitId, newDate });
+  };
   
   return (
     <div className="container mx-auto py-6">
@@ -144,15 +172,75 @@ export default function Queue() {
             {checkedIn.map((visit) => (
               <div 
                 key={visit.id} 
-                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => setSelectedVisit(visit)}
+                className="p-3 bg-muted rounded-lg space-y-2"
               >
-                <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
-                <p className="font-medium text-sm">{visit.contact?.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
-                </p>
-                <OfficeStatusBadge status={visit.status} />
+                <div 
+                  className="cursor-pointer"
+                  onClick={() => setSelectedVisit(visit)}
+                >
+                  <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                  <p className="font-medium text-sm mt-2">{visit.contact?.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+                  </p>
+                  <OfficeStatusBadge status={visit.status} className="mt-2" />
+                </div>
+                
+                {/* Botões de ação */}
+                <TooltipProvider>
+                  <div className="flex gap-2 mt-2 pt-2 border-t">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            completeMeeting.mutate(visit.id);
+                          }}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reunião Realizada</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelMeeting.mutate(visit.id);
+                          }}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reunião Cancelada</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRescheduleVisit(visit);
+                          }}
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reagendar Reunião</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
               </div>
             ))}
             {checkedIn.length === 0 && (
@@ -168,6 +256,13 @@ export default function Queue() {
         visit={selectedVisit}
         open={!!selectedVisit}
         onOpenChange={(open) => !open && setSelectedVisit(null)}
+      />
+      
+      <RescheduleVisitDialog
+        visit={rescheduleVisit}
+        open={!!rescheduleVisit}
+        onOpenChange={(open) => !open && setRescheduleVisit(null)}
+        onReschedule={handleReschedule}
       />
     </div>
   );
