@@ -440,6 +440,7 @@ export type Database = {
           instagram: string | null
           observacoes: string | null
           submitted_at: string | null
+          tema_id: string | null
           updated_at: string
           visit_id: string
         }
@@ -454,6 +455,7 @@ export type Database = {
           instagram?: string | null
           observacoes?: string | null
           submitted_at?: string | null
+          tema_id?: string | null
           updated_at?: string
           visit_id: string
         }
@@ -468,10 +470,18 @@ export type Database = {
           instagram?: string | null
           observacoes?: string | null
           submitted_at?: string | null
+          tema_id?: string | null
           updated_at?: string
           visit_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "office_visit_forms_tema_id_fkey"
+            columns: ["tema_id"]
+            isOneToOne: false
+            referencedRelation: "temas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "office_visit_forms_visit_id_fkey"
             columns: ["visit_id"]

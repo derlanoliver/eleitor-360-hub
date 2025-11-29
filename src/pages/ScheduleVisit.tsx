@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
+import { useTemas } from "@/hooks/useTemas";
 
 export default function ScheduleVisit() {
   const { visitId } = useParams();
   const { toast } = useToast();
+  const { data: temas = [], isLoading: temasLoading } = useTemas();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -27,6 +30,7 @@ export default function ScheduleVisit() {
   const [aceitaReuniao, setAceitaReuniao] = useState<string>("");
   const [continuaProjeto, setContinuaProjeto] = useState<string>("");
   const [observacoes, setObservacoes] = useState("");
+  const [temaId, setTemaId] = useState<string>("");
 
   useEffect(() => {
     loadVisit();
@@ -77,7 +81,7 @@ export default function ScheduleVisit() {
     e.preventDefault();
 
     // Validate required fields
-    if (!dataNascimento || !endereco || !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes) {
+    if (!dataNascimento || !endereco || !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes || !temaId) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios",
@@ -101,6 +105,7 @@ export default function ScheduleVisit() {
           aceita_reuniao: aceitaReuniao === "sim",
           continua_projeto: continuaProjeto === "sim",
           observacoes,
+          tema_id: temaId,
           submitted_at: new Date().toISOString(),
         });
 
@@ -245,6 +250,31 @@ export default function ScheduleVisit() {
                     onChange={(e) => setDataNascimento(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pauta">Pauta *</Label>
+                  <Select value={temaId} onValueChange={setTemaId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma pauta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {temasLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Carregando...
+                        </SelectItem>
+                      ) : temas.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          Nenhuma pauta disponível
+                        </SelectItem>
+                      ) : (
+                        temas.map((tema) => (
+                          <SelectItem key={tema.id} value={tema.id}>
+                            {tema.tema}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
