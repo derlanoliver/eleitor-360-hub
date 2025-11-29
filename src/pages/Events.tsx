@@ -32,7 +32,12 @@ import {
   Award,
   Trophy,
   Target,
-  Tag
+  Tag,
+  FileSpreadsheet,
+  FileText,
+  Activity,
+  PieChart as PieChartIcon,
+  Repeat
 } from "lucide-react";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateEvent } from "@/hooks/events/useCreateEvent";
@@ -43,9 +48,14 @@ import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { useEventStats } from "@/hooks/events/useEventStats";
 import { useLeadersEventRanking } from "@/hooks/events/useLeadersEventRanking";
 import { useCitiesEventStats } from "@/hooks/events/useCitiesEventStats";
+import { useRegistrationsTimeline } from "@/hooks/events/useRegistrationsTimeline";
+import { useCategoryStats } from "@/hooks/events/useCategoryStats";
+import { useContactsAnalysis } from "@/hooks/events/useContactsAnalysis";
+import { exportEventsToExcel, exportReportsToPdf } from "@/utils/eventReportsExport";
 import { generateEventUrl } from "@/lib/eventUrlHelper";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import EventQRCode from "@/components/EventQRCode";
 import { EventAffiliateDialog } from "@/components/events/EventAffiliateDialog";
 
@@ -988,9 +998,14 @@ function CheckInSection({ events }: { events: any[] }) {
 
 // Reports Component
 function EventReports({ events }: { events: any[] }) {
+  const [timelinePeriod, setTimelinePeriod] = useState(30);
   const { data: stats } = useEventStats();
   const { data: leadersRanking } = useLeadersEventRanking();
   const { data: citiesStats } = useCitiesEventStats();
+  const { data: categoryStats } = useCategoryStats();
+  const { data: contactsAnalysis } = useContactsAnalysis();
+  const { data: timelineData } = useRegistrationsTimeline(timelinePeriod);
+  const { toast } = useToast();
 
   const categoryCounts = events.reduce((acc, event) => {
     acc[event.category] = (acc[event.category] || 0) + 1;
@@ -1009,8 +1024,82 @@ function EventReports({ events }: { events: any[] }) {
     return "bg-danger-500";
   };
 
+  const handleExportExcel = () => {
+    if (!stats || !leadersRanking || !citiesStats || !categoryStats) {
+      toast({
+        title: "Erro",
+        description: "Dados ainda carregando. Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      exportEventsToExcel({
+        events,
+        leadersRanking,
+        citiesStats,
+        categoryStats,
+        stats,
+      });
+      toast({
+        title: "Excel exportado",
+        description: "Relatório baixado com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar o arquivo Excel.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportPdf = () => {
+    if (!stats || !leadersRanking) {
+      toast({
+        title: "Erro",
+        description: "Dados ainda carregando. Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      exportReportsToPdf({
+        stats,
+        events,
+        leadersRanking,
+      });
+      toast({
+        title: "PDF exportado",
+        description: "Relatório baixado com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar o arquivo PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
+
   return (
     <div className="grid gap-6">
+      {/* Botões de Exportação */}
+      <div className="flex justify-end gap-2">
+        <Button onClick={handleExportExcel} variant="outline" size="sm">
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          Exportar Excel
+        </Button>
+        <Button onClick={handleExportPdf} variant="outline" size="sm">
+          <FileText className="h-4 w-4 mr-2" />
+          Exportar PDF
+        </Button>
+      </div>
+
       {/* Dashboard Geral */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -1119,6 +1208,147 @@ function EventReports({ events }: { events: any[] }) {
         </Card>
       </div>
 
+      {/* Evolução Temporal */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Evolução de Inscrições
+            </CardTitle>
+            <Select value={timelinePeriod.toString()} onValueChange={(v) => setTimelinePeriod(Number(v))}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {timelineData && timelineData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={timelineData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(date) => format(new Date(date), "dd/MM")}
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                  labelFormatter={(date) => format(new Date(date), "dd/MM/yyyy")}
+                />
+                <Legend />
+                <Area 
+                  type="monotone" 
+                  dataKey="registrations" 
+                  name="Inscrições"
+                  stroke="hsl(var(--primary))" 
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.3}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="checkins" 
+                  name="Check-ins"
+                  stroke="hsl(var(--success-500))" 
+                  fill="hsl(var(--success-500))"
+                  fillOpacity={0.3}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Nenhum dado disponível para o período selecionado
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Métricas por Categoria */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="h-5 w-5" />
+            Métricas Detalhadas por Categoria
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {categoryStats && categoryStats.length > 0 ? (
+            <div className="space-y-6">
+              {/* Gráfico de Barras */}
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={categoryStats} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis 
+                    type="category" 
+                    dataKey="categoryLabel" 
+                    width={120}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="totalRegistrations" name="Inscrições" fill="hsl(var(--primary))" />
+                  <Bar dataKey="totalCheckins" name="Check-ins" fill="hsl(var(--success-500))" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Tabela Detalhada */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 font-medium">Categoria</th>
+                      <th className="text-right py-2 font-medium">Eventos</th>
+                      <th className="text-right py-2 font-medium">Inscrições</th>
+                      <th className="text-right py-2 font-medium">Check-ins</th>
+                      <th className="text-right py-2 font-medium">Taxa</th>
+                      <th className="text-right py-2 font-medium">Média/Evento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoryStats.map((cat) => (
+                      <tr key={cat.category} className="border-b">
+                        <td className="py-3 font-medium">{cat.categoryLabel}</td>
+                        <td className="py-3 text-right">{cat.totalEvents}</td>
+                        <td className="py-3 text-right">{cat.totalRegistrations}</td>
+                        <td className="py-3 text-right">{cat.totalCheckins}</td>
+                        <td className={`py-3 text-right font-medium ${getConversionColor(cat.conversionRate)}`}>
+                          {cat.conversionRate.toFixed(1)}%
+                        </td>
+                        <td className="py-3 text-right">
+                          {cat.averageRegistrationsPerEvent.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhuma categoria encontrada
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Taxa de Conversão por Evento */}
       <Card>
         <CardHeader>
@@ -1157,6 +1387,109 @@ function EventReports({ events }: { events: any[] }) {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Análise de Contatos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Repeat className="h-5 w-5" />
+            Análise de Contatos (Novos vs Recorrentes)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contactsAnalysis ? (
+            <div className="space-y-6">
+              {/* Métricas Principais */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <p className="text-2xl font-bold">{contactsAnalysis.totalUniqueContacts}</p>
+                  <p className="text-sm text-muted-foreground">Contatos Únicos</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <p className="text-2xl font-bold">{contactsAnalysis.newContacts}</p>
+                  <p className="text-sm text-muted-foreground">Novos (1 evento)</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <p className="text-2xl font-bold">{contactsAnalysis.recurringContacts}</p>
+                  <p className="text-sm text-muted-foreground">Recorrentes (2+)</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <p className="text-2xl font-bold">{contactsAnalysis.recurrenceRate.toFixed(1)}%</p>
+                  <p className="text-sm text-muted-foreground">Taxa de Recorrência</p>
+                </div>
+              </div>
+
+              {/* Gráfico de Pizza */}
+              <div className="flex justify-center">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Novos', value: contactsAnalysis.newContacts },
+                        { name: 'Recorrentes', value: contactsAnalysis.recurringContacts },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value, percent }) => 
+                        `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                      }
+                      outerRadius={100}
+                      fill="hsl(var(--primary))"
+                      dataKey="value"
+                    >
+                      {[
+                        { name: 'Novos', value: contactsAnalysis.newContacts },
+                        { name: 'Recorrentes', value: contactsAnalysis.recurringContacts },
+                      ].map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Top Participantes Engajados */}
+              {contactsAnalysis.topRecurringContacts.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Top 10 Participantes Mais Engajados</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 font-medium">#</th>
+                          <th className="text-left py-2 font-medium">Nome</th>
+                          <th className="text-right py-2 font-medium">Eventos Participados</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contactsAnalysis.topRecurringContacts.map((contact, index) => (
+                          <tr key={contact.contactId} className="border-b">
+                            <td className="py-3 text-muted-foreground">{index + 1}</td>
+                            <td className="py-3 font-medium">{contact.name}</td>
+                            <td className="py-3 text-right">{contact.eventCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum dado disponível
+            </p>
+          )}
         </CardContent>
       </Card>
 
