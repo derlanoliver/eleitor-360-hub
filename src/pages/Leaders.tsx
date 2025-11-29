@@ -21,6 +21,7 @@ const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("cadastros_desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: cities } = useOfficeCities();
@@ -87,6 +88,17 @@ const Leaders = () => {
     }
   };
 
+  // Função para determinar cor do card baseado na pontuação
+  const getLeaderColorClass = (pontos: number): string => {
+    if (pontos >= 20) {
+      return "border-l-4 border-green-300 bg-green-50/50";
+    } else if (pontos >= 5) {
+      return "border-l-4 border-amber-300 bg-amber-50/50";
+    } else {
+      return "border-l-4 border-red-300 bg-red-50/50";
+    }
+  };
+
   // Filtros
   const filteredLeaders = (leaders || []).filter(leader => {
     const matchesStatus = statusFilter === "all" || 
@@ -94,6 +106,24 @@ const Leaders = () => {
                          (statusFilter === "inactive" && !leader.is_active);
     
     return matchesStatus;
+  });
+
+  // Ordenar líderes
+  const sortedLeaders = [...filteredLeaders].sort((a, b) => {
+    switch (sortBy) {
+      case "cadastros_desc":
+        return b.cadastros - a.cadastros;
+      case "cadastros_asc":
+        return a.cadastros - b.cadastros;
+      case "pontos_desc":
+        return b.pontuacao_total - a.pontuacao_total;
+      case "pontos_asc":
+        return a.pontuacao_total - b.pontuacao_total;
+      case "nome_asc":
+        return a.nome_completo.localeCompare(b.nome_completo);
+      default:
+        return 0;
+    }
   });
 
   const activeLeaders = leaders?.filter(leader => leader.is_active).length || 0;
@@ -109,7 +139,7 @@ const Leaders = () => {
                 Gestão de Lideranças
               </h1>
               <p className="text-sm sm:text-base text-gray-600">
-                {isLoading ? "Carregando..." : `${filteredLeaders.length} líderes • ${activeLeaders} ativos`}
+                {isLoading ? "Carregando..." : `${sortedLeaders.length} líderes • ${activeLeaders} ativos`}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
@@ -190,6 +220,24 @@ const Leaders = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Ordenar por
+                  </label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cadastros_desc">Maior Cadastros</SelectItem>
+                      <SelectItem value="cadastros_asc">Menor Cadastros</SelectItem>
+                      <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
+                      <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
+                      <SelectItem value="nome_asc">Nome A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -204,7 +252,7 @@ const Leaders = () => {
                     <p className="text-gray-600">Carregando líderes...</p>
                   </CardContent>
                 </Card>
-              ) : filteredLeaders.length === 0 ? (
+              ) : sortedLeaders.length === 0 ? (
                 <Card className="card-default">
                   <CardContent className="p-8 text-center">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -217,8 +265,8 @@ const Leaders = () => {
                   </CardContent>
                 </Card>
               ) : (
-                filteredLeaders.map((leader) => (
-                  <Card key={leader.id} className="card-default">
+                sortedLeaders.map((leader) => (
+                  <Card key={leader.id} className={`card-default ${getLeaderColorClass(leader.pontuacao_total)}`}>
                     <CardContent className="p-4 sm:p-6">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
                         {/* Info Básica */}
