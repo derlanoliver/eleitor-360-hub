@@ -8,13 +8,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { ProtocolBadge } from "./ProtocolBadge";
 import { OfficeStatusBadge } from "./OfficeStatusBadge";
 import { formatPhoneBR } from "@/services/office/officeService";
-import { generateVisitFormUrl } from "@/lib/urlHelper";
-import { Copy, QrCode } from "lucide-react";
+import { generateVisitFormUrl, generateVisitCheckinUrl } from "@/lib/urlHelper";
+import { Copy, QrCode, Printer, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import { useUpdateVisitCheckIn } from "@/hooks/office/useUpdateVisitCheckIn";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface VisitDetailsDialogProps {
   visit: any;
@@ -24,26 +28,181 @@ interface VisitDetailsDialogProps {
 
 export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDialogProps) {
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const updateCheckIn = useUpdateVisitCheckIn();
   
   useEffect(() => {
     if (open && visit) {
-      const link = generateVisitFormUrl(visit.id);
-      QRCode.toDataURL(link).then(setQrCode);
+      // Generate QR Code for form link or check-in link based on status
+      if (visit.status === 'FORM_SUBMITTED' && visit.qr_code) {
+        const checkinUrl = generateVisitCheckinUrl(visit.qr_code);
+        QRCode.toDataURL(checkinUrl).then(setQrCode);
+      } else {
+        const link = generateVisitFormUrl(visit.id);
+        QRCode.toDataURL(link).then(setQrCode);
+      }
     }
   }, [open, visit]);
   
   if (!visit) return null;
   
-  const link = generateVisitFormUrl(visit.id);
+  const link = visit.qr_code && visit.status === 'FORM_SUBMITTED' 
+    ? generateVisitCheckinUrl(visit.qr_code)
+    : generateVisitFormUrl(visit.id);
   
   const handleCopyLink = () => {
     navigator.clipboard.writeText(link);
     toast.success("Link copiado!");
   };
+
+  const handleCheckIn = async () => {
+    await updateCheckIn.mutateAsync({ 
+      id: visit.id, 
+      checked_in: true 
+    });
+    onOpenChange(false);
+  };
+
+  const handleUndoCheckIn = async () => {
+    await updateCheckIn.mutateAsync({ 
+      id: visit.id, 
+      checked_in: false 
+    });
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const formData = visit.form?.[0] || visit.form;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Ficha de Visita - ${visit.protocolo}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: bold; color: #f97316; }
+            .section { margin-bottom: 25px; }
+            .section-title { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+            .field { margin-bottom: 10px; }
+            .field-label { font-weight: bold; color: #666; }
+            .field-value { color: #333; }
+            .protocol { font-size: 20px; color: #f97316; font-weight: bold; }
+            .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+            .status-checked-in { background-color: #dcfce7; color: #166534; }
+            .status-form-submitted { background-color: #dbeafe; color: #1e40af; }
+            @media print {
+              body { padding: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">GABINETE - FICHA DE VISITA</div>
+            <div class="protocol">${visit.protocolo}</div>
+            ${visit.checked_in ? `<div class="status-badge status-checked-in">✓ CHECK-IN REALIZADO</div>` : `<div class="status-badge status-form-submitted">Aguardando Check-in</div>`}
+          </div>
+
+          <div class="section">
+            <div class="section-title">Informações do Visitante</div>
+            <div class="field">
+              <span class="field-label">Nome:</span>
+              <span class="field-value">${visit.contact?.nome || '-'}</span>
+            </div>
+            <div class="field">
+              <span class="field-label">WhatsApp:</span>
+              <span class="field-value">${visit.contact?.telefone_norm ? formatPhoneBR(visit.contact.telefone_norm) : '-'}</span>
+            </div>
+            <div class="field">
+              <span class="field-label">Cidade/RA:</span>
+              <span class="field-value">${visit.city?.nome || '-'}</span>
+            </div>
+            ${formData?.data_nascimento ? `
+            <div class="field">
+              <span class="field-label">Data de Nascimento:</span>
+              <span class="field-value">${format(new Date(formData.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })}</span>
+            </div>` : ''}
+            ${formData?.endereco ? `
+            <div class="field">
+              <span class="field-label">Endereço:</span>
+              <span class="field-value">${formData.endereco}</span>
+            </div>` : ''}
+          </div>
+
+          ${formData ? `
+          <div class="section">
+            <div class="section-title">Dados da Reunião</div>
+            <div class="field">
+              <span class="field-label">Aceita Reunião:</span>
+              <span class="field-value">${formData.aceita_reuniao ? 'Sim' : 'Não'}</span>
+            </div>
+            <div class="field">
+              <span class="field-label">Continua no Projeto:</span>
+              <span class="field-value">${formData.continua_projeto ? 'Sim' : 'Não'}</span>
+            </div>
+            ${formData.observacoes ? `
+            <div class="field">
+              <span class="field-label">Observações:</span>
+              <span class="field-value">${formData.observacoes}</span>
+            </div>` : ''}
+          </div>
+
+          <div class="section">
+            <div class="section-title">Redes Sociais</div>
+            ${formData.instagram ? `
+            <div class="field">
+              <span class="field-label">Instagram:</span>
+              <span class="field-value">${formData.instagram}</span>
+            </div>` : ''}
+            ${formData.facebook ? `
+            <div class="field">
+              <span class="field-label">Facebook:</span>
+              <span class="field-value">${formData.facebook}</span>
+            </div>` : ''}
+          </div>
+          ` : ''}
+
+          <div class="section">
+            <div class="section-title">Informações Administrativas</div>
+            ${visit.leader ? `
+            <div class="field">
+              <span class="field-label">Líder Responsável:</span>
+              <span class="field-value">${visit.leader.nome_completo}</span>
+            </div>` : ''}
+            <div class="field">
+              <span class="field-label">Criado em:</span>
+              <span class="field-value">${format(new Date(visit.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            </div>
+            ${visit.checked_in_at ? `
+            <div class="field">
+              <span class="field-label">Check-in realizado em:</span>
+              <span class="field-value">${format(new Date(visit.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            </div>` : ''}
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() {
+                window.close();
+              };
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
   
+  const formData = visit.form?.[0] || visit.form;
+  const isFormSubmitted = visit.status === 'FORM_SUBMITTED' || visit.status === 'CHECKED_IN';
+  const isCheckedIn = visit.status === 'CHECKED_IN' || visit.checked_in;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalhes da Visita</DialogTitle>
           <DialogDescription>
@@ -52,44 +211,116 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
         </DialogHeader>
         
         <div className="space-y-6 py-4">
-          {/* Protocolo */}
-          <div>
-            <Label>Protocolo</Label>
-            <div className="mt-2">
-              <ProtocolBadge protocolo={visit.protocolo} />
+          {/* Protocolo e Status */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Protocolo</Label>
+              <div className="mt-2">
+                <ProtocolBadge protocolo={visit.protocolo} />
+              </div>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <div className="mt-2">
+                <OfficeStatusBadge status={visit.status} />
+              </div>
             </div>
           </div>
-          
-          {/* Status */}
-          <div>
-            <Label>Status</Label>
-            <div className="mt-2">
-              <OfficeStatusBadge status={visit.status} />
+
+          {/* Check-in Badge */}
+          {isCheckedIn && visit.checked_in_at && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-700 font-semibold mb-1">
+                <CheckCircle2 className="h-5 w-5" />
+                Check-in Realizado
+              </div>
+              <p className="text-sm text-green-600">
+                {format(new Date(visit.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            </div>
+          )}
+
+          {/* Informações do Visitante */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <Label>Visitante</Label>
+              <p className="text-sm mt-1 font-medium">{visit.contact?.nome}</p>
+            </div>
+            
+            <div>
+              <Label>WhatsApp</Label>
+              <p className="text-sm mt-1 font-mono">
+                {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+              </p>
             </div>
           </div>
-          
-          {/* Visitante */}
-          <div>
-            <Label>Visitante</Label>
-            <p className="text-sm mt-1 font-medium">{visit.contact?.nome}</p>
-          </div>
-          
-          {/* Telefone */}
-          <div>
-            <Label>WhatsApp</Label>
-            <p className="text-sm mt-1 font-mono">
-              {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
-            </p>
-          </div>
-          
-          {/* Cidade */}
+
           {visit.city && (
             <div>
               <Label>Cidade / RA</Label>
               <p className="text-sm mt-1">{visit.city.nome}</p>
             </div>
           )}
-          
+
+          {/* Dados do Formulário (se disponível) */}
+          {isFormSubmitted && formData && (
+            <>
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3">Dados do Formulário</h3>
+                
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  {formData.data_nascimento && (
+                    <div>
+                      <Label>Data de Nascimento</Label>
+                      <p className="text-sm mt-1">
+                        {format(new Date(formData.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label>Aceita Reunião</Label>
+                    <p className="text-sm mt-1">
+                      <Badge variant={formData.aceita_reuniao ? "default" : "secondary"}>
+                        {formData.aceita_reuniao ? "Sim" : "Não"}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+
+                {formData.endereco && (
+                  <div className="mb-4">
+                    <Label>Endereço</Label>
+                    <p className="text-sm mt-1">{formData.endereco}</p>
+                  </div>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  {formData.instagram && (
+                    <div>
+                      <Label>Instagram</Label>
+                      <p className="text-sm mt-1">{formData.instagram}</p>
+                    </div>
+                  )}
+                  
+                  {formData.facebook && (
+                    <div>
+                      <Label>Facebook</Label>
+                      <p className="text-sm mt-1">{formData.facebook}</p>
+                    </div>
+                  )}
+                </div>
+
+                {formData.observacoes && (
+                  <div>
+                    <Label>Observações</Label>
+                    <p className="text-sm mt-1">{formData.observacoes}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {/* Líder */}
           {visit.leader && (
             <div>
@@ -97,21 +328,57 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
               <p className="text-sm mt-1">{visit.leader.nome_completo}</p>
             </div>
           )}
-          
-          {/* Criado por */}
+
+          {/* Botões de Ação */}
+          {isFormSubmitted && (
+            <div className="flex gap-3 pt-4 border-t">
+              {!isCheckedIn ? (
+                <Button
+                  onClick={handleCheckIn}
+                  disabled={updateCheckIn.isPending}
+                  className="flex-1"
+                >
+                  {updateCheckIn.isPending ? (
+                    "Processando..."
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Realizar Check-in
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleUndoCheckIn}
+                  disabled={updateCheckIn.isPending}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {updateCheckIn.isPending ? (
+                    "Processando..."
+                  ) : (
+                    <>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Desfazer Check-in
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                className="flex-1"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir Ficha
+              </Button>
+            </div>
+          )}
+
+          {/* Link do Formulário/Check-in */}
           <div>
-            <Label>Criado por</Label>
-            <p className="text-sm mt-1">
-              {visit.created_by 
-                ? "Atendente do Gabinete" 
-                : `Formulário de Afiliado${visit.leader ? ` (via ${visit.leader.nome_completo})` : ""}`
-              }
-            </p>
-          </div>
-          
-          {/* Link do Formulário */}
-          <div>
-            <Label>Link do Formulário</Label>
+            <Label>{isFormSubmitted && visit.qr_code ? 'Link de Check-in' : 'Link do Formulário'}</Label>
             <div className="mt-2 p-3 bg-muted rounded-md break-all text-sm font-mono">
               {link}
             </div>
@@ -131,7 +398,7 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
             <div>
               <Label className="flex items-center gap-2">
                 <QrCode className="h-4 w-4" />
-                QR Code
+                QR Code {isFormSubmitted && visit.qr_code ? 'para Check-in' : 'do Formulário'}
               </Label>
               <div className="mt-2 flex justify-center p-4 bg-muted rounded-lg">
                 <img src={qrCode} alt="QR Code" className="w-48 h-48" />

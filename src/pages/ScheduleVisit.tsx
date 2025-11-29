@@ -9,9 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, QrCode as QrCodeIcon, Download } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { useTemas } from "@/hooks/useTemas";
+import QRCode from "qrcode";
+import { generateVisitCheckinUrl } from "@/lib/urlHelper";
 
 export default function ScheduleVisit() {
   const { visitId } = useParams();
@@ -21,6 +23,7 @@ export default function ScheduleVisit() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [visit, setVisit] = useState<any>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
   // Form data
   const [dataNascimento, setDataNascimento] = useState("");
@@ -132,6 +135,22 @@ export default function ScheduleVisit() {
 
       if (visitError) throw visitError;
 
+      // 4. Reload visit data to get generated QR code
+      const { data: updatedVisit, error: reloadError } = await supabase
+        .from("office_visits")
+        .select("*, contact:office_contacts(*), city:office_cities(*)")
+        .eq("id", visitId)
+        .single();
+
+      if (reloadError) throw reloadError;
+
+      // 5. Generate QR Code image
+      if (updatedVisit.qr_code) {
+        const checkinUrl = generateVisitCheckinUrl(updatedVisit.qr_code);
+        const qrDataUrl = await QRCode.toDataURL(checkinUrl, { width: 400 });
+        setQrCodeDataUrl(qrDataUrl);
+      }
+
       setSubmitted(true);
       toast({
         title: "Formulário enviado!",
@@ -185,12 +204,46 @@ export default function ScheduleVisit() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-green-600">✓ Formulário Enviado</CardTitle>
+          <CardHeader className="text-center">
+            <CardTitle className="text-green-600 text-2xl">✓ Formulário Enviado</CardTitle>
             <p className="text-sm text-muted-foreground mt-2">
-              Obrigado por preencher o formulário! Entraremos em contato em breve.
+              Obrigado por preencher o formulário!
             </p>
           </CardHeader>
+          <CardContent className="space-y-6">
+            {qrCodeDataUrl && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <QrCodeIcon className="h-5 w-5" />
+                  <p className="font-semibold">Seu QR Code para Check-in</p>
+                </div>
+                
+                <div className="flex justify-center p-6 bg-muted rounded-lg">
+                  <img src={qrCodeDataUrl} alt="QR Code Check-in" className="w-64 h-64" />
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 font-medium text-center">
+                    📱 Apresente este QR Code na entrada do gabinete para realizar o check-in
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = qrCodeDataUrl;
+                    link.download = 'qrcode-visita-gabinete.png';
+                    link.click();
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar QR Code
+                </Button>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     );

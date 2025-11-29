@@ -493,6 +493,8 @@ export type Database = {
       }
       office_visits: {
         Row: {
+          checked_in: boolean | null
+          checked_in_at: string | null
           city_id: string
           contact_id: string
           created_at: string
@@ -500,6 +502,7 @@ export type Database = {
           id: string
           leader_id: string
           protocolo: string
+          qr_code: string | null
           status: Database["public"]["Enums"]["office_visit_status"]
           token: string | null
           token_expires_at: string | null
@@ -509,6 +512,8 @@ export type Database = {
           webhook_sent_at: string | null
         }
         Insert: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
           city_id: string
           contact_id: string
           created_at?: string
@@ -516,6 +521,7 @@ export type Database = {
           id?: string
           leader_id: string
           protocolo: string
+          qr_code?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -525,6 +531,8 @@ export type Database = {
           webhook_sent_at?: string | null
         }
         Update: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
           city_id?: string
           contact_id?: string
           created_at?: string
@@ -532,6 +540,7 @@ export type Database = {
           id?: string
           leader_id?: string
           protocolo?: string
+          qr_code?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -761,6 +770,7 @@ export type Database = {
       generate_office_protocol:
         | { Args: { _prefix?: string }; Returns: string }
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
+      generate_visit_qr_code: { Args: never; Returns: string }
       get_user_context: {
         Args: { user_id: string }
         Returns: {

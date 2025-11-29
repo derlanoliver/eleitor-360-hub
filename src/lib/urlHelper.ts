@@ -14,6 +14,13 @@ export function generateVisitFormUrl(visitId: string): string {
 }
 
 /**
+ * Gera o link de check-in da visita
+ */
+export function generateVisitCheckinUrl(qrCode: string): string {
+  return `${getBaseUrl()}/office/checkin/${qrCode}`;
+}
+
+/**
  * Gera link de campanha UTM para cadastro
  */
 export function generateCampaignUrl(utmSource: string, utmMedium: string, utmCampaign: string): string {
