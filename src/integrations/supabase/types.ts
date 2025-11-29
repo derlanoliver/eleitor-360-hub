@@ -395,6 +395,50 @@ export type Database = {
           },
         ]
       }
+      office_meeting_minutes: {
+        Row: {
+          content_text: string | null
+          content_type: string
+          created_at: string
+          file_mime_type: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          content_text?: string | null
+          content_type: string
+          created_at?: string
+          file_mime_type?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          content_text?: string | null
+          content_type?: string
+          created_at?: string
+          file_mime_type?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_meeting_minutes_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
+            referencedRelation: "office_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       office_settings: {
         Row: {
           created_at: string

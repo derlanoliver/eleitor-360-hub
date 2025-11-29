@@ -7,6 +7,8 @@ import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
 import { RescheduleVisitDialog } from "@/components/office/RescheduleVisitDialog";
+import { CompleteMeetingDialog } from "@/components/office/CompleteMeetingDialog";
+import { MeetingMinutesDialog } from "@/components/office/MeetingMinutesDialog";
 import { useVisitMeetingActions } from "@/hooks/office/useVisitMeetingActions";
 import { formatPhoneBR } from "@/services/office/officeService";
 import {
@@ -20,6 +22,8 @@ export default function Queue() {
   const { data: visits, isLoading } = useOfficeVisits();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [rescheduleVisit, setRescheduleVisit] = useState<any>(null);
+  const [completeMeetingVisit, setCompleteMeetingVisit] = useState<any>(null);
+  const [minutesVisit, setMinutesVisit] = useState<any>(null);
   const { completeMeeting, cancelMeeting, rescheduleMeeting } = useVisitMeetingActions();
   
   if (isLoading) {
@@ -197,7 +201,7 @@ export default function Queue() {
                           className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                           onClick={(e) => {
                             e.stopPropagation();
-                            completeMeeting.mutate(visit.id);
+                            setCompleteMeetingVisit(visit);
                           }}
                         >
                           <CheckCircle2 className="h-4 w-4" />
@@ -263,6 +267,26 @@ export default function Queue() {
         open={!!rescheduleVisit}
         onOpenChange={(open) => !open && setRescheduleVisit(null)}
         onReschedule={handleReschedule}
+      />
+      
+      <CompleteMeetingDialog
+        visit={completeMeetingVisit}
+        open={!!completeMeetingVisit}
+        onOpenChange={(open) => !open && setCompleteMeetingVisit(null)}
+        onComplete={(visitId) => {
+          completeMeeting.mutate(visitId);
+          setCompleteMeetingVisit(null);
+        }}
+        onRegisterMinutes={(visit) => {
+          setCompleteMeetingVisit(null);
+          setMinutesVisit(visit);
+        }}
+      />
+      
+      <MeetingMinutesDialog
+        visit={minutesVisit}
+        open={!!minutesVisit}
+        onOpenChange={(open) => !open && setMinutesVisit(null)}
       />
     </div>
   );

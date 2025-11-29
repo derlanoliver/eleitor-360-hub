@@ -13,10 +13,13 @@ import { ProtocolBadge } from "./ProtocolBadge";
 import { OfficeStatusBadge } from "./OfficeStatusBadge";
 import { formatPhoneBR } from "@/services/office/officeService";
 import { generateVisitFormUrl, generateVisitCheckinUrl } from "@/lib/urlHelper";
-import { Copy, QrCode, Printer, CheckCircle2, XCircle } from "lucide-react";
+import { Copy, QrCode, Printer, CheckCircle2, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import jsPDF from "jspdf";
 import { useUpdateVisitCheckIn } from "@/hooks/office/useUpdateVisitCheckIn";
+import { useMeetingMinutes } from "@/hooks/office/useMeetingMinutes";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -29,6 +32,7 @@ interface VisitDetailsDialogProps {
 export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDialogProps) {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const updateCheckIn = useUpdateVisitCheckIn();
+  const { data: meetingMinutes } = useMeetingMinutes(visit?.id);
   
   useEffect(() => {
     if (open && visit) {
@@ -199,6 +203,62 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
       </html>
     `);
     printWindow.document.close();
+  };
+
+  const handleDownloadMinutes = async () => {
+    if (!meetingMinutes) return;
+
+    try {
+      if (meetingMinutes.content_type === 'text') {
+        // Gerar PDF do texto usando jsPDF
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        const maxWidth = pageWidth - 2 * margin;
+        
+        // Título
+        doc.setFontSize(16);
+        doc.text('Ata da Reunião', margin, 20);
+        
+        // Protocolo
+        doc.setFontSize(12);
+        doc.text(`Protocolo: ${visit.protocolo}`, margin, 30);
+        
+        // Data
+        doc.setFontSize(10);
+        doc.text(`Data: ${format(new Date(meetingMinutes.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, margin, 38);
+        
+        // Conteúdo
+        doc.setFontSize(11);
+        const lines = doc.splitTextToSize(meetingMinutes.content_text || '', maxWidth);
+        doc.text(lines, margin, 50);
+        
+        doc.save(`ata-${visit.protocolo}.pdf`);
+        toast.success('PDF baixado com sucesso!');
+      } else if (meetingMinutes.content_type === 'file' && meetingMinutes.file_path) {
+        // Baixar arquivo do storage
+        const { data, error } = await supabase.storage
+          .from('meeting-minutes')
+          .download(meetingMinutes.file_path);
+        
+        if (error) throw error;
+        
+        // Criar URL temporária e baixar
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = meetingMinutes.file_name || `ata-${visit.protocolo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success('Arquivo baixado com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error downloading minutes:', error);
+      toast.error('Erro ao baixar ata');
+    }
   };
   
   const formData = visit.form?.[0] || visit.form;
@@ -402,13 +462,20 @@ export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDi
             </div>
           )}
 
-          {/* Botão Imprimir para visitas finalizadas */}
+          {/* Botões para visitas finalizadas */}
           {isFinished && (
             <div className="flex gap-3 pt-4 border-t">
               <Button onClick={handlePrint} variant="outline" className="flex-1">
                 <Printer className="mr-2 h-4 w-4" />
                 Imprimir Ficha
               </Button>
+              
+              {meetingMinutes && (
+                <Button onClick={handleDownloadMinutes} variant="outline" className="flex-1">
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar Ata (PDF)
+                </Button>
+              )}
             </div>
           )}
 
