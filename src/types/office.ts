@@ -93,6 +93,7 @@ export interface OfficeVisitForm {
   instagram: string;
   facebook: string;
   observacoes: string;
+  tema_id?: string;
   submitted_at?: string;
   created_at: string;
   updated_at: string;
@@ -149,6 +150,7 @@ export interface SubmitOfficeFormDTO {
   instagram: string;
   facebook: string;
   observacoes: string;
+  tema_id: string;
 }
 
 export interface UpdateOfficeVisitDTO {
