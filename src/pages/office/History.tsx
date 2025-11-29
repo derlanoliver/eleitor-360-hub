@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOfficeVisits } from "@/hooks/office/useOfficeVisits";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,18 +10,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
+import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
 import { formatPhoneBR } from "@/services/office/officeService";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function History() {
   const { data: visits, isLoading } = useOfficeVisits();
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   
   // Filtrar apenas visitas finalizadas
   const finishedStatuses = ["MEETING_COMPLETED", "CANCELLED"];
   const finishedVisits = visits?.filter((v) => finishedStatuses.includes(v.status)) || [];
+  
+  const handleViewDetails = (visit: any) => {
+    setSelectedVisit(visit);
+    setDialogOpen(true);
+  };
   
   if (isLoading) {
     return (
@@ -55,6 +71,7 @@ export default function History() {
                 <TableHead>Status</TableHead>
                 <TableHead>Data Registro</TableHead>
                 <TableHead>Check-in</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -88,11 +105,29 @@ export default function History() {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewDetails(visit)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver detalhes</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                 </TableRow>
               ))}
               {finishedVisits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Nenhuma visita finalizada ainda
                   </TableCell>
                 </TableRow>
@@ -101,6 +136,14 @@ export default function History() {
           </Table>
         </CardContent>
       </Card>
+      
+      {selectedVisit && (
+        <VisitDetailsDialog
+          visit={selectedVisit}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </div>
   );
 }
