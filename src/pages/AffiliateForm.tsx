@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Users, CheckCircle2 } from "lucide-react";
 import { CitySelect } from "@/components/office/CitySelect";
 import { PhoneInput } from "@/components/office/PhoneInput";
 import type { OfficeLeader } from "@/types/office";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
+import { useTemas } from "@/hooks/useTemas";
 
 export default function AffiliateForm() {
   const { leaderToken } = useParams();
@@ -21,6 +23,8 @@ export default function AffiliateForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [leader, setLeader] = useState<OfficeLeader | null>(null);
+
+  const { data: temas = [], isLoading: temasLoading } = useTemas();
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -32,6 +36,7 @@ export default function AffiliateForm() {
   const [aceitaReuniao, setAceitaReuniao] = useState("");
   const [continuaProjeto, setContinuaProjeto] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [temaId, setTemaId] = useState("");
 
   useEffect(() => {
     loadLeader();
@@ -70,7 +75,7 @@ export default function AffiliateForm() {
     e.preventDefault();
 
     if (!nome || !telefone || !cidadeId || !endereco || !dataNascimento || 
-        !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes) {
+        !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes || !temaId) {
       toast.error("Por favor, preencha todos os campos");
       return;
     }
@@ -134,6 +139,7 @@ export default function AffiliateForm() {
           aceita_reuniao: aceitaReuniao === "sim",
           continua_projeto: continuaProjeto === "sim",
           observacoes,
+          tema_id: temaId,
           submitted_at: new Date().toISOString(),
         });
 
@@ -316,6 +322,26 @@ export default function AffiliateForm() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Informações Adicionais</h3>
                 
+                <div className="space-y-2">
+                  <Label htmlFor="pauta">Pauta da Reunião *</Label>
+                  <Select value={temaId} onValueChange={setTemaId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma pauta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {temasLoading ? (
+                        <SelectItem value="loading" disabled>Carregando...</SelectItem>
+                      ) : temas.length === 0 ? (
+                        <SelectItem value="empty" disabled>Nenhuma pauta disponível</SelectItem>
+                      ) : (
+                        temas.map((tema) => (
+                          <SelectItem key={tema.id} value={tema.id}>{tema.tema}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-3">
                   <Label className="text-base font-semibold">Aceita fazer reunião? *</Label>
                   <RadioGroup value={aceitaReuniao} onValueChange={setAceitaReuniao} required>
