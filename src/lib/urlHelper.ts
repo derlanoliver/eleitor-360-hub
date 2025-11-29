@@ -34,6 +34,23 @@ export function generateCampaignUrl(utmSource: string, utmMedium: string, utmCam
 }
 
 /**
+ * Gera link de evento com parâmetros UTM de campanha
+ */
+export function generateEventCampaignUrl(
+  eventSlug: string,
+  utmSource: string,
+  utmMedium: string,
+  utmCampaign: string
+): string {
+  const params = new URLSearchParams({
+    utm_source: utmSource,
+    utm_medium: utmMedium,
+    utm_campaign: utmCampaign
+  });
+  return `${getBaseUrl()}/eventos/${eventSlug}?${params.toString()}`;
+}
+
+/**
  * Gera link de indicação de líder
  */
 export function generateLeaderReferralUrl(personalCode: string): string {
