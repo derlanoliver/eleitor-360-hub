@@ -51,28 +51,35 @@ export default function EventRegistration() {
   // Registrar page view quando a página carrega
   useEffect(() => {
     const registerPageView = async () => {
-      if (event && slug) {
-        // Gerar ou recuperar session_id para evitar contagem duplicada
-        let sessionId = sessionStorage.getItem('visitor_session');
-        if (!sessionId) {
-          sessionId = crypto.randomUUID();
-          sessionStorage.setItem('visitor_session', sessionId);
-        }
-        
-        // Registrar visualização
-        const { error } = await supabase.from('page_views').insert({
-          page_type: 'event',
-          page_identifier: slug,
-          utm_source: searchParams.get("utm_source"),
-          utm_medium: searchParams.get("utm_medium"),
-          utm_campaign: searchParams.get("utm_campaign"),
-          utm_content: searchParams.get("utm_content"),
-          session_id: sessionId
-        });
-        
-        if (error) {
-          console.error('Erro ao registrar page view:', error);
-        }
+      if (!event || !slug) return;
+      
+      // Flag para evitar duplicação na mesma sessão para mesmo evento
+      const viewKey = `pageview_${slug}`;
+      if (sessionStorage.getItem(viewKey)) return;
+      
+      // Gerar ou recuperar session_id para evitar contagem duplicada
+      let sessionId = sessionStorage.getItem('visitor_session');
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        sessionStorage.setItem('visitor_session', sessionId);
+      }
+      
+      // Registrar visualização
+      const { error } = await supabase.from('page_views').insert({
+        page_type: 'event',
+        page_identifier: slug,
+        utm_source: searchParams.get("utm_source"),
+        utm_medium: searchParams.get("utm_medium"),
+        utm_campaign: searchParams.get("utm_campaign"),
+        utm_content: searchParams.get("utm_content"),
+        session_id: sessionId
+      });
+      
+      if (error) {
+        console.error('Erro ao registrar page view:', error);
+      } else {
+        // Marcar que já registramos visualização para este evento nesta sessão
+        sessionStorage.setItem(viewKey, 'true');
       }
     };
     
