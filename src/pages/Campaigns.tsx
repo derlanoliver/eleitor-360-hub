@@ -28,7 +28,8 @@ import {
   Eye,
   Edit,
   Share,
-  Download
+  Download,
+  RefreshCw
 } from "lucide-react";
 
 // Mock data para campanhas
@@ -145,11 +146,15 @@ const Campaigns = () => {
       
       // Para cada campanha, buscar visitantes (page_views)
       const campaignsWithMetrics = await Promise.all((data || []).map(async (campaign: any) => {
-        // Buscar page_views
-        const { count: pageViewsCount } = await supabase
+        // Buscar page_views com tratamento de erro
+        const { count: pageViewsCount, error: pageViewsError } = await supabase
           .from('page_views')
           .select('*', { count: 'exact', head: true })
           .eq('utm_campaign', campaign.utm_campaign);
+
+        if (pageViewsError) {
+          console.error('Erro ao buscar page_views:', pageViewsError);
+        }
 
         const pageViews = pageViewsCount || 0;
         const registrations = campaign.total_cadastros;
@@ -185,7 +190,9 @@ const Campaigns = () => {
       }));
 
       return campaignsWithMetrics;
-    }
+    },
+    refetchOnWindowFocus: true,  // Atualiza ao voltar para a aba
+    staleTime: 30000, // Considera dados stale após 30 segundos
   });
 
   const handleCreateCampaign = async () => {
@@ -295,14 +302,19 @@ const Campaigns = () => {
                 Geração de links, QR Codes e relatórios de origem dos cadastros
               </p>
             </div>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Campanha
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Campanha
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Criar Nova Campanha</DialogTitle>
                 </DialogHeader>
@@ -312,8 +324,9 @@ const Campaigns = () => {
                   onSubmit={handleCreateCampaign}
                   activeEvents={activeEvents}
                 />
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
 
