@@ -15,6 +15,7 @@ import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUr
 import { useEvents } from "@/hooks/events/useEvents";
 import { format } from "date-fns";
 import CampaignReportDialog from "@/components/campaigns/CampaignReportDialog";
+import LeaderReferralsDialog from "@/components/campaigns/LeaderReferralsDialog";
 import { 
   Target, 
   Plus, 
@@ -103,6 +104,12 @@ const Campaigns = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<{ utmCampaign: string; name: string } | null>(null);
+  const [referralsDialogOpen, setReferralsDialogOpen] = useState(false);
+  const [selectedLeader, setSelectedLeader] = useState<{
+    id: string;
+    leaderName: string;
+    cityName: string | null;
+  } | null>(null);
   const { toast } = useToast();
   
   const { data: events = [] } = useEvents();
@@ -500,10 +507,20 @@ const Campaigns = () => {
 
                         {/* Métricas */}
                         <div className="md:col-span-3">
-                          <div className="text-center p-3 bg-primary-50 rounded-lg">
+                          <button
+                            onClick={() => {
+                              setSelectedLeader({
+                                id: leader.id,
+                                leaderName: leader.leaderName,
+                                cityName: leader.cityName,
+                              });
+                              setReferralsDialogOpen(true);
+                            }}
+                            className="w-full text-center p-3 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                          >
                             <p className="text-sm text-gray-600">Indicações</p>
                             <p className="font-bold text-primary-600">{leader.registrations}</p>
-                          </div>
+                          </button>
                           {leader.lastActivity && (
                             <p className="text-xs text-gray-500 text-center mt-2">
                               Última atividade: {new Date(leader.lastActivity).toLocaleDateString()}
@@ -658,6 +675,13 @@ const Campaigns = () => {
             campaignName={selectedCampaign.name}
           />
         )}
+
+        {/* Modal de Indicações do Líder */}
+        <LeaderReferralsDialog
+          open={referralsDialogOpen}
+          onOpenChange={setReferralsDialogOpen}
+          leader={selectedLeader}
+        />
       </div>
     </div>
   );
