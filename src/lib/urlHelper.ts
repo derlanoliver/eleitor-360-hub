@@ -87,3 +87,20 @@ export function generateEventRegistrationUrl(
 export function generateEventAffiliateUrl(eventSlug: string, affiliateToken: string): string {
   return `${getBaseUrl()}/eventos/${eventSlug}?ref=${affiliateToken}`;
 }
+
+/**
+ * Gera link de funil de captação com parâmetros UTM de campanha
+ */
+export function generateFunnelCampaignUrl(
+  funnelSlug: string,
+  utmSource: string,
+  utmMedium: string,
+  utmCampaign: string
+): string {
+  const params = new URLSearchParams({
+    utm_source: utmSource,
+    utm_medium: utmMedium,
+    utm_campaign: utmCampaign
+  });
+  return `${getBaseUrl()}/captacao/${funnelSlug}?${params.toString()}`;
+}
