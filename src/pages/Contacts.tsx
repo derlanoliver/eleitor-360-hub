@@ -249,6 +249,19 @@ const Contacts = () => {
     }
   });
 
+  // Buscar contagem total real (não limitada a 1000)
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: ['contacts-total-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('office_contacts')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -303,7 +316,9 @@ const Contacts = () => {
                 Base de Contatos
               </h1>
               <p className="text-sm sm:text-base text-gray-600">
-                {filteredContacts.length} contatos • 
+                {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" 
+                  ? totalCount 
+                  : filteredContacts.length} contatos • 
                 {totalWithWhatsApp} WhatsApp • {totalWithEmail} E-mail
               </p>
             </div>
