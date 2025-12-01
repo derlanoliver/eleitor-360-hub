@@ -206,7 +206,50 @@ const Contacts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
   
+  // Estados para filtro de origem
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  
   const identifyGenders = useIdentifyGenders();
+
+  // Buscar líderes ativos para o filtro
+  const { data: leadersForFilter = [] } = useQuery({
+    queryKey: ['leaders-for-filter'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('lideres')
+        .select('id, nome_completo')
+        .eq('is_active', true)
+        .order('nome_completo');
+      return data || [];
+    }
+  });
+
+  // Buscar eventos para o filtro
+  const { data: eventsForFilter = [] } = useQuery({
+    queryKey: ['events-for-filter'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('id, name')
+        .order('date', { ascending: false });
+      return data || [];
+    }
+  });
+
+  // Buscar campanhas para o filtro (captação)
+  const { data: campaignsForFilter = [] } = useQuery({
+    queryKey: ['campaigns-for-filter'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('campaigns')
+        .select('id, nome')
+        .order('created_at', { ascending: false });
+      return data || [];
+    }
+  });
 
   // Buscar contatos reais do banco
   const { data: contacts = [], isLoading } = useQuery({
@@ -362,7 +405,35 @@ const Contacts = () => {
                           (consentFilter === "email" && contact.consentEmail) ||
                           (consentFilter === "events" && contact.consentEvents);
     
-    return matchesSearch && matchesRegion && matchesConsent;
+    // Filtro por Origem
+    let matchesSource = true;
+    if (sourceFilter !== "all") {
+      const contactSourceType = contact.source_type || 'manual';
+      
+      if (sourceFilter === "manual") {
+        // Manual inclui source_type = 'manual' ou null
+        matchesSource = contactSourceType === 'manual' || contact.source_type === null;
+      } else {
+        matchesSource = contactSourceType === sourceFilter;
+      }
+      
+      // Filtro adicional por líder específico
+      if (matchesSource && sourceFilter === "lider" && selectedLeaderId) {
+        matchesSource = contact.source_id === selectedLeaderId;
+      }
+      
+      // Filtro adicional por evento específico
+      if (matchesSource && sourceFilter === "evento" && selectedEventId) {
+        matchesSource = contact.source_id === selectedEventId;
+      }
+      
+      // Filtro adicional por campanha específica (captação)
+      if (matchesSource && sourceFilter === "captacao" && selectedCampaignId) {
+        matchesSource = contact.source_id === selectedCampaignId;
+      }
+    }
+    
+    return matchesSearch && matchesRegion && matchesConsent && matchesSource;
   });
 
   // Paginação
@@ -480,6 +551,135 @@ const Contacts = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Filtro de Origem */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Origem
+                  </label>
+                  <Select value={sourceFilter} onValueChange={(value) => {
+                    setSourceFilter(value);
+                    setSelectedLeaderId(null);
+                    setSelectedEventId(null);
+                    setSelectedCampaignId(null);
+                    handleFilterChange();
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas as origens" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as origens</SelectItem>
+                      <SelectItem value="evento">
+                        <span className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-purple-600" />
+                          Evento
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="lider">
+                        <span className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4 text-blue-600" />
+                          Link de Líder
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="manual">
+                        <span className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-4 w-4 text-gray-600" />
+                          Importação
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="captacao">
+                        <span className="flex items-center gap-2">
+                          <Megaphone className="h-4 w-4 text-amber-600" />
+                          Captação
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de Líder (condicional) */}
+                {sourceFilter === "lider" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Líder
+                    </label>
+                    <Select 
+                      value={selectedLeaderId || "all"} 
+                      onValueChange={(value) => {
+                        setSelectedLeaderId(value === "all" ? null : value);
+                        handleFilterChange();
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os líderes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os líderes</SelectItem>
+                        {leadersForFilter.map(leader => (
+                          <SelectItem key={leader.id} value={leader.id}>
+                            {leader.nome_completo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Filtro de Evento (condicional) */}
+                {sourceFilter === "evento" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Evento
+                    </label>
+                    <Select 
+                      value={selectedEventId || "all"} 
+                      onValueChange={(value) => {
+                        setSelectedEventId(value === "all" ? null : value);
+                        handleFilterChange();
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os eventos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os eventos</SelectItem>
+                        {eventsForFilter.map(event => (
+                          <SelectItem key={event.id} value={event.id}>
+                            {event.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Filtro de Campanha (condicional - para Captação) */}
+                {sourceFilter === "captacao" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Campanha
+                    </label>
+                    <Select 
+                      value={selectedCampaignId || "all"} 
+                      onValueChange={(value) => {
+                        setSelectedCampaignId(value === "all" ? null : value);
+                        handleFilterChange();
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as campanhas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as campanhas</SelectItem>
+                        {campaignsForFilter.map(campaign => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
