@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp } from "lucide-react";
+import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
@@ -13,6 +13,7 @@ import { useTopLeaders } from "@/hooks/dashboard/useTopLeaders";
 import { useProfileStats } from "@/hooks/dashboard/useProfileStats";
 import { useTemasRanking } from "@/hooks/dashboard/useTemasRanking";
 import { useCitiesRanking } from "@/hooks/dashboard/useCitiesRanking";
+import { useOfficeStats } from "@/hooks/dashboard/useOfficeStats";
 import { formatRelativeTime } from "@/lib/dateUtils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,7 @@ const Dashboard = () => {
   const { data: profileStats, isLoading: profileLoading } = useProfileStats();
   const { data: temasRanking = [], isLoading: temasLoading } = useTemasRanking();
   const { data: citiesRanking = [], isLoading: citiesLoading } = useCitiesRanking();
+  const { data: officeStats } = useOfficeStats();
 
   // Mutation para atualizar status do líder
   const toggleLeaderMutation = useMutation({
@@ -334,6 +336,74 @@ const Dashboard = () => {
 
             {/* Novo: Perfil dos Cadastrados */}
             {profileStats && <ProfileStats data={profileStats} />}
+
+            {/* Atendimento do Gabinete */}
+            <Card className="card-default">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
+                  <Building2 className="h-5 w-5 text-primary-600 mr-2" />
+                  Atendimento do Gabinete
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
+                {/* Cards de métricas */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-2 bg-blue-50 rounded-lg">
+                    <p className="text-xl font-bold text-blue-600">{officeStats?.totalVisits || 0}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                  <div className="text-center p-2 bg-amber-50 rounded-lg">
+                    <p className="text-xl font-bold text-amber-600">{officeStats?.pendingVisits || 0}</p>
+                    <p className="text-xs text-muted-foreground">Aguardando</p>
+                  </div>
+                  <div className="text-center p-2 bg-green-50 rounded-lg">
+                    <p className="text-xl font-bold text-green-600">{officeStats?.meetingsCompleted || 0}</p>
+                    <p className="text-xs text-muted-foreground">Realizadas</p>
+                  </div>
+                </div>
+                
+                {/* Taxa de aceite */}
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-muted-foreground">Taxa de aceite de reunião</span>
+                    <span className="font-bold text-purple-600">{officeStats?.acceptRateReuniao || 0}%</span>
+                  </div>
+                  <div className="w-full bg-purple-200 rounded-full h-2">
+                    <div 
+                      className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${officeStats?.acceptRateReuniao || 0}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Fila de atendimento */}
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-medium mb-2 flex items-center">
+                    <ClipboardList className="h-4 w-4 mr-1 text-muted-foreground" />
+                    Próximos na fila
+                  </h4>
+                  {officeStats?.recentVisits && officeStats.recentVisits.length > 0 ? (
+                    <div className="space-y-2">
+                      {officeStats.recentVisits.slice(0, 3).map(visit => (
+                        <div key={visit.id} className="flex justify-between items-center text-sm py-1 px-2 bg-muted/50 rounded">
+                          <span className="truncate max-w-[120px]">{visit.contactName}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {visit.status === "LINK_SENT" && "Link Enviado"}
+                            {visit.status === "FORM_SUBMITTED" && "Form Enviado"}
+                            {visit.status === "CHECKED_IN" && "Check-in"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">Nenhuma visita na fila</p>
+                  )}
+                  <Button variant="link" asChild className="p-0 h-auto mt-2 text-primary-600">
+                    <Link to="/office/queue">Ver fila completa →</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Quick Actions */}
             <Card className="card-default">
