@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, Image as ImageIcon, Sparkles, FileText, File } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { 
   LeadFunnel, 
   CreateFunnelData,
@@ -44,7 +45,7 @@ const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   descricao: z.string().optional(),
   lead_magnet_nome: z.string().min(3, "Nome da isca é obrigatório"),
-  lead_magnet_url: z.string().url("URL inválida"),
+  lead_magnet_url: z.string().optional(),
   titulo: z.string().min(5, "Título deve ter pelo menos 5 caracteres"),
   subtitulo: z.string().optional(),
   texto_botao: z.string().min(1, "Texto do botão é obrigatório"),
@@ -82,13 +83,19 @@ const BUTTON_COLORS = [
   { value: '#ec4899', label: 'Rosa', class: 'bg-pink-500' },
 ];
 
+const ACCEPTED_FILE_TYPES = '.pdf,.csv,.xls,.xlsx';
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
 export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFunnelDialogProps) {
   const [activeTab, setActiveTab] = useState("info");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(editFunnel?.cover_url || null);
   const [logoPreview, setLogoPreview] = useState<string | null>(editFunnel?.logo_url || null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
 
   const createFunnel = useCreateFunnel();
   const updateFunnel = useUpdateFunnel();
@@ -148,12 +155,117 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
     }
   };
 
+  const handleMaterialChange = (file: File | null) => {
+    if (file && file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O arquivo deve ter no máximo 20MB",
+        variant: "destructive",
+      });
+      return;
+    }
+    setMaterialFile(file);
+    setAiFilledFields(new Set());
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!materialFile) {
+      toast({
+        title: "Nenhum arquivo selecionado",
+        description: "Faça upload do material antes de gerar os textos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', materialFile);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-lead-magnet`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao analisar arquivo');
+      }
+
+      const data = await response.json();
+      const suggestions = data.suggestions;
+
+      if (suggestions) {
+        const fieldsToFill = new Set<string>();
+        
+        if (suggestions.nome) {
+          form.setValue('nome', suggestions.nome);
+          fieldsToFill.add('nome');
+        }
+        if (suggestions.lead_magnet_nome) {
+          form.setValue('lead_magnet_nome', suggestions.lead_magnet_nome);
+          fieldsToFill.add('lead_magnet_nome');
+        }
+        if (suggestions.titulo) {
+          form.setValue('titulo', suggestions.titulo);
+          fieldsToFill.add('titulo');
+        }
+        if (suggestions.subtitulo) {
+          form.setValue('subtitulo', suggestions.subtitulo);
+          fieldsToFill.add('subtitulo');
+        }
+        if (suggestions.descricao) {
+          form.setValue('descricao', suggestions.descricao);
+          fieldsToFill.add('descricao');
+        }
+        if (suggestions.texto_botao) {
+          form.setValue('texto_botao', suggestions.texto_botao);
+          fieldsToFill.add('texto_botao');
+        }
+        if (suggestions.obrigado_titulo) {
+          form.setValue('obrigado_titulo', suggestions.obrigado_titulo);
+          fieldsToFill.add('obrigado_titulo');
+        }
+        if (suggestions.obrigado_subtitulo) {
+          form.setValue('obrigado_subtitulo', suggestions.obrigado_subtitulo);
+          fieldsToFill.add('obrigado_subtitulo');
+        }
+        if (suggestions.obrigado_texto_botao) {
+          form.setValue('obrigado_texto_botao', suggestions.obrigado_texto_botao);
+          fieldsToFill.add('obrigado_texto_botao');
+        }
+
+        setAiFilledFields(fieldsToFill);
+
+        toast({
+          title: "✨ Textos gerados com sucesso!",
+          description: "Revise os campos preenchidos e ajuste se necessário",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error generating with AI:', error);
+      toast({
+        title: "Erro ao gerar textos",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     setIsUploading(true);
     
     try {
       let cover_url = editFunnel?.cover_url;
       let logo_url = editFunnel?.logo_url;
+      let lead_magnet_url = data.lead_magnet_url || editFunnel?.lead_magnet_url;
 
       // Upload cover if changed
       if (coverFile) {
@@ -167,11 +279,27 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
         logo_url = await uploadFunnelAsset(logoFile, path);
       }
 
+      // Upload material if provided
+      if (materialFile) {
+        const path = `materials/${Date.now()}-${materialFile.name}`;
+        lead_magnet_url = await uploadFunnelAsset(materialFile, path);
+      }
+
+      if (!lead_magnet_url) {
+        toast({
+          title: "Material obrigatório",
+          description: "Faça upload do material ou informe uma URL",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
+      }
+
       const funnelData: CreateFunnelData = {
         nome: data.nome,
         descricao: data.descricao,
         lead_magnet_nome: data.lead_magnet_nome,
-        lead_magnet_url: data.lead_magnet_url,
+        lead_magnet_url,
         titulo: data.titulo,
         subtitulo: data.subtitulo,
         texto_botao: data.texto_botao,
@@ -197,9 +325,11 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
       form.reset();
       setCoverFile(null);
       setLogoFile(null);
+      setMaterialFile(null);
       setCoverPreview(null);
       setLogoPreview(null);
       setActiveTab("info");
+      setAiFilledFields(new Set());
     } catch (error) {
       console.error('Error saving funnel:', error);
     } finally {
@@ -208,6 +338,34 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
   };
 
   const isLoading = createFunnel.isPending || updateFunnel.isPending || isUploading;
+
+  const getFileIcon = () => {
+    if (!materialFile) return <FileText className="h-8 w-8 text-muted-foreground" />;
+    const ext = materialFile.name.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return <FileText className="h-8 w-8 text-red-500" />;
+    return <File className="h-8 w-8 text-green-500" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const renderFieldWithAiBadge = (fieldName: string, children: React.ReactNode) => (
+    <div className="relative">
+      {children}
+      {aiFilledFields.has(fieldName) && (
+        <Badge 
+          variant="secondary" 
+          className="absolute -top-2 right-0 text-[10px] bg-violet-100 text-violet-700 hover:bg-violet-100"
+        >
+          <Sparkles className="h-3 w-3 mr-1" />
+          IA
+        </Badge>
+      )}
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -229,77 +387,156 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
 
               {/* Tab: Informações */}
               <TabsContent value="info" className="space-y-4 mt-4">
-                <FormField
-                  control={form.control}
-                  name="nome"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do Funil *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Guia Completo de Marketing" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Nome interno para identificação
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="descricao"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Descrição interna do funil..."
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-3">🎁 Isca Digital</h4>
+                {/* Material Upload Section */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    🎁 Isca Digital
+                  </h4>
                   
-                  <FormField
-                    control={form.control}
-                    name="lead_magnet_nome"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Isca *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: E-book: 10 Dicas de Produtividade" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* File Upload */}
+                  <div className="mb-4">
+                    <Label>Arquivo do Material *</Label>
+                    <div className="mt-2">
+                      {materialFile ? (
+                        <div className="flex items-center gap-3 p-3 border rounded-lg bg-background">
+                          {getFileIcon()}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{materialFile.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(materialFile.size)} · {materialFile.name.split('.').pop()?.toUpperCase()}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleMaterialChange(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-muted/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">
+                              Arraste seu arquivo ou <span className="text-primary">clique para enviar</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              PDF, XLS, XLSX, CSV (máx. 20MB)
+                            </p>
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept={ACCEPTED_FILE_TYPES}
+                            onChange={(e) => handleMaterialChange(e.target.files?.[0] || null)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
 
+                  {/* AI Generate Button */}
+                  {materialFile && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200 hover:bg-violet-100"
+                      onClick={handleGenerateWithAI}
+                      disabled={isAnalyzing}
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Analisando material...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2 text-violet-600" />
+                          <span className="text-violet-700">Gerar textos com IA</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {/* Lead Magnet Name */}
+                  {renderFieldWithAiBadge('lead_magnet_nome', 
+                    <FormField
+                      control={form.control}
+                      name="lead_magnet_nome"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Nome da Isca *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: E-book: 10 Dicas de Produtividade" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* URL (hidden but kept for compatibility) */}
                   <FormField
                     control={form.control}
                     name="lead_magnet_url"
                     render={({ field }) => (
                       <FormItem className="mt-3">
-                        <FormLabel>URL de Download *</FormLabel>
+                        <FormLabel>URL de Download (opcional)</FormLabel>
                         <FormControl>
                           <Input 
-                            placeholder="https://drive.google.com/..." 
+                            placeholder="https://... (deixe vazio se fez upload acima)" 
                             {...field} 
                           />
                         </FormControl>
                         <FormDescription>
-                          Link direto para download do material (Google Drive, Dropbox, etc.)
+                          Use apenas se preferir um link externo em vez do upload
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
+                {/* Funnel Name */}
+                {renderFieldWithAiBadge('nome',
+                  <FormField
+                    control={form.control}
+                    name="nome"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Funil *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Guia Completo de Marketing" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Nome interno para identificação
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {renderFieldWithAiBadge('descricao',
+                  <FormField
+                    control={form.control}
+                    name="descricao"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Descrição interna do funil..."
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-3">📝 Campos do Formulário</h4>
@@ -443,38 +680,45 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                   </div>
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="titulo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Título Principal *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Baixe Grátis o Guia Completo" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {renderFieldWithAiBadge('titulo',
+                  <FormField
+                    control={form.control}
+                    name="titulo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Título Principal *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Descubra Como Dobrar Suas Vendas" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Headline que aparece no topo da página
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-                <FormField
-                  control={form.control}
-                  name="subtitulo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subtítulo</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Texto complementar que aparece abaixo do título..."
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {renderFieldWithAiBadge('subtitulo',
+                  <FormField
+                    control={form.control}
+                    name="subtitulo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtítulo</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Ex: Aprenda as estratégias que os maiores vendedores usam..."
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-                <div className="grid grid-cols-2 gap-4">
+                {renderFieldWithAiBadge('texto_botao',
                   <FormField
                     control={form.control}
                     name="texto_botao"
@@ -482,102 +726,108 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                       <FormItem>
                         <FormLabel>Texto do Botão *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Quero Receber" {...field} />
+                          <Input placeholder="Ex: Quero Receber Agora!" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                )}
 
-                  <FormField
-                    control={form.control}
-                    name="cor_botao"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cor do Botão</FormLabel>
-                        <div className="flex gap-2 mt-2">
-                          {BUTTON_COLORS.map((color) => (
-                            <button
-                              key={color.value}
-                              type="button"
-                              className={`w-8 h-8 rounded-full ${color.class} ${
-                                field.value === color.value 
-                                  ? 'ring-2 ring-offset-2 ring-primary' 
-                                  : ''
-                              }`}
-                              onClick={() => field.onChange(color.value)}
-                              title={color.label}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="cor_botao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cor do Botão</FormLabel>
+                      <div className="flex gap-2 mt-2">
+                        {BUTTON_COLORS.map((color) => (
+                          <button
+                            key={color.value}
+                            type="button"
+                            className={`w-8 h-8 rounded-full transition-all ${color.class} ${
+                              field.value === color.value 
+                                ? 'ring-2 ring-offset-2 ring-primary' 
+                                : 'hover:scale-110'
+                            }`}
+                            onClick={() => field.onChange(color.value)}
+                            title={color.label}
+                          />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               {/* Tab: Página de Obrigado */}
               <TabsContent value="obrigado" className="space-y-4 mt-4">
-                <FormField
-                  control={form.control}
-                  name="obrigado_titulo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Título de Sucesso *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Parabéns! Seu material está pronto." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {renderFieldWithAiBadge('obrigado_titulo',
+                  <FormField
+                    control={form.control}
+                    name="obrigado_titulo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Título de Sucesso *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: 🎉 Parabéns! Seu material está pronto." {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Mensagem exibida após o cadastro
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-                <FormField
-                  control={form.control}
-                  name="obrigado_subtitulo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subtítulo</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Clique no botão abaixo para baixar seu material..."
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {renderFieldWithAiBadge('obrigado_subtitulo',
+                  <FormField
+                    control={form.control}
+                    name="obrigado_subtitulo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtítulo</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Ex: Clique no botão abaixo para baixar seu material"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-                <FormField
-                  control={form.control}
-                  name="obrigado_texto_botao"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Texto do Botão de Download *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Baixar Agora" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {renderFieldWithAiBadge('obrigado_texto_botao',
+                  <FormField
+                    control={form.control}
+                    name="obrigado_texto_botao"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Texto do Botão de Download *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Baixar Agora" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-3">🔗 CTA Adicional (opcional)</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Adicione um botão extra para direcionar o lead a outra ação
-                  </p>
-
+                  
                   <FormField
                     control={form.control}
                     name="cta_adicional_texto"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Texto do CTA</FormLabel>
+                        <FormLabel>Texto do Botão</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: Conhecer nossos serviços" {...field} />
+                          <Input placeholder="Ex: Agendar Consultoria Gratuita" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -589,10 +839,16 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                     name="cta_adicional_url"
                     render={({ field }) => (
                       <FormItem className="mt-3">
-                        <FormLabel>URL do CTA</FormLabel>
+                        <FormLabel>URL do Botão</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://..." {...field} />
+                          <Input 
+                            placeholder="https://calendly.com/seu-link" 
+                            {...field} 
+                          />
                         </FormControl>
+                        <FormDescription>
+                          Link para onde o botão adicional vai direcionar
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -602,7 +858,11 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
             </Tabs>
 
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={isLoading}>
