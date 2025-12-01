@@ -51,10 +51,10 @@ export function generateEventCampaignUrl(
 }
 
 /**
- * Gera link de indicação de líder
+ * Gera link de indicação de líder (formulário de cadastro)
  */
-export function generateLeaderReferralUrl(personalCode: string): string {
-  return `${getBaseUrl()}/indicacao/${personalCode}`;
+export function generateLeaderReferralUrl(affiliateToken: string): string {
+  return `${getBaseUrl()}/cadastro/${affiliateToken}`;
 }
 
 /**

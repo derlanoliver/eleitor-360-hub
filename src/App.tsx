@@ -26,7 +26,9 @@ import AIAgent from "./pages/AIAgent";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import TrackingSettings from "./pages/settings/TrackingSettings";
+import AffiliateFormSettings from "./pages/settings/AffiliateFormSettings";
 import SetupUsers from "./pages/SetupUsers";
+import LeaderRegistrationForm from "./pages/LeaderRegistrationForm";
 import NotFound from "./pages/NotFound";
 import EventRegistration from "./pages/EventRegistration";
 import EventCheckin from "./pages/EventCheckin";
@@ -66,6 +68,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
+            <Route path="/cadastro/:leaderToken" element={<LeaderRegistrationForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             
             {/* Protected check-in routes */}
@@ -155,6 +158,13 @@ const App = () => (
               <ProtectedRoute>
                 <DashboardLayout>
                   <TrackingSettings />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/affiliate-form" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <AffiliateFormSettings />
                 </DashboardLayout>
               </ProtectedRoute>
             } />
