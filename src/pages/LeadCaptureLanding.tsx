@@ -221,16 +221,22 @@ export default function LeadCaptureLanding() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
         {/* Cover with logo */}
-        <div 
-          className="h-48 md:h-56 relative bg-gradient-to-br from-primary/20 to-primary/5"
-          style={funnel.cover_url ? {
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${funnel.cover_url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          } : undefined}
-        >
+        <div className="h-56 md:h-64 relative overflow-hidden">
+          {/* Background - image or default gradient */}
+          <div 
+            className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10"
+            style={funnel.cover_url ? {
+              backgroundImage: `url(${funnel.cover_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            } : undefined}
+          />
+          
+          {/* Fade overlay - always visible */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/60" />
+          
           {funnel.logo_url && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
               <img 
                 src={funnel.logo_url} 
                 alt="Logo" 
@@ -304,17 +310,23 @@ export default function LeadCaptureLanding() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       {/* Cover with title, subtitle, and logo inside */}
-      <div 
-        className="h-64 md:h-80 lg:h-96 relative bg-gradient-to-br from-primary/20 to-primary/5"
-        style={funnel.cover_url ? {
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7)), url(${funnel.cover_url})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : undefined}
-      >
+      <div className="h-72 md:h-96 lg:h-[28rem] relative overflow-hidden">
+        {/* Background - image or default gradient */}
+        <div 
+          className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10"
+          style={funnel.cover_url ? {
+            backgroundImage: `url(${funnel.cover_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : undefined}
+        />
+        
+        {/* Fade overlay - always visible */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/70" />
+        
         {/* Logo at top */}
         {funnel.logo_url && (
-          <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2">
+          <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 z-10">
             <img 
               src={funnel.logo_url} 
               alt="Logo" 
@@ -324,12 +336,12 @@ export default function LeadCaptureLanding() {
         )}
         
         {/* Title and subtitle centered in cover */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-          <h1 className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-3 drop-shadow-lg ${funnel.cover_url ? 'text-white' : 'text-foreground'}`}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center z-10">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 drop-shadow-lg text-white">
             {funnel.titulo}
           </h1>
           {funnel.subtitulo && (
-            <p className={`text-base md:text-lg max-w-md drop-shadow ${funnel.cover_url ? 'text-white/90' : 'text-muted-foreground'}`}>
+            <p className="text-base md:text-lg max-w-md drop-shadow text-white/90">
               {funnel.subtitulo}
             </p>
           )}
