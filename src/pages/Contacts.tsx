@@ -751,7 +751,11 @@ const Contacts = () => {
               <div>
                 Mostrando <span className="font-medium text-foreground">{startIndex + 1}</span> a{" "}
                 <span className="font-medium text-foreground">{Math.min(endIndex, filteredContacts.length)}</span> de{" "}
-                <span className="font-medium text-foreground">{filteredContacts.length}</span> contatos
+                <span className="font-medium text-foreground">
+                  {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all"
+                    ? totalCount
+                    : filteredContacts.length}
+                </span> contatos
               </div>
               <div className="text-xs">
                 Página {currentPage} de {totalPages || 1}
