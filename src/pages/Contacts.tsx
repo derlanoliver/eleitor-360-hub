@@ -33,8 +33,34 @@ import {
   ExternalLink,
   Edit,
   Sparkles,
-  Loader2
+  Loader2,
+  FileSpreadsheet,
+  Megaphone
 } from "lucide-react";
+
+// Cores e labels para badges de origem (cores suaves conforme preferência do usuário)
+const sourceConfig: Record<string, { label: string; className: string; icon: typeof Calendar }> = {
+  evento: { 
+    label: "Evento", 
+    className: "bg-purple-50 text-purple-700 border-purple-200",
+    icon: Calendar
+  },
+  lider: { 
+    label: "Link de Líder", 
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+    icon: UserCheck
+  },
+  manual: { 
+    label: "Importação", 
+    className: "bg-gray-50 text-gray-600 border-gray-200",
+    icon: FileSpreadsheet
+  },
+  captacao: { 
+    label: "Captação", 
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+    icon: Megaphone
+  }
+};
 
 // Mock data antigo removido - agora usa dados reais
 const mockContactsData_OLD = [
@@ -196,32 +222,54 @@ const Contacts = () => {
       
       if (error) throw error;
 
-      // Buscar TODOS os líderes e campanhas de uma vez (muito mais eficiente)
+      // Buscar TODOS os líderes, campanhas e eventos de uma vez (muito mais eficiente)
       const liderIds = data?.filter(c => c.source_type === 'lider' && c.source_id).map(c => c.source_id) || [];
       const campanhaIds = data?.filter(c => c.source_type === 'campanha' && c.source_id).map(c => c.source_id) || [];
+      const eventoIds = data?.filter(c => c.source_type === 'evento' && c.source_id).map(c => c.source_id) || [];
+      const captacaoIds = data?.filter(c => c.source_type === 'captacao' && c.source_id).map(c => c.source_id) || [];
 
-      const [lideresData, campanhasData] = await Promise.all([
+      const [lideresData, campanhasData, eventosData, captacaoCampanhasData] = await Promise.all([
         liderIds.length > 0 
           ? supabase.from('lideres').select('id, nome_completo').in('id', liderIds)
           : Promise.resolve({ data: [] }),
         campanhaIds.length > 0
           ? supabase.from('campaigns').select('id, nome, utm_campaign').in('id', campanhaIds)
+          : Promise.resolve({ data: [] }),
+        eventoIds.length > 0
+          ? supabase.from('events').select('id, name').in('id', eventoIds)
+          : Promise.resolve({ data: [] }),
+        captacaoIds.length > 0
+          ? supabase.from('campaigns').select('id, nome').in('id', captacaoIds)
           : Promise.resolve({ data: [] })
       ]);
 
       const lideresMap = new Map((lideresData.data || []).map((l: any) => [l.id, l]));
       const campanhasMap = new Map((campanhasData.data || []).map((c: any) => [c.id, c]));
+      const eventosMap = new Map((eventosData.data || []).map((e: any) => [e.id, e]));
+      const captacaoMap = new Map((captacaoCampanhasData.data || []).map((c: any) => [c.id, c]));
       
       // Transformar dados para formato compatível com a UI
       return (data || []).map((contact: any) => {
         let sourceInfo = 'Manual';
+        let sourceName: string | null = null;
+        const sourceType = contact.source_type || 'manual';
         
         if (contact.source_type === 'lider' && contact.source_id) {
           const lider = lideresMap.get(contact.source_id);
           sourceInfo = lider ? `Líder: ${lider.nome_completo}` : 'Líder: Desconhecido';
+          sourceName = lider?.nome_completo || null;
         } else if (contact.source_type === 'campanha' && contact.source_id) {
           const campanha = campanhasMap.get(contact.source_id);
           sourceInfo = campanha ? `Campanha: ${campanha.nome}` : 'Campanha: Desconhecida';
+          sourceName = campanha?.nome || null;
+        } else if (contact.source_type === 'evento' && contact.source_id) {
+          const evento = eventosMap.get(contact.source_id);
+          sourceInfo = evento ? `Evento: ${evento.name}` : 'Evento: Desconhecido';
+          sourceName = evento?.name || null;
+        } else if (contact.source_type === 'captacao' && contact.source_id) {
+          const campanha = captacaoMap.get(contact.source_id);
+          sourceInfo = campanha ? `Captação: ${campanha.nome}` : 'Captação: Desconhecida';
+          sourceName = campanha?.nome || null;
         }
         
         return {
@@ -233,6 +281,8 @@ const Contacts = () => {
           profession: '',
           registrationDate: new Date(contact.created_at).toISOString().split('T')[0],
           source: sourceInfo,
+          sourceName,
+          sourceType,
           consentWhatsApp: true,
           consentEmail: !!contact.email,
           consentEvents: true,
@@ -490,6 +540,30 @@ const Contacts = () => {
                               <MapPin className="h-3 w-3 mr-1" />
                               {contact.region}
                             </p>
+                            {/* Badges de Origem e Atribuição */}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {(() => {
+                                const config = sourceConfig[contact.sourceType] || sourceConfig.manual;
+                                const IconComponent = config.icon;
+                                return (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-xs border ${config.className} py-0 px-1.5`}
+                                  >
+                                    <IconComponent className="h-3 w-3 mr-1" />
+                                    {config.label}
+                                  </Badge>
+                                );
+                              })()}
+                              {contact.sourceName && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs py-0 px-1.5 bg-background"
+                                >
+                                  {contact.sourceName}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
