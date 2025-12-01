@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Upload, X, Image as ImageIcon, Sparkles, FileText, File } from "lucide-react";
+import { Loader2, Upload, X, Image as ImageIcon, Sparkles, FileText, File, Link2, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,11 @@ import { toast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  slug: z.string()
+    .min(3, "Slug deve ter pelo menos 3 caracteres")
+    .regex(/^[a-z0-9-]+$/, "Apenas letras minúsculas, números e hífens")
+    .optional()
+    .or(z.literal('')),
   descricao: z.string().optional(),
   lead_magnet_nome: z.string().min(3, "Nome da isca é obrigatório"),
   lead_magnet_url: z.string().optional(),
@@ -58,6 +63,15 @@ const formSchema = z.object({
   cta_adicional_url: z.string().url("URL inválida").optional().or(z.literal('')),
   status: z.string(),
 });
+
+const generateSlugFromName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+};
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -104,6 +118,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
     resolver: zodResolver(formSchema),
     defaultValues: {
       nome: editFunnel?.nome || '',
+      slug: editFunnel?.slug || '',
       descricao: editFunnel?.descricao || '',
       lead_magnet_nome: editFunnel?.lead_magnet_nome || '',
       lead_magnet_url: editFunnel?.lead_magnet_url || '',
@@ -125,6 +140,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
     if (editFunnel) {
       form.reset({
         nome: editFunnel.nome,
+        slug: editFunnel.slug || '',
         descricao: editFunnel.descricao || '',
         lead_magnet_nome: editFunnel.lead_magnet_nome,
         lead_magnet_url: editFunnel.lead_magnet_url,
@@ -297,6 +313,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
 
       const funnelData: CreateFunnelData = {
         nome: data.nome,
+        slug: data.slug || undefined,
         descricao: data.descricao,
         lead_magnet_nome: data.lead_magnet_nome,
         lead_magnet_url,
@@ -518,6 +535,57 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                     )}
                   />
                 )}
+
+                {/* Slug da URL */}
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Link2 className="h-4 w-4" />
+                        Slug da URL
+                      </FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="ex: guia-marketing-digital" 
+                            {...field} 
+                            onChange={(e) => {
+                              const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            const nome = form.getValues('nome');
+                            if (nome) {
+                              const slug = generateSlugFromName(nome);
+                              form.setValue('slug', slug);
+                            }
+                          }}
+                          title="Auto-gerar a partir do nome"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormDescription className="text-xs">
+                        {field.value ? (
+                          <span className="text-primary">
+                            📎 URL: /captacao/{field.value}
+                          </span>
+                        ) : (
+                          "Deixe vazio para gerar automaticamente"
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {renderFieldWithAiBadge('descricao',
                   <FormField
