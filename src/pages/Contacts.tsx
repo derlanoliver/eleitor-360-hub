@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
 import { EditContactDialog } from "@/components/contacts/EditContactDialog";
+import { ImportEmailsDialog } from "@/components/contacts/ImportEmailsDialog";
 import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
 import { useContactEventParticipation } from "@/hooks/contacts/useContactEventParticipation";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
@@ -370,6 +371,7 @@ const Contacts = () => {
                 )}
               </Button>
               <ImportContactsExcelDialog />
+              <ImportEmailsDialog />
               <Button>
                 <Users className="h-4 w-4 mr-2" />
                 Adicionar Contato
