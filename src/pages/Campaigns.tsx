@@ -17,6 +17,7 @@ import { useAttributionStats } from "@/hooks/campaigns/useAttributionStats";
 import { format } from "date-fns";
 import CampaignReportDialog from "@/components/campaigns/CampaignReportDialog";
 import LeaderReferralsDialog from "@/components/campaigns/LeaderReferralsDialog";
+import { CaptacaoTab } from "@/components/campaigns/CaptacaoTab";
 import { 
   Target, 
   Plus, 
@@ -306,11 +307,17 @@ const Campaigns = () => {
         </div>
 
         <Tabs defaultValue="campaigns" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="campaigns">Campanhas UTM</TabsTrigger>
+            <TabsTrigger value="captacao">Captação</TabsTrigger>
             <TabsTrigger value="leaders">Links de Líderes</TabsTrigger>
             <TabsTrigger value="attribution">Relatório de Origens</TabsTrigger>
           </TabsList>
+
+          {/* Captação */}
+          <TabsContent value="captacao">
+            <CaptacaoTab />
+          </TabsContent>
 
           {/* Campanhas UTM */}
           <TabsContent value="campaigns">

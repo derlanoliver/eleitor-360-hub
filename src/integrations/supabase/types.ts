@@ -249,6 +249,87 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_funnels: {
+        Row: {
+          campos_form: Json
+          cor_botao: string | null
+          cover_url: string | null
+          created_at: string
+          cta_adicional_texto: string | null
+          cta_adicional_url: string | null
+          descricao: string | null
+          downloads_count: number
+          id: string
+          lead_magnet_nome: string
+          lead_magnet_url: string
+          leads_count: number
+          logo_url: string | null
+          nome: string
+          obrigado_subtitulo: string | null
+          obrigado_texto_botao: string
+          obrigado_titulo: string
+          slug: string
+          status: string
+          subtitulo: string | null
+          texto_botao: string
+          titulo: string
+          updated_at: string
+          views_count: number
+        }
+        Insert: {
+          campos_form?: Json
+          cor_botao?: string | null
+          cover_url?: string | null
+          created_at?: string
+          cta_adicional_texto?: string | null
+          cta_adicional_url?: string | null
+          descricao?: string | null
+          downloads_count?: number
+          id?: string
+          lead_magnet_nome: string
+          lead_magnet_url: string
+          leads_count?: number
+          logo_url?: string | null
+          nome: string
+          obrigado_subtitulo?: string | null
+          obrigado_texto_botao?: string
+          obrigado_titulo?: string
+          slug: string
+          status?: string
+          subtitulo?: string | null
+          texto_botao?: string
+          titulo: string
+          updated_at?: string
+          views_count?: number
+        }
+        Update: {
+          campos_form?: Json
+          cor_botao?: string | null
+          cover_url?: string | null
+          created_at?: string
+          cta_adicional_texto?: string | null
+          cta_adicional_url?: string | null
+          descricao?: string | null
+          downloads_count?: number
+          id?: string
+          lead_magnet_nome?: string
+          lead_magnet_url?: string
+          leads_count?: number
+          logo_url?: string | null
+          nome?: string
+          obrigado_subtitulo?: string | null
+          obrigado_texto_botao?: string
+          obrigado_titulo?: string
+          slug?: string
+          status?: string
+          subtitulo?: string | null
+          texto_botao?: string
+          titulo?: string
+          updated_at?: string
+          views_count?: number
+        }
+        Relationships: []
+      }
       lideres: {
         Row: {
           affiliate_token: string | null
@@ -872,6 +953,7 @@ export type Database = {
     }
     Functions: {
       generate_event_qr_code: { Args: never; Returns: string }
+      generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
       generate_office_protocol:
         | { Args: { _prefix?: string }; Returns: string }
@@ -899,6 +981,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_funnel_metric: {
+        Args: { _funnel_id: string; _metric: string }
+        Returns: undefined
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
