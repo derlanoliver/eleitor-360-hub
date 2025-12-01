@@ -239,12 +239,12 @@ const Contacts = () => {
     }
   });
 
-  // Buscar campanhas para o filtro (captação)
-  const { data: campaignsForFilter = [] } = useQuery({
-    queryKey: ['campaigns-for-filter'],
+  // Buscar funis de captação para o filtro
+  const { data: funnelsForFilter = [] } = useQuery({
+    queryKey: ['funnels-for-filter'],
     queryFn: async () => {
       const { data } = await supabase
-        .from('campaigns')
+        .from('lead_funnels')
         .select('id, nome')
         .order('created_at', { ascending: false });
       return data || [];
@@ -282,7 +282,7 @@ const Contacts = () => {
           ? supabase.from('events').select('id, name').in('id', eventoIds)
           : Promise.resolve({ data: [] }),
         captacaoIds.length > 0
-          ? supabase.from('campaigns').select('id, nome').in('id', captacaoIds)
+          ? supabase.from('lead_funnels').select('id, nome').in('id', captacaoIds)
           : Promise.resolve({ data: [] })
       ]);
 
@@ -653,11 +653,11 @@ const Contacts = () => {
                   </div>
                 )}
 
-                {/* Filtro de Campanha (condicional - para Captação) */}
+                {/* Filtro de Funil de Captação (condicional - para Captação) */}
                 {sourceFilter === "captacao" && (
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Campanha
+                      Funil de Captação
                     </label>
                     <Select 
                       value={selectedCampaignId || "all"} 
@@ -667,13 +667,13 @@ const Contacts = () => {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Todas as campanhas" />
+                        <SelectValue placeholder="Todos os funis" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todas as campanhas</SelectItem>
-                        {campaignsForFilter.map(campaign => (
-                          <SelectItem key={campaign.id} value={campaign.id}>
-                            {campaign.nome}
+                        <SelectItem value="all">Todos os funis</SelectItem>
+                        {funnelsForFilter.map(funnel => (
+                          <SelectItem key={funnel.id} value={funnel.id}>
+                            {funnel.nome}
                           </SelectItem>
                         ))}
                       </SelectContent>

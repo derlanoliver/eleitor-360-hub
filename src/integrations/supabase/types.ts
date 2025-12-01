@@ -56,6 +56,8 @@ export type Database = {
           descricao: string | null
           event_id: string | null
           event_slug: string | null
+          funnel_id: string | null
+          funnel_slug: string | null
           id: string
           nome: string
           status: string
@@ -70,6 +72,8 @@ export type Database = {
           descricao?: string | null
           event_id?: string | null
           event_slug?: string | null
+          funnel_id?: string | null
+          funnel_slug?: string | null
           id?: string
           nome: string
           status?: string
@@ -84,6 +88,8 @@ export type Database = {
           descricao?: string | null
           event_id?: string | null
           event_slug?: string | null
+          funnel_id?: string | null
+          funnel_slug?: string | null
           id?: string
           nome?: string
           status?: string
@@ -99,6 +105,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "lead_funnels"
             referencedColumns: ["id"]
           },
         ]

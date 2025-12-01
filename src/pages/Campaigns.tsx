@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUrl } from "@/lib/urlHelper";
+import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUrl, generateFunnelCampaignUrl } from "@/lib/urlHelper";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useAttributionStats } from "@/hooks/campaigns/useAttributionStats";
 import { format } from "date-fns";
@@ -57,8 +57,11 @@ import {
 
 const Campaigns = () => {
   const [newCampaign, setNewCampaign] = useState({
+    targetType: "event" as "event" | "funnel",
     eventId: "",
     eventSlug: "",
+    funnelId: "",
+    funnelSlug: "",
     name: "",
     description: "",
     utmSource: "",
@@ -78,6 +81,20 @@ const Campaigns = () => {
   
   const { data: events = [] } = useEvents();
   const activeEvents = events.filter(e => e.status === 'active');
+
+  // Buscar funis de captação ativos
+  const { data: activeFunnels = [] } = useQuery({
+    queryKey: ['lead-funnels-for-campaign'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lead_funnels')
+        .select('id, nome, slug')
+        .eq('status', 'active')
+        .order('nome');
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
   // Buscar campanhas reais do banco
   const { data: campaigns = [], isLoading, refetch } = useQuery({
@@ -114,7 +131,15 @@ const Campaigns = () => {
           utmMedium: campaign.utm_medium || '',
           utmCampaign: campaign.utm_campaign,
           eventSlug: campaign.event_slug,
-          link: campaign.event_slug 
+          funnelSlug: campaign.funnel_slug,
+          link: campaign.funnel_slug 
+            ? generateFunnelCampaignUrl(
+                campaign.funnel_slug,
+                campaign.utm_source,
+                campaign.utm_medium || 'direct',
+                campaign.utm_campaign
+              )
+            : campaign.event_slug 
             ? generateEventCampaignUrl(
                 campaign.event_slug,
                 campaign.utm_source,
@@ -172,10 +197,29 @@ const Campaigns = () => {
   });
 
   const handleCreateCampaign = async () => {
-    if (!newCampaign.eventId || !newCampaign.utmSource || !newCampaign.utmCampaign) {
+    // Validar campos baseado no tipo de destino
+    if (newCampaign.targetType === 'event' && !newCampaign.eventId) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha o evento, fonte e campanha UTM.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (newCampaign.targetType === 'funnel' && !newCampaign.funnelId) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o funil de captação, fonte e campanha UTM.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!newCampaign.utmSource || !newCampaign.utmCampaign) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha a fonte e campanha UTM.",
         variant: "destructive"
       });
       return;
@@ -185,8 +229,10 @@ const Campaigns = () => {
       const { error } = await supabase
         .from('campaigns')
         .insert({
-          event_id: newCampaign.eventId,
-          event_slug: newCampaign.eventSlug,
+          event_id: newCampaign.targetType === 'event' ? newCampaign.eventId : null,
+          event_slug: newCampaign.targetType === 'event' ? newCampaign.eventSlug : null,
+          funnel_id: newCampaign.targetType === 'funnel' ? newCampaign.funnelId : null,
+          funnel_slug: newCampaign.targetType === 'funnel' ? newCampaign.funnelSlug : null,
           nome: newCampaign.name,
           descricao: newCampaign.description,
           utm_source: newCampaign.utmSource,
@@ -202,7 +248,7 @@ const Campaigns = () => {
         description: "A campanha foi criada com sucesso."
       });
 
-      setNewCampaign({ eventId: "", eventSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
+      setNewCampaign({ targetType: "event", eventId: "", eventSlug: "", funnelId: "", funnelSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" });
       setIsCreateDialogOpen(false);
       refetch();
     } catch (error) {
@@ -299,6 +345,7 @@ const Campaigns = () => {
                   setNewCampaign={setNewCampaign}
                   onSubmit={handleCreateCampaign}
                   activeEvents={activeEvents}
+                  activeFunnels={activeFunnels}
                 />
                 </DialogContent>
               </Dialog>
@@ -921,45 +968,108 @@ const CreateCampaignForm = ({
   newCampaign, 
   setNewCampaign, 
   onSubmit,
-  activeEvents
+  activeEvents,
+  activeFunnels
 }: {
   newCampaign: any;
   setNewCampaign: (campaign: any) => void;
   onSubmit: () => void;
   activeEvents: any[];
+  activeFunnels: any[];
 }) => {
   return (
     <div className="space-y-4">
+      {/* Seletor de tipo de destino */}
+      <div>
+        <Label htmlFor="targetType">Tipo de Destino *</Label>
+        <Select 
+          value={newCampaign.targetType} 
+          onValueChange={(value: "event" | "funnel") => setNewCampaign({ 
+            ...newCampaign, 
+            targetType: value,
+            eventId: "",
+            eventSlug: "",
+            funnelId: "",
+            funnelSlug: "",
+            name: ""
+          })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="event">Evento</SelectItem>
+            <SelectItem value="funnel">Funil de Captação</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
+        {/* Seletor de Evento ou Funil baseado no tipo */}
         <div>
-          <Label htmlFor="event">Evento *</Label>
-          <Select 
-            value={newCampaign.eventId} 
-            onValueChange={(eventId) => {
-              const event = activeEvents.find(e => e.id === eventId);
-              setNewCampaign({ 
-                ...newCampaign, 
-                eventId,
-                eventSlug: event?.slug || '',
-                name: event?.name || ''
-              });
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione um evento" />
-            </SelectTrigger>
-            <SelectContent>
-              {activeEvents.length === 0 ? (
-                <SelectItem value="empty" disabled>Nenhum evento ativo disponível</SelectItem>
-              ) : (
-                activeEvents.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.name} - {format(new Date(event.date), 'dd/MM/yyyy')}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          {newCampaign.targetType === 'event' ? (
+            <>
+              <Label htmlFor="event">Evento *</Label>
+              <Select 
+                value={newCampaign.eventId} 
+                onValueChange={(eventId) => {
+                  const event = activeEvents.find(e => e.id === eventId);
+                  setNewCampaign({ 
+                    ...newCampaign, 
+                    eventId,
+                    eventSlug: event?.slug || '',
+                    name: event?.name || ''
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeEvents.length === 0 ? (
+                    <SelectItem value="empty" disabled>Nenhum evento ativo disponível</SelectItem>
+                  ) : (
+                    activeEvents.map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        {event.name} - {format(new Date(event.date), 'dd/MM/yyyy')}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </>
+          ) : (
+            <>
+              <Label htmlFor="funnel">Funil de Captação *</Label>
+              <Select 
+                value={newCampaign.funnelId} 
+                onValueChange={(funnelId) => {
+                  const funnel = activeFunnels.find(f => f.id === funnelId);
+                  setNewCampaign({ 
+                    ...newCampaign, 
+                    funnelId,
+                    funnelSlug: funnel?.slug || '',
+                    name: funnel?.nome || ''
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um funil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeFunnels.length === 0 ? (
+                    <SelectItem value="empty" disabled>Nenhum funil ativo disponível</SelectItem>
+                  ) : (
+                    activeFunnels.map((funnel) => (
+                      <SelectItem key={funnel.id} value={funnel.id}>
+                        {funnel.nome}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
         
         <div>
@@ -1029,7 +1139,7 @@ const CreateCampaignForm = ({
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
-        <Button variant="outline" onClick={() => setNewCampaign({ eventId: "", eventSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" })}>
+        <Button variant="outline" onClick={() => setNewCampaign({ targetType: "event", eventId: "", eventSlug: "", funnelId: "", funnelSlug: "", name: "", description: "", utmSource: "", utmMedium: "", utmCampaign: "" })}>
           Limpar
         </Button>
         <Button onClick={onSubmit}>
