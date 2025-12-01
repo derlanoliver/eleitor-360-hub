@@ -251,6 +251,39 @@ const Contacts = () => {
     }
   });
 
+  // Buscar contact_ids que participaram de eventos (para filtro de eventos)
+  const { data: eventParticipantIds = [] } = useQuery({
+    queryKey: ['event-participant-contact-ids', sourceFilter],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('contact_id')
+        .not('contact_id', 'is', null);
+      
+      if (error) throw error;
+      return [...new Set((data || []).map(r => r.contact_id))];
+    },
+    enabled: sourceFilter === "evento"
+  });
+
+  // Buscar contact_ids de um evento específico
+  const { data: specificEventContactIds = [] } = useQuery({
+    queryKey: ['specific-event-contact-ids', selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('contact_id')
+        .eq('event_id', selectedEventId)
+        .not('contact_id', 'is', null);
+      
+      if (error) throw error;
+      return [...new Set((data || []).map(r => r.contact_id))];
+    },
+    enabled: sourceFilter === "evento" && !!selectedEventId
+  });
+
   // Buscar contatos reais do banco
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
@@ -413,22 +446,28 @@ const Contacts = () => {
       if (sourceFilter === "manual") {
         // Manual inclui source_type = 'manual' ou null
         matchesSource = contactSourceType === 'manual' || contact.source_type === null;
+      } else if (sourceFilter === "evento") {
+        // Evento inclui:
+        // 1. Contatos com source_type='evento'
+        // 2. Contatos que participaram de eventos (via event_registrations)
+        if (selectedEventId) {
+          // Filtro por evento específico: apenas contatos inscritos nesse evento
+          matchesSource = specificEventContactIds.includes(contact.id);
+        } else {
+          // Filtro geral de eventos: todos que participaram de qualquer evento
+          matchesSource = contactSourceType === 'evento' || eventParticipantIds.includes(contact.id);
+        }
       } else {
         matchesSource = contactSourceType === sourceFilter;
       }
       
       // Filtro adicional por líder específico
-      if (matchesSource && sourceFilter === "lider" && selectedLeaderId) {
+      if (sourceFilter === "lider" && selectedLeaderId) {
         matchesSource = contact.source_id === selectedLeaderId;
       }
       
-      // Filtro adicional por evento específico
-      if (matchesSource && sourceFilter === "evento" && selectedEventId) {
-        matchesSource = contact.source_id === selectedEventId;
-      }
-      
       // Filtro adicional por campanha específica (captação)
-      if (matchesSource && sourceFilter === "captacao" && selectedCampaignId) {
+      if (sourceFilter === "captacao" && selectedCampaignId) {
         matchesSource = contact.source_id === selectedCampaignId;
       }
     }
@@ -466,9 +505,9 @@ const Contacts = () => {
                 Base de Contatos
               </h1>
               <p className="text-sm sm:text-base text-gray-600">
-                {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" 
+                {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all"
                   ? totalCount 
-                  : filteredContacts.length} contatos • 
+                  : filteredContacts.length} contatos •
                 {totalWithWhatsAppCount} WhatsApp • {totalWithEmailCount} E-mail
               </p>
             </div>
