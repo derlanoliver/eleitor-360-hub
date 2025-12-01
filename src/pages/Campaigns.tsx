@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { generateCampaignUrl, generateLeaderReferralUrl, generateEventCampaignUrl } from "@/lib/urlHelper";
 import { useEvents } from "@/hooks/events/useEvents";
+import { useAttributionStats } from "@/hooks/campaigns/useAttributionStats";
 import { format } from "date-fns";
 import CampaignReportDialog from "@/components/campaigns/CampaignReportDialog";
 import LeaderReferralsDialog from "@/components/campaigns/LeaderReferralsDialog";
@@ -25,71 +26,33 @@ import {
   BarChart3,
   Users,
   TrendingUp,
+  TrendingDown,
   Calendar,
   Eye,
   Edit,
   Share,
   Download,
-  RefreshCw
+  RefreshCw,
+  MapPin,
+  UserCheck,
+  Megaphone,
+  FileSpreadsheet,
+  Building2
 } from "lucide-react";
-
-// Mock data para campanhas
-const mockCampaignsData = [
-  {
-    id: 1,
-    name: "Campanha Facebook Janeiro 2024",
-    description: "Divulgação de propostas para educação via Facebook",
-    utmSource: "facebook",
-    utmMedium: "social",
-    utmCampaign: "educacao_jan24",
-    link: generateCampaignUrl("facebook", "social", "educacao_jan24"),
-    qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPkVkdWNhw6fDo28gSmFuMjQ8L3RleHQ+PC9zdmc+",
-    createdAt: "2024-01-10",
-    status: "active",
-    registrations: 45,
-    conversions: 12
-  },
-  {
-    id: 2,
-    name: "Instagram Stories - Saúde",
-    description: "Stories sobre melhorias na saúde pública do DF",
-    utmSource: "instagram",
-    utmMedium: "stories",
-    utmCampaign: "saude_stories",
-    link: generateCampaignUrl("instagram", "stories", "saude_stories"),
-    qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPlNhw7pkZSBTdG9yaWVzPC90ZXh0Pjwvc3ZnPg==",
-    createdAt: "2024-01-08",
-    status: "active",
-    registrations: 28,
-    conversions: 8
-  },
-  {
-    id: 3,
-    name: "WhatsApp Business - Mobilidade",
-    description: "Divulgação via WhatsApp Business sobre transporte público",
-    utmSource: "whatsapp",
-    utmMedium: "business",
-    utmCampaign: "mobilidade_whats",
-    link: generateCampaignUrl("whatsapp", "business", "mobilidade_whats"),
-    qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPk1vYmlsaWRhZGU8L3RleHQ+PC9zdmc+",
-    createdAt: "2024-01-05",
-    status: "paused",
-    registrations: 15,
-    conversions: 4
-  }
-];
-
-// Mock data removido - agora usa dados reais do banco
-
-// Mock data para relatório de origens
-const mockAttributionData = [
-  { source: "Líder: Maria Santos", registrations: 45, percentage: 32, growth: "+15%" },
-  { source: "Campanha Facebook", registrations: 28, percentage: 20, growth: "+8%" },
-  { source: "Líder: João Oliveira", registrations: 25, percentage: 18, growth: "+5%" },
-  { source: "Instagram Stories", registrations: 20, percentage: 14, growth: "+12%" },
-  { source: "WhatsApp Business", registrations: 15, percentage: 11, growth: "-2%" },
-  { source: "Evento Presencial", registrations: 7, percentage: 5, growth: "+3%" }
-];
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line
+} from "recharts";
 
 const Campaigns = () => {
   const [newCampaign, setNewCampaign] = useState({
@@ -582,87 +545,7 @@ const Campaigns = () => {
 
           {/* Relatório de Origens */}
           <TabsContent value="attribution">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* Resumo Geral */}
-              <div className="lg:col-span-1">
-                <Card className="card-default">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <BarChart3 className="h-5 w-5 text-primary-600 mr-2" />
-                      Resumo Geral
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-center p-4 bg-primary-50 rounded-lg">
-                      <p className="text-sm text-gray-600">Total de Cadastros</p>
-                      <p className="text-2xl font-bold text-primary-600">140</p>
-                      <p className="text-xs text-green-600 flex items-center justify-center mt-1">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        +18% este mês
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <p className="text-xs text-gray-600">Líderes</p>
-                        <p className="font-bold text-blue-600">70</p>
-                      </div>
-                      <div className="text-center p-3 bg-green-50 rounded-lg">
-                        <p className="text-xs text-gray-600">Campanhas</p>
-                        <p className="font-bold text-green-600">63</p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center p-3 bg-orange-50 rounded-lg">
-                      <p className="text-xs text-gray-600">Eventos</p>
-                      <p className="font-bold text-orange-600">7</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Tabela de Origens */}
-              <div className="lg:col-span-2">
-                <Card className="card-default">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <Target className="h-5 w-5 text-primary-600 mr-2" />
-                        Origens dos Cadastros
-                      </span>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Exportar
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {mockAttributionData.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-8 h-8 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold text-sm">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{item.source}</h4>
-                              <p className="text-sm text-gray-600">{item.percentage}% do total</p>
-                            </div>
-                          </div>
-                          
-                          <div className="text-right">
-                            <p className="font-bold text-gray-900">{item.registrations}</p>
-                            <p className={`text-sm ${item.growth.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                              {item.growth}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <AttributionReport />
           </TabsContent>
         </Tabs>
 
@@ -683,6 +566,345 @@ const Campaigns = () => {
           leader={selectedLeader}
         />
       </div>
+    </div>
+  );
+};
+
+// Componente para o relatório de atribuição com dados reais
+const AttributionReport = () => {
+  const { data: stats, isLoading, refetch } = useAttributionStats();
+  
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+  
+  const getSourceIcon = (sourceType: string) => {
+    switch (sourceType) {
+      case 'leader': return <UserCheck className="h-4 w-4" />;
+      case 'event': return <Calendar className="h-4 w-4" />;
+      case 'campaign': return <Megaphone className="h-4 w-4" />;
+      case 'manual': return <FileSpreadsheet className="h-4 w-4" />;
+      default: return <Users className="h-4 w-4" />;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="text-center p-12 text-muted-foreground">
+        Não foi possível carregar os dados de atribuição.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Resumo Geral - Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Users className="h-5 w-5 text-primary-600" />
+            </div>
+            <p className="text-2xl font-bold text-primary-600">{stats.summary.totalContacts.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Contatos</p>
+            {stats.growthPercentage !== 0 && (
+              <p className={`text-xs flex items-center justify-center mt-1 ${stats.growthPercentage > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {stats.growthPercentage > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {stats.growthPercentage > 0 ? '+' : ''}{stats.growthPercentage}% este mês
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <UserCheck className="h-5 w-5 text-blue-600" />
+            </div>
+            <p className="text-2xl font-bold text-blue-600">{stats.summary.fromLeaders}</p>
+            <p className="text-xs text-muted-foreground">Via Líderes</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Calendar className="h-5 w-5 text-green-600" />
+            </div>
+            <p className="text-2xl font-bold text-green-600">{stats.summary.totalEventRegistrations}</p>
+            <p className="text-xs text-muted-foreground">Eventos</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Building2 className="h-5 w-5 text-orange-600" />
+            </div>
+            <p className="text-2xl font-bold text-orange-600">{stats.summary.totalOfficeVisits}</p>
+            <p className="text-xs text-muted-foreground">Visitas</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Users className="h-5 w-5 text-purple-600" />
+            </div>
+            <p className="text-2xl font-bold text-purple-600">{stats.summary.activeLeaders}</p>
+            <p className="text-xs text-muted-foreground">Líderes Ativos</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Megaphone className="h-5 w-5 text-pink-600" />
+            </div>
+            <p className="text-2xl font-bold text-pink-600">{stats.summary.activeCampaigns}</p>
+            <p className="text-xs text-muted-foreground">Campanhas Ativas</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Evolução Mensal */}
+        <Card className="card-default">
+          <CardHeader>
+            <CardTitle className="flex items-center text-base">
+              <TrendingUp className="h-5 w-5 text-primary-600 mr-2" />
+              Evolução de Cadastros (6 meses)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="monthLabel" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2 }}
+                    name="Cadastros"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Distribuição por Fonte */}
+        <Card className="card-default">
+          <CardHeader>
+            <CardTitle className="flex items-center text-base">
+              <Target className="h-5 w-5 text-primary-600 mr-2" />
+              Distribuição por Origem
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.sourceBreakdown.length > 0 ? (
+              <div className="h-64 flex items-center">
+                <ResponsiveContainer width="50%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stats.sourceBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      dataKey="count"
+                      nameKey="source"
+                    >
+                      {stats.sourceBreakdown.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-2">
+                  {stats.sourceBreakdown.map((item, index) => (
+                    <div key={item.source} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="text-muted-foreground">{item.source}</span>
+                      </div>
+                      <span className="font-medium">{item.count} ({item.percentage}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                Nenhuma fonte de atribuição identificada
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Top Líderes */}
+        <Card className="card-default">
+          <CardHeader>
+            <CardTitle className="flex items-center text-base">
+              <UserCheck className="h-5 w-5 text-primary-600 mr-2" />
+              Top Líderes por Indicações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.topLeaders.length > 0 ? (
+              <div className="space-y-3">
+                {stats.topLeaders.map((leader, index) => (
+                  <div key={leader.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{leader.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {leader.city && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" /> {leader.city}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary">{leader.totalCadastros}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {leader.contactsFromLink > 0 && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            {leader.contactsFromLink} links
+                          </Badge>
+                        )}
+                        {leader.eventRegistrations > 0 && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            {leader.eventRegistrations} eventos
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum líder com indicações registradas
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Cidades */}
+        <Card className="card-default">
+          <CardHeader>
+            <CardTitle className="flex items-center text-base">
+              <MapPin className="h-5 w-5 text-primary-600 mr-2" />
+              Distribuição por Cidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.cityDistribution.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.cityDistribution.slice(0, 8)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" className="text-xs" />
+                    <YAxis 
+                      dataKey="city" 
+                      type="category" 
+                      width={100} 
+                      className="text-xs"
+                      tick={{ fontSize: 11 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Contatos" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                Nenhum dado de cidade disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabela detalhada de origens */}
+      <Card className="card-default">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center text-base">
+              <BarChart3 className="h-5 w-5 text-primary-600 mr-2" />
+              Detalhamento por Origem
+            </span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats.sourceBreakdown.length > 0 ? (
+            <div className="space-y-3">
+              {stats.sourceBreakdown.map((item, index) => (
+                <div key={item.source} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center">
+                      {getSourceIcon(item.sourceType)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{item.source}</h4>
+                      <p className="text-sm text-muted-foreground">{item.details}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{item.count.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">{item.percentage}% do total</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Nenhuma origem identificada.</p>
+              <p className="text-sm mt-2">
+                Os cadastros serão categorizados quando houver líderes, campanhas ou eventos ativos.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
