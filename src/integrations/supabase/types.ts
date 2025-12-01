@@ -17,6 +17,7 @@ export type Database = {
       app_settings: {
         Row: {
           affiliate_form_cover_url: string | null
+          affiliate_form_logo_url: string | null
           created_at: string
           facebook_api_token: string | null
           facebook_pixel_code: string | null
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           affiliate_form_cover_url?: string | null
+          affiliate_form_logo_url?: string | null
           created_at?: string
           facebook_api_token?: string | null
           facebook_pixel_code?: string | null
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           affiliate_form_cover_url?: string | null
+          affiliate_form_logo_url?: string | null
           created_at?: string
           facebook_api_token?: string | null
           facebook_pixel_code?: string | null

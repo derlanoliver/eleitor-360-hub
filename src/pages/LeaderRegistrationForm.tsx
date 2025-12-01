@@ -69,13 +69,13 @@ export default function LeaderRegistrationForm() {
     }
   });
 
-  // Buscar configurações (imagem de capa)
+  // Buscar configurações (imagem de capa e logo)
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_settings")
-        .select("affiliate_form_cover_url")
+        .select("affiliate_form_cover_url, affiliate_form_logo_url")
         .limit(1)
         .single();
       
@@ -199,22 +199,33 @@ export default function LeaderRegistrationForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
-      {/* Cover Image */}
-      {settings?.affiliate_form_cover_url && (
-        <div className="w-full h-48 md:h-64 overflow-hidden">
+      {/* Cover Image with Fade and Centered Logo */}
+      <div className="relative h-56 md:h-72 w-full overflow-hidden">
+        {/* Background image or gradient */}
+        {settings?.affiliate_form_cover_url ? (
           <img 
             src={settings.affiliate_form_cover_url} 
             alt="Capa"
             className="w-full h-full object-cover"
           />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/60" />
+        )}
+        
+        {/* Fade effect - gradient from bottom to top */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+        
+        {/* Centered Logo */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <img 
+            src={settings?.affiliate_form_logo_url || logo} 
+            alt="Logo" 
+            className="h-20 md:h-24 drop-shadow-lg object-contain"
+          />
         </div>
-      )}
+      </div>
 
-      <div className="max-w-lg mx-auto px-4 py-8">
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <img src={logo} alt="Logo" className="h-16" />
-        </div>
+      <div className="max-w-lg mx-auto px-4 py-8 -mt-8">
 
         {/* Leader Info */}
         <Card className="mb-6 border-primary/20 bg-primary/5">
