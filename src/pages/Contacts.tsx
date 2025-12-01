@@ -262,6 +262,34 @@ const Contacts = () => {
     }
   });
 
+  // Buscar contagem de contatos com telefone (WhatsApp)
+  const { data: totalWithWhatsAppCount = 0 } = useQuery({
+    queryKey: ['contacts-whatsapp-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('office_contacts')
+        .select('*', { count: 'exact', head: true })
+        .not('telefone_norm', 'is', null);
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Buscar contagem de contatos com email
+  const { data: totalWithEmailCount = 0 } = useQuery({
+    queryKey: ['contacts-email-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('office_contacts')
+        .select('*', { count: 'exact', head: true })
+        .not('email', 'is', null);
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -319,7 +347,7 @@ const Contacts = () => {
                 {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" 
                   ? totalCount 
                   : filteredContacts.length} contatos • 
-                {totalWithWhatsApp} WhatsApp • {totalWithEmail} E-mail
+                {totalWithWhatsAppCount} WhatsApp • {totalWithEmailCount} E-mail
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
