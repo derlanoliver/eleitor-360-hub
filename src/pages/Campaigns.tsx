@@ -78,31 +78,7 @@ const mockCampaignsData = [
   }
 ];
 
-// Mock data para links de líderes
-const mockLeaderLinksData = [
-  {
-    id: 1,
-    leaderName: "Maria Silva Santos",
-    leaderPhone: "61987654321",
-    personalCode: "MSS2024",
-    link: generateLeaderReferralUrl("MSS2024"),
-    qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPk1TUzIwMjQ8L3RleHQ+PC9zdmc+",
-    createdAt: "2024-01-15",
-    registrations: 45,
-    lastUsed: "2024-01-14"
-  },
-  {
-    id: 2,
-    leaderName: "João Pedro Oliveira",
-    leaderPhone: "61912345678",
-    personalCode: "JPO2024",
-    link: generateLeaderReferralUrl("JPO2024"),
-    qrCode: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMTAwIiB5PSIxMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iYmxhY2siPkpQTzIwMjQ8L3RleHQ+PC9zdmc+",
-    createdAt: "2024-01-12",
-    registrations: 38,
-    lastUsed: "2024-01-13"
-  }
-];
+// Mock data removido - agora usa dados reais do banco
 
 // Mock data para relatório de origens
 const mockAttributionData = [
@@ -115,7 +91,6 @@ const mockAttributionData = [
 ];
 
 const Campaigns = () => {
-  const [leaderLinks] = useState(mockLeaderLinksData);
   const [newCampaign, setNewCampaign] = useState({
     eventId: "",
     eventSlug: "",
@@ -193,6 +168,36 @@ const Campaigns = () => {
     },
     refetchOnWindowFocus: true,  // Atualiza ao voltar para a aba
     staleTime: 30000, // Considera dados stale após 30 segundos
+  });
+
+  // Buscar líderes reais do banco
+  const { data: leaderLinks = [] } = useQuery({
+    queryKey: ['leaders-with-links'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lideres')
+        .select('id, nome_completo, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
+        .eq('is_active', true)
+        .not('affiliate_token', 'is', null)
+        .order('cadastros', { ascending: false });
+      
+      if (error) throw error;
+      
+      return (data || []).map(leader => ({
+        id: leader.id,
+        leaderName: leader.nome_completo,
+        leaderPhone: leader.telefone || '',
+        affiliateToken: leader.affiliate_token!,
+        cityName: leader.cidade && typeof leader.cidade === 'object' && 'nome' in leader.cidade 
+          ? (leader.cidade as { nome: string }).nome 
+          : null,
+        link: generateLeaderReferralUrl(leader.affiliate_token!),
+        registrations: leader.cadastros,
+        lastActivity: leader.last_activity
+      }));
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 30000,
   });
 
   const handleCreateCampaign = async () => {
@@ -458,89 +463,103 @@ const Campaigns = () => {
           {/* Links de Líderes */}
           <TabsContent value="leaders">
             <div className="grid gap-6">
-              {leaderLinks.map((leader) => (
-                <Card key={leader.id} className="card-default">
-                  <CardContent className="p-6">
-                    <div className="grid md:grid-cols-12 gap-4 items-center">
-                      {/* Info do Líder */}
-                      <div className="md:col-span-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
-                            {leader.leaderName.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">
-                              {leader.leaderName}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              Código: {leader.personalCode}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {leader.leaderPhone}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Métricas */}
-                      <div className="md:col-span-3">
-                        <div className="text-center p-3 bg-primary-50 rounded-lg">
-                          <p className="text-sm text-gray-600">Indicações</p>
-                          <p className="font-bold text-primary-600">{leader.registrations}</p>
-                        </div>
-                        <p className="text-xs text-gray-500 text-center mt-2">
-                          Último uso: {new Date(leader.lastUsed).toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      {/* Link e Ações */}
-                      <div className="md:col-span-5">
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              value={leader.link}
-                              readOnly
-                              className="text-xs"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(leader.link)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadQRCode(leader.qrCode, leader.personalCode)}
-                              className="flex-1"
-                            >
-                              <QrCode className="h-4 w-4 mr-2" />
-                              QR Code
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const whatsappText = `Olá! Use este link para se cadastrar na Plataforma 360 Eleitor/DF: ${leader.link}`;
-                                const whatsappUrl = `https://wa.me/55${leader.leaderPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappText)}`;
-                                window.open(whatsappUrl, '_blank');
-                              }}
-                              className="flex-1"
-                            >
-                              <Share className="h-4 w-4 mr-2" />
-                              Compartilhar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              {leaderLinks.length === 0 ? (
+                <Card className="card-default">
+                  <CardContent className="p-6 text-center text-gray-500">
+                    Nenhum líder com token de afiliado encontrado.
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                leaderLinks.map((leader) => (
+                  <Card key={leader.id} className="card-default">
+                    <CardContent className="p-6">
+                      <div className="grid md:grid-cols-12 gap-4 items-center">
+                        {/* Info do Líder */}
+                        <div className="md:col-span-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
+                              {leader.leaderName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900">
+                                {leader.leaderName}
+                              </h3>
+                              {leader.cityName && (
+                                <p className="text-sm text-gray-600">
+                                  {leader.cityName}
+                                </p>
+                              )}
+                              {leader.leaderPhone && (
+                                <p className="text-xs text-gray-500">
+                                  {leader.leaderPhone}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Métricas */}
+                        <div className="md:col-span-3">
+                          <div className="text-center p-3 bg-primary-50 rounded-lg">
+                            <p className="text-sm text-gray-600">Indicações</p>
+                            <p className="font-bold text-primary-600">{leader.registrations}</p>
+                          </div>
+                          {leader.lastActivity && (
+                            <p className="text-xs text-gray-500 text-center mt-2">
+                              Última atividade: {new Date(leader.lastActivity).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Link e Ações */}
+                        <div className="md:col-span-5">
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                value={leader.link}
+                                readOnly
+                                className="text-xs"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(leader.link)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(leader.link, '_blank')}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {leader.leaderPhone && (
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const whatsappText = `Olá! Use este link para se cadastrar: ${leader.link}`;
+                                    const whatsappUrl = `https://wa.me/55${leader.leaderPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappText)}`;
+                                    window.open(whatsappUrl, '_blank');
+                                  }}
+                                  className="flex-1"
+                                >
+                                  <Share className="h-4 w-4 mr-2" />
+                                  Compartilhar
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </TabsContent>
 

@@ -9,7 +9,8 @@ import {
   Shield,
   Plug,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  FileText
 } from "lucide-react";
 
 const Settings = () => {
@@ -40,6 +41,13 @@ const Settings = () => {
       description: "Configure Facebook Pixel, Google Tag Manager e rastreamento de conversões",
       icon: BarChart3,
       href: "/settings/tracking",
+      available: true,
+    },
+    {
+      title: "Formulário de Indicação",
+      description: "Configure a imagem de capa do formulário de cadastro via link de líder",
+      icon: FileText,
+      href: "/settings/affiliate-form",
       available: true,
     },
     {
