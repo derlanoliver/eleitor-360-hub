@@ -220,27 +220,27 @@ export default function LeadCaptureLanding() {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-        {/* Cover */}
+        {/* Cover with logo */}
         <div 
-          className="h-48 md:h-64 relative bg-gradient-to-br from-primary/20 to-primary/5"
+          className="h-48 md:h-56 relative bg-gradient-to-br from-primary/20 to-primary/5"
           style={funnel.cover_url ? {
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${funnel.cover_url})`,
+            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url(${funnel.cover_url})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           } : undefined}
         >
           {funnel.logo_url && (
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2">
               <img 
                 src={funnel.logo_url} 
                 alt="Logo" 
-                className="h-20 w-auto bg-white rounded-xl p-2 shadow-lg"
+                className="h-16 md:h-20 w-auto bg-white/90 rounded-xl p-2 shadow-lg"
               />
             </div>
           )}
         </div>
 
-        <div className="max-w-lg mx-auto px-4 pt-16 pb-12">
+        <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -303,38 +303,40 @@ export default function LeadCaptureLanding() {
   // Registration form
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      {/* Cover */}
+      {/* Cover with title, subtitle, and logo inside */}
       <div 
-        className="h-48 md:h-64 relative bg-gradient-to-br from-primary/20 to-primary/5"
+        className="h-64 md:h-80 lg:h-96 relative bg-gradient-to-br from-primary/20 to-primary/5"
         style={funnel.cover_url ? {
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${funnel.cover_url})`,
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7)), url(${funnel.cover_url})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         } : undefined}
       >
+        {/* Logo at top */}
         {funnel.logo_url && (
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
+          <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2">
             <img 
               src={funnel.logo_url} 
               alt="Logo" 
-              className="h-20 w-auto bg-white rounded-xl p-2 shadow-lg"
+              className="h-14 md:h-16 w-auto bg-white/90 rounded-xl p-2 shadow-lg"
             />
           </div>
         )}
-      </div>
-
-      <div className="max-w-lg mx-auto px-4 pt-16 pb-12">
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-3">
+        
+        {/* Title and subtitle centered in cover */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+          <h1 className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-3 drop-shadow-lg ${funnel.cover_url ? 'text-white' : 'text-foreground'}`}>
             {funnel.titulo}
           </h1>
           {funnel.subtitulo && (
-            <p className="text-muted-foreground">
+            <p className={`text-base md:text-lg max-w-md drop-shadow ${funnel.cover_url ? 'text-white/90' : 'text-muted-foreground'}`}>
               {funnel.subtitulo}
             </p>
           )}
         </div>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
 
         {/* Lead magnet preview */}
         <div className="bg-muted/50 rounded-lg p-4 mb-6 text-center">
