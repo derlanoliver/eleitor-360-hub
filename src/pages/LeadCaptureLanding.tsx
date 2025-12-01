@@ -123,10 +123,10 @@ export default function LeadCaptureLanding() {
         }
       }
 
-      // Save to office_contacts
+      // Save to office_contacts using upsert to handle duplicate phones
       const { error: contactError } = await supabase
         .from('office_contacts')
-        .insert({
+        .upsert({
           nome: data.nome,
           email: data.email,
           telefone_norm: telefone_norm || '+5500000000000', // Fallback if no phone
@@ -134,6 +134,9 @@ export default function LeadCaptureLanding() {
           source_type: 'captacao',
           source_id: funnel.id,
           ...utmParams,
+        }, {
+          onConflict: 'telefone_norm',
+          ignoreDuplicates: false, // Update existing record
         });
 
       if (contactError) throw contactError;
@@ -246,6 +249,9 @@ export default function LeadCaptureLanding() {
           )}
         </div>
 
+        {/* Fade transition between cover and content */}
+        <div className="h-16 -mt-16 relative z-10 bg-gradient-to-b from-transparent to-background" />
+
         <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
@@ -347,6 +353,9 @@ export default function LeadCaptureLanding() {
           )}
         </div>
       </div>
+
+      {/* Fade transition between cover and content */}
+      <div className="h-16 -mt-16 relative z-10 bg-gradient-to-b from-transparent to-background" />
 
       <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
 
