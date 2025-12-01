@@ -235,10 +235,10 @@ export default function LeadCaptureLanding() {
             } : undefined}
           />
           
-          {/* Fade overlay - always visible */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/60" />
-          
-          {funnel.logo_url && (
+        {/* Fade overlay - same as events page */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+        
+        {funnel.logo_url && (
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
               <img 
                 src={funnel.logo_url} 
@@ -248,9 +248,6 @@ export default function LeadCaptureLanding() {
             </div>
           )}
         </div>
-
-        {/* Fade transition between cover and content */}
-        <div className="h-16 -mt-16 relative z-10 bg-gradient-to-b from-transparent to-background" />
 
         <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
           <div className="text-center mb-8">
@@ -327,8 +324,8 @@ export default function LeadCaptureLanding() {
           } : undefined}
         />
         
-        {/* Fade overlay - always visible */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/70" />
+        {/* Fade overlay - same as events page */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         
         {/* Logo at top */}
         {funnel.logo_url && (
@@ -341,24 +338,22 @@ export default function LeadCaptureLanding() {
           </div>
         )}
         
-        {/* Title and subtitle centered in cover */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center z-10">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 drop-shadow-lg text-white">
-            {funnel.titulo}
-          </h1>
-          {funnel.subtitulo && (
-            <p className="text-base md:text-lg max-w-md drop-shadow text-white/90">
-              {funnel.subtitulo}
-            </p>
-          )}
+        {/* Title and subtitle at bottom of cover - same as events page */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10">
+          <div className="max-w-lg mx-auto text-center">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-foreground">
+              {funnel.titulo}
+            </h1>
+            {funnel.subtitulo && (
+              <p className="text-base md:text-lg text-muted-foreground">
+                {funnel.subtitulo}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Fade transition between cover and content */}
-      <div className="h-16 -mt-16 relative z-10 bg-gradient-to-b from-transparent to-background" />
-
       <div className="max-w-lg mx-auto px-4 pt-8 pb-12">
-
         {/* Lead magnet preview */}
         <div className="bg-muted/50 rounded-lg p-4 mb-6 text-center">
           <span className="text-2xl">🎁</span>
