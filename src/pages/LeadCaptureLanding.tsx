@@ -7,7 +7,6 @@ import { Loader2, Download, CheckCircle, Shield, ExternalLink, Share2 } from "lu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -170,10 +169,7 @@ export default function LeadCaptureLanding() {
   const handleDownload = async () => {
     if (!funnel) return;
 
-    // Increment download count
-    await incrementMetric.mutateAsync({ funnelId: funnel.id, metric: 'downloads' });
-
-    // Track download
+    // Track download event
     trackEvent('Download', {
       content_name: funnel.lead_magnet_nome,
     });
@@ -183,8 +179,9 @@ export default function LeadCaptureLanding() {
       lead_magnet: funnel.lead_magnet_nome,
     });
 
-    // Open download URL
-    window.open(funnel.lead_magnet_url, '_blank');
+    // Use tracked download via edge function
+    const downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-material?funnel_id=${funnel.id}`;
+    window.open(downloadUrl, '_blank');
   };
 
   const handleShare = async () => {

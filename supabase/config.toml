@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.identify-gender]
 verify_jwt = false
+
+[functions.analyze-lead-magnet]
+verify_jwt = false
+
+[functions.download-material]
+verify_jwt = false
