@@ -107,6 +107,8 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
   const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(editFunnel?.cover_url || null);
   const [logoPreview, setLogoPreview] = useState<string | null>(editFunnel?.logo_url || null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [removeLogo, setRemoveLogo] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
@@ -158,16 +160,30 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
       });
       setCoverPreview(editFunnel.cover_url);
       setLogoPreview(editFunnel.logo_url);
+      setRemoveCover(false);
+      setRemoveLogo(false);
     }
   }, [editFunnel, form]);
 
-  const handleFileChange = (type: 'cover' | 'logo', file: File | null) => {
+  const handleFileChange = (type: 'cover' | 'logo', file: File | null, shouldRemove: boolean = false) => {
     if (type === 'cover') {
       setCoverFile(file);
-      setCoverPreview(file ? URL.createObjectURL(file) : editFunnel?.cover_url || null);
+      if (shouldRemove && !file) {
+        setRemoveCover(true);
+        setCoverPreview(null);
+      } else {
+        setRemoveCover(false);
+        setCoverPreview(file ? URL.createObjectURL(file) : editFunnel?.cover_url || null);
+      }
     } else {
       setLogoFile(file);
-      setLogoPreview(file ? URL.createObjectURL(file) : editFunnel?.logo_url || null);
+      if (shouldRemove && !file) {
+        setRemoveLogo(true);
+        setLogoPreview(null);
+      } else {
+        setRemoveLogo(false);
+        setLogoPreview(file ? URL.createObjectURL(file) : editFunnel?.logo_url || null);
+      }
     }
   };
 
@@ -279,8 +295,9 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
     setIsUploading(true);
     
     try {
-      let cover_url = editFunnel?.cover_url;
-      let logo_url = editFunnel?.logo_url;
+      // Handle cover URL - check for removal first
+      let cover_url: string | null = removeCover ? null : (editFunnel?.cover_url || null);
+      let logo_url: string | null = removeLogo ? null : (editFunnel?.logo_url || null);
       let lead_magnet_url = data.lead_magnet_url || editFunnel?.lead_magnet_url;
 
       // Upload cover if changed
@@ -687,7 +704,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                           variant="destructive"
                           size="icon"
                           className="absolute top-2 right-2 h-8 w-8"
-                          onClick={() => handleFileChange('cover', null)}
+                          onClick={() => handleFileChange('cover', null, true)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -726,7 +743,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
                           variant="destructive"
                           size="icon"
                           className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={() => handleFileChange('logo', null)}
+                          onClick={() => handleFileChange('logo', null, true)}
                         >
                           <X className="h-3 w-3" />
                         </Button>
