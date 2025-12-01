@@ -294,7 +294,8 @@ const Contacts = () => {
           *,
           cidade:office_cities(id, nome, codigo_ra)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 9999);
       
       if (error) throw error;
 
