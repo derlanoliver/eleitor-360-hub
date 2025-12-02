@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.test-zapi-connection]
 verify_jwt = false
+
+[functions.zapi-webhook]
+verify_jwt = false
