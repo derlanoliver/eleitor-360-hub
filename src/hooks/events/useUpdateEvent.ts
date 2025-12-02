@@ -16,6 +16,7 @@ type UpdateEventData = {
   region?: string;
   status?: 'active' | 'completed' | 'cancelled';
   coverImage?: File;
+  show_registrations_count?: boolean;
 };
 
 export function useUpdateEvent() {

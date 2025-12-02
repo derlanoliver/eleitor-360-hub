@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Calendar, 
@@ -97,7 +98,8 @@ const Events = () => {
     capacity: "100",
     category: "",
     region: "",
-    coverImage: null as File | null
+    coverImage: null as File | null,
+    show_registrations_count: true
   });
 
   const { toast } = useToast();
@@ -124,7 +126,8 @@ const Events = () => {
         capacity: parseInt(newEvent.capacity),
         category: newEvent.category,
         region: newEvent.region,
-        coverImage: newEvent.coverImage || undefined
+        coverImage: newEvent.coverImage || undefined,
+        show_registrations_count: newEvent.show_registrations_count
       });
       
       setNewEvent({ 
@@ -138,7 +141,8 @@ const Events = () => {
         capacity: "100", 
         category: "", 
         region: "",
-        coverImage: null
+        coverImage: null,
+        show_registrations_count: true
       });
       setIsCreateDialogOpen(false);
     } catch (error) {
@@ -163,7 +167,8 @@ const Events = () => {
         category: editingEvent.category,
         region: editingEvent.region,
         status: editingEvent.status,
-        coverImage: editingEvent.coverImage || undefined
+        coverImage: editingEvent.coverImage || undefined,
+        show_registrations_count: editingEvent.show_registrations_count
       });
       
       setEditingEvent(null);
@@ -385,6 +390,19 @@ const Events = () => {
                       <p className="text-xs text-muted-foreground mt-1">
                         Recomendado: 1920x1080px (16:9)
                       </p>
+                    </div>
+
+                    <div className="col-span-2 flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <Label>Exibir contador de inscritos</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Mostrar quantas pessoas já se inscreveram na página pública
+                        </p>
+                      </div>
+                      <Switch
+                        checked={newEvent.show_registrations_count}
+                        onCheckedChange={(checked) => setNewEvent({ ...newEvent, show_registrations_count: checked })}
+                      />
                     </div>
                   </div>
 
@@ -796,6 +814,19 @@ const Events = () => {
                         <SelectItem value="cancelled">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="col-span-2 flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Label>Exibir contador de inscritos</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Mostrar quantas pessoas já se inscreveram na página pública
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingEvent.show_registrations_count ?? true}
+                      onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, show_registrations_count: checked })}
+                    />
                   </div>
                 </div>
 

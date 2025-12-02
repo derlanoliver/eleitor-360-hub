@@ -342,7 +342,10 @@ export default function EventRegistration() {
                   Inscreva-se
                 </CardTitle>
                 <CardDescription>
-                  {event.capacity - event.registrations_count} vagas restantes
+                  {event.show_registrations_count !== false
+                    ? `${event.capacity - event.registrations_count} vagas restantes`
+                    : "Garanta sua vaga no evento"
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -402,15 +405,17 @@ export default function EventRegistration() {
                   </Button>
                 </form>
 
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      {event.registrations_count} inscritos
-                    </span>
-                    <span>{event.capacity} vagas</span>
+                {event.show_registrations_count !== false && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {event.registrations_count} inscritos
+                      </span>
+                      <span>{event.capacity} vagas</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>

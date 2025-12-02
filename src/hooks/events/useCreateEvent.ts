@@ -14,6 +14,7 @@ type CreateEventData = {
   category: string;
   region: string;
   coverImage?: File;
+  show_registrations_count?: boolean;
 };
 
 export function useCreateEvent() {
@@ -56,6 +57,7 @@ export function useCreateEvent() {
           category: data.category,
           region: data.region,
           cover_image_url: coverImageUrl,
+          show_registrations_count: data.show_registrations_count ?? true,
         })
         .select()
         .single();
