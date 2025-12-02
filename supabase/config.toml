@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.download-material]
 verify_jwt = false
+
+[functions.import-contacts]
+verify_jwt = false
+
+[functions.import-leaders]
+verify_jwt = false
+
+[functions.update-contact-emails]
+verify_jwt = false
