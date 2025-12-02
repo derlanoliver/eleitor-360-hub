@@ -284,20 +284,40 @@ const Contacts = () => {
     enabled: sourceFilter === "evento" && !!selectedEventId
   });
 
-  // Buscar contatos reais do banco
+  // Buscar contatos reais do banco (em batches para contornar limite de 1000 do Supabase)
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Primeiro, obter total de registros
+      const { count } = await supabase
         .from('office_contacts')
-        .select(`
-          *,
-          cidade:office_cities(id, nome, codigo_ra)
-        `)
-        .order('created_at', { ascending: false })
-        .range(0, 9999);
+        .select('*', { count: 'exact', head: true });
       
-      if (error) throw error;
+      const totalRecords = count || 0;
+      const batchSize = 1000;
+      const batches = Math.ceil(totalRecords / batchSize);
+      
+      // Buscar em batches paralelos
+      const batchPromises = [];
+      for (let i = 0; i < batches; i++) {
+        batchPromises.push(
+          supabase
+            .from('office_contacts')
+            .select(`
+              *,
+              cidade:office_cities(id, nome, codigo_ra)
+            `)
+            .order('created_at', { ascending: false })
+            .range(i * batchSize, (i + 1) * batchSize - 1)
+        );
+      }
+      
+      const results = await Promise.all(batchPromises);
+      const data = results.flatMap(r => r.data || []);
+      
+      // Verificar se houve erro em algum batch
+      const errorBatch = results.find(r => r.error);
+      if (errorBatch?.error) throw errorBatch.error;
 
       // Buscar TODOS os líderes, campanhas e eventos de uma vez (muito mais eficiente)
       const liderIds = data?.filter(c => c.source_type === 'lider' && c.source_id).map(c => c.source_id) || [];
