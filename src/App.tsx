@@ -39,6 +39,8 @@ import NotFound from "./pages/NotFound";
 import EventRegistration from "./pages/EventRegistration";
 import EventCheckin from "./pages/EventCheckin";
 import LeadCaptureLanding from "./pages/LeadCaptureLanding";
+import PublicLeaderRegistration from "./pages/PublicLeaderRegistration";
+import LeaderFormSettings from "./pages/settings/LeaderFormSettings";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -78,6 +80,7 @@ const App = () => (
             <Route path="/cadastro/:leaderToken" element={<LeaderRegistrationForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />
+            <Route path="/lider/cadastro" element={<PublicLeaderRegistration />} />
             
             {/* Protected check-in routes */}
             <Route path="/checkin/:qrCode" element={
@@ -185,6 +188,13 @@ const App = () => (
               <ProtectedRoute>
                 <DashboardLayout>
                   <AffiliateFormSettings />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/leader-form" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <LeaderFormSettings />
                 </DashboardLayout>
               </ProtectedRoute>
             } />
