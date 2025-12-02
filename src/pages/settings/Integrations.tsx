@@ -115,7 +115,7 @@ const Integrations = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {isConfigured ? (
+                {isZapiConfigured ? (
                   zapiEnabled ? (
                     <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -135,7 +135,7 @@ const Integrations = () => {
                 <Switch
                   checked={zapiEnabled}
                   onCheckedChange={setZapiEnabled}
-                  disabled={!isConfigured}
+                  disabled={!isZapiConfigured}
                 />
               </div>
             </div>
