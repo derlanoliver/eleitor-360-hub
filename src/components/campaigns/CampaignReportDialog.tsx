@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TrendingUp, Users, Target, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, Users, Target, CheckCircle2, XCircle, Calendar, FileText } from "lucide-react";
 
 interface CampaignReportDialogProps {
   open: boolean;
@@ -21,7 +21,7 @@ interface RegistrationData {
   email: string;
   whatsapp: string;
   cidade: string | null;
-  checked_in: boolean;
+  checked_in: boolean | null;
   checked_in_at: string | null;
   created_at: string;
   leader_nome: string | null;
@@ -29,6 +29,7 @@ interface RegistrationData {
   utm_medium: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
+  source: 'event' | 'funnel';
 }
 
 export default function CampaignReportDialog({
@@ -37,7 +38,7 @@ export default function CampaignReportDialog({
   campaignUtmCampaign,
   campaignName,
 }: CampaignReportDialogProps) {
-  // Buscar visitantes (page_views)
+  // Buscar visitantes (page_views) - both eventos and captacao
   const { data: pageViews = 0 } = useQuery({
     queryKey: ["campaign_page_views", campaignUtmCampaign],
     queryFn: async () => {
@@ -52,9 +53,9 @@ export default function CampaignReportDialog({
     enabled: open && !!campaignUtmCampaign,
   });
 
-  // Buscar cadastros (event_registrations)
-  const { data: registrations = [], isLoading } = useQuery({
-    queryKey: ["campaign_registrations", campaignUtmCampaign],
+  // Buscar cadastros de EVENTOS (event_registrations)
+  const { data: eventRegistrations = [] } = useQuery({
+    queryKey: ["campaign_event_registrations", campaignUtmCampaign],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_registrations")
@@ -92,13 +93,67 @@ export default function CampaignReportDialog({
         utm_medium: reg.utm_medium,
         utm_campaign: reg.utm_campaign,
         utm_content: reg.utm_content,
+        source: 'event' as const,
       })) as RegistrationData[];
     },
     enabled: open && !!campaignUtmCampaign,
   });
 
+  // Buscar cadastros de FUNIS (office_contacts with source_type='captacao')
+  const { data: funnelLeads = [] } = useQuery({
+    queryKey: ["campaign_funnel_leads", campaignUtmCampaign],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_contacts")
+        .select(`
+          id,
+          nome,
+          email,
+          telefone_norm,
+          created_at,
+          cidade:office_cities!cidade_id(nome),
+          utm_source,
+          utm_medium,
+          utm_campaign,
+          utm_content
+        `)
+        .eq("utm_campaign", campaignUtmCampaign)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      return (data || []).map((contact: any) => ({
+        id: contact.id,
+        nome: contact.nome,
+        email: contact.email || "-",
+        whatsapp: contact.telefone_norm,
+        cidade: contact.cidade?.nome || null,
+        checked_in: null, // N/A for funnel leads
+        checked_in_at: null,
+        created_at: contact.created_at,
+        leader_nome: null,
+        utm_source: contact.utm_source,
+        utm_medium: contact.utm_medium,
+        utm_campaign: contact.utm_campaign,
+        utm_content: contact.utm_content,
+        source: 'funnel' as const,
+      })) as RegistrationData[];
+    },
+    enabled: open && !!campaignUtmCampaign,
+  });
+
+  // Combinar e ordenar resultados
+  const allRegistrations = [
+    ...eventRegistrations,
+    ...funnelLeads,
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const isLoading = false;
+
+  const totalRegistrations = allRegistrations.length;
+  const totalCheckins = allRegistrations.filter(r => r.checked_in === true).length;
   const conversionRate = pageViews > 0 
-    ? ((registrations.length / pageViews) * 100).toFixed(1) 
+    ? ((totalRegistrations / pageViews) * 100).toFixed(1) 
     : "0.0";
 
   return (
@@ -127,7 +182,7 @@ export default function CampaignReportDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Cadastros</p>
-                  <p className="text-2xl font-bold text-blue-600">{registrations.length}</p>
+                  <p className="text-2xl font-bold text-blue-600">{totalRegistrations}</p>
                 </div>
                 <Target className="h-8 w-8 text-blue-600 opacity-50" />
               </div>
@@ -139,9 +194,7 @@ export default function CampaignReportDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Check-ins</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {registrations.filter(r => r.checked_in).length}
-                  </p>
+                  <p className="text-2xl font-bold text-green-600">{totalCheckins}</p>
                 </div>
                 <CheckCircle2 className="h-8 w-8 text-green-600 opacity-50" />
               </div>
@@ -161,17 +214,29 @@ export default function CampaignReportDialog({
           </Card>
         </div>
 
+        {/* Breakdown por origem */}
+        <div className="flex gap-4 mb-4">
+          <Badge variant="outline" className="text-sm">
+            <Calendar className="w-3 h-3 mr-1" />
+            Eventos: {eventRegistrations.length}
+          </Badge>
+          <Badge variant="outline" className="text-sm">
+            <FileText className="w-3 h-3 mr-1" />
+            Captação: {funnelLeads.length}
+          </Badge>
+        </div>
+
         {/* Tabela de Cadastrados */}
         <div className="border rounded-lg">
           <div className="bg-muted px-4 py-3 rounded-t-lg">
-            <h3 className="font-semibold">Cadastrados ({registrations.length})</h3>
+            <h3 className="font-semibold">Cadastrados ({totalRegistrations})</h3>
           </div>
           
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
               Carregando...
             </div>
-          ) : registrations.length === 0 ? (
+          ) : allRegistrations.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               Nenhum cadastro encontrado para esta campanha.
             </div>
@@ -179,6 +244,7 @@ export default function CampaignReportDialog({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Origem</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>WhatsApp</TableHead>
@@ -188,12 +254,16 @@ export default function CampaignReportDialog({
                   <TableHead>Check-in</TableHead>
                   <TableHead>UTM Source</TableHead>
                   <TableHead>UTM Medium</TableHead>
-                  <TableHead>UTM Content</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {registrations.map((reg) => (
-                  <TableRow key={reg.id}>
+                {allRegistrations.map((reg) => (
+                  <TableRow key={`${reg.source}-${reg.id}`}>
+                    <TableCell>
+                      <Badge variant={reg.source === 'event' ? 'default' : 'secondary'}>
+                        {reg.source === 'event' ? 'Evento' : 'Captação'}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-medium">{reg.nome}</TableCell>
                     <TableCell className="text-sm">{reg.email}</TableCell>
                     <TableCell className="text-sm">{reg.whatsapp}</TableCell>
@@ -203,7 +273,11 @@ export default function CampaignReportDialog({
                       {format(new Date(reg.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </TableCell>
                     <TableCell>
-                      {reg.checked_in ? (
+                      {reg.source === 'funnel' ? (
+                        <Badge variant="outline" className="text-gray-400">
+                          N/A
+                        </Badge>
+                      ) : reg.checked_in ? (
                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                           <CheckCircle2 className="w-3 h-3 mr-1" />
                           Sim
@@ -220,9 +294,6 @@ export default function CampaignReportDialog({
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {reg.utm_medium || "-"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {reg.utm_content || "-"}
                     </TableCell>
                   </TableRow>
                 ))}
