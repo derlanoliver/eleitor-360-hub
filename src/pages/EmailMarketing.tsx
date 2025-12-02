@@ -17,13 +17,15 @@ const EmailMarketing = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-              Email Marketing
-            </h1>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Gerencie templates, envie emails em massa e acompanhe o histórico
-              </p>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                  Email Marketing
+                </h1>
+                <p className="text-sm sm:text-base text-gray-600">
+                  Gerencie templates, envie emails em massa e acompanhe o histórico
+                </p>
+              </div>
               {activeTab === "templates" && (
                 <div className="relative w-full sm:w-auto sm:min-w-[280px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
