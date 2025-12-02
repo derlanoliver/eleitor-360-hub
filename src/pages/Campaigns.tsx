@@ -107,20 +107,34 @@ const Campaigns = () => {
       
       if (error) throw error;
       
-      // Para cada campanha, buscar visitantes (page_views)
+      // Para cada campanha, buscar métricas
       const campaignsWithMetrics = await Promise.all((data || []).map(async (campaign: any) => {
-        // Buscar page_views com tratamento de erro
-        const { count: pageViewsCount, error: pageViewsError } = await supabase
-          .from('page_views')
-          .select('*', { count: 'exact', head: true })
-          .eq('utm_campaign', campaign.utm_campaign);
+        let pageViews = 0;
+        let registrations = 0;
 
-        if (pageViewsError) {
-          console.error('Erro ao buscar page_views:', pageViewsError);
+        // Se é campanha de FUNIL, buscar dados direto do lead_funnels
+        if (campaign.funnel_id) {
+          const { data: funnelData } = await supabase
+            .from('lead_funnels')
+            .select('views_count, leads_count')
+            .eq('id', campaign.funnel_id)
+            .maybeSingle();
+
+          if (funnelData) {
+            pageViews = funnelData.views_count || 0;
+            registrations = funnelData.leads_count || 0;
+          }
+        } else {
+          // Para campanhas de EVENTO, buscar de page_views
+          const { count: pageViewsCount } = await supabase
+            .from('page_views')
+            .select('*', { count: 'exact', head: true })
+            .eq('utm_campaign', campaign.utm_campaign);
+
+          pageViews = pageViewsCount || 0;
+          registrations = campaign.total_cadastros;
         }
 
-        const pageViews = pageViewsCount || 0;
-        const registrations = campaign.total_cadastros;
         const conversionRate = pageViews > 0 ? ((registrations / pageViews) * 100).toFixed(1) : "0.0";
 
         return {
@@ -132,6 +146,7 @@ const Campaigns = () => {
           utmCampaign: campaign.utm_campaign,
           eventSlug: campaign.event_slug,
           funnelSlug: campaign.funnel_slug,
+          funnelId: campaign.funnel_id,
           link: campaign.funnel_slug 
             ? generateFunnelCampaignUrl(
                 campaign.funnel_slug,
@@ -162,8 +177,9 @@ const Campaigns = () => {
 
       return campaignsWithMetrics;
     },
-    refetchOnWindowFocus: true,  // Atualiza ao voltar para a aba
-    staleTime: 30000, // Considera dados stale após 30 segundos
+    refetchOnWindowFocus: true,
+    staleTime: 10000, // Atualiza mais frequentemente (10s)
+    refetchInterval: 15000, // Atualização automática a cada 15 segundos
   });
 
   // Buscar líderes reais do banco
