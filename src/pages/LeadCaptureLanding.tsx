@@ -51,16 +51,41 @@ export default function LeadCaptureLanding() {
   // Track page view
   useEffect(() => {
     if (funnel && !hasTrackedView) {
-      // Increment view count
-      incrementMetric.mutate({ funnelId: funnel.id, metric: 'views' });
-      
-      // Track in page_views
-      supabase.from('page_views').insert({
-        page_type: 'captacao',
-        page_identifier: funnel.slug,
-        session_id: sessionStorage.getItem('session_id') || crypto.randomUUID(),
-        ...utmParams,
-      });
+      const trackPageView = async () => {
+        try {
+          // Increment view count
+          await incrementMetric.mutateAsync({ funnelId: funnel.id, metric: 'views' });
+          
+          // Ensure session_id exists
+          let sessionId = sessionStorage.getItem('session_id');
+          if (!sessionId) {
+            sessionId = crypto.randomUUID();
+            sessionStorage.setItem('session_id', sessionId);
+          }
+          
+          // Track in page_views with proper error handling
+          const { error: pageViewError } = await supabase.from('page_views').insert({
+            page_type: 'captacao',
+            page_identifier: funnel.slug,
+            session_id: sessionId,
+            utm_source: utmParams.utm_source,
+            utm_medium: utmParams.utm_medium,
+            utm_campaign: utmParams.utm_campaign,
+            utm_content: utmParams.utm_content,
+          });
+
+          if (pageViewError) {
+            console.error('Error tracking page view:', pageViewError);
+          } else {
+            console.log(`Page view tracked for funnel ${funnel.slug} with utm_campaign: ${utmParams.utm_campaign}`);
+          }
+        } catch (err) {
+          console.error('Error in page view tracking:', err);
+        }
+      };
+
+      trackPageView();
+      setHasTrackedView(true);
 
       // Facebook Pixel ViewContent
       trackEvent('ViewContent', {
@@ -73,8 +98,6 @@ export default function LeadCaptureLanding() {
         funnel_name: funnel.nome,
         funnel_slug: funnel.slug,
       });
-
-      setHasTrackedView(true);
     }
   }, [funnel, hasTrackedView]);
 
@@ -169,18 +192,32 @@ export default function LeadCaptureLanding() {
 
       // Increment campaign total_cadastros if utm_campaign matches
       if (utmParams.utm_campaign) {
-        // First get the current value, then increment
-        const { data: campaignData } = await supabase
-          .from('campaigns')
-          .select('id, total_cadastros')
-          .eq('utm_campaign', utmParams.utm_campaign)
-          .single();
-        
-        if (campaignData) {
-          await supabase
+        try {
+          // Use maybeSingle to avoid error when campaign doesn't exist
+          const { data: campaignData, error: findError } = await supabase
             .from('campaigns')
-            .update({ total_cadastros: campaignData.total_cadastros + 1 })
-            .eq('id', campaignData.id);
+            .select('id, total_cadastros')
+            .eq('utm_campaign', utmParams.utm_campaign)
+            .maybeSingle();
+          
+          if (findError) {
+            console.error('Error finding campaign:', findError);
+          } else if (campaignData) {
+            const { error: updateError } = await supabase
+              .from('campaigns')
+              .update({ total_cadastros: (campaignData.total_cadastros || 0) + 1 })
+              .eq('id', campaignData.id);
+            
+            if (updateError) {
+              console.error('Error incrementing campaign cadastros:', updateError);
+            } else {
+              console.log(`Campaign ${campaignData.id} cadastros incremented to ${(campaignData.total_cadastros || 0) + 1}`);
+            }
+          } else {
+            console.log(`No campaign found for utm_campaign: ${utmParams.utm_campaign}`);
+          }
+        } catch (err) {
+          console.error('Error updating campaign metrics:', err);
         }
       }
 
