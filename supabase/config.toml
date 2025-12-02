@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.send-whatsapp]
 verify_jwt = false
+
+[functions.test-zapi-connection]
+verify_jwt = false
