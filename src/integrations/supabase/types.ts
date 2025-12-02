@@ -833,6 +833,66 @@ export type Database = {
           },
         ]
       }
+      organization: {
+        Row: {
+          bio: string | null
+          cargo: string | null
+          cidade: string | null
+          created_at: string
+          email_contato: string | null
+          estado: string | null
+          facebook: string | null
+          id: string
+          instagram: string | null
+          logo_url: string | null
+          nome: string
+          partido: string | null
+          twitter: string | null
+          updated_at: string
+          website: string | null
+          whatsapp: string | null
+          youtube: string | null
+        }
+        Insert: {
+          bio?: string | null
+          cargo?: string | null
+          cidade?: string | null
+          created_at?: string
+          email_contato?: string | null
+          estado?: string | null
+          facebook?: string | null
+          id?: string
+          instagram?: string | null
+          logo_url?: string | null
+          nome?: string
+          partido?: string | null
+          twitter?: string | null
+          updated_at?: string
+          website?: string | null
+          whatsapp?: string | null
+          youtube?: string | null
+        }
+        Update: {
+          bio?: string | null
+          cargo?: string | null
+          cidade?: string | null
+          created_at?: string
+          email_contato?: string | null
+          estado?: string | null
+          facebook?: string | null
+          id?: string
+          instagram?: string | null
+          logo_url?: string | null
+          nome?: string
+          partido?: string | null
+          twitter?: string | null
+          updated_at?: string
+          website?: string | null
+          whatsapp?: string | null
+          youtube?: string | null
+        }
+        Relationships: []
+      }
       page_views: {
         Row: {
           created_at: string | null
@@ -925,27 +985,36 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
           created_at: string
           email: string
           id: string
           name: string
           role: string
+          telefone: string | null
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email: string
           id: string
           name: string
           role?: string
+          telefone?: string | null
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
           role?: string
+          telefone?: string | null
           updated_at?: string
         }
         Relationships: []

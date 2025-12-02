@@ -101,7 +101,7 @@ const UserMenu = () => {
           
           <DropdownMenuSeparator />
           
-          <DropdownMenuItem className="cursor-pointer">
+          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings/profile")}>
             <User className="mr-2 h-4 w-4" />
             <span>Perfil</span>
           </DropdownMenuItem>
@@ -111,7 +111,7 @@ const UserMenu = () => {
             <span>Configurações</span>
           </DropdownMenuItem>
           
-          <DropdownMenuItem className="cursor-pointer">
+          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings/privacy")}>
             <Shield className="mr-2 h-4 w-4" />
             <span>Privacidade</span>
           </DropdownMenuItem>
