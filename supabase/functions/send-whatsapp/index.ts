@@ -9,6 +9,7 @@ interface SendWhatsAppRequest {
   phone: string;
   message: string;
   visitId?: string;
+  contactId?: string;
 }
 
 Deno.serve(async (req) => {
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { phone, message, visitId }: SendWhatsAppRequest = await req.json();
+    const { phone, message, visitId, contactId }: SendWhatsAppRequest = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -66,6 +67,25 @@ Deno.serve(async (req) => {
     const cleanPhone = phone.replace(/\D/g, "");
     
     console.log(`[send-whatsapp] Enviando mensagem para ${cleanPhone}`);
+
+    // Criar registro da mensagem antes de enviar
+    const { data: messageRecord, error: insertError } = await supabase
+      .from("whatsapp_messages")
+      .insert({
+        phone: cleanPhone,
+        message: message,
+        direction: "outgoing",
+        status: "pending",
+        visit_id: visitId || null,
+        contact_id: contactId || null,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("[send-whatsapp] Erro ao registrar mensagem:", insertError);
+      // Continue mesmo sem registro - não bloquear envio
+    }
 
     // Enviar para Z-API
     const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
@@ -86,22 +106,39 @@ Deno.serve(async (req) => {
     
     console.log(`[send-whatsapp] Resposta Z-API:`, zapiData);
 
-    // Registrar envio no banco se tiver visitId
-    if (visitId) {
+    // Atualizar registro da mensagem com resultado
+    const messageId = zapiData.zapiMessageId || zapiData.messageId;
+    
+    if (messageRecord?.id) {
       const updateData: Record<string, unknown> = {
+        status: zapiResponse.ok ? "sent" : "failed",
+        sent_at: zapiResponse.ok ? new Date().toISOString() : null,
+        message_id: messageId || null,
+        error_message: zapiResponse.ok ? null : (zapiData.error || zapiData.message || "Erro ao enviar"),
+      };
+
+      await supabase
+        .from("whatsapp_messages")
+        .update(updateData)
+        .eq("id", messageRecord.id);
+    }
+
+    // Atualizar office_visits se tiver visitId
+    if (visitId) {
+      const visitUpdateData: Record<string, unknown> = {
         webhook_sent_at: new Date().toISOString(),
         webhook_last_status: zapiResponse.status,
       };
 
       if (!zapiResponse.ok) {
-        updateData.webhook_error = zapiData.error || zapiData.message || "Erro ao enviar mensagem";
+        visitUpdateData.webhook_error = zapiData.error || zapiData.message || "Erro ao enviar mensagem";
       } else {
-        updateData.webhook_error = null;
+        visitUpdateData.webhook_error = null;
       }
 
       await supabase
         .from("office_visits")
-        .update(updateData)
+        .update(visitUpdateData)
         .eq("id", visitId);
     }
 
@@ -120,7 +157,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         data: zapiData,
-        messageId: zapiData.zapiMessageId || zapiData.messageId 
+        messageId: messageId,
+        recordId: messageRecord?.id
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
