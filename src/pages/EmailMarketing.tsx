@@ -12,7 +12,7 @@ const EmailMarketing = () => {
   return (
     <DashboardLayout>
       <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
-        <div className="w-full">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
