@@ -226,39 +226,43 @@ export default function LeadCaptureLanding() {
     const contactId = sessionStorage.getItem(`captacao_contact_${funnel.id}`);
 
     try {
-      // Track download via edge function first
+      // Download via edge function - returns file directly (no Supabase URL exposed)
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      let trackUrl = `${supabaseUrl}/functions/v1/download-material?funnel_id=${funnel.id}`;
+      let downloadUrl = `${supabaseUrl}/functions/v1/download-material?funnel_id=${funnel.id}`;
       if (contactId) {
-        trackUrl += `&contact_id=${contactId}`;
+        downloadUrl += `&contact_id=${contactId}`;
       }
 
-      // Track the download (fire and forget)
-      fetch(trackUrl, { redirect: 'manual' }).catch(console.error);
-
-      // Download the file directly from storage URL to avoid ad-blocker issues
-      const fileResponse = await fetch(funnel.lead_magnet_url);
-      if (!fileResponse.ok) throw new Error('Failed to fetch file');
+      // Fetch file from edge function
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error('Failed to fetch file');
       
-      const blob = await fileResponse.blob();
+      const blob = await response.blob();
       
-      // Extract filename from URL or use lead magnet name
-      const urlParts = funnel.lead_magnet_url.split('/');
-      const fileName = decodeURIComponent(urlParts[urlParts.length - 1]) || `${funnel.lead_magnet_nome}.pdf`;
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let fileName = `${funnel.lead_magnet_nome}.pdf`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) fileName = match[1];
+      }
       
       // Create download link
-      const downloadUrl = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = blobUrl;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Download error:', error);
-      // Fallback: try opening the URL directly
-      window.open(funnel.lead_magnet_url, '_blank');
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível baixar o arquivo. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
