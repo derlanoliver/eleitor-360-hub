@@ -15,7 +15,8 @@ import {
   Briefcase,
   UserPlus,
   List,
-  History as HistoryIcon
+  History as HistoryIcon,
+  MessageSquare
 } from "lucide-react";
 
 import {
@@ -52,6 +53,7 @@ const campaignItems = [
 
 const communicationItems = [
   { title: "Agente IA", url: "/ai-agent", icon: Bot },
+  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
 ];
 
 const officeItems = [
