@@ -83,23 +83,14 @@ export function useTestZapiConnection() {
 
   return useMutation({
     mutationFn: async (credentials: { instanceId: string; token: string; clientToken?: string }) => {
-      const response = await fetch(
-        `https://api.z-api.io/instances/${credentials.instanceId}/token/${credentials.token}/status`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(credentials.clientToken && { "Client-Token": credentials.clientToken })
-          }
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('test-zapi-connection', {
+        body: credentials
+      });
 
-      if (!response.ok) {
-        throw new Error("Não foi possível conectar ao Z-API");
-      }
-
-      const data = await response.json();
-      return data;
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
     },
     onSuccess: (data) => {
       const connected = data.connected || data.status === "connected";
