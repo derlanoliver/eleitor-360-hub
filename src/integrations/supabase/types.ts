@@ -116,6 +116,95 @@ export type Database = {
           },
         ]
       }
+      contact_downloads: {
+        Row: {
+          contact_id: string
+          downloaded_at: string
+          funnel_id: string | null
+          funnel_name: string
+          id: string
+          lead_magnet_nome: string
+        }
+        Insert: {
+          contact_id: string
+          downloaded_at?: string
+          funnel_id?: string | null
+          funnel_name: string
+          id?: string
+          lead_magnet_nome: string
+        }
+        Update: {
+          contact_id?: string
+          downloaded_at?: string
+          funnel_id?: string | null
+          funnel_name?: string
+          id?: string
+          lead_magnet_nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_downloads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_downloads_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "lead_funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_page_views: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          page_identifier: string
+          page_name: string | null
+          page_type: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          page_identifier: string
+          page_name?: string | null
+          page_type: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          page_identifier?: string
+          page_name?: string | null
+          page_type?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_page_views_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           checked_in: boolean | null

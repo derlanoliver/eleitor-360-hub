@@ -124,7 +124,7 @@ export default function LeadCaptureLanding() {
       }
 
       // Save to office_contacts using upsert to handle duplicate phones
-      const { error: contactError } = await supabase
+      const { data: contactData, error: contactError } = await supabase
         .from('office_contacts')
         .upsert({
           nome: data.nome,
@@ -137,9 +137,28 @@ export default function LeadCaptureLanding() {
         }, {
           onConflict: 'telefone_norm',
           ignoreDuplicates: false, // Update existing record
-        });
+        })
+        .select('id')
+        .single();
 
       if (contactError) throw contactError;
+
+      // Record page view for this contact
+      if (contactData?.id) {
+        // Store contact_id in sessionStorage for download tracking
+        sessionStorage.setItem(`captacao_contact_${funnel.id}`, contactData.id);
+        
+        await supabase.from('contact_page_views').insert({
+          contact_id: contactData.id,
+          page_type: 'captacao',
+          page_identifier: funnel.slug,
+          page_name: funnel.nome,
+          utm_source: utmParams.utm_source,
+          utm_medium: utmParams.utm_medium,
+          utm_campaign: utmParams.utm_campaign,
+          utm_content: utmParams.utm_content,
+        });
+      }
 
       // Increment lead count
       await incrementMetric.mutateAsync({ funnelId: funnel.id, metric: 'leads' });
@@ -182,8 +201,14 @@ export default function LeadCaptureLanding() {
       lead_magnet: funnel.lead_magnet_nome,
     });
 
+    // Get contact_id from session if available
+    const contactId = sessionStorage.getItem(`captacao_contact_${funnel.id}`);
+
     // Use tracked download via edge function
-    const downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-material?funnel_id=${funnel.id}`;
+    let downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-material?funnel_id=${funnel.id}`;
+    if (contactId) {
+      downloadUrl += `&contact_id=${contactId}`;
+    }
     window.open(downloadUrl, '_blank');
   };
 

@@ -15,6 +15,7 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const funnelId = url.searchParams.get('funnel_id');
+    const contactId = url.searchParams.get('contact_id');
     
     if (!funnelId) {
       return new Response(JSON.stringify({ error: "funnel_id is required" }), {
@@ -23,12 +24,27 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Processing download for funnel: ${funnelId}`);
+    console.log(`Processing download for funnel: ${funnelId}, contact: ${contactId || 'anonymous'}`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get funnel to retrieve the file URL and name
+    const { data: funnel, error: funnelError } = await supabase
+      .from('lead_funnels')
+      .select('lead_magnet_url, nome, lead_magnet_nome')
+      .eq('id', funnelId)
+      .single();
+
+    if (funnelError || !funnel) {
+      console.error("Error fetching funnel:", funnelError);
+      return new Response(JSON.stringify({ error: "Funnel not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Increment download count
     const { error: rpcError } = await supabase.rpc('increment_funnel_metric', {
@@ -40,19 +56,22 @@ serve(async (req) => {
       console.error("Error incrementing metric:", rpcError);
     }
 
-    // Get funnel to retrieve the file URL
-    const { data: funnel, error: funnelError } = await supabase
-      .from('lead_funnels')
-      .select('lead_magnet_url')
-      .eq('id', funnelId)
-      .single();
+    // Record download for contact if contact_id provided
+    if (contactId) {
+      const { error: downloadError } = await supabase
+        .from('contact_downloads')
+        .insert({
+          contact_id: contactId,
+          funnel_id: funnelId,
+          funnel_name: funnel.nome,
+          lead_magnet_nome: funnel.lead_magnet_nome,
+        });
 
-    if (funnelError || !funnel) {
-      console.error("Error fetching funnel:", funnelError);
-      return new Response(JSON.stringify({ error: "Funnel not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (downloadError) {
+        console.error("Error recording download:", downloadError);
+      } else {
+        console.log(`Download recorded for contact: ${contactId}`);
+      }
     }
 
     // Redirect to the actual file
