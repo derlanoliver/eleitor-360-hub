@@ -24,6 +24,7 @@ import Messaging from "./pages/Messaging";
 import Segments from "./pages/Segments";
 import AIAgent from "./pages/AIAgent";
 import WhatsAppHistory from "./pages/WhatsAppHistory";
+import EmailMarketing from "./pages/EmailMarketing";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import TrackingSettings from "./pages/settings/TrackingSettings";
@@ -152,6 +153,11 @@ const App = () => (
                 <DashboardLayout>
                   <WhatsAppHistory />
                 </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/email" element={
+              <ProtectedRoute>
+                <EmailMarketing />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

@@ -1,0 +1,195 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface SendEmailRequest {
+  templateSlug?: string;
+  templateId?: string;
+  to: string;
+  toName?: string;
+  subject?: string;
+  html?: string;
+  variables?: Record<string, string>;
+  contactId?: string;
+  leaderId?: string;
+  eventId?: string;
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get integration settings
+    const { data: settings, error: settingsError } = await supabase
+      .from('integrations_settings')
+      .select('resend_api_key, resend_from_email, resend_from_name, resend_enabled')
+      .limit(1)
+      .single();
+
+    if (settingsError || !settings) {
+      console.error('Failed to fetch settings:', settingsError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Configurações de email não encontradas' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!settings.resend_enabled) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Integração de email está desabilitada' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!settings.resend_api_key) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'API Key do Resend não configurada' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const body: SendEmailRequest = await req.json();
+    const { templateSlug, templateId, to, toName, subject: customSubject, html: customHtml, variables = {}, contactId, leaderId, eventId } = body;
+
+    let finalHtml = customHtml || '';
+    let finalSubject = customSubject || '';
+    let templateDbId: string | null = null;
+
+    // If using a template, fetch it
+    if (templateSlug || templateId) {
+      const query = supabase
+        .from('email_templates')
+        .select('*')
+        .eq('is_active', true);
+
+      if (templateSlug) {
+        query.eq('slug', templateSlug);
+      } else if (templateId) {
+        query.eq('id', templateId);
+      }
+
+      const { data: template, error: templateError } = await query.single();
+
+      if (templateError || !template) {
+        console.error('Template not found:', templateError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Template de email não encontrado' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      templateDbId = template.id;
+      finalHtml = template.conteudo_html;
+      finalSubject = template.assunto;
+
+      // Replace variables in HTML and subject
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        finalHtml = finalHtml.replace(regex, value || '');
+        finalSubject = finalSubject.replace(regex, value || '');
+      });
+    }
+
+    if (!finalHtml || !finalSubject) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Conteúdo do email ou assunto não fornecido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create email log record
+    const { data: logRecord, error: logError } = await supabase
+      .from('email_logs')
+      .insert({
+        template_id: templateDbId,
+        to_email: to,
+        to_name: toName,
+        subject: finalSubject,
+        status: 'pending',
+        contact_id: contactId || null,
+        leader_id: leaderId || null,
+        event_id: eventId || null,
+      })
+      .select()
+      .single();
+
+    if (logError) {
+      console.error('Failed to create email log:', logError);
+    }
+
+    // Send email via Resend
+    const resend = new Resend(settings.resend_api_key);
+    const fromEmail = settings.resend_from_email || 'onboarding@resend.dev';
+    const fromName = settings.resend_from_name || 'Sistema';
+
+    console.log(`Sending email to ${to} with subject: ${finalSubject}`);
+
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
+      to: [to],
+      subject: finalSubject,
+      html: finalHtml,
+    });
+
+    if (emailError) {
+      console.error('Resend error:', emailError);
+      
+      // Update log with error
+      if (logRecord) {
+        await supabase
+          .from('email_logs')
+          .update({
+            status: 'failed',
+            error_message: emailError.message,
+          })
+          .eq('id', logRecord.id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: emailError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Email sent successfully:', emailData);
+
+    // Update log with success
+    if (logRecord) {
+      await supabase
+        .from('email_logs')
+        .update({
+          status: 'sent',
+          resend_id: emailData?.id,
+          sent_at: new Date().toISOString(),
+        })
+        .eq('id', logRecord.id);
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        emailId: emailData?.id,
+        logId: logRecord?.id 
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message || 'Erro desconhecido' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

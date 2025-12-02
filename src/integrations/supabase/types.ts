@@ -205,6 +205,125 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          error_message: string | null
+          event_id: string | null
+          id: string
+          leader_id: string | null
+          resend_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          template_id: string | null
+          to_email: string
+          to_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          leader_id?: string | null
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          template_id?: string | null
+          to_email: string
+          to_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          leader_id?: string | null
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template_id?: string | null
+          to_email?: string
+          to_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          assunto: string
+          categoria: string
+          conteudo_html: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          nome: string
+          slug: string
+          updated_at: string
+          variaveis: Json | null
+        }
+        Insert: {
+          assunto: string
+          categoria: string
+          conteudo_html: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          nome: string
+          slug: string
+          updated_at?: string
+          variaveis?: Json | null
+        }
+        Update: {
+          assunto?: string
+          categoria?: string
+          conteudo_html?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          nome?: string
+          slug?: string
+          updated_at?: string
+          variaveis?: Json | null
+        }
+        Relationships: []
+      }
       event_registrations: {
         Row: {
           checked_in: boolean | null
@@ -355,6 +474,10 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          resend_api_key: string | null
+          resend_enabled: boolean | null
+          resend_from_email: string | null
+          resend_from_name: string | null
           updated_at: string
           zapi_client_token: string | null
           zapi_enabled: boolean | null
@@ -364,6 +487,10 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          resend_api_key?: string | null
+          resend_enabled?: boolean | null
+          resend_from_email?: string | null
+          resend_from_name?: string | null
           updated_at?: string
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
@@ -373,6 +500,10 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          resend_api_key?: string | null
+          resend_enabled?: boolean | null
+          resend_from_email?: string | null
+          resend_from_name?: string | null
           updated_at?: string
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
