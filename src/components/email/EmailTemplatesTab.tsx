@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Edit, Send, CheckCircle2 } from "lucide-react";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
@@ -27,9 +26,12 @@ const categoryColors: Record<string, string> = {
   lideranca: "bg-blue-100 text-blue-700",
 };
 
-export function EmailTemplatesTab() {
+interface EmailTemplatesTabProps {
+  searchTerm: string;
+}
+
+export function EmailTemplatesTab({ searchTerm }: EmailTemplatesTabProps) {
   const { data: templates, isLoading } = useEmailTemplates();
-  const [searchTerm, setSearchTerm] = useState("");
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [testingTemplate, setTestingTemplate] = useState<string | null>(null);
 
@@ -58,16 +60,6 @@ export function EmailTemplatesTab() {
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Input
-          placeholder="Buscar templates..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-
       {/* Templates by Category */}
       <TooltipProvider>
         {groupedTemplates && Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
