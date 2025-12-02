@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Edit, Send, Eye, CheckCircle2 } from "lucide-react";
+import { Loader2, Edit, Send, CheckCircle2 } from "lucide-react";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { EmailTemplateEditorDialog } from "./EmailTemplateEditorDialog";
 import { EmailTestSendDialog } from "./EmailTestSendDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const categoryLabels: Record<string, string> = {
   sistema: "Sistema",
@@ -68,77 +69,80 @@ export function EmailTemplatesTab() {
       </div>
 
       {/* Templates by Category */}
-      {groupedTemplates && Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
-        <div key={category} className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <Badge className={categoryColors[category] || "bg-gray-100 text-gray-700"}>
-              {categoryLabels[category] || category}
-            </Badge>
-            <span className="text-sm font-normal text-gray-500">
-              ({categoryTemplates?.length} templates)
-            </span>
-          </h3>
+      <TooltipProvider>
+        {groupedTemplates && Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
+          <div key={category} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge className={categoryColors[category] || "bg-gray-100 text-gray-700"}>
+                {categoryLabels[category] || category}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                ({categoryTemplates?.length})
+              </span>
+            </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {categoryTemplates?.map((template) => (
-              <Card key={template.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base truncate">{template.nome}</CardTitle>
-                      <CardDescription className="truncate">
-                        {template.assunto}
-                      </CardDescription>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {categoryTemplates?.map((template) => (
+                <Card key={template.id} className="hover:shadow-sm transition-shadow">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium truncate">{template.nome}</span>
+                          {template.is_active ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">Inativo</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{template.assunto}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          {(template.variaveis as string[])?.slice(0, 2).map((v) => (
+                            <code key={v} className="text-[10px] bg-muted px-1 rounded">
+                              {`{{${v}}}`}
+                            </code>
+                          ))}
+                          {(template.variaveis as string[])?.length > 2 && (
+                            <span className="text-[10px] text-muted-foreground">+{(template.variaveis as string[]).length - 2}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setEditingTemplate(template.id)}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Editar</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setTestingTemplate(template.id)}
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Testar</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                    <Badge variant={template.is_active ? "default" : "secondary"} className="ml-2 shrink-0">
-                      {template.is_active ? (
-                        <>
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Ativo
-                        </>
-                      ) : "Inativo"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <span>Variáveis:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {(template.variaveis as string[])?.slice(0, 3).map((v) => (
-                        <code key={v} className="text-xs bg-muted px-1 py-0.5 rounded">
-                          {`{{${v}}}`}
-                        </code>
-                      ))}
-                      {(template.variaveis as string[])?.length > 3 && (
-                        <span className="text-xs">+{(template.variaveis as string[]).length - 3}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingTemplate(template.id)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTestingTemplate(template.id)}
-                    >
-                      <Send className="h-4 w-4 mr-1" />
-                      Testar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </TooltipProvider>
 
       {/* Edit Dialog */}
       {editingTemplate && (

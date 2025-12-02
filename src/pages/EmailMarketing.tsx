@@ -25,7 +25,7 @@ const EmailMarketing = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+            <TabsList className="w-full grid grid-cols-3">
               <TabsTrigger value="templates" className="gap-2">
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Templates</span>
