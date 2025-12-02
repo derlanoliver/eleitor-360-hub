@@ -74,8 +74,8 @@ serve(async (req) => {
       }
     }
 
-    // Redirect to the actual file (encode URL to handle special characters)
-    const redirectUrl = encodeURI(funnel.lead_magnet_url.trim());
+    // Redirect to the actual file - URL is already properly formatted from storage
+    const redirectUrl = funnel.lead_magnet_url.trim();
     console.log(`Redirecting to: ${redirectUrl}`);
     
     return new Response(null, {
