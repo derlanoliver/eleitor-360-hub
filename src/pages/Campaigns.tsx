@@ -636,6 +636,8 @@ const AttributionReport = () => {
       case 'event': return <Calendar className="h-4 w-4" />;
       case 'campaign': return <Megaphone className="h-4 w-4" />;
       case 'manual': return <FileSpreadsheet className="h-4 w-4" />;
+      case 'visit': return <Building2 className="h-4 w-4" />;
+      case 'funnel': return <Target className="h-4 w-4" />;
       default: return <Users className="h-4 w-4" />;
     }
   };
@@ -659,7 +661,7 @@ const AttributionReport = () => {
   return (
     <div className="space-y-6">
       {/* Resumo Geral - Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <Card className="card-default">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center mb-2">
@@ -699,10 +701,30 @@ const AttributionReport = () => {
         <Card className="card-default">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center mb-2">
+              <Target className="h-5 w-5 text-teal-600" />
+            </div>
+            <p className="text-2xl font-bold text-teal-600">{stats.summary.fromCaptacao}</p>
+            <p className="text-xs text-muted-foreground">Via Captação</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
               <Building2 className="h-5 w-5 text-orange-600" />
             </div>
-            <p className="text-2xl font-bold text-orange-600">{stats.summary.totalOfficeVisits}</p>
-            <p className="text-xs text-muted-foreground">Visitas</p>
+            <p className="text-2xl font-bold text-orange-600">{stats.summary.fromVisita}</p>
+            <p className="text-xs text-muted-foreground">Via Visitas</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-default">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Building2 className="h-5 w-5 text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{stats.summary.totalOfficeVisits}</p>
+            <p className="text-xs text-muted-foreground">Total Visitas</p>
           </CardContent>
         </Card>
 
