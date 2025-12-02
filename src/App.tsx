@@ -27,6 +27,9 @@ import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import TrackingSettings from "./pages/settings/TrackingSettings";
 import AffiliateFormSettings from "./pages/settings/AffiliateFormSettings";
+import Profile from "./pages/settings/Profile";
+import Organization from "./pages/settings/Organization";
+import Privacy from "./pages/settings/Privacy";
 import SetupUsers from "./pages/SetupUsers";
 import LeaderRegistrationForm from "./pages/LeaderRegistrationForm";
 import NotFound from "./pages/NotFound";
@@ -170,22 +173,19 @@ const App = () => (
                 </DashboardLayout>
               </ProtectedRoute>
             } />
+            <Route path="/settings/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
             <Route path="/settings/privacy" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Configurações de Privacidade (Em desenvolvimento)</h1>
-                  </div>
-                </DashboardLayout>
+                <Privacy />
               </ProtectedRoute>
             } />
             <Route path="/settings/organization" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Configurações da Organização (Em desenvolvimento)</h1>
-                  </div>
-                </DashboardLayout>
+                <Organization />
               </ProtectedRoute>
             } />
             

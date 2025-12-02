@@ -20,7 +20,7 @@ const Settings = () => {
       description: "Configure os dados do político e informações da campanha",
       icon: Building2,
       href: "/settings/organization",
-      available: false,
+      available: true,
     },
     {
       title: "Equipe",
@@ -76,7 +76,7 @@ const Settings = () => {
       description: "Configurações de segurança e proteção de dados",
       icon: Shield,
       href: "/settings/privacy",
-      available: false,
+      available: true,
     },
   ];
 
