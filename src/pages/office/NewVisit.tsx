@@ -46,8 +46,7 @@ export default function NewVisit() {
     try {
       const visit = await createVisit.mutateAsync({
         dto: { nome, whatsapp, cidade_id: cidadeId, leader_id: leaderId },
-        userId: user.id,
-        webhookUrl: settings?.webhook_url || "https://webhook.escaladigital.ai/webhook/gabinete/envio-formulario"
+        userId: user.id
       });
       
       setVisitCreated(visit);

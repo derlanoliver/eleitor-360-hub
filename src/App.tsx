@@ -30,6 +30,7 @@ import AffiliateFormSettings from "./pages/settings/AffiliateFormSettings";
 import Profile from "./pages/settings/Profile";
 import Organization from "./pages/settings/Organization";
 import Privacy from "./pages/settings/Privacy";
+import Integrations from "./pages/settings/Integrations";
 import SetupUsers from "./pages/SetupUsers";
 import LeaderRegistrationForm from "./pages/LeaderRegistrationForm";
 import NotFound from "./pages/NotFound";
@@ -186,6 +187,11 @@ const App = () => (
             <Route path="/settings/organization" element={
               <ProtectedRoute>
                 <Organization />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/integrations" element={
+              <ProtectedRoute>
+                <Integrations />
               </ProtectedRoute>
             } />
             
