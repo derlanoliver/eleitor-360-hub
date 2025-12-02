@@ -74,15 +74,44 @@ serve(async (req) => {
       }
     }
 
-    // Redirect to the actual file - URL is already properly formatted from storage
-    const redirectUrl = funnel.lead_magnet_url.trim();
-    console.log(`Redirecting to: ${redirectUrl}`);
+    // Fetch the file from storage and return it directly
+    const fileUrl = funnel.lead_magnet_url.trim();
+    console.log(`Fetching file from: ${fileUrl}`);
     
-    return new Response(null, {
-      status: 302,
+    const fileResponse = await fetch(fileUrl);
+    
+    if (!fileResponse.ok) {
+      console.error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
+      return new Response(JSON.stringify({ error: "Failed to fetch file" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get file content and content type
+    const fileBuffer = await fileResponse.arrayBuffer();
+    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
+    
+    // Extract filename from URL or use lead magnet name
+    const urlParts = fileUrl.split('/');
+    let fileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+    
+    // Clean up filename - use lead_magnet_nome if available
+    if (funnel.lead_magnet_nome) {
+      const extension = fileName.split('.').pop() || 'pdf';
+      fileName = `${funnel.lead_magnet_nome}.${extension}`;
+    }
+
+    console.log(`Serving file: ${fileName}, size: ${fileBuffer.byteLength} bytes`);
+
+    // Return the file directly with download headers
+    return new Response(fileBuffer, {
+      status: 200,
       headers: {
         ...corsHeaders,
-        'Location': redirectUrl,
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': fileBuffer.byteLength.toString(),
       },
     });
 
