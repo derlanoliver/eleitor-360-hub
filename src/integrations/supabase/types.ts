@@ -437,6 +437,7 @@ export type Database = {
           name: string
           region: string
           registrations_count: number | null
+          show_registrations_count: boolean
           slug: string
           status: string
           time: string
@@ -456,6 +457,7 @@ export type Database = {
           name: string
           region: string
           registrations_count?: number | null
+          show_registrations_count?: boolean
           slug: string
           status?: string
           time: string
@@ -475,6 +477,7 @@ export type Database = {
           name?: string
           region?: string
           registrations_count?: number | null
+          show_registrations_count?: boolean
           slug?: string
           status?: string
           time?: string
