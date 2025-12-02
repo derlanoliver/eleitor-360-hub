@@ -351,6 +351,36 @@ export type Database = {
         }
         Relationships: []
       }
+      integrations_settings: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          zapi_client_token: string | null
+          zapi_enabled: boolean | null
+          zapi_instance_id: string | null
+          zapi_token: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          zapi_client_token?: string | null
+          zapi_enabled?: boolean | null
+          zapi_instance_id?: string | null
+          zapi_token?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          zapi_client_token?: string | null
+          zapi_enabled?: boolean | null
+          zapi_instance_id?: string | null
+          zapi_token?: string | null
+        }
+        Relationships: []
+      }
       lead_funnels: {
         Row: {
           campos_form: Json

@@ -6,7 +6,7 @@ import {
   updateVisitStatus,
   getVisitWithForm
 } from "@/services/office/officeService";
-import { postWebhook } from "@/services/office/webhookService";
+import { sendVisitNotification } from "@/services/office/webhookService";
 import { generateVisitFormUrl } from "@/lib/urlHelper";
 import type { CreateOfficeVisitDTO, OfficeVisitsFilters, WebhookPayload } from "@/types/office";
 import { toast } from "sonner";
@@ -40,12 +40,10 @@ export function useCreateOfficeVisit() {
   return useMutation({
     mutationFn: async ({
       dto,
-      userId,
-      webhookUrl
+      userId
     }: {
       dto: CreateOfficeVisitDTO;
       userId: string;
-      webhookUrl: string;
     }) => {
       const visit = await createVisit(dto, userId);
       
@@ -58,12 +56,13 @@ export function useCreateOfficeVisit() {
         form_link: generateVisitFormUrl(visit.id)
       };
       
-      postWebhook(visit.id, payload, webhookUrl).then(result => {
+      // Envia via Z-API (se habilitado) ou webhook genérico
+      sendVisitNotification(visit.id, payload).then(result => {
         if (result.success) {
           updateVisitStatus(visit.id, "LINK_SENT");
           toast.success("Link enviado com sucesso!");
         } else {
-          toast.error("Erro ao enviar webhook: " + result.error);
+          toast.error("Erro ao enviar mensagem: " + result.error);
         }
       });
       

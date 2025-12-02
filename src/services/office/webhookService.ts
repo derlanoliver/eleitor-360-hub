@@ -3,12 +3,76 @@ import { generateVisitFormUrl } from "@/lib/urlHelper";
 import type { WebhookPayload } from "@/types/office";
 
 // =====================================================
-// WEBHOOK SERVICE COM RESILIÊNCIA
+// WEBHOOK SERVICE COM RESILIÊNCIA E Z-API
 // =====================================================
 
 const WEBHOOK_TIMEOUT = 5000; // 5 segundos
 const MAX_RETRIES = 3;
 const BACKOFF_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s
+
+/**
+ * Verifica se Z-API está habilitado e envia via edge function
+ */
+async function sendViaZapi(
+  visitId: string,
+  phone: string,
+  message: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+      body: { phone, message, visitId }
+    });
+
+    if (error) {
+      console.error("[Webhook] Erro ao chamar send-whatsapp:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: data?.success ?? false, error: data?.error };
+  } catch (err) {
+    console.error("[Webhook] Exceção ao enviar via Z-API:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Erro desconhecido" };
+  }
+}
+
+/**
+ * Envia notificação de visita - tenta Z-API primeiro, fallback para webhook genérico
+ */
+export async function sendVisitNotification(
+  visitId: string,
+  payload: WebhookPayload
+): Promise<{ success: boolean; status?: number; error?: string }> {
+  // Verificar se Z-API está habilitado
+  const { data: integration } = await supabase
+    .from("integrations_settings")
+    .select("zapi_enabled")
+    .limit(1)
+    .single();
+
+  if (integration?.zapi_enabled) {
+    console.log("[Webhook] Z-API habilitado, enviando via edge function");
+    
+    const message = `Olá ${payload.nome}! 👋\n\nSeu link para preencher o formulário de atendimento:\n${payload.form_link}\n\nPreencha o formulário para agilizar seu atendimento.`;
+    
+    const result = await sendViaZapi(visitId, payload.whatsapp, message);
+    
+    if (result.success) {
+      return { success: true };
+    }
+    
+    console.warn("[Webhook] Falha no Z-API, usando webhook genérico como fallback");
+  }
+
+  // Fallback para webhook genérico
+  const { data: settings } = await supabase
+    .from("office_settings")
+    .select("webhook_url")
+    .maybeSingle();
+
+  const webhookUrl = settings?.webhook_url || "https://webhook.escaladigital.ai/webhook/gabinete/envio-formulario";
+  
+  return postWebhook(visitId, payload, webhookUrl);
+}
 
 /**
  * Envia webhook com retry automático

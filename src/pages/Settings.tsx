@@ -62,7 +62,7 @@ const Settings = () => {
       description: "Conecte com WhatsApp, email marketing e redes sociais",
       icon: Plug,
       href: "/settings/integrations",
-      available: false,
+      available: true,
     },
     {
       title: "Branding",
