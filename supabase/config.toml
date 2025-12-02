@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.zapi-webhook]
 verify_jwt = false
+
+[functions.test-resend-connection]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
