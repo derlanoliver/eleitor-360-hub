@@ -2,7 +2,8 @@
   "compilerOptions": {
     "allowJs": true,
     "lib": ["deno.window"],
-    "strict": false
+    "strict": false,
+    "skipLibCheck": true
   },
   "nodeModulesDir": "auto"
 }
