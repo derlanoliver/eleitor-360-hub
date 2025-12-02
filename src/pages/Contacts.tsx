@@ -13,6 +13,8 @@ import { EditContactDialog } from "@/components/contacts/EditContactDialog";
 import { ImportEmailsDialog } from "@/components/contacts/ImportEmailsDialog";
 import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
 import { useContactEventParticipation } from "@/hooks/contacts/useContactEventParticipation";
+import { useContactPageViews } from "@/hooks/contacts/useContactPageViews";
+import { useContactDownloads } from "@/hooks/contacts/useContactDownloads";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,7 +37,9 @@ import {
   Sparkles,
   Loader2,
   FileSpreadsheet,
-  Megaphone
+  Megaphone,
+  FileText,
+  Download
 } from "lucide-react";
 
 // Cores e labels para badges de origem (cores suaves conforme preferência do usuário)
@@ -1077,6 +1081,10 @@ const Contacts = () => {
 const ContactDetails = ({ contact }: { contact: any }) => {
   // Buscar participação em eventos real
   const { data: eventParticipation = [], isLoading: isLoadingEvents } = useContactEventParticipation(contact.id);
+  // Buscar páginas acessadas
+  const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
+  // Buscar downloads de materiais
+  const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -1268,6 +1276,97 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               ) : (
                 <p className="text-muted-foreground text-center py-4">
                   Nenhuma participação em eventos registrada
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Páginas Acessadas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileText className="h-5 w-5 text-primary-600 mr-2" />
+            Páginas Acessadas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingPageViews ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pageViews.length > 0 ? (
+                pageViews.map((view) => (
+                  <div key={view.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {view.page_type === 'evento' ? '📅 Evento' : 
+                           view.page_type === 'captacao' ? '📢 Captação' : 
+                           '👤 Afiliado'}
+                        </Badge>
+                        <h4 className="font-medium">{view.page_name || view.page_identifier}</h4>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {format(new Date(view.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      {(view.utm_source || view.utm_campaign) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {view.utm_source && <span>Fonte: {view.utm_source}</span>}
+                          {view.utm_campaign && <span className="ml-2">Campanha: {view.utm_campaign}</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhuma página acessada registrada
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Downloads de Materiais */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Download className="h-5 w-5 text-primary-600 mr-2" />
+            Downloads de Materiais
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingDownloads ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {downloads.length > 0 ? (
+                downloads.map((download) => (
+                  <div key={download.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{download.lead_magnet_nome}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Funil: {download.funnel_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(download.downloaded_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <Badge variant="default" className="bg-green-100 text-green-700">
+                      Baixado
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhum download de material registrado
                 </p>
               )}
             </div>
