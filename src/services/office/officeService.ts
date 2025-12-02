@@ -221,16 +221,25 @@ export async function getLeaderByAffiliateToken(token: string): Promise<OfficeLe
 export async function createOrUpdateContact(
   nome: string,
   telefone: string,
-  cidade_id: string
+  cidade_id: string,
+  source_type?: string,
+  source_id?: string
 ): Promise<OfficeContact> {
   const telefone_norm = normalizePhone(telefone);
   
   const existing = await findContactByPhone(telefone);
   
   if (existing) {
+    // Atualizar nome e cidade, mas só sobrescrever source se contato não tinha antes
+    const updateData: any = { nome, cidade_id };
+    if (source_type && !existing.source_type) {
+      updateData.source_type = source_type;
+      updateData.source_id = source_id;
+    }
+    
     const { data, error } = await supabase
       .from("office_contacts")
-      .update({ nome, cidade_id })
+      .update(updateData)
       .eq("id", existing.id)
       .select("*, cidade:office_cities(*)")
       .single();
@@ -241,7 +250,13 @@ export async function createOrUpdateContact(
   
   const { data, error } = await supabase
     .from("office_contacts")
-    .insert({ nome, telefone_norm, cidade_id })
+    .insert({ 
+      nome, 
+      telefone_norm, 
+      cidade_id,
+      source_type: source_type || null,
+      source_id: source_id || null
+    })
     .select("*, cidade:office_cities(*)")
     .single();
   
@@ -330,22 +345,26 @@ export async function getVisitByProtocol(protocolo: string) {
 }
 
 export async function createVisit(dto: CreateOfficeVisitDTO, userId: string) {
-  const contact = await createOrUpdateContact(
-    dto.nome,
-    dto.whatsapp,
-    dto.cidade_id
-  );
-  
+  // Primeiro criar o protocolo
   const { data: protocolData, error: protocolError } = await supabase
     .rpc("generate_office_protocol", { _prefix: "RP-GB" });
   
   if (protocolError) throw protocolError;
   const protocolo = protocolData as string;
   
+  // Criar contato com source_type='visita' (source_id será atualizado após criar a visita)
+  const contact = await createOrUpdateContact(
+    dto.nome,
+    dto.whatsapp,
+    dto.cidade_id,
+    'visita',
+    null // será atualizado depois
+  );
+  
   const token = generateMockToken("pending", contact.id, dto.leader_id);
   const token_expires_at = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
   
-  const { data, error } = await supabase
+  const { data: visit, error } = await supabase
     .from("office_visits")
     .insert({
       protocolo,
@@ -366,7 +385,16 @@ export async function createVisit(dto: CreateOfficeVisitDTO, userId: string) {
     .single();
   
   if (error) throw error;
-  return data as OfficeVisit;
+  
+  // Atualizar source_id do contato com o ID da visita (se o contato foi criado como 'visita')
+  if (contact.source_type === 'visita' || !contact.source_type) {
+    await supabase
+      .from("office_contacts")
+      .update({ source_id: visit.id, source_type: 'visita' })
+      .eq("id", contact.id);
+  }
+  
+  return visit as OfficeVisit;
 }
 
 export async function updateVisitStatus(id: string, status: OfficeVisit["status"]) {
