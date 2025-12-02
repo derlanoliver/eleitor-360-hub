@@ -39,7 +39,8 @@ import {
   FileSpreadsheet,
   Megaphone,
   FileText,
-  Download
+  Download,
+  Building2
 } from "lucide-react";
 
 // Cores e labels para badges de origem (cores suaves conforme preferência do usuário)
@@ -63,6 +64,11 @@ const sourceConfig: Record<string, { label: string; className: string; icon: typ
     label: "Captação", 
     className: "bg-amber-50 text-amber-700 border-amber-200",
     icon: Megaphone
+  },
+  visita: { 
+    label: "Visita ao Gabinete", 
+    className: "bg-teal-50 text-teal-700 border-teal-200",
+    icon: Building2
   }
 };
 
@@ -328,8 +334,9 @@ const Contacts = () => {
       const campanhaIds = data?.filter(c => c.source_type === 'campanha' && c.source_id).map(c => c.source_id) || [];
       const eventoIds = data?.filter(c => c.source_type === 'evento' && c.source_id).map(c => c.source_id) || [];
       const captacaoIds = data?.filter(c => c.source_type === 'captacao' && c.source_id).map(c => c.source_id) || [];
+      const visitaIds = data?.filter(c => c.source_type === 'visita' && c.source_id).map(c => c.source_id) || [];
 
-      const [lideresData, campanhasData, eventosData, captacaoCampanhasData] = await Promise.all([
+      const [lideresData, campanhasData, eventosData, captacaoCampanhasData, visitasData] = await Promise.all([
         liderIds.length > 0 
           ? supabase.from('lideres').select('id, nome_completo').in('id', liderIds)
           : Promise.resolve({ data: [] }),
@@ -341,6 +348,9 @@ const Contacts = () => {
           : Promise.resolve({ data: [] }),
         captacaoIds.length > 0
           ? supabase.from('lead_funnels').select('id, nome').in('id', captacaoIds)
+          : Promise.resolve({ data: [] }),
+        visitaIds.length > 0
+          ? supabase.from('office_visits').select('id, protocolo').in('id', visitaIds)
           : Promise.resolve({ data: [] })
       ]);
 
@@ -348,6 +358,7 @@ const Contacts = () => {
       const campanhasMap = new Map((campanhasData.data || []).map((c: any) => [c.id, c]));
       const eventosMap = new Map((eventosData.data || []).map((e: any) => [e.id, e]));
       const captacaoMap = new Map((captacaoCampanhasData.data || []).map((c: any) => [c.id, c]));
+      const visitasMap = new Map((visitasData.data || []).map((v: any) => [v.id, v]));
       
       // Transformar dados para formato compatível com a UI
       return (data || []).map((contact: any) => {
@@ -371,6 +382,10 @@ const Contacts = () => {
           const campanha = captacaoMap.get(contact.source_id);
           sourceInfo = campanha ? `Captação: ${campanha.nome}` : 'Captação: Desconhecida';
           sourceName = campanha?.nome || null;
+        } else if (contact.source_type === 'visita' && contact.source_id) {
+          const visita = visitasMap.get(contact.source_id);
+          sourceInfo = visita ? `Visita: ${visita.protocolo}` : 'Visita ao Gabinete';
+          sourceName = visita?.protocolo || null;
         }
         
         return {
@@ -655,6 +670,12 @@ const Contacts = () => {
                         <span className="flex items-center gap-2">
                           <Megaphone className="h-4 w-4 text-amber-600" />
                           Captação
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="visita">
+                        <span className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-teal-600" />
+                          Visita ao Gabinete
                         </span>
                       </SelectItem>
                     </SelectContent>

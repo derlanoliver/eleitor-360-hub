@@ -59,7 +59,7 @@ export interface OfficeContact {
   instagram?: string;
   facebook?: string;
   genero?: "Masculino" | "Feminino" | "Não identificado";
-  source_type?: "manual" | "lider" | "campanha";
+  source_type?: "manual" | "lider" | "campanha" | "evento" | "captacao" | "visita";
   source_id?: string;
   created_at: string;
   updated_at: string;
