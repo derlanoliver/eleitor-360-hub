@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface SourceBreakdown {
   source: string;
-  sourceType: "leader" | "event" | "campaign" | "manual" | "visit";
+  sourceType: "leader" | "event" | "campaign" | "manual" | "visit" | "funnel";
   count: number;
   percentage: number;
   details?: string;
@@ -38,6 +38,8 @@ export interface AttributionStats {
     fromEvents: number;
     fromCampaigns: number;
     fromManual: number;
+    fromCaptacao: number;
+    fromVisita: number;
     totalEventRegistrations: number;
     totalOfficeVisits: number;
     activeLeaders: number;
@@ -61,6 +63,8 @@ export function useAttributionStats() {
         fromEvents: 0,
         fromCampaigns: 0,
         fromManual: 0,
+        fromCaptacao: 0,
+        fromVisita: 0,
         totalEventRegistrations: 0,
         totalOfficeVisits: 0,
         activeLeaders: 0,
@@ -73,6 +77,8 @@ export function useAttributionStats() {
         { count: fromLeaders },
         { count: fromEvents },
         { count: fromManual },
+        { count: fromCaptacao },
+        { count: fromVisita },
         { count: totalEventRegistrations },
         { count: totalOfficeVisits },
         { count: activeLeaders },
@@ -82,6 +88,8 @@ export function useAttributionStats() {
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "lider"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "evento"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).or("source_type.eq.manual,source_type.is.null"),
+        supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "captacao"),
+        supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "visita"),
         supabase.from("event_registrations").select("*", { count: "exact", head: true }),
         supabase.from("office_visits").select("*", { count: "exact", head: true }),
         supabase.from("lideres").select("*", { count: "exact", head: true }).eq("is_active", true),
@@ -100,6 +108,8 @@ export function useAttributionStats() {
         fromEvents: fromEvents || 0,
         fromCampaigns: fromCampaigns || 0,
         fromManual: fromManual || 0,
+        fromCaptacao: fromCaptacao || 0,
+        fromVisita: fromVisita || 0,
         totalEventRegistrations: totalEventRegistrations || 0,
         totalOfficeVisits: totalOfficeVisits || 0,
         activeLeaders: activeLeaders || 0,
@@ -147,6 +157,26 @@ export function useAttributionStats() {
           count: summary.fromManual,
           percentage: Math.round((summary.fromManual / total) * 100),
           details: "Importados ou cadastrados manualmente",
+        });
+      }
+
+      if (summary.fromCaptacao > 0) {
+        sourceBreakdown.push({
+          source: "Funis de Captação",
+          sourceType: "funnel",
+          count: summary.fromCaptacao,
+          percentage: Math.round((summary.fromCaptacao / total) * 100),
+          details: "Leads via páginas de captação",
+        });
+      }
+
+      if (summary.fromVisita > 0) {
+        sourceBreakdown.push({
+          source: "Visita ao Gabinete",
+          sourceType: "visit",
+          count: summary.fromVisita,
+          percentage: Math.round((summary.fromVisita / total) * 100),
+          details: "Contatos via agendamento de visita",
         });
       }
 

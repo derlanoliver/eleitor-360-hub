@@ -167,6 +167,23 @@ export default function LeadCaptureLanding() {
       // Increment lead count
       await incrementMetric.mutateAsync({ funnelId: funnel.id, metric: 'leads' });
 
+      // Increment campaign total_cadastros if utm_campaign matches
+      if (utmParams.utm_campaign) {
+        // First get the current value, then increment
+        const { data: campaignData } = await supabase
+          .from('campaigns')
+          .select('id, total_cadastros')
+          .eq('utm_campaign', utmParams.utm_campaign)
+          .single();
+        
+        if (campaignData) {
+          await supabase
+            .from('campaigns')
+            .update({ total_cadastros: campaignData.total_cadastros + 1 })
+            .eq('id', campaignData.id);
+        }
+      }
+
       // Track Lead event
       trackLead({
         content_name: funnel.nome,
@@ -208,12 +225,41 @@ export default function LeadCaptureLanding() {
     // Get contact_id from session if available
     const contactId = sessionStorage.getItem(`captacao_contact_${funnel.id}`);
 
-    // Use tracked download via edge function
-    let downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-material?funnel_id=${funnel.id}`;
-    if (contactId) {
-      downloadUrl += `&contact_id=${contactId}`;
+    try {
+      // Track download via edge function first
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      let trackUrl = `${supabaseUrl}/functions/v1/download-material?funnel_id=${funnel.id}`;
+      if (contactId) {
+        trackUrl += `&contact_id=${contactId}`;
+      }
+
+      // Track the download (fire and forget)
+      fetch(trackUrl, { redirect: 'manual' }).catch(console.error);
+
+      // Download the file directly from storage URL to avoid ad-blocker issues
+      const fileResponse = await fetch(funnel.lead_magnet_url);
+      if (!fileResponse.ok) throw new Error('Failed to fetch file');
+      
+      const blob = await fileResponse.blob();
+      
+      // Extract filename from URL or use lead magnet name
+      const urlParts = funnel.lead_magnet_url.split('/');
+      const fileName = decodeURIComponent(urlParts[urlParts.length - 1]) || `${funnel.lead_magnet_nome}.pdf`;
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      // Fallback: try opening the URL directly
+      window.open(funnel.lead_magnet_url, '_blank');
     }
-    window.open(downloadUrl, '_blank');
   };
 
   const handleShare = async () => {
