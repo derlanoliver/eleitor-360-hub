@@ -62,6 +62,16 @@ serve(async (req) => {
     const body: SendEmailRequest = await req.json();
     const { templateSlug, templateId, to, toName, subject: customSubject, html: customHtml, variables = {}, contactId, leaderId, eventId } = body;
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!to || !emailRegex.test(to)) {
+      console.error('Invalid email address:', to);
+      return new Response(
+        JSON.stringify({ success: false, error: `Email inválido: "${to}". O email deve seguir o formato email@exemplo.com` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let finalHtml = customHtml || '';
     let finalSubject = customSubject || '';
     let templateDbId: string | null = null;
