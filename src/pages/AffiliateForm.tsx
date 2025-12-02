@@ -145,6 +145,20 @@ export default function AffiliateForm() {
 
       if (formError) throw formError;
 
+      // Record page view for this contact
+      if (contact?.id) {
+        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
+          contact_id: contact.id,
+          page_type: 'indicacao',
+          page_identifier: `lider-${leader.id}`,
+          page_name: `Indicação: ${leader.nome_completo}`,
+        });
+        
+        if (pageViewError) {
+          console.error('Error recording page view:', pageViewError);
+        }
+      }
+
       setSubmitted(true);
       toast.success("Cadastro realizado com sucesso!");
 

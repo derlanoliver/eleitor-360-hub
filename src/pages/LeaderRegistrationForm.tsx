@@ -105,8 +105,8 @@ export default function LeaderRegistrationForm() {
       // Normalizar telefone
       const telefone_norm = normalizePhoneToE164(data.whatsapp);
 
-      // Inserir contato
-      const { error } = await supabase
+      // Inserir contato e retornar ID para tracking
+      const { data: contact, error } = await supabase
         .from("office_contacts")
         .insert({
           nome: data.nome.trim(),
@@ -117,7 +117,9 @@ export default function LeaderRegistrationForm() {
           endereco: data.endereco.trim(),
           source_type: "lider",
           source_id: leader.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) {
         if (error.code === "23505") {
@@ -126,6 +128,20 @@ export default function LeaderRegistrationForm() {
           throw error;
         }
         return;
+      }
+
+      // Record page view for this contact
+      if (contact?.id) {
+        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
+          contact_id: contact.id,
+          page_type: 'link_lider',
+          page_identifier: leaderToken || '',
+          page_name: `Cadastro via ${leader.nome_completo}`,
+        });
+        
+        if (pageViewError) {
+          console.error('Error recording page view:', pageViewError);
+        }
       }
 
       // Tracking

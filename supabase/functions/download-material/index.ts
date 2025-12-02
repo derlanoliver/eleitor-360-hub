@@ -74,12 +74,15 @@ serve(async (req) => {
       }
     }
 
-    // Redirect to the actual file
+    // Redirect to the actual file (encode URL to handle special characters)
+    const redirectUrl = encodeURI(funnel.lead_magnet_url.trim());
+    console.log(`Redirecting to: ${redirectUrl}`);
+    
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': funnel.lead_magnet_url,
+        'Location': redirectUrl,
       },
     });
 
