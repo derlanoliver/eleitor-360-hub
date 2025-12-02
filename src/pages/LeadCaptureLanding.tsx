@@ -148,7 +148,7 @@ export default function LeadCaptureLanding() {
         // Store contact_id in sessionStorage for download tracking
         sessionStorage.setItem(`captacao_contact_${funnel.id}`, contactData.id);
         
-        await supabase.from('contact_page_views').insert({
+        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
           contact_id: contactData.id,
           page_type: 'captacao',
           page_identifier: funnel.slug,
@@ -158,6 +158,10 @@ export default function LeadCaptureLanding() {
           utm_campaign: utmParams.utm_campaign,
           utm_content: utmParams.utm_content,
         });
+        
+        if (pageViewError) {
+          console.error('Error recording contact page view:', pageViewError);
+        }
       }
 
       // Increment lead count

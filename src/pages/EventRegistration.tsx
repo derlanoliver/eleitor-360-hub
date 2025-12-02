@@ -107,7 +107,7 @@ export default function EventRegistration() {
 
       // Record page view for contact if contact_id exists
       if (registration.contact_id) {
-        await supabase.from('contact_page_views').insert({
+        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
           contact_id: registration.contact_id,
           page_type: 'evento',
           page_identifier: event.slug,
@@ -117,6 +117,10 @@ export default function EventRegistration() {
           utm_campaign: searchParams.get("utm_campaign"),
           utm_content: searchParams.get("utm_content"),
         });
+        
+        if (pageViewError) {
+          console.error('Error recording contact page view:', pageViewError);
+        }
       }
 
       // Generate QR Code with full URL for check-in
