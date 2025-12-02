@@ -89,6 +89,13 @@ export function generateEventAffiliateUrl(eventSlug: string, affiliateToken: str
 }
 
 /**
+ * Gera o link do formulário público de cadastro de líderes
+ */
+export function generateLeaderRegistrationUrl(): string {
+  return `${getBaseUrl()}/lider/cadastro`;
+}
+
+/**
  * Gera link de funil de captação com parâmetros UTM de campanha
  */
 export function generateFunnelCampaignUrl(

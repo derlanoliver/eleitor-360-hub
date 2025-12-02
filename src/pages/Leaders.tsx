@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Filter, Trophy, Pencil, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download } from "lucide-react";
+import { Users, Search, Filter, Trophy, Pencil, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download, QrCode } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
+import { LeaderRegistrationQRDialog } from "@/components/leaders/LeaderRegistrationQRDialog";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
@@ -150,6 +151,12 @@ const Leaders = () => {
                 </Link>
               </Button>
               <ImportLeadersDialog />
+              <LeaderRegistrationQRDialog>
+                <Button variant="outline">
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Formulário de Cadastro
+                </Button>
+              </LeaderRegistrationQRDialog>
               <AddLeaderDialog>
                 <Button variant="outline">
                   <Users className="h-4 w-4 mr-2" />

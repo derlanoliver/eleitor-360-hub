@@ -51,6 +51,13 @@ const Settings = () => {
       available: true,
     },
     {
+      title: "Formulário de Líder",
+      description: "Configure a aparência da página pública de cadastro de líderes",
+      icon: Users,
+      href: "/settings/leader-form",
+      available: true,
+    },
+    {
       title: "Faturamento",
       description: "Gerencie seu plano, pagamentos e uso da plataforma",
       icon: CreditCard,

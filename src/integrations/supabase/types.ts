@@ -24,6 +24,10 @@ export type Database = {
           facebook_pixel_id: string | null
           gtm_id: string | null
           id: string
+          leader_form_cover_url: string | null
+          leader_form_logo_url: string | null
+          leader_form_subtitle: string | null
+          leader_form_title: string | null
           updated_at: string
         }
         Insert: {
@@ -35,6 +39,10 @@ export type Database = {
           facebook_pixel_id?: string | null
           gtm_id?: string | null
           id?: string
+          leader_form_cover_url?: string | null
+          leader_form_logo_url?: string | null
+          leader_form_subtitle?: string | null
+          leader_form_title?: string | null
           updated_at?: string
         }
         Update: {
@@ -46,6 +54,10 @@ export type Database = {
           facebook_pixel_id?: string | null
           gtm_id?: string | null
           id?: string
+          leader_form_cover_url?: string | null
+          leader_form_logo_url?: string | null
+          leader_form_subtitle?: string | null
+          leader_form_title?: string | null
           updated_at?: string
         }
         Relationships: []
