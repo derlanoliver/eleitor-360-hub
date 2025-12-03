@@ -38,23 +38,32 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
       return;
     }
 
-    // Buscar o affiliate_token do líder
-    const { data: leader } = await import("@/integrations/supabase/client").then(m => 
-      m.supabase
+    try {
+      // Buscar o affiliate_token do líder usando o cliente já importado
+      const { data: leader, error } = await supabase
         .from("lideres")
         .select("affiliate_token")
         .eq("id", selectedLeaderId)
-        .single()
-    );
+        .single();
 
-    if (!leader?.affiliate_token) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível gerar o link. Líder sem token de afiliado.",
-        variant: "destructive"
-      });
-      return;
-    }
+      if (error) {
+        console.error("Erro ao buscar líder:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível buscar os dados do líder. Tente novamente.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!leader?.affiliate_token) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível gerar o link. Líder sem token de afiliado.",
+          variant: "destructive"
+        });
+        return;
+      }
 
     const url = generateEventAffiliateUrl(event.slug, leader.affiliate_token);
     setAffiliateUrl(url);
@@ -70,10 +79,18 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
       console.error("Erro ao gerar QR Code:", error);
     }
 
-    toast({
-      title: "Link gerado!",
-      description: "Link do líder criado com sucesso."
-    });
+      toast({
+        title: "Link gerado!",
+        description: "Link do líder criado com sucesso."
+      });
+    } catch (error) {
+      console.error("Erro inesperado ao gerar link:", error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCopyLink = () => {
