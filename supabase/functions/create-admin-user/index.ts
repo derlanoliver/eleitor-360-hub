@@ -45,30 +45,34 @@ serve(async (req) => {
 
     console.log('User created in auth:', authData.user.id);
 
-    // The profile will be automatically created by the handle_new_user trigger
-    // Wait a bit for the trigger to complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Aguardar um pouco para o trigger executar
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Verify profile was created
+    // Garantir que o perfil existe (upsert como fallback do trigger)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
+      .upsert({
+        id: authData.user.id,
+        email: email,
+        name: name,
+        role: role
+      }, { onConflict: 'id' })
+      .select()
       .single();
 
     if (profileError) {
-      console.error('Profile check error:', profileError);
+      console.error('Profile upsert error:', profileError);
     } else {
-      console.log('Profile created successfully:', profile);
+      console.log('Profile ensured:', profile);
     }
 
     // Create user_roles entry
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
-      .insert({
+      .upsert({
         user_id: authData.user.id,
         role: role
-      });
+      }, { onConflict: 'user_id, role' });
 
     if (roleError) {
       console.error('Role creation error:', roleError);
