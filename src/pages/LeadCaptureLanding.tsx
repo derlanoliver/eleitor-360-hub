@@ -233,6 +233,26 @@ export default function LeadCaptureLanding() {
         lead_source: utmParams.utm_source || 'direct',
       });
 
+      // Send WhatsApp welcome message (captacao-boas-vindas)
+      if (telefone_norm && telefone_norm !== '+5500000000000') {
+        try {
+          await supabase.functions.invoke('send-whatsapp', {
+            body: {
+              phone: telefone_norm,
+              templateSlug: 'captacao-boas-vindas',
+              variables: {
+                nome: data.nome,
+                material_nome: funnel.lead_magnet_nome,
+              },
+              contactId: contactData?.id,
+            },
+          });
+        } catch (whatsappError) {
+          console.error('Error sending WhatsApp welcome:', whatsappError);
+          // Don't fail the submission if WhatsApp fails
+        }
+      }
+
       setIsSuccess(true);
     } catch (error: any) {
       console.error('Error submitting lead:', error);
