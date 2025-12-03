@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTicketDetails, useAddTicketMessage } from "@/hooks/support/useSupportTickets";
+import { useUpdateTicketStatus } from "@/hooks/support/useAdminTickets";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 import { TicketPriorityBadge } from "./TicketPriorityBadge";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loader2, Send, User, UserCog } from "lucide-react";
+import { Loader2, Send, User, UserCog, XCircle } from "lucide-react";
 
 interface TicketDetailsDialogProps {
   ticketId: string | null;
@@ -22,6 +23,7 @@ export function TicketDetailsDialog({ ticketId, open, onOpenChange, isAdmin = fa
   const [newMessage, setNewMessage] = useState("");
   const { data, isLoading } = useTicketDetails(ticketId);
   const addMessage = useAddTicketMessage();
+  const updateStatus = useUpdateTicketStatus();
   
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !ticketId) return;
@@ -33,6 +35,11 @@ export function TicketDetailsDialog({ ticketId, open, onOpenChange, isAdmin = fa
         is_admin_response: isAdmin,
       });
       
+      // Se é admin e o ticket não está resolvido/fechado, marcar como respondido
+      if (isAdmin && data?.ticket.status !== 'resolvido' && data?.ticket.status !== 'fechado' && data?.ticket.status !== 'respondido') {
+        await updateStatus.mutateAsync({ ticketId, status: 'respondido' });
+      }
+      
       setNewMessage("");
       toast({
         title: "Mensagem enviada",
@@ -42,6 +49,24 @@ export function TicketDetailsDialog({ ticketId, open, onOpenChange, isAdmin = fa
       toast({
         title: "Erro",
         description: "Não foi possível enviar a mensagem.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!ticketId) return;
+    
+    try {
+      await updateStatus.mutateAsync({ ticketId, status: 'fechado' });
+      toast({
+        title: "Ticket encerrado",
+        description: "O ticket foi encerrado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível encerrar o ticket.",
         variant: "destructive",
       });
     }
@@ -151,6 +176,25 @@ export function TicketDetailsDialog({ ticketId, open, onOpenChange, isAdmin = fa
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Admin Close Ticket Button */}
+            {isAdmin && data.ticket.status !== 'fechado' && (
+              <div className="mt-4 pt-4 border-t flex justify-end">
+                <Button 
+                  variant="outline" 
+                  className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={handleCloseTicket}
+                  disabled={updateStatus.isPending}
+                >
+                  {updateStatus.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Encerrar Ticket
                 </Button>
               </div>
             )}

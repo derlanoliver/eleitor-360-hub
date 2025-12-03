@@ -222,30 +222,49 @@ const AdminTickets = () => {
                         <TicketStatusBadge status={ticket.status} />
                         <TicketPriorityBadge prioridade={ticket.prioridade} />
                       </div>
-                      {ticket.status !== 'resolvido' && ticket.status !== 'fechado' && (
-                        <div className="flex gap-1">
-                          {ticket.status === 'aberto' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7"
-                              onClick={(e) => handleStatusChange(ticket.id, 'em_analise', e)}
-                            >
-                              Analisar
-                            </Button>
-                          )}
-                          {ticket.status === 'respondido' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 text-emerald-600"
-                              onClick={(e) => handleStatusChange(ticket.id, 'resolvido', e)}
-                            >
-                              Resolver
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {ticket.status === 'aberto' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7"
+                            onClick={(e) => handleStatusChange(ticket.id, 'em_analise', e)}
+                          >
+                            Analisar
+                          </Button>
+                        )}
+                        {ticket.status === 'em_analise' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 text-blue-600"
+                            onClick={(e) => handleStatusChange(ticket.id, 'respondido', e)}
+                          >
+                            Marcar Respondido
+                          </Button>
+                        )}
+                        {ticket.status === 'respondido' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 text-emerald-600"
+                            onClick={(e) => handleStatusChange(ticket.id, 'resolvido', e)}
+                          >
+                            Resolver
+                          </Button>
+                        )}
+                        {ticket.status !== 'fechado' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={(e) => handleStatusChange(ticket.id, 'fechado', e)}
+                          >
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Encerrar
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

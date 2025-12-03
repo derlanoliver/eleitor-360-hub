@@ -157,7 +157,8 @@ export function useAddTicketMessage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket-details', variables.ticket_id] });
       queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-notifications'] });
     },
   });
 }
