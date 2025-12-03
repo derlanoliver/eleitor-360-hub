@@ -18,6 +18,7 @@ import { formatRelativeTime } from "@/lib/dateUtils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
 
 
 const Dashboard = () => {
@@ -134,7 +135,7 @@ const Dashboard = () => {
                         className={`relative p-4 rounded-lg border-2 ${getTrophyBg(leader.position)}`}
                       >
                         <div className="text-center">
-                          <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${getTrophyBg(leader.position)}`}>
+                          <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${getTrophyBg(leader.position)}`}>
                             <Trophy className={`h-6 w-6 ${getTrophyColor(leader.position)}`} />
                           </div>
                           <div className="absolute top-2 right-2">
@@ -148,26 +149,27 @@ const Dashboard = () => {
                           <h4 className="font-semibold text-gray-900 text-sm mb-1">
                             {leader.name}
                           </h4>
-                           {leader.phone && (
+                          <p className="text-xs text-muted-foreground mb-2">{leader.region}</p>
+                          <LeaderLevelBadge points={leader.points} size="sm" />
+                          <div className="mt-2 text-center">
+                            <span className="text-lg font-bold text-primary-600">{leader.points}</span>
+                            <span className="text-xs text-muted-foreground ml-1">pts</span>
+                            <span className="text-xs text-muted-foreground mx-1">•</span>
+                            <span className="text-xs text-muted-foreground">{leader.registrations} cad</span>
+                          </div>
+                          <LeaderLevelProgress points={leader.points} showLabel={false} className="mt-2" />
+                          {leader.phone && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleWhatsAppClick(leader.phone)}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 h-auto mt-2"
                             >
-                              <Phone className="h-4 w-4 mr-1" />
-                              <span className="text-xs">
-                                ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
-                              </span>
+                              <Phone className="h-3 w-3 mr-1" />
+                              <span className="text-xs">WhatsApp</span>
                             </Button>
                           )}
-                          <div className="mt-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
-                              {leader.registrations} cadastros
-                            </span>
-                          </div>
                           <div className="flex items-center justify-center mt-2 space-x-2">
-                            <span className="text-xs text-gray-600">Status:</span>
                             <Switch
                               checked={leader.active}
                               onCheckedChange={() => toggleLeaderStatus(leader.id, leader.active)}
@@ -196,11 +198,20 @@ const Dashboard = () => {
                             {leader.position}º
                           </div>
                           <div>
-                            <h4 className="font-medium text-gray-900">{leader.name}</h4>
-                            <p className="text-sm text-gray-600">{leader.registrations} cadastros este mês</p>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-gray-900">{leader.name}</h4>
+                              <LeaderLevelBadge points={leader.points} size="sm" showIcon={true} />
+                            </div>
+                            <p className="text-xs text-muted-foreground">{leader.region}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <span className="font-bold text-primary-600">{leader.points}</span>
+                            <span className="text-xs text-muted-foreground ml-1">pts</span>
+                            <span className="text-xs text-muted-foreground mx-1">•</span>
+                            <span className="text-xs text-muted-foreground">{leader.registrations} cad</span>
+                          </div>
                           {leader.phone && (
                             <Button
                               variant="ghost"
@@ -208,10 +219,7 @@ const Dashboard = () => {
                               onClick={() => handleWhatsAppClick(leader.phone)}
                               className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             >
-                              <Phone className="h-4 w-4 mr-1" />
-                              <span className="text-sm">
-                                ({leader.phone.slice(0,2)}) {leader.phone.slice(2,7)}-{leader.phone.slice(7)}
-                              </span>
+                              <Phone className="h-4 w-4" />
                             </Button>
                           )}
                           <div className="flex items-center space-x-2">
