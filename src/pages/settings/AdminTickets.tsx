@@ -210,6 +210,10 @@ const AdminTickets = () => {
                         {ticket.descricao}
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
+                        <span className="font-medium">Aberto por:</span>{" "}
+                        {ticket.profiles?.name || "Usuário desconhecido"}
+                        {ticket.profiles?.email && ` (${ticket.profiles.email})`}
+                        <span className="mx-1">•</span>
                         {format(new Date(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </p>
                     </div>

@@ -78,6 +78,9 @@ export function TicketDetailsDialog({ ticketId, open, onOpenChange, isAdmin = fa
                 {data.ticket.descricao}
               </p>
               <p className="text-xs text-muted-foreground mt-2">
+                <span className="font-medium">Aberto por:</span>{" "}
+                {data.ticket.profiles?.name || "Usuário desconhecido"}
+                <span className="mx-1">•</span>
                 Criado em {format(new Date(data.ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </p>
             </div>

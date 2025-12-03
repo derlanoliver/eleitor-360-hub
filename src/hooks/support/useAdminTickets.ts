@@ -6,13 +6,26 @@ export function useAllTickets() {
   return useQuery({
     queryKey: ['admin-tickets'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: tickets, error } = await supabase
         .from('support_tickets')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as SupportTicket[];
+      
+      // Fetch profiles for all unique user_ids
+      const userIds = [...new Set(tickets.map(t => t.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+      
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      return tickets.map(ticket => ({
+        ...ticket,
+        profiles: profilesMap.get(ticket.user_id) || null,
+      })) as SupportTicket[];
     },
   });
 }
