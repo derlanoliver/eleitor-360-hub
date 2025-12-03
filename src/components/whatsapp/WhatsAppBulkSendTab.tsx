@@ -27,18 +27,26 @@ import {
   useWhatsAppTemplates,
   replaceTemplateVariables,
 } from "@/hooks/useWhatsAppTemplates";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { getBaseUrl } from "@/lib/urlHelper";
 
 type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts";
 
+// Templates que precisam de evento destino
+const EVENT_INVITE_TEMPLATES = ["evento-convite"];
+// Templates que precisam de funil destino
+const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
+
 // Templates de convite permitidos por tipo de destinatário
 const CONVITE_TEMPLATES_LEADERS = [
-  "evento-convite",           // Convite para Evento
-  "captacao-convite",         // Convite para Material de Captação
+  "evento-convite",
+  "captacao-convite",
 ];
 
 const CONVITE_TEMPLATES_CONTACTS = [
-  "evento-convite",           // Convite para Evento
-  "captacao-convite",         // Convite para Material de Captação
+  "evento-convite",
+  "captacao-convite",
 ];
 
 export function WhatsAppBulkSendTab() {
@@ -47,8 +55,17 @@ export function WhatsAppBulkSendTab() {
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [isSending, setIsSending] = useState(false);
+  
+  // Estados para evento/funil DESTINO (para preencher variáveis)
+  const [targetEventId, setTargetEventId] = useState("");
+  const [targetFunnelId, setTargetFunnelId] = useState("");
 
   const { data: templates } = useWhatsAppTemplates();
+
+  // Detectar tipo do template selecionado
+  const selectedTemplateData = templates?.find((t) => t.id === selectedTemplate);
+  const isEventInviteTemplate = selectedTemplateData && EVENT_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
+  const isFunnelInviteTemplate = selectedTemplateData && FUNNEL_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
 
   // Fetch events
   const { data: events } = useQuery({
@@ -56,7 +73,7 @@ export function WhatsAppBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, slug")
+        .select("id, name, slug, date, time, location, address, description, status")
         .eq("status", "active")
         .order("date", { ascending: false });
       if (error) throw error;
@@ -70,12 +87,42 @@ export function WhatsAppBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lead_funnels")
-        .select("id, nome, slug")
+        .select("id, nome, slug, lead_magnet_nome, descricao")
         .eq("status", "active")
         .order("nome", { ascending: true });
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch target event details (para preencher variáveis)
+  const { data: targetEvent } = useQuery({
+    queryKey: ["target_event_whatsapp", targetEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, slug, date, time, location, address, description")
+        .eq("id", targetEventId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetEventId && !!isEventInviteTemplate,
+  });
+
+  // Fetch target funnel details (para preencher variáveis)
+  const { data: targetFunnel } = useQuery({
+    queryKey: ["target_funnel_whatsapp", targetFunnelId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lead_funnels")
+        .select("id, nome, slug, lead_magnet_nome, descricao")
+        .eq("id", targetFunnelId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetFunnelId && !!isFunnelInviteTemplate,
   });
 
   // Fetch recipients count based on selection
@@ -140,11 +187,8 @@ export function WhatsAppBulkSendTab() {
       return activeTemplates.filter((t) => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
 
-    // Todos os outros tipos: 2 templates de convite
     return activeTemplates.filter((t) => CONVITE_TEMPLATES_CONTACTS.includes(t.slug));
   }, [templates, recipientType]);
-
-  const selectedTemplateData = templates?.find((t) => t.id === selectedTemplate);
 
   const canSend =
     selectedTemplate &&
@@ -153,7 +197,9 @@ export function WhatsAppBulkSendTab() {
     (recipientType === "leaders" ||
       recipientType === "all_contacts" ||
       (recipientType === "event_contacts" && selectedEvent) ||
-      (recipientType === "funnel_contacts" && selectedFunnel));
+      (recipientType === "funnel_contacts" && selectedFunnel)) &&
+    (!isEventInviteTemplate || targetEventId) &&
+    (!isFunnelInviteTemplate || targetFunnelId);
 
   const handleSend = async () => {
     if (!canSend || !selectedTemplateData) return;
@@ -161,6 +207,8 @@ export function WhatsAppBulkSendTab() {
     setIsSending(true);
     let successCount = 0;
     let errorCount = 0;
+
+    const baseUrl = getBaseUrl();
 
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
@@ -186,10 +234,27 @@ export function WhatsAppBulkSendTab() {
 
         if (!phone) continue;
 
-        // Build variables based on recipient data
+        // Construir variáveis baseado no tipo de template
         const variables: Record<string, string> = {
           nome,
         };
+
+        // Se for template de evento, adicionar variáveis do evento destino
+        if (isEventInviteTemplate && targetEvent) {
+          variables.evento_nome = targetEvent.name;
+          variables.evento_data = format(new Date(targetEvent.date), "dd 'de' MMMM", { locale: ptBR });
+          variables.evento_hora = targetEvent.time;
+          variables.evento_local = targetEvent.location;
+          variables.evento_endereco = targetEvent.address || "";
+          variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
+        }
+
+        // Se for template de captação, adicionar variáveis do funil destino
+        if (isFunnelInviteTemplate && targetFunnel) {
+          variables.material_nome = targetFunnel.lead_magnet_nome;
+          variables.material_descricao = targetFunnel.descricao || "";
+          variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
+        }
 
         const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
 
@@ -258,6 +323,8 @@ export function WhatsAppBulkSendTab() {
                   setSelectedEvent("");
                   setSelectedFunnel("");
                   setSelectedTemplate("");
+                  setTargetEventId("");
+                  setTargetFunnelId("");
                 }}
               >
                 <SelectTrigger>
@@ -294,7 +361,7 @@ export function WhatsAppBulkSendTab() {
 
             {recipientType === "event_contacts" && (
               <div className="space-y-2">
-                <Label>Selecione o Evento</Label>
+                <Label>Selecione o Evento (origem dos contatos)</Label>
                 <Select value={selectedEvent} onValueChange={setSelectedEvent}>
                   <SelectTrigger>
                     <SelectValue placeholder="Escolha um evento" />
@@ -312,7 +379,7 @@ export function WhatsAppBulkSendTab() {
 
             {recipientType === "funnel_contacts" && (
               <div className="space-y-2">
-                <Label>Selecione o Funil</Label>
+                <Label>Selecione o Funil (origem dos contatos)</Label>
                 <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Escolha um funil" />
@@ -354,7 +421,14 @@ export function WhatsAppBulkSendTab() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Selecione o Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <Select 
+                value={selectedTemplate} 
+                onValueChange={(v) => {
+                  setSelectedTemplate(v);
+                  setTargetEventId("");
+                  setTargetFunnelId("");
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Escolha um template" />
                 </SelectTrigger>
@@ -367,6 +441,59 @@ export function WhatsAppBulkSendTab() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* DESTINO: Seleção do Evento para convite */}
+            {isEventInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium">
+                  Para qual evento deseja convidar?
+                </Label>
+                <Select value={targetEventId} onValueChange={setTargetEventId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o evento do convite" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events?.filter(e => e.status === "active").map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        {event.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetEvent && (
+                  <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                    <p>📅 {format(new Date(targetEvent.date), "dd/MM/yyyy")} às {targetEvent.time}</p>
+                    <p>📍 {targetEvent.location}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* DESTINO: Seleção do Funil/Material para convite */}
+            {isFunnelInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium">
+                  Para qual material deseja convidar?
+                </Label>
+                <Select value={targetFunnelId} onValueChange={setTargetFunnelId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o material do convite" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {funnels?.map((funnel) => (
+                      <SelectItem key={funnel.id} value={funnel.id}>
+                        {funnel.lead_magnet_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetFunnel && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    <p>📄 {targetFunnel.descricao || "Material de captação"}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedTemplateData && (
               <div className="rounded-lg border p-3 bg-muted/50">
@@ -387,27 +514,46 @@ export function WhatsAppBulkSendTab() {
         </Card>
       </div>
 
-      {/* Send Button */}
-      <div className="flex justify-end">
-        <Button
-          size="lg"
-          onClick={handleSend}
-          disabled={!canSend || isSending}
-          className="min-w-[200px]"
-        >
-          {isSending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Enviando...
-            </>
-          ) : (
-            <>
-              <Send className="mr-2 h-4 w-4" />
-              Enviar para {recipientsData?.count || 0} destinatários
-            </>
-          )}
-        </Button>
-      </div>
+      {/* Summary and Send Button */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <p className="text-sm text-muted-foreground">
+                {recipientsData?.count || 0} destinatários selecionados
+              </p>
+              {isEventInviteTemplate && targetEvent && (
+                <p className="text-sm font-medium">
+                  Convite para: {targetEvent.name}
+                </p>
+              )}
+              {isFunnelInviteTemplate && targetFunnel && (
+                <p className="text-sm font-medium">
+                  Convite para: {targetFunnel.lead_magnet_nome}
+                </p>
+              )}
+            </div>
+            <Button
+              size="lg"
+              onClick={handleSend}
+              disabled={!canSend || isSending}
+              className="min-w-[200px]"
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Enviar para {recipientsData?.count || 0} destinatários
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
