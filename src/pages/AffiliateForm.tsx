@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Users, CheckCircle2 } from "lucide-react";
@@ -33,8 +32,6 @@ export default function AffiliateForm() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
-  const [aceitaReuniao, setAceitaReuniao] = useState("");
-  const [continuaProjeto, setContinuaProjeto] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [temaId, setTemaId] = useState("");
 
@@ -75,7 +72,7 @@ export default function AffiliateForm() {
     e.preventDefault();
 
     if (!nome || !telefone || !cidadeId || !endereco || !dataNascimento || 
-        !instagram || !facebook || !aceitaReuniao || !continuaProjeto || !observacoes || !temaId) {
+        !instagram || !facebook || !observacoes || !temaId) {
       toast.error("Por favor, preencha todos os campos");
       return;
     }
@@ -136,8 +133,8 @@ export default function AffiliateForm() {
           endereco,
           instagram,
           facebook,
-          aceita_reuniao: aceitaReuniao === "sim",
-          continua_projeto: continuaProjeto === "sim",
+          aceita_reuniao: true,
+          continua_projeto: true,
           observacoes,
           tema_id: temaId,
           submitted_at: new Date().toISOString(),
@@ -354,34 +351,6 @@ export default function AffiliateForm() {
                       )}
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Aceita fazer reunião? *</Label>
-                  <RadioGroup value={aceitaReuniao} onValueChange={setAceitaReuniao} required>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="sim" id="reuniao-sim" />
-                      <Label htmlFor="reuniao-sim" className="font-normal cursor-pointer">SIM</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="nao" id="reuniao-nao" />
-                      <Label htmlFor="reuniao-nao" className="font-normal cursor-pointer">NÃO</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Continua no Projeto? *</Label>
-                  <RadioGroup value={continuaProjeto} onValueChange={setContinuaProjeto} required>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="sim" id="projeto-sim" />
-                      <Label htmlFor="projeto-sim" className="font-normal cursor-pointer">SIM</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="nao" id="projeto-nao" />
-                      <Label htmlFor="projeto-nao" className="font-normal cursor-pointer">NÃO</Label>
-                    </div>
-                  </RadioGroup>
                 </div>
 
                 <div className="space-y-2">
