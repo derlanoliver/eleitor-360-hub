@@ -196,6 +196,7 @@ export interface WebhookPayload {
   whatsapp: string; // E.164 format
   nome: string;
   form_link: string;
+  protocolo?: string;
 }
 
 export interface OfficeEvent {

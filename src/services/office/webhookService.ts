@@ -11,16 +11,17 @@ const MAX_RETRIES = 3;
 const BACKOFF_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s
 
 /**
- * Verifica se Z-API está habilitado e envia via edge function
+ * Envia via Z-API usando template
  */
-async function sendViaZapi(
+async function sendViaZapiTemplate(
   visitId: string,
   phone: string,
-  message: string
+  templateSlug: string,
+  variables: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-      body: { phone, message, visitId }
+      body: { phone, templateSlug, variables, visitId }
     });
 
     if (error) {
@@ -36,7 +37,7 @@ async function sendViaZapi(
 }
 
 /**
- * Envia notificação de visita - tenta Z-API primeiro, fallback para webhook genérico
+ * Envia notificação de visita - usa template visita-link-formulario
  */
 export async function sendVisitNotification(
   visitId: string,
@@ -50,11 +51,20 @@ export async function sendVisitNotification(
     .single();
 
   if (integration?.zapi_enabled) {
-    console.log("[Webhook] Z-API habilitado, enviando via edge function");
+    console.log("[Webhook] Z-API habilitado, enviando via template");
     
-    const message = `Olá ${payload.nome}! 👋\n\nSeu link para preencher o formulário de atendimento:\n${payload.form_link}\n\nPreencha o formulário para agilizar seu atendimento.`;
+    const variables = {
+      nome: payload.nome,
+      protocolo: payload.protocolo || "",
+      form_link: payload.form_link
+    };
     
-    const result = await sendViaZapi(visitId, payload.whatsapp, message);
+    const result = await sendViaZapiTemplate(
+      visitId, 
+      payload.whatsapp, 
+      "visita-link-formulario",
+      variables
+    );
     
     if (result.success) {
       return { success: true };
@@ -189,7 +199,8 @@ export async function retryWebhook(visitId: string) {
     leader_id: visit.leader_id,
     whatsapp: visit.contact.telefone_norm,
     nome: visit.contact.nome,
-    form_link: generateVisitFormUrl(visitId)
+    form_link: generateVisitFormUrl(visitId),
+    protocolo: visit.protocolo
   };
   
   return postWebhook(visitId, payload, webhookUrl);
