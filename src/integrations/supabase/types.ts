@@ -1547,6 +1547,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_leader_points: {
+        Args: { _leader_id: string; _points: number; _reason?: string }
+        Returns: undefined
+      }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
@@ -1555,6 +1559,10 @@ export type Database = {
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
       generate_support_protocol: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
+      get_leader_by_phone_or_email: {
+        Args: { _email: string; _phone: string }
+        Returns: string
+      }
       get_user_context: {
         Args: { user_id: string }
         Returns: {
@@ -1580,6 +1588,10 @@ export type Database = {
       }
       increment_funnel_metric: {
         Args: { _funnel_id: string; _metric: string }
+        Returns: undefined
+      }
+      increment_leader_cadastros: {
+        Args: { _leader_id: string }
         Returns: undefined
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
