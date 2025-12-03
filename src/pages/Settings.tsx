@@ -28,7 +28,7 @@ const Settings = () => {
       description: "Gerencie usuários, permissões e convites",
       icon: Users,
       href: "/settings/team",
-      available: false,
+      available: true,
     },
     {
       title: "Provedores de IA",
