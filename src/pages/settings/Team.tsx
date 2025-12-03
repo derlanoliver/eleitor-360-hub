@@ -22,20 +22,34 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Users,
   UserPlus,
   Search,
   Pencil,
   UserCheck,
   UserX,
+  Trash2,
 } from "lucide-react";
 import { useTeamMembers, TeamMember } from "@/hooks/team/useTeamMembers";
 import { useUpdateMember } from "@/hooks/team/useUpdateMember";
+import { useDeleteMember } from "@/hooks/team/useDeleteMember";
+import { useAuth } from "@/contexts/AuthContext";
 import { RoleBadge } from "@/components/team/RoleBadge";
 import { AddMemberDialog } from "@/components/team/AddMemberDialog";
 import { EditMemberDialog } from "@/components/team/EditMemberDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 export default function Team() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,9 +58,13 @@ export default function Team() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
 
   const { data: members, isLoading } = useTeamMembers();
   const updateMember = useUpdateMember();
+  const deleteMember = useDeleteMember();
+  const { user } = useAuth();
 
   const filteredMembers = members?.filter((member) => {
     const matchesSearch =
@@ -80,6 +98,23 @@ export default function Team() {
   const handleEdit = (member: TeamMember) => {
     setSelectedMember(member);
     setEditDialogOpen(true);
+  };
+
+  const handleDelete = (member: TeamMember) => {
+    if (member.id === user?.id) {
+      toast.error("Você não pode excluir sua própria conta");
+      return;
+    }
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (memberToDelete) {
+      await deleteMember.mutateAsync(memberToDelete.id);
+      setDeleteDialogOpen(false);
+      setMemberToDelete(null);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -271,13 +306,24 @@ export default function Team() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(member)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(member)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(member)}
+                              disabled={member.id === user?.id}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -295,6 +341,29 @@ export default function Team() {
         onOpenChange={setEditDialogOpen}
         member={selectedMember}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Membro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{memberToDelete?.name}</strong>?
+              Esta ação não pode ser desfeita e o usuário perderá acesso ao sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              disabled={deleteMember.isPending}
+            >
+              {deleteMember.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
