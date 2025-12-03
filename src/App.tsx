@@ -35,6 +35,7 @@ import Privacy from "./pages/settings/Privacy";
 import Integrations from "./pages/settings/Integrations";
 import Support from "./pages/settings/Support";
 import AdminTickets from "./pages/settings/AdminTickets";
+import Team from "./pages/settings/Team";
 import SetupUsers from "./pages/SetupUsers";
 import LeaderRegistrationForm from "./pages/LeaderRegistrationForm";
 import NotFound from "./pages/NotFound";
@@ -226,6 +227,13 @@ const App = () => (
             <Route path="/settings/admin-tickets" element={
               <ProtectedRoute>
                 <AdminTickets />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/team" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Team />
+                </DashboardLayout>
               </ProtectedRoute>
             } />
             

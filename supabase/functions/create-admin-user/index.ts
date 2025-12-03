@@ -62,6 +62,20 @@ serve(async (req) => {
       console.log('Profile created successfully:', profile);
     }
 
+    // Create user_roles entry
+    const { error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
+        user_id: authData.user.id,
+        role: role
+      });
+
+    if (roleError) {
+      console.error('Role creation error:', roleError);
+    } else {
+      console.log('Role created successfully:', role);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
