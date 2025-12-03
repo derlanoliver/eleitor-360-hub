@@ -13,6 +13,10 @@ export interface SupportTicket {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  profiles?: {
+    name: string;
+    email: string;
+  } | null;
 }
 
 export interface TicketMessage {
@@ -28,13 +32,26 @@ export function useSupportTickets() {
   return useQuery({
     queryKey: ['support-tickets'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: tickets, error } = await supabase
         .from('support_tickets')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as SupportTicket[];
+      
+      // Fetch profiles for all unique user_ids
+      const userIds = [...new Set(tickets.map(t => t.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+      
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      return tickets.map(ticket => ({
+        ...ticket,
+        profiles: profilesMap.get(ticket.user_id) || null,
+      })) as SupportTicket[];
     },
   });
 }
@@ -53,6 +70,13 @@ export function useTicketDetails(ticketId: string | null) {
       
       if (ticketError) throw ticketError;
       
+      // Fetch profile for the ticket owner
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', ticket.user_id)
+        .single();
+      
       const { data: messages, error: messagesError } = await supabase
         .from('support_ticket_messages')
         .select('*')
@@ -62,7 +86,7 @@ export function useTicketDetails(ticketId: string | null) {
       if (messagesError) throw messagesError;
       
       return {
-        ticket: ticket as SupportTicket,
+        ticket: { ...ticket, profiles: profile } as SupportTicket,
         messages: messages as TicketMessage[],
       };
     },
