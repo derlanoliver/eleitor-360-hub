@@ -16,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
 import { getBaseUrl } from "@/lib/urlHelper";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
+import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const eventCategories = {
@@ -145,6 +146,30 @@ export default function EventRegistration() {
         event_name: event.name,
         event_category: event.category
       });
+
+      // Send WhatsApp confirmation (evento-inscricao-confirmada)
+      try {
+        const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
+        const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
+        
+        await supabase.functions.invoke('send-whatsapp', {
+          body: {
+            phone: normalizedPhone,
+            templateSlug: 'evento-inscricao-confirmada',
+            variables: {
+              nome: formData.nome,
+              evento_nome: event.name,
+              evento_data: eventDate,
+              evento_hora: event.time,
+              evento_local: event.location,
+            },
+            contactId: registration.contact_id,
+          },
+        });
+      } catch (whatsappError) {
+        console.error('Error sending WhatsApp confirmation:', whatsappError);
+        // Don't fail the registration if WhatsApp fails
+      }
     } catch (error) {
       console.error("Error creating registration:", error);
     }
