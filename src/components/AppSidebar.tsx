@@ -17,8 +17,11 @@ import {
   List,
   History as HistoryIcon,
   MessageSquare,
-  Mail
+  Mail,
+  HelpCircle,
+  Ticket
 } from "lucide-react";
+import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
 import {
   Sidebar,
@@ -68,6 +71,11 @@ const officeItems = [
 const settingsItems = [
   { title: "Privacidade", url: "/settings/privacy", icon: Shield },
   { title: "Organização", url: "/settings/organization", icon: Building },
+  { title: "Suporte", url: "/settings/support", icon: HelpCircle },
+];
+
+const adminSettingsItems = [
+  { title: "Administrar Tickets", url: "/settings/admin-tickets", icon: Ticket },
 ];
 
 export function AppSidebar() {
@@ -75,6 +83,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const isMobile = useIsMobile();
+  const { data: isSuperAdmin } = useIsSuperAdmin();
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -222,6 +231,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  {renderMenuItem(item)}
+                </SidebarMenuItem>
+              ))}
+              {isSuperAdmin && adminSettingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {renderMenuItem(item)}
                 </SidebarMenuItem>

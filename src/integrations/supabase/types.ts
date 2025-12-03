@@ -1219,6 +1219,113 @@ export type Database = {
         }
         Relationships: []
       }
+      support_ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin_response: boolean
+          mensagem: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_admin_response?: boolean
+          mensagem: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin_response?: boolean
+          mensagem?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assunto: string
+          categoria: string
+          created_at: string
+          descricao: string
+          id: string
+          prioridade: string
+          protocolo: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assunto: string
+          categoria: string
+          created_at?: string
+          descricao: string
+          id?: string
+          prioridade?: string
+          protocolo: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assunto?: string
+          categoria?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          prioridade?: string
+          protocolo?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      system_notifications: {
+        Row: {
+          created_at: string
+          descricao: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tipo?: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
       temas: {
         Row: {
           cadastros: number
@@ -1242,6 +1349,45 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_notification_reads: {
+        Row: {
+          id: string
+          notification_id: string | null
+          read_at: string
+          ticket_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          notification_id?: string | null
+          read_at?: string
+          ticket_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          notification_id?: string | null
+          read_at?: string
+          ticket_message_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "system_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_notification_reads_ticket_message_id_fkey"
+            columns: ["ticket_message_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1407,6 +1553,7 @@ export type Database = {
       generate_office_protocol:
         | { Args: { _prefix?: string }; Returns: string }
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
+      generate_support_protocol: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
       get_user_context: {
         Args: { user_id: string }
