@@ -124,7 +124,7 @@ const Dashboard = () => {
                     <Trophy className="h-5 w-5 text-primary-600 mr-2" />
                     Ranking de Lideranças - TOP 5
                   </div>
-                  <Link to="/ranking-liderancas">
+                  <Link to="/leaders/ranking">
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver ranking completo">
                       <ExternalLink className="h-4 w-4 text-muted-foreground" />
                     </Button>
