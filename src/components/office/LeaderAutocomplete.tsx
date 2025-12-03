@@ -26,7 +26,7 @@ export function LeaderAutocomplete({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   
-  const { data: leaders, isLoading } = useOfficeLeaders({
+  const { data: leaders, isLoading, isError, refetch } = useOfficeLeaders({
     cidade_id: cityId,
     search: search || undefined
   });
@@ -48,12 +48,15 @@ export function LeaderAutocomplete({
           aria-expanded={open}
           className="w-full justify-between"
           disabled={isDisabled || isLoading}
+          onClick={isError ? () => refetch() : undefined}
         >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Carregando...
             </>
+          ) : isError ? (
+            <span className="text-destructive">Erro ao carregar - Clique para tentar novamente</span>
           ) : selectedLeader ? (
             <>
               {selectedLeader.nome_completo}
