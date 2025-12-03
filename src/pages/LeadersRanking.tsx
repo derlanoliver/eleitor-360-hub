@@ -16,6 +16,7 @@ import {
 import { Link } from "react-router-dom";
 import { useLeadersRanking } from "@/hooks/leaders/useLeadersRanking";
 import { useRegions } from "@/hooks/useRegions";
+import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
 import {
   Pagination,
   PaginationContent,
@@ -242,9 +243,13 @@ const LeadersRanking = () => {
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">
+                    <h3 className="font-bold text-gray-900 text-lg mb-1">
                       {leader.name}
                     </h3>
+                    
+                    <div className="flex justify-center mb-2">
+                      <LeaderLevelBadge points={leader.points} size="md" />
+                    </div>
                     
                     {leader.region === 'Sem região' ? (
                       <Badge variant="outline" className="text-gray-500 mb-2">Sem região</Badge>
@@ -259,6 +264,8 @@ const LeadersRanking = () => {
                         </p>
                         <p className="text-sm text-gray-600">pontos</p>
                       </div>
+
+                      <LeaderLevelProgress points={leader.points} showLabel={false} />
 
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="text-center p-2 bg-white/50 rounded">
@@ -323,7 +330,10 @@ const LeadersRanking = () => {
                           </div>
                           
                           <div>
-                            <h4 className="font-semibold text-gray-900">{leader.name}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-gray-900">{leader.name}</h4>
+                              <LeaderLevelBadge points={leader.points} size="sm" />
+                            </div>
                             {leader.region === 'Sem região' ? (
                               <Badge variant="outline" className="text-gray-500 text-xs">Sem região</Badge>
                             ) : (
@@ -429,20 +439,62 @@ const LeadersRanking = () => {
         {/* Informações do Sistema de Pontuação */}
         <Card className="card-default mt-6">
           <CardHeader>
-            <CardTitle>ℹ️ Sistema de Pontuação</CardTitle>
+            <CardTitle>ℹ️ Sistema de Pontuação Gamificado</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div className="grid md:grid-cols-3 gap-6 text-sm">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Como são calculados os pontos:</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• +1 ponto por indicação válida</li>
-                  <li>• +3 pontos por presença confirmada em evento</li>
-                  <li>• Bônus de consistência mensal</li>
+                <h4 className="font-semibold text-gray-900 mb-3">Como ganhar pontos:</h4>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <span className="bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded text-xs font-bold">+1</span>
+                    <span>Cadastro de indicação (contato, evento, visita)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded text-xs font-bold">+1</span>
+                    <span>Contato indicado se cadastra em landing page</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-bold">+2</span>
+                    <span>Check-in em evento ou visita indicada</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-bold">+2</span>
+                    <span>Download de material (primeira vez)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-bold">+1</span>
+                    <span>Líder se inscreve em evento</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-bold">+2</span>
+                    <span>Líder faz check-in em evento</span>
+                  </li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Tendências:</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">Níveis de Liderança:</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-2 bg-amber-50 rounded-lg border border-amber-200">
+                    <span className="font-medium">🥉 Bronze</span>
+                    <span className="text-gray-600">0-10 pontos</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="font-medium">🥈 Prata</span>
+                    <span className="text-gray-600">11-30 pontos</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <span className="font-medium">🥇 Ouro</span>
+                    <span className="text-gray-600">31-50 pontos</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <span className="font-medium">💎 Diamante</span>
+                    <span className="text-gray-600">51+ pontos</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Tendências:</h4>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="h-4 w-4 text-green-500" />

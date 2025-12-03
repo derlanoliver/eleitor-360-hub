@@ -14,6 +14,7 @@ import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { LeaderRegistrationQRDialog } from "@/components/leaders/LeaderRegistrationQRDialog";
+import { LeaderLevelBadge, LeaderLevelProgress, getLeaderCardColorClass } from "@/components/leaders/LeaderLevelBadge";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
@@ -86,17 +87,6 @@ const Leaders = () => {
     } catch (error) {
       console.error("Erro ao gerar QR Code:", error);
       toast.error("Erro ao gerar QR Code");
-    }
-  };
-
-  // Função para determinar cor do card baseado na pontuação
-  const getLeaderColorClass = (pontos: number): string => {
-    if (pontos >= 20) {
-      return "border-l-4 border-green-300 bg-green-50/50";
-    } else if (pontos >= 5) {
-      return "border-l-4 border-amber-300 bg-amber-50/50";
-    } else {
-      return "border-l-4 border-red-300 bg-red-50/50";
     }
   };
 
@@ -273,11 +263,11 @@ const Leaders = () => {
                 </Card>
               ) : (
                 sortedLeaders.map((leader) => (
-                  <Card key={leader.id} className={`card-default ${getLeaderColorClass(leader.pontuacao_total)}`}>
+                  <Card key={leader.id} className={`card-default ${getLeaderCardColorClass(leader.pontuacao_total)}`}>
                     <CardContent className="p-4 sm:p-6">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
                         {/* Info Básica */}
-                        <div className="md:col-span-5">
+                        <div className="md:col-span-4">
                           <div className="flex items-center space-x-4">
                             <div className="flex-shrink-0">
                               <div className="flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-600 rounded-lg">
@@ -285,9 +275,12 @@ const Leaders = () => {
                               </div>
                             </div>
                             <div className="min-w-0">
-                              <h3 className="font-semibold text-gray-900 truncate">
-                                {leader.nome_completo}
-                              </h3>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-gray-900 truncate">
+                                  {leader.nome_completo}
+                                </h3>
+                                <LeaderLevelBadge points={leader.pontuacao_total} size="sm" />
+                              </div>
                               {leader.email && (
                                 <p className="text-sm text-gray-600 truncate">
                                   {leader.email}
@@ -301,9 +294,9 @@ const Leaders = () => {
                           </div>
                         </div>
 
-                        {/* Métricas */}
-                        <div className="md:col-span-3">
-                          <div className="grid grid-cols-2 gap-3">
+                        {/* Métricas e Progresso */}
+                        <div className="md:col-span-4">
+                          <div className="grid grid-cols-2 gap-3 mb-2">
                             <div className="text-center p-2 bg-primary-50 rounded-lg">
                               <p className="text-xs text-gray-600">Cadastros</p>
                               <p className="font-bold text-primary-600">
@@ -317,6 +310,7 @@ const Leaders = () => {
                               </p>
                             </div>
                           </div>
+                          <LeaderLevelProgress points={leader.pontuacao_total} />
                         </div>
 
                         {/* Status e Ações */}

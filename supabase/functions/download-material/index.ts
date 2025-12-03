@@ -56,15 +56,19 @@ serve(async (req) => {
       console.error("Error incrementing metric:", rpcError);
     }
 
-    // Record download for contact if contact_id provided
+    // Record download for contact if contact_id provided (only first download counts for points)
     if (contactId) {
+      // Use upsert with ON CONFLICT to handle duplicates - only first download triggers points
       const { error: downloadError } = await supabase
         .from('contact_downloads')
-        .insert({
+        .upsert({
           contact_id: contactId,
           funnel_id: funnelId,
           funnel_name: funnel.nome,
           lead_magnet_nome: funnel.lead_magnet_nome,
+        }, {
+          onConflict: 'contact_id,funnel_id',
+          ignoreDuplicates: true // Ignore if already exists (no points for repeat downloads)
         });
 
       if (downloadError) {
