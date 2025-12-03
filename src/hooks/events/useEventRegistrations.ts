@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 
 export function useEventRegistrations(eventId?: string) {
   return useQuery({
@@ -54,10 +55,32 @@ export function useCreateRegistration() {
         throw new Error("Você já está inscrito neste evento!");
       }
 
-      // Create registration
+      // Check if phone/email belongs to a leader - mark the registration accordingly
+      let isLeader = false;
+      try {
+        const telefone_norm = normalizePhoneToE164(data.whatsapp);
+        const { data: existingLeader } = await supabase
+          .from('lideres')
+          .select('id')
+          .or(`telefone.eq.${telefone_norm},email.eq.${data.email}`)
+          .maybeSingle();
+        
+        if (existingLeader) {
+          isLeader = true;
+          console.log('Registrant is a leader, skipping contact creation');
+        }
+      } catch (e) {
+        // Ignore phone normalization errors
+      }
+
+      // Create registration (contact_id will be null for leaders to avoid duplicate contact)
       const { data: registration, error } = await supabase
         .from("event_registrations")
-        .insert(data)
+        .insert({
+          ...data,
+          // If the registrant is a leader, we don't link to a contact to avoid duplication
+          contact_id: isLeader ? null : undefined,
+        })
         .select()
         .single();
 

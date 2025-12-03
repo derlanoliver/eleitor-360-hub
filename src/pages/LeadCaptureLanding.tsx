@@ -146,25 +146,39 @@ export default function LeadCaptureLanding() {
         }
       }
 
-      // Save to office_contacts using upsert to handle duplicate phones
-      const { data: contactData, error: contactError } = await supabase
-        .from('office_contacts')
-        .upsert({
-          nome: data.nome,
-          email: data.email,
-          telefone_norm: telefone_norm || '+5500000000000', // Fallback if no phone
-          cidade_id: data.cidade_id || null,
-          source_type: 'captacao',
-          source_id: funnel.id,
-          ...utmParams,
-        }, {
-          onConflict: 'telefone_norm',
-          ignoreDuplicates: false, // Update existing record
-        })
+      // Check if phone/email belongs to a leader - don't create contact for leaders
+      let contactData: { id: string } | null = null;
+      
+      const { data: existingLeader } = await supabase
+        .from('lideres')
         .select('id')
-        .single();
+        .or(`telefone.eq.${telefone_norm},email.eq.${data.email}`)
+        .maybeSingle();
 
-      if (contactError) throw contactError;
+      if (!existingLeader) {
+        // Save to office_contacts using upsert to handle duplicate phones
+        const { data: upsertedContact, error: contactError } = await supabase
+          .from('office_contacts')
+          .upsert({
+            nome: data.nome,
+            email: data.email,
+            telefone_norm: telefone_norm || '+5500000000000', // Fallback if no phone
+            cidade_id: data.cidade_id || null,
+            source_type: 'captacao',
+            source_id: funnel.id,
+            ...utmParams,
+          }, {
+            onConflict: 'telefone_norm',
+            ignoreDuplicates: false, // Update existing record
+          })
+          .select('id')
+          .single();
+
+        if (contactError) throw contactError;
+        contactData = upsertedContact;
+      } else {
+        console.log('Lead is a registered leader, skipping contact creation');
+      }
 
       // Record page view for this contact
       if (contactData?.id) {
