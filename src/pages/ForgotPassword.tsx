@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Mail, Send } from "lucide-react";
+import { ArrowLeft, Mail, Send, CheckCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
+  const { resetPasswordForEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +22,6 @@ const ForgotPassword = () => {
     setError("");
     setIsLoading(true);
 
-    // Mock validation
     if (!email) {
       setError("Por favor, insira seu e-mail.");
       setIsLoading(false);
@@ -33,20 +34,15 @@ const ForgotPassword = () => {
       return;
     }
 
-    // Mock email sending
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    const result = await resetPasswordForEmail(email);
+
+    if (result.success) {
       setIsSuccess(true);
-      
-      // Auto redirect after success
-      setTimeout(() => {
-        navigate("/reset-password");
-      }, 3000);
-    } catch (err) {
-      setError("Erro ao enviar e-mail. Tente novamente.");
-    } finally {
-      setIsLoading(false);
+    } else {
+      setError(result.error || "Erro ao enviar e-mail. Tente novamente.");
     }
+    
+    setIsLoading(false);
   };
 
   if (isSuccess) {
@@ -74,17 +70,32 @@ const ForgotPassword = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-center space-x-2 text-blue-800 mb-2">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Próximos passos:</span>
+                </div>
+                <ol className="text-sm text-blue-700 text-left space-y-2">
+                  <li>1. Verifique sua caixa de entrada</li>
+                  <li>2. Clique no link do e-mail recebido</li>
+                  <li>3. Defina sua nova senha</li>
+                </ol>
+              </div>
+
               <p className="text-sm text-gray-600">
-                Verifique sua caixa de entrada e siga as instruções no e-mail.
-                Se não encontrar, verifique a pasta de spam.
+                Se não encontrar o e-mail, verifique a pasta de spam ou lixo eletrônico.
               </p>
               
-              <div className="space-y-2">
+              <div className="space-y-2 pt-2">
                 <Button
-                  onClick={() => navigate("/reset-password")}
-                  className="w-full bg-primary-500 hover:bg-primary-600"
+                  variant="outline"
+                  onClick={() => {
+                    setIsSuccess(false);
+                    setEmail("");
+                  }}
+                  className="w-full"
                 >
-                  Continuar (Mock)
+                  Enviar novamente
                 </Button>
                 
                 <Button
@@ -92,6 +103,7 @@ const ForgotPassword = () => {
                   onClick={() => navigate("/login")}
                   className="w-full"
                 >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   Voltar ao login
                 </Button>
               </div>
