@@ -18,8 +18,16 @@ import { useEmailTemplates, useSendBulkEmail } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { getBaseUrl } from "@/lib/urlHelper";
 
 type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders";
+
+// Templates que precisam de evento destino
+const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-convite"];
+// Templates que precisam de funil destino
+const FUNNEL_INVITE_TEMPLATES = ["captacao-convite-material"];
 
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
@@ -31,6 +39,14 @@ export function EmailBulkSendTab() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [selectedFunnel, setSelectedFunnel] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  
+  // Estados para evento/funil DESTINO (para preencher variáveis)
+  const [targetEventId, setTargetEventId] = useState("");
+  const [targetFunnelId, setTargetFunnelId] = useState("");
+
+  // Detectar tipo do template selecionado
+  const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
+  const isFunnelInviteTemplate = FUNNEL_INVITE_TEMPLATES.includes(selectedTemplate);
 
   // Fetch funnels
   const { data: funnels } = useQuery({
@@ -38,12 +54,42 @@ export function EmailBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lead_funnels")
-        .select("id, nome")
+        .select("id, nome, slug, lead_magnet_nome, descricao")
         .eq("status", "active")
         .order("nome");
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch target event details (para preencher variáveis)
+  const { data: targetEvent } = useQuery({
+    queryKey: ["target_event", targetEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, slug, date, time, location, address, description")
+        .eq("id", targetEventId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetEventId && isEventInviteTemplate,
+  });
+
+  // Fetch target funnel details (para preencher variáveis)
+  const { data: targetFunnel } = useQuery({
+    queryKey: ["target_funnel", targetFunnelId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lead_funnels")
+        .select("id, nome, slug, lead_magnet_nome, descricao")
+        .eq("id", targetFunnelId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetFunnelId && isFunnelInviteTemplate,
   });
 
   // Fetch recipients based on type
@@ -106,17 +152,17 @@ export function EmailBulkSendTab() {
 
   // Templates de convite permitidos por tipo de destinatário
   const CONVITE_TEMPLATES_LEADERS = [
-    "lideranca-evento-convite",      // Convite para Líderes - Evento
-    "captacao-convite-material",     // Convite para Material de Captação
-    "evento-convite-participar",     // Convite para Evento
+    "lideranca-evento-convite",
+    "captacao-convite-material",
+    "evento-convite-participar",
   ];
 
   const CONVITE_TEMPLATES_CONTACTS = [
-    "captacao-convite-material",     // Convite para Material de Captação
-    "evento-convite-participar",     // Convite para Evento
+    "captacao-convite-material",
+    "evento-convite-participar",
   ];
 
-  // Filter templates based on recipient type - only invitation templates
+  // Filter templates based on recipient type
   const filteredTemplates = useMemo(() => {
     if (!templates) return [];
     
@@ -124,23 +170,47 @@ export function EmailBulkSendTab() {
       return templates.filter(t => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
     
-    // Todos os outros tipos: 2 templates de convite
     return templates.filter(t => CONVITE_TEMPLATES_CONTACTS.includes(t.slug));
   }, [templates, recipientType]);
 
   const handleSend = () => {
     if (!selectedTemplate || !recipients?.length) return;
 
-    const recipientsList = recipients.map(r => ({
-      to: r.email,
-      toName: r.name,
-      contactId: r.type === "contact" ? r.id : undefined,
-      leaderId: r.type === "leader" ? r.id : undefined,
-      eventId: selectedEvent || undefined,
-      variables: {
+    const baseUrl = getBaseUrl();
+
+    const recipientsList = recipients.map(r => {
+      // Construir variáveis baseado no tipo de template
+      const variables: Record<string, string> = {
         nome: r.name,
-      },
-    }));
+      };
+
+      // Se for template de evento, adicionar variáveis do evento destino
+      if (isEventInviteTemplate && targetEvent) {
+        variables.evento_nome = targetEvent.name;
+        variables.evento_data = format(new Date(targetEvent.date), "dd 'de' MMMM", { locale: ptBR });
+        variables.evento_hora = targetEvent.time;
+        variables.evento_local = targetEvent.location;
+        variables.evento_endereco = targetEvent.address || "";
+        variables.evento_descricao = targetEvent.description || "";
+        variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
+      }
+
+      // Se for template de captação, adicionar variáveis do funil destino
+      if (isFunnelInviteTemplate && targetFunnel) {
+        variables.material_nome = targetFunnel.lead_magnet_nome;
+        variables.material_descricao = targetFunnel.descricao || "";
+        variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
+      }
+
+      return {
+        to: r.email,
+        toName: r.name,
+        contactId: r.type === "contact" ? r.id : undefined,
+        leaderId: r.type === "leader" ? r.id : undefined,
+        eventId: isEventInviteTemplate ? targetEventId : (selectedEvent || undefined),
+        variables,
+      };
+    });
 
     sendBulkEmail.mutate({
       templateSlug: selectedTemplate,
@@ -148,7 +218,13 @@ export function EmailBulkSendTab() {
     });
   };
 
-  const canSend = selectedTemplate && recipients && recipients.length > 0 && confirmed;
+  const canSend = 
+    selectedTemplate && 
+    recipients && 
+    recipients.length > 0 && 
+    confirmed &&
+    (!isEventInviteTemplate || targetEventId) &&
+    (!isFunnelInviteTemplate || targetFunnelId);
 
   return (
     <div className="space-y-6">
@@ -172,6 +248,8 @@ export function EmailBulkSendTab() {
                   setSelectedEvent("");
                   setSelectedFunnel("");
                   setSelectedTemplate("");
+                  setTargetEventId("");
+                  setTargetFunnelId("");
                   setConfirmed(false);
                 }}
               >
@@ -206,10 +284,10 @@ export function EmailBulkSendTab() {
               </RadioGroup>
             </div>
 
-            {/* Event Selection */}
+            {/* Event Selection (ORIGEM - de onde vêm os contatos) */}
             {recipientType === "event_contacts" && (
               <div className="space-y-2">
-                <Label>Selecione o Evento</Label>
+                <Label>Selecione o Evento (origem dos contatos)</Label>
                 <Select value={selectedEvent} onValueChange={setSelectedEvent}>
                   <SelectTrigger>
                     <SelectValue placeholder="Escolha um evento" />
@@ -225,10 +303,10 @@ export function EmailBulkSendTab() {
               </div>
             )}
 
-            {/* Funnel Selection */}
+            {/* Funnel Selection (ORIGEM - de onde vêm os contatos) */}
             {recipientType === "funnel_contacts" && (
               <div className="space-y-2">
-                <Label>Selecione o Funil</Label>
+                <Label>Selecione o Funil (origem dos contatos)</Label>
                 <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Escolha um funil" />
@@ -247,7 +325,14 @@ export function EmailBulkSendTab() {
             {/* Template Selection */}
             <div className="space-y-2">
               <Label>Template de Email</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <Select 
+                value={selectedTemplate} 
+                onValueChange={(v) => {
+                  setSelectedTemplate(v);
+                  setTargetEventId("");
+                  setTargetFunnelId("");
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Escolha um template" />
                 </SelectTrigger>
@@ -260,6 +345,59 @@ export function EmailBulkSendTab() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* DESTINO: Seleção do Evento para convite */}
+            {isEventInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium">
+                  Para qual evento deseja convidar?
+                </Label>
+                <Select value={targetEventId} onValueChange={setTargetEventId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o evento do convite" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events?.filter(e => e.status === "active").map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        {event.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetEvent && (
+                  <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                    <p>📅 {format(new Date(targetEvent.date), "dd/MM/yyyy")} às {targetEvent.time}</p>
+                    <p>📍 {targetEvent.location}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* DESTINO: Seleção do Funil/Material para convite */}
+            {isFunnelInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium">
+                  Para qual material deseja convidar?
+                </Label>
+                <Select value={targetFunnelId} onValueChange={setTargetFunnelId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o material do convite" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {funnels?.map((funnel) => (
+                      <SelectItem key={funnel.id} value={funnel.id}>
+                        {funnel.lead_magnet_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetFunnel && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    <p>📄 {targetFunnel.descricao || "Material de captação"}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -291,6 +429,23 @@ export function EmailBulkSendTab() {
                     <p className="font-medium mt-1">
                       {filteredTemplates.find(t => t.slug === selectedTemplate)?.nome}
                     </p>
+                  </div>
+                )}
+
+                {isEventInviteTemplate && targetEvent && (
+                  <div className="py-3 border-b">
+                    <span className="text-muted-foreground">Evento do Convite</span>
+                    <p className="font-medium mt-1">{targetEvent.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(targetEvent.date), "dd/MM/yyyy")} às {targetEvent.time}
+                    </p>
+                  </div>
+                )}
+
+                {isFunnelInviteTemplate && targetFunnel && (
+                  <div className="py-3 border-b">
+                    <span className="text-muted-foreground">Material do Convite</span>
+                    <p className="font-medium mt-1">{targetFunnel.lead_magnet_nome}</p>
                   </div>
                 )}
 
