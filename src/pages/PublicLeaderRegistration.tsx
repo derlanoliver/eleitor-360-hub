@@ -92,6 +92,15 @@ export default function PublicLeaderRegistration() {
 
       if (error) throw error;
 
+      // Get the created leader to obtain the affiliate_token
+      const { data: createdLeader } = await supabase
+        .from("lideres")
+        .select("affiliate_token")
+        .eq("email", data.email.trim().toLowerCase())
+        .single();
+
+      const affiliateToken = createdLeader?.affiliate_token;
+
       // Send WhatsApp confirmation (lider-cadastro-confirmado)
       try {
         await supabase.functions.invoke('send-whatsapp', {
@@ -106,6 +115,27 @@ export default function PublicLeaderRegistration() {
       } catch (whatsappError) {
         console.error('Error sending WhatsApp confirmation:', whatsappError);
         // Don't fail the submission if WhatsApp fails
+      }
+
+      // Send welcome email (lideranca-boas-vindas)
+      if (affiliateToken) {
+        try {
+          const { getBaseUrl } = await import("@/lib/urlHelper");
+          await supabase.functions.invoke('send-email', {
+            body: {
+              to: data.email.trim().toLowerCase(),
+              toName: data.nome_completo,
+              templateSlug: 'lideranca-boas-vindas',
+              variables: {
+                nome: data.nome_completo,
+                link_indicacao: `${getBaseUrl()}/cadastro/${affiliateToken}`,
+              },
+            },
+          });
+        } catch (emailError) {
+          console.error('Error sending welcome email:', emailError);
+          // Don't fail the submission if email fails
+        }
       }
 
       setIsSuccess(true);
