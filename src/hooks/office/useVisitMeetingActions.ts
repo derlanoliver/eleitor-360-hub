@@ -1,6 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  getVisitForNotification,
+  sendMeetingCancelledNotification,
+  sendMeetingRescheduledNotification
+} from "@/services/office/whatsappNotificationService";
 
 export function useVisitMeetingActions() {
   const queryClient = useQueryClient();
@@ -35,6 +40,18 @@ export function useVisitMeetingActions() {
         .select()
         .single();
       if (error) throw error;
+      
+      // Enviar WhatsApp de cancelamento em background
+      getVisitForNotification(visitId).then(visit => {
+        if (visit) {
+          sendMeetingCancelledNotification(visit).then(result => {
+            if (!result.success) {
+              console.warn("[WhatsApp] Falha ao enviar notificação de cancelamento:", result.error);
+            }
+          });
+        }
+      });
+      
       return data;
     },
     onSuccess: () => {
@@ -62,6 +79,18 @@ export function useVisitMeetingActions() {
         .select()
         .single();
       if (error) throw error;
+      
+      // Enviar WhatsApp de reagendamento em background
+      getVisitForNotification(visitId).then(visit => {
+        if (visit) {
+          sendMeetingRescheduledNotification(visit, newDate).then(result => {
+            if (!result.success) {
+              console.warn("[WhatsApp] Falha ao enviar notificação de reagendamento:", result.error);
+            }
+          });
+        }
+      });
+      
       return data;
     },
     onSuccess: () => {

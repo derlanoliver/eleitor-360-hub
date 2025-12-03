@@ -53,7 +53,8 @@ export function useCreateOfficeVisit() {
         leader_id: visit.leader_id,
         whatsapp: visit.contact!.telefone_norm,
         nome: dto.nome,
-        form_link: generateVisitFormUrl(visit.id)
+        form_link: generateVisitFormUrl(visit.id),
+        protocolo: visit.protocolo
       };
       
       // Envia via Z-API (se habilitado) ou webhook genérico
