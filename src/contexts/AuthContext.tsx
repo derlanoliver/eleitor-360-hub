@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         email: data.email || '',
         name: data.name || 'User',
         role: data.role || 'admin',
-        avatar: "/src/assets/logo-rafael-prudente.png"
+        avatar: data.avatar_url || undefined
       };
     } catch (err) {
       console.error('Exception fetching profile:', err);

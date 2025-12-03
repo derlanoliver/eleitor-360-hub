@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   LayoutDashboard, 
   Users, 
@@ -84,6 +85,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const isMobile = useIsMobile();
   const { data: isSuperAdmin } = useIsSuperAdmin();
+  const { logout } = useAuth();
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -249,29 +251,25 @@ export function AppSidebar() {
           {isCollapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <SidebarMenuButton asChild>
-                  <NavLink 
-                    to="/login" 
-                    className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-3 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    <LogOut className="h-6 w-6" />
-                  </NavLink>
-                </SidebarMenuButton>
+                <button 
+                  onClick={() => logout()}
+                  className="text-red-600 hover:bg-red-50 w-full flex items-center justify-center py-3 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <LogOut className="h-6 w-6" />
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right" className="font-medium">
                 Sair
               </TooltipContent>
             </Tooltip>
           ) : (
-            <SidebarMenuButton asChild>
-              <NavLink 
-                to="/login" 
-                className="text-red-600 hover:bg-red-50 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span className="ml-3">Sair</span>
-              </NavLink>
-            </SidebarMenuButton>
+            <button 
+              onClick={() => logout()}
+              className="text-red-600 hover:bg-red-50 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="ml-3">Sair</span>
+            </button>
           )}
         </div>
       </SidebarContent>
