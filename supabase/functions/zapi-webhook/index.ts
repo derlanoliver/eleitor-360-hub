@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("[zapi-webhook] Error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -96,7 +96,8 @@ function detectWebhookType(body: Record<string, unknown>): string {
   return "unknown";
 }
 
-async function handleMessageStatus(supabase: ReturnType<typeof createClient>, data: ZapiMessageStatus) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleMessageStatus(supabase: any, data: ZapiMessageStatus) {
   const messageId = data.zapiMessageId || data.messageId;
   const status = data.status?.toLowerCase();
   
@@ -133,7 +134,8 @@ async function handleMessageStatus(supabase: ReturnType<typeof createClient>, da
   }
 }
 
-async function handleReceivedMessage(supabase: ReturnType<typeof createClient>, data: ZapiReceivedMessage) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   // Skip messages sent by us
   if (data.fromMe) {
     console.log("[zapi-webhook] Skipping outgoing message");
@@ -180,7 +182,8 @@ async function handleReceivedMessage(supabase: ReturnType<typeof createClient>, 
   }
 }
 
-async function handleConnectionStatus(supabase: ReturnType<typeof createClient>, data: ZapiConnectionStatus) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleConnectionStatus(supabase: any, data: ZapiConnectionStatus) {
   const isConnected = data.connected || data.status === "connected";
   console.log(`[zapi-webhook] Connection status: ${isConnected ? "connected" : "disconnected"}`);
   
