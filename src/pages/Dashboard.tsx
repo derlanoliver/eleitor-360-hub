@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList } from "lucide-react";
+import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
@@ -119,9 +119,16 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card className="card-default">
               <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="flex items-center text-base sm:text-lg">
-                  <Trophy className="h-5 w-5 text-primary-600 mr-2" />
-                  Ranking de Lideranças - TOP 5
+                <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+                  <div className="flex items-center">
+                    <Trophy className="h-5 w-5 text-primary-600 mr-2" />
+                    Ranking de Lideranças - TOP 5
+                  </div>
+                  <Link to="/ranking-liderancas">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver ranking completo">
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </Link>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0">
