@@ -27,6 +27,8 @@ export function useAllTickets() {
         profiles: profilesMap.get(ticket.user_id) || null,
       })) as SupportTicket[];
     },
+    staleTime: 10 * 1000,
+    refetchInterval: 30 * 1000,
   });
 }
 
@@ -51,6 +53,8 @@ export function useTicketStats() {
       
       return stats;
     },
+    staleTime: 10 * 1000,
+    refetchInterval: 30 * 1000,
   });
 }
 
