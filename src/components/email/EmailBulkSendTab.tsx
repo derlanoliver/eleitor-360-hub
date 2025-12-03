@@ -104,20 +104,28 @@ export function EmailBulkSendTab() {
              (recipientType === "funnel_contacts" && !!selectedFunnel),
   });
 
-  // Filter templates based on recipient type
+  // Templates de convite permitidos por tipo de destinatário
+  const CONVITE_TEMPLATES_LEADERS = [
+    "lideranca-evento-convite",      // Convite para Líderes - Evento
+    "captacao-convite-material",     // Convite para Material de Captação
+    "evento-convite-participar",     // Convite para Evento
+  ];
+
+  const CONVITE_TEMPLATES_CONTACTS = [
+    "captacao-convite-material",     // Convite para Material de Captação
+    "evento-convite-participar",     // Convite para Evento
+  ];
+
+  // Filter templates based on recipient type - only invitation templates
   const filteredTemplates = useMemo(() => {
     if (!templates) return [];
     
     if (recipientType === "leaders") {
-      return templates.filter(t => t.categoria === "lideranca");
+      return templates.filter(t => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
-    if (recipientType === "event_contacts") {
-      return templates.filter(t => t.categoria === "evento");
-    }
-    if (recipientType === "funnel_contacts") {
-      return templates.filter(t => t.categoria === "captacao");
-    }
-    return templates.filter(t => !["lideranca"].includes(t.categoria));
+    
+    // Todos os outros tipos: 2 templates de convite
+    return templates.filter(t => CONVITE_TEMPLATES_CONTACTS.includes(t.slug));
   }, [templates, recipientType]);
 
   const handleSend = () => {
