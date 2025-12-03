@@ -198,7 +198,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error sending email:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message || 'Erro desconhecido' }),
+      JSON.stringify({ success: false, error: (error as Error).message || 'Erro desconhecido' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
