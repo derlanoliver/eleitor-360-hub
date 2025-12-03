@@ -868,8 +868,8 @@ export type Database = {
           visit_id: string
         }
         Insert: {
-          aceita_reuniao: boolean
-          continua_projeto: boolean
+          aceita_reuniao?: boolean
+          continua_projeto?: boolean
           created_at?: string
           data_nascimento: string
           endereco: string
