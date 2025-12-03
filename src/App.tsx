@@ -33,6 +33,8 @@ import Profile from "./pages/settings/Profile";
 import Organization from "./pages/settings/Organization";
 import Privacy from "./pages/settings/Privacy";
 import Integrations from "./pages/settings/Integrations";
+import Support from "./pages/settings/Support";
+import AdminTickets from "./pages/settings/AdminTickets";
 import SetupUsers from "./pages/SetupUsers";
 import LeaderRegistrationForm from "./pages/LeaderRegistrationForm";
 import NotFound from "./pages/NotFound";
@@ -214,6 +216,16 @@ const App = () => (
             <Route path="/settings/integrations" element={
               <ProtectedRoute>
                 <Integrations />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/support" element={
+              <ProtectedRoute>
+                <Support />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/admin-tickets" element={
+              <ProtectedRoute>
+                <AdminTickets />
               </ProtectedRoute>
             } />
             

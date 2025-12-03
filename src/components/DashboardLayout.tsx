@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./AppSidebar";
 import UserMenu from "./UserMenu";
+import { NotificationBell } from "./NotificationBell";
 import { Menu } from "lucide-react";
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -22,9 +23,10 @@ export function DashboardLayout({
               <Menu className="h-4 w-4" />
             </SidebarTrigger>
             
-            <div className="flex-1">
-              
-            </div>
+            <div className="flex-1" />
+
+            {/* Notification Bell */}
+            <NotificationBell />
 
             {/* User Menu */}
             <UserMenu />

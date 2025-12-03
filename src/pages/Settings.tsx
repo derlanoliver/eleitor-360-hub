@@ -10,7 +10,8 @@ import {
   Plug,
   ChevronRight,
   BarChart3,
-  FileText
+  FileText,
+  HelpCircle
 } from "lucide-react";
 
 const Settings = () => {
@@ -83,6 +84,13 @@ const Settings = () => {
       description: "Configurações de segurança e proteção de dados",
       icon: Shield,
       href: "/settings/privacy",
+      available: true,
+    },
+    {
+      title: "Suporte",
+      description: "Abra tickets para reportar problemas ou tirar dúvidas",
+      icon: HelpCircle,
+      href: "/settings/support",
       available: true,
     },
   ];
