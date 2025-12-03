@@ -106,7 +106,7 @@ const AdminTickets = () => {
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -150,6 +150,15 @@ const AdminTickets = () => {
                   <span className="text-sm text-muted-foreground">Resolvidos</span>
                 </div>
                 <p className="text-2xl font-bold text-emerald-600">{stats.resolvidos}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-muted-foreground">Fechados</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-600">{stats.fechados}</p>
               </CardContent>
             </Card>
           </div>
