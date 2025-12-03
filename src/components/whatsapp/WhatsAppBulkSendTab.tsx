@@ -246,6 +246,7 @@ export function WhatsAppBulkSendTab() {
           variables.evento_hora = targetEvent.time;
           variables.evento_local = targetEvent.location;
           variables.evento_endereco = targetEvent.address || "";
+          variables.evento_descricao = targetEvent.description || "";
           variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
         }
 
