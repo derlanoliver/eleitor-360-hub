@@ -23,7 +23,7 @@ import Projects from "./pages/Projects";
 import Messaging from "./pages/Messaging";
 import Segments from "./pages/Segments";
 import AIAgent from "./pages/AIAgent";
-import WhatsAppHistory from "./pages/WhatsAppHistory";
+import WhatsAppMarketing from "./pages/WhatsAppMarketing";
 import EmailMarketing from "./pages/EmailMarketing";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
@@ -153,9 +153,7 @@ const App = () => (
             } />
             <Route path="/whatsapp" element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <WhatsAppHistory />
-                </DashboardLayout>
+                <WhatsAppMarketing />
               </ProtectedRoute>
             } />
             <Route path="/email" element={

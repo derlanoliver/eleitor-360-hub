@@ -7,9 +7,23 @@ const corsHeaders = {
 
 interface SendWhatsAppRequest {
   phone: string;
-  message: string;
+  message?: string;
+  templateSlug?: string;
+  variables?: Record<string, string>;
   visitId?: string;
   contactId?: string;
+}
+
+// Replace template variables {{var}} with actual values
+function replaceTemplateVariables(
+  mensagem: string,
+  variables: Record<string, string>
+): string {
+  let result = mensagem;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{{${key}}}`, "g"), value);
+  }
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -54,11 +68,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { phone, message, visitId, contactId }: SendWhatsAppRequest = await req.json();
+    const { phone, message, templateSlug, variables, visitId, contactId }: SendWhatsAppRequest = await req.json();
 
-    if (!phone || !message) {
+    if (!phone) {
       return new Response(
-        JSON.stringify({ success: false, error: "Telefone e mensagem são obrigatórios" }),
+        JSON.stringify({ success: false, error: "Telefone é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let finalMessage = message;
+
+    // If templateSlug is provided, fetch template and process variables
+    if (templateSlug) {
+      console.log(`[send-whatsapp] Buscando template: ${templateSlug}`);
+      
+      const { data: template, error: templateError } = await supabase
+        .from("whatsapp_templates")
+        .select("mensagem, is_active")
+        .eq("slug", templateSlug)
+        .single();
+
+      if (templateError || !template) {
+        console.error("[send-whatsapp] Template não encontrado:", templateError);
+        return new Response(
+          JSON.stringify({ success: false, error: `Template '${templateSlug}' não encontrado` }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!template.is_active) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Template está inativo" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      finalMessage = variables 
+        ? replaceTemplateVariables(template.mensagem, variables)
+        : template.mensagem;
+    }
+
+    if (!finalMessage) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Mensagem é obrigatória (via message ou templateSlug)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -73,7 +126,7 @@ Deno.serve(async (req) => {
       .from("whatsapp_messages")
       .insert({
         phone: cleanPhone,
-        message: message,
+        message: finalMessage,
         direction: "outgoing",
         status: "pending",
         visit_id: visitId || null,
@@ -98,7 +151,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         phone: cleanPhone,
-        message: message,
+        message: finalMessage,
       }),
     });
 
