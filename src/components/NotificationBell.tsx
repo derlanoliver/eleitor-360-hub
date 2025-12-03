@@ -4,26 +4,39 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useUnreadCount, useTicketNotifications, useSystemNotifications, useMarkAsRead, useMarkAllAsRead } from "@/hooks/notifications/useNotifications";
+import { useUnreadCount, useTicketNotifications, useSystemNotifications, useMarkAsRead, useMarkAllAsRead, useAdminTicketNotifications } from "@/hooks/notifications/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
 export function NotificationBell() {
   const navigate = useNavigate();
+  const { data: isSuperAdmin } = useIsSuperAdmin();
   const { data: unreadCount } = useUnreadCount();
   const { data: ticketNotifications } = useTicketNotifications();
+  const { data: adminTicketNotifications } = useAdminTicketNotifications();
   const { data: systemNotifications } = useSystemNotifications();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   
-  const totalUnread = (unreadCount?.tickets || 0) + (unreadCount?.updates || 0);
+  // Para admin: mostra notificações de respostas de usuários
+  // Para usuários: mostra notificações de respostas de admin
+  const displayedTicketNotifications = isSuperAdmin ? adminTicketNotifications : ticketNotifications;
+  const ticketUnreadCount = isSuperAdmin ? unreadCount?.adminTickets : unreadCount?.tickets;
+  
+  const totalUnread = (ticketUnreadCount || 0) + (unreadCount?.updates || 0);
   
   const handleTicketClick = (notification: any) => {
     if (!notification.is_read) {
       markAsRead.mutate({ type: 'ticket', id: notification.id });
     }
-    navigate('/settings/support');
+    // Navegar com ticket_id como query param
+    if (isSuperAdmin) {
+      navigate(`/settings/admin-tickets?ticket=${notification.ticket_id}`);
+    } else {
+      navigate(`/settings/support?ticket=${notification.ticket_id}`);
+    }
   };
   
   const handleNotificationClick = (notification: any) => {
@@ -66,9 +79,9 @@ export function NotificationBell() {
           <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
             <TabsTrigger value="tickets" className="text-xs relative">
               Tickets
-              {unreadCount?.tickets ? (
+              {ticketUnreadCount ? (
                 <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
-                  {unreadCount.tickets}
+                  {ticketUnreadCount}
                 </Badge>
               ) : null}
             </TabsTrigger>
@@ -84,9 +97,9 @@ export function NotificationBell() {
           
           <TabsContent value="tickets" className="m-0">
             <ScrollArea className="h-[300px]">
-              {ticketNotifications && ticketNotifications.length > 0 ? (
+              {displayedTicketNotifications && displayedTicketNotifications.length > 0 ? (
                 <div className="divide-y">
-                  {ticketNotifications.map((notif) => (
+                  {displayedTicketNotifications.map((notif) => (
                     <button
                       key={notif.id}
                       className={`w-full text-left p-3 hover:bg-muted/50 transition-colors ${!notif.is_read ? 'bg-primary/5' : ''}`}

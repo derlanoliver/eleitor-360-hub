@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
 export interface SystemNotification {
   id: string;
@@ -21,11 +22,13 @@ export interface TicketNotification {
 }
 
 export function useUnreadCount() {
+  const { data: isSuperAdmin } = useIsSuperAdmin();
+  
   return useQuery({
-    queryKey: ['notifications-unread-count'],
+    queryKey: ['notifications-unread-count', isSuperAdmin],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { tickets: 0, updates: 0 };
+      if (!user) return { tickets: 0, updates: 0, adminTickets: 0 };
       
       // Get all ticket messages that are admin responses to user's tickets
       const { data: ticketMessages, error: ticketError } = await supabase
@@ -52,6 +55,20 @@ export function useUnreadCount() {
       const readTicketIds = new Set(readTickets?.map(r => r.ticket_message_id) || []);
       const unreadTickets = ticketMessages?.filter(m => !readTicketIds.has(m.id)).length || 0;
       
+      // Count admin unread (user responses to tickets) - only for super admins
+      let adminUnreadTickets = 0;
+      if (isSuperAdmin) {
+        const { data: userMessages, error: userMsgError } = await supabase
+          .from('support_ticket_messages')
+          .select('id')
+          .eq('is_admin_response', false);
+        
+        if (!userMsgError && userMessages) {
+          const unreadAdminMessages = userMessages.filter(m => !readTicketIds.has(m.id));
+          adminUnreadTickets = unreadAdminMessages.length;
+        }
+      }
+      
       // Get all active system notifications
       const { data: notifications, error: notifError } = await supabase
         .from('system_notifications')
@@ -75,6 +92,7 @@ export function useUnreadCount() {
       return {
         tickets: unreadTickets,
         updates: unreadUpdates,
+        adminTickets: adminUnreadTickets,
       };
     },
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -158,6 +176,58 @@ export function useSystemNotifications() {
         is_read: readIds.has(n.id),
       })) || [];
     },
+  });
+}
+
+// Hook para notificações de admin - respostas de usuários aos tickets
+export function useAdminTicketNotifications() {
+  const { data: isSuperAdmin } = useIsSuperAdmin();
+  
+  return useQuery({
+    queryKey: ['admin-ticket-notifications'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      // Buscar mensagens de usuários (não são respostas de admin)
+      const { data: messages, error } = await supabase
+        .from('support_ticket_messages')
+        .select(`
+          id,
+          ticket_id,
+          mensagem,
+          created_at,
+          user_id,
+          support_tickets!inner (
+            protocolo,
+            assunto
+          )
+        `)
+        .eq('is_admin_response', false)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      
+      // Get read status
+      const { data: reads } = await supabase
+        .from('user_notification_reads')
+        .select('ticket_message_id')
+        .eq('user_id', user.id);
+      
+      const readIds = new Set(reads?.map(r => r.ticket_message_id) || []);
+      
+      return messages?.map(m => ({
+        id: m.id,
+        ticket_id: m.ticket_id,
+        mensagem: m.mensagem,
+        created_at: m.created_at,
+        ticket_protocolo: (m.support_tickets as any).protocolo,
+        ticket_assunto: (m.support_tickets as any).assunto,
+        is_read: readIds.has(m.id),
+      })) || [];
+    },
+    enabled: !!isSuperAdmin,
   });
 }
 

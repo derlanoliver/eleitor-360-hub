@@ -159,6 +159,7 @@ export function useAddTicketMessage() {
       queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-ticket-notifications'] });
     },
   });
 }

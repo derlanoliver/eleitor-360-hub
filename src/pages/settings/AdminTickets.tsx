@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,11 @@ import { TicketPriorityBadge } from "@/components/support/TicketPriorityBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Search, Loader2, Ticket, CheckCircle, Clock, MessageCircle, XCircle, AlertTriangle } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
 const AdminTickets = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
@@ -26,6 +27,17 @@ const AdminTickets = () => {
   const { data: tickets, isLoading } = useAllTickets();
   const { data: stats } = useTicketStats();
   const updateStatus = useUpdateTicketStatus();
+
+  // Abrir modal automaticamente se tiver ticket na URL
+  useEffect(() => {
+    const ticketId = searchParams.get('ticket');
+    if (ticketId) {
+      setSelectedTicketId(ticketId);
+      setDetailsDialogOpen(true);
+      // Limpar query param
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   // Redirect if not super admin
   if (!isCheckingAdmin && !isSuperAdmin) {
