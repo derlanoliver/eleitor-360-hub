@@ -1195,6 +1195,39 @@ export type Database = {
         }
         Relationships: []
       }
+      programas: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          impacto: number
+          inicio: string
+          nome: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          impacto?: number
+          inicio: string
+          nome: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          impacto?: number
+          inicio?: string
+          nome?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       regiao_administrativa: {
         Row: {
           cadastros: number

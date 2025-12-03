@@ -2,43 +2,58 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Target, Users, Calendar } from "lucide-react";
-import projectsData from "@/data/projects.seed.json";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Target, Users, Calendar, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { usePrograms } from "@/hooks/programs/usePrograms";
+import { AddProgramDialog } from "@/components/programs/AddProgramDialog";
+import { EditProgramDialog } from "@/components/programs/EditProgramDialog";
+import { DeleteProgramDialog } from "@/components/programs/DeleteProgramDialog";
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const { data: programs = [], isLoading } = usePrograms();
 
-  const filteredProjects = projectsData.filter(project => {
-    const matchesSearch = project.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.descricao.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedStatus === "all" || project.status === selectedStatus;
+  const filteredPrograms = programs.filter(program => {
+    const matchesSearch = program.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (program.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+    const matchesStatus = selectedStatus === "all" || program.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
+  const formatMonth = (dateStr: string) => {
+    const date = new Date(dateStr);
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${months[parseInt(month) - 1]}/${year}`;
+    return `${months[date.getMonth()]}/${date.getFullYear()}`;
   };
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Programas</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">
-            Acompanhe os programas oficiais e seu impacto na comunidade
-          </p>
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Programas</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Acompanhe os programas oficiais e seu impacto na comunidade
+            </p>
+          </div>
+          <AddProgramDialog>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Programa
+            </Button>
+          </AddProgramDialog>
         </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar programas..."
                 value={searchTerm}
@@ -61,53 +76,110 @@ const Projects = () => {
           </Select>
         </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {filteredProjects.map((project) => (
-          <Card key={project.id} className="card-default hover:shadow-hard transition-shadow">
-            <CardHeader>
-              <div className="flex justify-between items-start mb-2">
-                <CardTitle className="text-lg">{project.nome}</CardTitle>
-                <Badge 
-                  variant={project.status === "Ativo" ? "default" : "secondary"}
-                  className={project.status === "Ativo" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
-                >
-                  {project.status}
-                </Badge>
-              </div>
-              <CardDescription>{project.descricao}</CardDescription>
-            </CardHeader>
-            
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-primary-500" />
-                  <span className="font-semibold">{project.impacto.toLocaleString()}</span>
-                  <span className="text-gray-500">pessoas impactadas</span>
-                </div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-1/3" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  <span>Início: {formatMonth(project.inicio)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* Programs Grid */}
+        {!isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredPrograms.map((program) => (
+              <Card key={program.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start mb-2">
+                    <CardTitle className="text-lg pr-2">{program.nome}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={program.status === "Ativo" ? "default" : "secondary"}
+                        className={program.status === "Ativo" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                      >
+                        {program.status}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <EditProgramDialog program={program}>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                          </EditProgramDialog>
+                          <DeleteProgramDialog programId={program.id} programName={program.nome}>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DeleteProgramDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  <CardDescription>{program.descricao}</CardDescription>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-primary" />
+                      <span className="font-semibold">{program.impacto.toLocaleString()}</span>
+                      <span className="text-muted-foreground">pessoas impactadas</span>
+                    </div>
 
-      {/* Empty State */}
-      {filteredProjects.length === 0 && (
-        <div className="text-center py-12">
-          <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Nenhum programa encontrado
-          </h3>
-          <p className="text-gray-600">
-            Tente ajustar os filtros de busca.
-          </p>
-        </div>
-      )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>Início: {formatMonth(program.inicio)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && filteredPrograms.length === 0 && (
+          <div className="text-center py-12">
+            <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Nenhum programa encontrado
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {programs.length === 0 
+                ? "Comece criando seu primeiro programa."
+                : "Tente ajustar os filtros de busca."
+              }
+            </p>
+            {programs.length === 0 && (
+              <AddProgramDialog>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Programa
+                </Button>
+              </AddProgramDialog>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
