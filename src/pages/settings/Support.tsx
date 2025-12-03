@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,23 @@ import { ptBR } from "date-fns/locale";
 import { Plus, Ticket, Loader2 } from "lucide-react";
 
 const Support = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   
   const { data: tickets, isLoading } = useSupportTickets();
+
+  // Abrir modal automaticamente se tiver ticket na URL
+  useEffect(() => {
+    const ticketId = searchParams.get('ticket');
+    if (ticketId) {
+      setSelectedTicketId(ticketId);
+      setDetailsDialogOpen(true);
+      // Limpar query param
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleTicketClick = (ticketId: string) => {
     setSelectedTicketId(ticketId);
