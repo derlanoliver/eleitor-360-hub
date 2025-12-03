@@ -91,6 +91,23 @@ export default function PublicLeaderRegistration() {
       });
 
       if (error) throw error;
+
+      // Send WhatsApp confirmation (lider-cadastro-confirmado)
+      try {
+        await supabase.functions.invoke('send-whatsapp', {
+          body: {
+            phone: normalizedPhone,
+            templateSlug: 'lider-cadastro-confirmado',
+            variables: {
+              nome: data.nome_completo,
+            },
+          },
+        });
+      } catch (whatsappError) {
+        console.error('Error sending WhatsApp confirmation:', whatsappError);
+        // Don't fail the submission if WhatsApp fails
+      }
+
       setIsSuccess(true);
     } catch (error: any) {
       console.error("Erro ao cadastrar líder:", error);
