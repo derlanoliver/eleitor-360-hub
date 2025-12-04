@@ -8,6 +8,7 @@ import {
   UserCheck,
   Loader2,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -55,10 +57,18 @@ export function WhatsAppBulkSendTab() {
   const [selectedFunnel, setSelectedFunnel] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [isSending, setIsSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
   
   // Estados para evento/funil DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
   const [targetFunnelId, setTargetFunnelId] = useState("");
+
+  // Delay aleatório entre 3-6 segundos para parecer mais humano e evitar bloqueio
+  const getRandomDelay = () => {
+    const minDelay = 3000; // 3 segundos
+    const maxDelay = 6000; // 6 segundos
+    return Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+  };
 
   const { data: templates } = useWhatsAppTemplates();
 
@@ -212,8 +222,11 @@ export function WhatsAppBulkSendTab() {
 
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
+      const totalRecipients = recipients.length;
+      setSendProgress({ current: 0, total: totalRecipients });
 
-      for (const recipient of recipients) {
+      for (let i = 0; i < recipients.length; i++) {
+        const recipient = recipients[i];
         let phone: string | null = null;
         let nome: string = "Visitante";
         let contactId: string | null = null;
@@ -277,8 +290,13 @@ export function WhatsAppBulkSendTab() {
           errorCount++;
         }
 
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Atualizar progresso
+        setSendProgress({ current: i + 1, total: totalRecipients });
+
+        // Delay aleatório entre 3-6 segundos (exceto na última mensagem)
+        if (i < recipients.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+        }
       }
 
       if (successCount > 0) {
@@ -292,16 +310,33 @@ export function WhatsAppBulkSendTab() {
       toast.error("Erro ao processar envio em massa");
     } finally {
       setIsSending(false);
+      setSendProgress({ current: 0, total: 0 });
     }
   };
+
+  // Calcular tempo estimado em minutos (média de 4.5 segundos por mensagem)
+  const estimatedMinutes = Math.ceil((recipientsData?.count || 0) * 4.5 / 60);
 
   return (
     <div className="space-y-6">
       <Alert>
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Certifique-se de que a integração Z-API está configurada e ativa antes de
-          realizar envios em massa.
+        <AlertDescription className="space-y-1">
+          <p>
+            Certifique-se de que a integração Z-API está configurada e ativa antes de
+            realizar envios em massa.
+          </p>
+          {(recipientsData?.count || 0) > 0 && (
+            <p className="flex items-center gap-1 text-xs">
+              <Clock className="h-3 w-3" />
+              Intervalo de 3-6 segundos entre mensagens para evitar bloqueios.
+              {estimatedMinutes > 0 && (
+                <span className="font-medium">
+                  {" "}Tempo estimado: ~{estimatedMinutes} min
+                </span>
+              )}
+            </p>
+          )}
         </AlertDescription>
       </Alert>
 
@@ -517,7 +552,30 @@ export function WhatsAppBulkSendTab() {
 
       {/* Summary and Send Button */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
+          {/* Progress bar during sending */}
+          {isSending && sendProgress.total > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enviando mensagens...
+                </span>
+                <span className="font-medium">
+                  {sendProgress.current} de {sendProgress.total}
+                </span>
+              </div>
+              <Progress 
+                value={(sendProgress.current / sendProgress.total) * 100} 
+                className="h-2"
+              />
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Tempo restante estimado: ~{Math.ceil((sendProgress.total - sendProgress.current) * 4.5 / 60)} min
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
               <p className="text-sm text-muted-foreground">
@@ -543,7 +601,7 @@ export function WhatsAppBulkSendTab() {
               {isSending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
+                  {sendProgress.current}/{sendProgress.total}
                 </>
               ) : (
                 <>
