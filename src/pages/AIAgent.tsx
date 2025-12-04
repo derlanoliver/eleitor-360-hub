@@ -5,16 +5,18 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, Paperclip, Copy, Trash2, Sparkles, FileText, Image as ImageIcon, Bot, User } from "lucide-react";
+import { Send, Paperclip, Copy, Trash2, Plus, FileText, Image as ImageIcon, Bot, User, MessageSquare, Menu, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAIConversations, AIMessage } from "@/hooks/useAIConversations";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Message {
   id: string;
@@ -34,21 +36,66 @@ interface AttachedFile {
 const AIAgent = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico dos eleitores",
-      timestamp: new Date(),
-    }
-  ]);
+  const { toast } = useToast();
+  
+  const {
+    conversations,
+    currentConversationId,
+    messages: dbMessages,
+    loading,
+    listConversations,
+    createConversation,
+    loadMessages,
+    saveMessage,
+    updateTitle,
+    deleteConversation,
+    loadOrCreateInitialConversation
+  } = useAIConversations();
+
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+
+  // Converter mensagens do banco para o formato local
+  const convertDbMessages = (dbMsgs: AIMessage[]): Message[] => {
+    return dbMsgs.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.created_at),
+      files: msg.files?.map(f => ({ name: f.name, type: f.type as "document" | "image" }))
+    }));
+  };
+
+  // Inicializar conversa
+  useEffect(() => {
+    if (user && !initialized) {
+      loadOrCreateInitialConversation().then(() => {
+        setInitialized(true);
+      });
+    }
+  }, [user, initialized, loadOrCreateInitialConversation]);
+
+  // Sincronizar mensagens do banco com estado local
+  useEffect(() => {
+    if (dbMessages.length > 0) {
+      setLocalMessages(convertDbMessages(dbMessages));
+    } else if (initialized && currentConversationId) {
+      // Nova conversa - mostrar mensagem de boas-vindas
+      setLocalMessages([{
+        id: "welcome",
+        role: "assistant",
+        content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico dos eleitores",
+        timestamp: new Date(),
+      }]);
+    }
+  }, [dbMessages, initialized, currentConversationId]);
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -58,8 +105,7 @@ const AIAgent = () => {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages, isTyping]);
-
+  }, [localMessages, isTyping]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -84,33 +130,9 @@ const AIAgent = () => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const splitIntoMessages = (content: string): string[] => {
-    return content
-      .split('\n\n')
-      .map(paragraph => paragraph.trim())
-      .filter(paragraph => paragraph.length > 0);
-  };
-
-  const showMessagesSequentially = async (paragraphs: string[], groupId: string) => {
-    const timestamp = new Date();
-    for (let i = 0; i < paragraphs.length; i++) {
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-      }
-      
-      setMessages(prev => [...prev, {
-        id: `${groupId}_${i}`,
-        role: "assistant",
-        content: paragraphs[i],
-        timestamp,
-        conversationGroup: groupId,
-      }]);
-    }
-    setIsTyping(false);
-  };
-
   const handleSend = async () => {
     if (!input.trim() && attachedFiles.length === 0) return;
+    if (!currentConversationId) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -121,16 +143,34 @@ const AIAgent = () => {
     };
 
     const currentInput = input;
-    setMessages((prev) => [...prev, userMessage]);
+    setLocalMessages((prev) => [...prev, userMessage]);
     setInput("");
     setAttachedFiles([]);
     setIsTyping(true);
 
+    // Salvar mensagem do usuário no banco
+    await saveMessage(
+      currentConversationId,
+      'user',
+      currentInput,
+      attachedFiles.length > 0 ? attachedFiles.map(f => ({ name: f.name, type: f.type })) : undefined
+    );
+
+    // Atualizar título da conversa se for a primeira mensagem do usuário
+    const userMessagesCount = localMessages.filter(m => m.role === 'user').length;
+    if (userMessagesCount === 0) {
+      const shortTitle = currentInput.substring(0, 50) + (currentInput.length > 50 ? '...' : '');
+      await updateTitle(currentConversationId, shortTitle);
+      await listConversations();
+    }
+
     try {
-      const apiMessages = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      const apiMessages = localMessages
+        .filter(msg => msg.id !== 'welcome')
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
 
       apiMessages.push({
         role: "user",
@@ -147,7 +187,7 @@ const AIAgent = () => {
           },
           body: JSON.stringify({ 
             messages: apiMessages,
-            sessionId,
+            conversationId: currentConversationId,
             userName: user?.name || ''
           }),
         }
@@ -159,7 +199,6 @@ const AIAgent = () => {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      
       let aiContent = "";
 
       if (reader) {
@@ -193,138 +232,238 @@ const AIAgent = () => {
           }
         }
 
-        // Quebrar em parágrafos e mostrar sequencialmente
-        const paragraphs = splitIntoMessages(aiContent);
-        const groupId = `group_${Date.now()}`;
-        await showMessagesSequentially(paragraphs, groupId);
+        // Adicionar resposta da IA
+        const aiMessage: Message = {
+          id: `ai_${Date.now()}`,
+          role: "assistant",
+          content: aiContent,
+          timestamp: new Date(),
+        };
+        
+        setLocalMessages(prev => [...prev, aiMessage]);
+        setIsTyping(false);
+
+        // Salvar resposta da IA no banco
+        await saveMessage(currentConversationId, 'assistant', aiContent);
       }
 
     } catch (error) {
       console.error('Error calling AI:', error);
       setIsTyping(false);
       
-      const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorContent = "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.";
       
-      toast({
-        title: "Erro ao conectar com IA",
-        description: errorMsg.includes('API') 
-          ? "Verifique se a chave de API está configurada em Configurações > Provedores de IA"
-          : "Erro ao processar sua solicitação. Tente novamente.",
-        variant: "destructive",
-      });
-
-      setMessages((prev) => [...prev, {
+      setLocalMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, verifique se a chave de API da OpenAI está configurada corretamente nas configurações.",
+        content: errorContent,
         timestamp: new Date(),
       }]);
+
+      await saveMessage(currentConversationId, 'assistant', errorContent);
+
+      toast({
+        title: "Erro ao conectar com IA",
+        description: "Erro ao processar sua solicitação. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleClearConversation = () => {
-    // Recarregar página para criar nova sessão e limpar memória completamente
-    window.location.reload();
+  const handleNewConversation = async () => {
+    await createConversation();
+    setLocalMessages([{
+      id: "welcome",
+      role: "assistant",
+      content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝",
+      timestamp: new Date(),
+    }]);
+    setShowSidebar(false);
   };
 
-  const copyMessage = (groupId: string) => {
-    // Encontrar todas as mensagens do mesmo grupo e concatenar
-    const groupMessages = messages
-      .filter(msg => msg.conversationGroup === groupId)
-      .map(msg => msg.content)
-      .join('\n\n');
-    
-    navigator.clipboard.writeText(groupMessages);
+  const handleSelectConversation = async (conversationId: string) => {
+    await loadMessages(conversationId);
+    setShowSidebar(false);
+  };
+
+  const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string) => {
+    e.stopPropagation();
+    const success = await deleteConversation(conversationId);
+    if (success) {
+      toast({ title: "Conversa excluída" });
+      // Se excluiu a conversa atual, criar uma nova
+      if (conversationId === currentConversationId) {
+        await handleNewConversation();
+      }
+    }
+  };
+
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
     toast({
       title: "Copiado!",
       description: "Mensagem copiada para a área de transferência.",
     });
   };
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] sm:h-[calc(100vh-4rem)] bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-2 sm:p-4 flex-shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          {isMobile ? (
-            // Mobile: Título e botão limpar lado a lado
-            <>
-              <h1 className="text-base font-semibold text-gray-900 flex-1">
-                Assistente do Deputado Rafael Prudente
-              </h1>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClearConversation}
-                className="h-8 w-8 flex-shrink-0"
-                title="Limpar conversa"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            // Desktop: Header completo
-            <>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900">Assistente do Deputado Rafael Prudente</h1>
-                  <p className="text-sm text-gray-500">Análise de dados políticos em tempo real</p>
-                </div>
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearConversation}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Limpar conversa
-              </Button>
-            </>
-          )}
-        </div>
+  if (loading && !initialized) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
+    );
+  }
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full" ref={scrollAreaRef}>
-          <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-3">
-            {messages.map((message, index) => {
-              // Verificar se é a primeira mensagem de um grupo
-              const isFirstInGroup = message.conversationGroup 
-                ? (index === 0 || messages[index - 1].conversationGroup !== message.conversationGroup)
-                : true;
-              
-              // Verificar se é a última mensagem de um grupo
-              const isLastInGroup = message.conversationGroup
-                ? (index === messages.length - 1 || messages[index + 1].conversationGroup !== message.conversationGroup)
-                : true;
-              
-              // Reduzir espaçamento entre mensagens do mesmo grupo
-              const marginClass = !isFirstInGroup ? "-mt-2" : "";
-              
-              return (
+  return (
+    <div className="flex h-[calc(100vh-8rem)] sm:h-[calc(100vh-4rem)] bg-background">
+      {/* Sidebar de Conversas - Desktop */}
+      {!isMobile && (
+        <div className="w-64 border-r bg-card flex flex-col">
+          <div className="p-3 border-b">
+            <Button onClick={handleNewConversation} className="w-full" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova conversa
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => handleSelectConversation(conv.id)}
+                  className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                    conv.id === currentConversationId 
+                      ? 'bg-primary/10 text-primary' 
+                      : 'hover:bg-muted'
+                  }`}
+                >
+                  <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{conv.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => handleDeleteConversation(e, conv.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Sidebar Mobile */}
+      {isMobile && showSidebar && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <div className="flex flex-col h-full">
+            <div className="p-3 border-b flex items-center justify-between">
+              <h2 className="font-semibold">Conversas</h2>
+              <Button variant="ghost" size="icon" onClick={() => setShowSidebar(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-3">
+              <Button onClick={handleNewConversation} className="w-full" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova conversa
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {conversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={() => handleSelectConversation(conv.id)}
+                    className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer ${
+                      conv.id === currentConversationId 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{conv.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => handleDeleteConversation(e, conv.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-card border-b p-2 sm:p-4 flex-shrink-0">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            {isMobile ? (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => setShowSidebar(true)}>
+                  <Menu className="h-5 w-5" />
+                </Button>
+                <h1 className="text-sm font-semibold flex-1 text-center truncate px-2">
+                  Assistente IA
+                </h1>
+                <Button variant="ghost" size="icon" onClick={handleNewConversation}>
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                    <Bot className="h-6 w-6 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-semibold">Assistente do Deputado Rafael Prudente</h1>
+                    <p className="text-sm text-muted-foreground">Análise de dados políticos em tempo real</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-hidden bg-muted/30">
+          <ScrollArea className="h-full" ref={scrollAreaRef}>
+            <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-3">
+              {localMessages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-3 animate-message-slide-in ${message.role === "user" ? "justify-end" : "justify-start"} ${marginClass}`}
+                  className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
                 >
-                  {message.role === "assistant" && isLastInGroup && (
-                    <Avatar className="h-8 w-8 flex-shrink-0 self-start transition-all duration-300">
-                      <AvatarFallback className="bg-primary-100 text-primary-700">
+                  {message.role === "assistant" && (
+                    <Avatar className="h-8 w-8 flex-shrink-0 self-start">
+                      <AvatarFallback className="bg-primary/10 text-primary">
                         <Bot className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
                   )}
                   
-                  {message.role === "assistant" && !isLastInGroup && (
-                    <div className="h-8 w-8 flex-shrink-0" />
-                  )}
-                  
-                  <div className={`flex flex-col gap-2 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
-                    <Card className={`p-3 ${message.role === "user" ? "bg-primary-500 text-white" : "bg-white"}`}>
+                  <div className={`flex flex-col gap-1 max-w-xl ${message.role === "user" ? "items-end" : "items-start"}`}>
+                    <Card className={`p-3 ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
                       {message.role === "assistant" ? (
                         <div className="space-y-0">
                           <ReactMarkdown
@@ -343,7 +482,7 @@ const AIAgent = () => {
                                     {String(children).replace(/\n$/, '')}
                                   </SyntaxHighlighter>
                                 ) : (
-                                  <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">
+                                  <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">
                                     {children}
                                   </code>
                                 );
@@ -369,12 +508,12 @@ const AIAgent = () => {
                                 </li>
                               ),
                               strong: ({ children }: any) => (
-                                <strong className="font-semibold text-gray-900">
+                                <strong className="font-semibold">
                                   {children}
                                 </strong>
                               ),
                               em: ({ children }: any) => (
-                                <em className="italic text-gray-700">
+                                <em className="italic text-muted-foreground">
                                   {children}
                                 </em>
                               ),
@@ -394,7 +533,7 @@ const AIAgent = () => {
                                 </h3>
                               ),
                               blockquote: ({ children }: any) => (
-                                <blockquote className="border-l-3 border-primary-400 pl-3 italic my-2 text-sm text-gray-600">
+                                <blockquote className="border-l-3 border-primary pl-3 italic my-2 text-sm text-muted-foreground">
                                   {children}
                                 </blockquote>
                               ),
@@ -415,7 +554,7 @@ const AIAgent = () => {
                             <Badge
                               key={idx}
                               variant="secondary"
-                              className={message.role === "user" ? "bg-white/20 text-white" : ""}
+                              className={message.role === "user" ? "bg-primary-foreground/20 text-primary-foreground" : ""}
                             >
                               {file.type === "image" ? (
                                 <ImageIcon className="h-3 w-3 mr-1" />
@@ -429,123 +568,110 @@ const AIAgent = () => {
                       )}
                     </Card>
                     
-                    {isLastInGroup && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {message.role === "assistant" && message.conversationGroup && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2"
-                            onClick={() => copyMessage(message.conversationGroup!)}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {message.role === "assistant" && message.id !== 'welcome' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => copyMessage(message.content)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  
+
                   {message.role === "user" && (
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarFallback className="bg-gray-200 text-gray-700">
+                    <Avatar className="h-8 w-8 flex-shrink-0 self-start">
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
                         <User className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
                   )}
                 </div>
-              );
-            })}
+              ))}
 
-            {isTyping && (
-              <div className="flex gap-3 justify-start">
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarFallback className="bg-primary-100 text-primary-700">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <Card className="p-3 bg-white">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </Card>
+              {isTyping && (
+                <div className="flex gap-3 justify-start">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <Card className="p-3 bg-card">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Input Area */}
+        <div className="bg-card border-t p-3 sm:p-4 flex-shrink-0">
+          <div className="max-w-4xl mx-auto">
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {attachedFiles.map((file, index) => (
+                  <Badge key={index} variant="secondary" className="pr-1">
+                    {file.type === "image" ? (
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                    ) : (
+                      <FileText className="h-3 w-3 mr-1" />
+                    )}
+                    {file.name}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                ))}
               </div>
             )}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
-        <div className="max-w-4xl mx-auto">
-          {/* Attached Files */}
-          {attachedFiles.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {attachedFiles.map((file, idx) => (
-                <Badge key={idx} variant="secondary" className="pr-1">
-                  {file.type === "image" ? (
-                    <ImageIcon className="h-3 w-3 mr-1" />
-                  ) : (
-                    <FileText className="h-3 w-3 mr-1" />
-                  )}
-                  {file.name}
-                  <button
-                    onClick={() => removeFile(idx)}
-                    className="ml-1 hover:bg-gray-300 rounded p-0.5"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {/* Input Row */}
-          <div className="flex items-end gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.txt,.md,.doc,.docx,.png,.jpg,.jpeg,.webp"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
             
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              className="h-12 w-12"
-            >
-              <Paperclip className="h-5 w-5" />
-            </Button>
-
-            <div className="flex-1">
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.txt"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-shrink-0"
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
               <Input
-                placeholder="Digite sua mensagem..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                className="resize-none h-12 py-3"
+                placeholder="Digite sua mensagem..."
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                className="flex-1"
               />
+              <Button onClick={handleSend} disabled={isTyping} className="flex-shrink-0">
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
-
-            <Button onClick={handleSend} size="icon" className="h-12 w-12">
-              <Send className="h-5 w-5" />
-            </Button>
           </div>
-
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            <Sparkles className="h-3 w-3 inline mr-1" />
-            Análises em tempo real com GPT-5 Mini • Dados atualizados automaticamente
-          </p>
         </div>
       </div>
-
     </div>
   );
 };
