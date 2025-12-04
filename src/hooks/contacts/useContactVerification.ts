@@ -153,8 +153,8 @@ export function addPendingMessage(
   existingPending: unknown,
   template: string,
   variables: Record<string, string>
-): PendingMessage[] {
-  const existing = Array.isArray(existingPending) ? existingPending as PendingMessage[] : [];
+): Record<string, unknown>[] {
+  const existing = Array.isArray(existingPending) ? existingPending : [];
   return [
     ...existing,
     {

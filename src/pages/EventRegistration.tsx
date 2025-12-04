@@ -198,7 +198,7 @@ export default function EventRegistration() {
 
           await supabase
             .from("office_contacts")
-            .update({ pending_messages: pendingMessages as unknown as Record<string, unknown>[] })
+            .update({ pending_messages: JSON.parse(JSON.stringify(pendingMessages)) })
             .eq("id", contactForVerification.id);
 
           // Gerar código se não tiver

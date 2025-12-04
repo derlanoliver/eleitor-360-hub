@@ -40,8 +40,12 @@ import {
   Megaphone,
   FileText,
   Download,
-  Building2
+  Building2,
+  ShieldCheck,
+  ShieldAlert,
+  RefreshCw
 } from "lucide-react";
+import { resendVerificationCode } from "@/hooks/contacts/useContactVerification";
 
 // Cores e labels para badges de origem (cores suaves conforme preferência do usuário)
 const sourceConfig: Record<string, { label: string; className: string; icon: typeof Calendar }> = {
@@ -221,6 +225,9 @@ const Contacts = () => {
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  
+  // Estado para filtro de verificação
+  const [verificationFilter, setVerificationFilter] = useState("all");
   
   const identifyGenders = useIdentifyGenders();
 
@@ -410,7 +417,14 @@ const Contacts = () => {
           telefone_norm: contact.telefone_norm,
           source_type: contact.source_type,
           source_id: contact.source_id,
-          genero: contact.genero
+          genero: contact.genero,
+          // Verification fields
+          is_verified: contact.is_verified,
+          verification_code: contact.verification_code,
+          verification_sent_at: contact.verification_sent_at,
+          verified_at: contact.verified_at,
+          // Check if verification is required (only for leader-referred contacts)
+          requiresVerification: contact.source_type === 'lider' && contact.source_id
         };
       });
     }
@@ -515,11 +529,23 @@ const Contacts = () => {
     return matchesSearch && matchesRegion && matchesConsent && matchesSource;
   });
 
-  // Paginação
-  const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
+  // Contagem de verificações pendentes
+  const pendingVerificationCount = contacts.filter(c => c.requiresVerification && !c.is_verified).length;
+
+  // Aplicar filtro de verificação
+  const verificationFilteredContacts = filteredContacts.filter(contact => {
+    if (verificationFilter === "all") return true;
+    if (verificationFilter === "verified") return contact.is_verified === true;
+    if (verificationFilter === "pending") return contact.requiresVerification && !contact.is_verified;
+    if (verificationFilter === "not_required") return !contact.requiresVerification;
+    return true;
+  });
+
+  // Paginação (usar verificationFilteredContacts)
+  const totalPages = Math.ceil(verificationFilteredContacts.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedContacts = filteredContacts.slice(startIndex, endIndex);
+  const paginatedContacts = verificationFilteredContacts.slice(startIndex, endIndex);
 
   // Buscar todas as regiões administrativas
   const { data: allRegions = [] } = useRegions();
@@ -785,6 +811,46 @@ const Contacts = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Filtro de Verificação */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Verificação
+                    {pendingVerificationCount > 0 && (
+                      <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 text-xs">
+                        {pendingVerificationCount} pendentes
+                      </Badge>
+                    )}
+                  </label>
+                  <Select value={verificationFilter} onValueChange={(value) => {
+                    setVerificationFilter(value);
+                    handleFilterChange();
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="verified">
+                        <span className="flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-green-600" />
+                          Verificados
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        <span className="flex items-center gap-2">
+                          <ShieldAlert className="h-4 w-4 text-amber-600" />
+                          Pendentes
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="not_required">
+                        <span className="flex items-center gap-2">
+                          Não requer verificação
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -795,11 +861,11 @@ const Contacts = () => {
             <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
               <div>
                 Mostrando <span className="font-medium text-foreground">{startIndex + 1}</span> a{" "}
-                <span className="font-medium text-foreground">{Math.min(endIndex, filteredContacts.length)}</span> de{" "}
+                <span className="font-medium text-foreground">{Math.min(endIndex, verificationFilteredContacts.length)}</span> de{" "}
                 <span className="font-medium text-foreground">
-                  {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all"
+                  {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all" && verificationFilter === "all"
                     ? totalCount
-                    : filteredContacts.length}
+                    : verificationFilteredContacts.length}
                 </span> contatos
               </div>
               <div className="text-xs">
@@ -850,6 +916,29 @@ const Contacts = () => {
                                   className="text-xs py-0 px-1.5 bg-background"
                                 >
                                   {contact.sourceName}
+                                </Badge>
+                              )}
+                              {/* Badge de Verificação */}
+                              {contact.requiresVerification && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs py-0 px-1.5 ${
+                                    contact.is_verified 
+                                      ? 'bg-green-50 text-green-700 border-green-200' 
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}
+                                >
+                                  {contact.is_verified ? (
+                                    <>
+                                      <ShieldCheck className="h-3 w-3 mr-1" />
+                                      Verificado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShieldAlert className="h-3 w-3 mr-1" />
+                                      Pendente
+                                    </>
+                                  )}
                                 </Badge>
                               )}
                             </div>
@@ -1210,6 +1299,66 @@ const ContactDetails = ({ contact }: { contact: any }) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Status de Verificação */}
+      {contact.requiresVerification && (
+        <Card className={contact.is_verified ? "border-green-200 bg-green-50/30" : "border-amber-200 bg-amber-50/30"}>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-lg">
+              {contact.is_verified ? (
+                <>
+                  <ShieldCheck className="h-5 w-5 text-green-600 mr-2" />
+                  Contato Verificado
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="h-5 w-5 text-amber-600 mr-2" />
+                  Verificação Pendente
+                </>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contact.is_verified ? (
+              <div className="text-sm text-green-700">
+                <p>Este contato confirmou seu cadastro via WhatsApp.</p>
+                {contact.verified_at && (
+                  <p className="mt-1 text-xs text-green-600">
+                    Verificado em: {new Date(contact.verified_at).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-amber-700">
+                  Este contato foi indicado por um líder e precisa confirmar seu cadastro via WhatsApp.
+                </p>
+                <div className="flex items-center justify-between text-xs text-amber-600">
+                  <div>
+                    {contact.verification_sent_at && (
+                      <span>Código enviado em: {new Date(contact.verification_sent_at).toLocaleString('pt-BR')}</span>
+                    )}
+                  </div>
+                  <div className="font-mono bg-amber-100 px-2 py-1 rounded">
+                    Código: {contact.verification_code || 'N/A'}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await resendVerificationCode(contact.id);
+                  }}
+                  className="text-amber-700 border-amber-300 hover:bg-amber-100"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reenviar Código de Verificação
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Histórico de Conversas */}
       <Card>
