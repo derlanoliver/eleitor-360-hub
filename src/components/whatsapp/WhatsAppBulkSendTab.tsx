@@ -116,7 +116,7 @@ export function WhatsAppBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lead_funnels")
-        .select("id, nome, slug, lead_magnet_nome, descricao")
+        .select("id, nome, slug, lead_magnet_nome, descricao, subtitulo")
         .eq("id", targetFunnelId)
         .single();
       if (error) throw error;
@@ -253,7 +253,7 @@ export function WhatsAppBulkSendTab() {
         // Se for template de captação, adicionar variáveis do funil destino
         if (isFunnelInviteTemplate && targetFunnel) {
           variables.material_nome = targetFunnel.lead_magnet_nome;
-          variables.material_descricao = targetFunnel.descricao || "";
+          variables.material_descricao = targetFunnel.subtitulo || "";
           variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
         }
 
