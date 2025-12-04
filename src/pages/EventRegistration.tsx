@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, MapPin, Users, CheckCircle2, QrCode, AlertTriangle, UserCheck } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle2, AlertTriangle, UserCheck, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
@@ -18,6 +18,7 @@ import { getBaseUrl } from "@/lib/urlHelper";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { sendVerificationMessage, addPendingMessage } from "@/hooks/contacts/useContactVerification";
 
 const eventCategories = {
   educacao: { label: "Educação", color: "bg-blue-500" },
@@ -48,6 +49,7 @@ export default function EventRegistration() {
   });
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   // Registrar page view quando a página carrega
   useEffect(() => {
@@ -93,6 +95,33 @@ export default function EventRegistration() {
     if (!event) return;
 
     try {
+      const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
+      const hasLeaderRef = !!leader;
+
+      // Se tem referência de líder, verificar se contato existe e está verificado
+      let existingContact = null;
+      let needsVerificationCheck = false;
+
+      if (hasLeaderRef) {
+        const { data: contactData } = await supabase
+          .from("office_contacts")
+          .select("id, nome, is_verified, verification_code, source_type, source_id, pending_messages")
+          .eq("telefone_norm", normalizedPhone)
+          .maybeSingle();
+
+        existingContact = contactData;
+
+        // Se contato existe e não está verificado (e veio de líder), precisa verificar
+        if (existingContact && !existingContact.is_verified && existingContact.source_type === 'lider') {
+          needsVerificationCheck = true;
+        }
+        // Se é novo contato via líder, também precisa verificar
+        if (!existingContact) {
+          needsVerificationCheck = true;
+        }
+      }
+
+      // Criar registro do evento
       const registration = await createRegistration.mutateAsync({
         event_id: event.id,
         nome: formData.nome,
@@ -108,7 +137,7 @@ export default function EventRegistration() {
 
       // Record page view for contact if contact_id exists
       if (registration.contact_id) {
-        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
+        await supabase.from('contact_page_views').insert({
           contact_id: registration.contact_id,
           page_type: 'evento',
           page_identifier: event.slug,
@@ -118,10 +147,6 @@ export default function EventRegistration() {
           utm_campaign: searchParams.get("utm_campaign"),
           utm_content: searchParams.get("utm_content"),
         });
-        
-        if (pageViewError) {
-          console.error('Error recording contact page view:', pageViewError);
-        }
       }
 
       // Generate QR Code with full URL for check-in
@@ -131,7 +156,6 @@ export default function EventRegistration() {
         margin: 2,
       });
       setQrCodeUrl(qrData);
-      setRegistrationSuccess(true);
 
       // Track Lead event
       trackLead({ 
@@ -147,29 +171,86 @@ export default function EventRegistration() {
         event_category: event.category
       });
 
-      // Send WhatsApp confirmation (evento-inscricao-confirmada)
-      try {
-        const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
-        const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
-        
-        await supabase.functions.invoke('send-whatsapp', {
-          body: {
-            phone: normalizedPhone,
-            templateSlug: 'evento-inscricao-confirmada',
-            variables: {
+      const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
+
+      // Se tem referência de líder e precisa verificar
+      if (hasLeaderRef && needsVerificationCheck) {
+        // Buscar contato atualizado (pode ter sido criado pelo createRegistration)
+        const { data: contactForVerification } = await supabase
+          .from("office_contacts")
+          .select("id, is_verified, verification_code, pending_messages")
+          .eq("telefone_norm", normalizedPhone)
+          .single();
+
+        if (contactForVerification && !contactForVerification.is_verified) {
+          // Armazenar mensagem de confirmação como pendente
+          const pendingMessages = addPendingMessage(
+            contactForVerification.pending_messages || [],
+            'evento-inscricao-confirmada',
+            {
               nome: formData.nome,
               evento_nome: event.name,
               evento_data: eventDate,
               evento_hora: event.time,
               evento_local: event.location,
+            }
+          );
+
+          await supabase
+            .from("office_contacts")
+            .update({ pending_messages: pendingMessages as unknown as Record<string, unknown>[] })
+            .eq("id", contactForVerification.id);
+
+          // Gerar código se não tiver
+          let verificationCode = contactForVerification.verification_code;
+          if (!verificationCode) {
+            const { data: newCode } = await supabase.rpc("generate_verification_code");
+            verificationCode = newCode;
+            
+            await supabase
+              .from("office_contacts")
+              .update({ 
+                verification_code: verificationCode,
+                source_type: 'lider',
+                source_id: leader!.id,
+              })
+              .eq("id", contactForVerification.id);
+          }
+
+          // Enviar mensagem de verificação
+          await sendVerificationMessage({
+            contactId: contactForVerification.id,
+            contactName: formData.nome,
+            contactPhone: normalizedPhone,
+            leaderName: leader!.nome_completo,
+            verificationCode,
+          });
+
+          setNeedsVerification(true);
+        }
+      } else {
+        // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
+        try {
+          await supabase.functions.invoke('send-whatsapp', {
+            body: {
+              phone: normalizedPhone,
+              templateSlug: 'evento-inscricao-confirmada',
+              variables: {
+                nome: formData.nome,
+                evento_nome: event.name,
+                evento_data: eventDate,
+                evento_hora: event.time,
+                evento_local: event.location,
+              },
+              contactId: registration.contact_id,
             },
-            contactId: registration.contact_id,
-          },
-        });
-      } catch (whatsappError) {
-        console.error('Error sending WhatsApp confirmation:', whatsappError);
-        // Don't fail the registration if WhatsApp fails
+          });
+        } catch (whatsappError) {
+          console.error('Error sending WhatsApp confirmation:', whatsappError);
+        }
       }
+
+      setRegistrationSuccess(true);
     } catch (error) {
       console.error("Error creating registration:", error);
     }
@@ -236,13 +317,37 @@ export default function EventRegistration() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <CardTitle>Inscrição Confirmada!</CardTitle>
-            <CardDescription>
-              Sua inscrição no evento <strong>{event.name}</strong> foi realizada com sucesso!
-            </CardDescription>
+            {needsVerification ? (
+              <>
+                <ShieldCheck className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+                <CardTitle>Quase Lá!</CardTitle>
+                <CardDescription>
+                  Sua inscrição no evento <strong>{event.name}</strong> foi registrada!
+                </CardDescription>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <CardTitle>Inscrição Confirmada!</CardTitle>
+                <CardDescription>
+                  Sua inscrição no evento <strong>{event.name}</strong> foi realizada com sucesso!
+                </CardDescription>
+              </>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
+            {needsVerification && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800 dark:text-amber-200">
+                    <p className="font-semibold">Verificação Necessária!</p>
+                    <p>Enviamos um código de verificação para seu WhatsApp. Responda com o código para confirmar seu cadastro e receber as informações do evento.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-4">
                 Use este QR Code para fazer check-in no evento:
@@ -253,10 +358,10 @@ export default function EventRegistration() {
             </div>
             
             {/* Aviso importante sobre o QR Code */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-orange-800">
+                <div className="text-sm text-orange-800 dark:text-orange-200">
                   <p className="font-semibold">Importante!</p>
                   <p>Salve este QR Code! Tire um print ou uma foto para apresentar no dia do evento e garantir seu check-in.</p>
                 </div>
