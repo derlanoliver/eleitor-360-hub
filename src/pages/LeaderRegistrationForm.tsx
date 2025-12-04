@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { User, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { User, MapPin, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
+import { sendVerificationMessage } from "@/hooks/contacts/useContactVerification";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 const formSchema = z.object({
@@ -34,6 +35,7 @@ export default function LeaderRegistrationForm() {
   const { leaderToken } = useParams<{ leaderToken: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   // Buscar líder pelo affiliate_token
   const { data: leader, isLoading: leaderLoading, error: leaderError } = useQuery({
@@ -105,44 +107,115 @@ export default function LeaderRegistrationForm() {
       // Normalizar telefone
       const telefone_norm = normalizePhoneToE164(data.whatsapp);
 
-      // Inserir contato e retornar ID para tracking
-      const { data: contact, error } = await supabase
+      // Verificar se já existe contato com este telefone
+      const { data: existingContact } = await supabase
         .from("office_contacts")
-        .insert({
+        .select("id, nome, is_verified, verification_code, source_type, source_id")
+        .eq("telefone_norm", telefone_norm)
+        .maybeSingle();
+
+      let contactId: string;
+      let verificationCode: string;
+
+      if (existingContact) {
+        // Contato já existe - atualizar dados se necessário
+        const updateData: Record<string, unknown> = {
           nome: data.nome.trim(),
           email: data.email.trim(),
-          telefone_norm,
           data_nascimento: data.data_nascimento,
           cidade_id: data.cidade_id,
           endereco: data.endereco.trim(),
-          source_type: "lider",
-          source_id: leader.id
-        })
-        .select('id')
-        .single();
+        };
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Este telefone ou e-mail já está cadastrado.");
-        } else {
-          throw error;
+        // Se não tinha source_type='lider', atualizar
+        if (existingContact.source_type !== 'lider') {
+          updateData.source_type = 'lider';
+          updateData.source_id = leader.id;
         }
-        return;
+
+        const { error: updateError } = await supabase
+          .from("office_contacts")
+          .update(updateData)
+          .eq("id", existingContact.id);
+
+        if (updateError) throw updateError;
+
+        contactId = existingContact.id;
+
+        // Se já está verificado, não precisa de verificação
+        if (existingContact.is_verified) {
+          // Já verificado - sucesso normal
+          setIsSuccess(true);
+          toast.success("Cadastro atualizado com sucesso!");
+          
+          // Tracking
+          trackLead({ content_name: "leader_registration" });
+          pushToDataLayer("lead_registration", { 
+            source: "leader_referral",
+            leader_id: leader.id 
+          });
+          return;
+        }
+
+        // Não está verificado - gerar código se não tiver
+        if (!existingContact.verification_code) {
+          const { data: newCode } = await supabase.rpc("generate_verification_code");
+          verificationCode = newCode;
+          
+          await supabase
+            .from("office_contacts")
+            .update({ verification_code: verificationCode })
+            .eq("id", contactId);
+        } else {
+          verificationCode = existingContact.verification_code;
+        }
+      } else {
+        // Novo contato - inserir com código de verificação (trigger gera automaticamente)
+        const { data: contact, error } = await supabase
+          .from("office_contacts")
+          .insert({
+            nome: data.nome.trim(),
+            email: data.email.trim(),
+            telefone_norm,
+            data_nascimento: data.data_nascimento,
+            cidade_id: data.cidade_id,
+            endereco: data.endereco.trim(),
+            source_type: "lider",
+            source_id: leader.id,
+            is_verified: false,
+          })
+          .select('id, verification_code')
+          .single();
+
+        if (error) {
+          if (error.code === "23505") {
+            toast.error("Este telefone ou e-mail já está cadastrado.");
+          } else {
+            throw error;
+          }
+          return;
+        }
+
+        contactId = contact.id;
+        verificationCode = contact.verification_code;
       }
 
       // Record page view for this contact
-      if (contact?.id) {
-        const { error: pageViewError } = await supabase.from('contact_page_views').insert({
-          contact_id: contact.id,
-          page_type: 'link_lider',
-          page_identifier: leaderToken || '',
-          page_name: `Cadastro via ${leader.nome_completo}`,
-        });
-        
-        if (pageViewError) {
-          console.error('Error recording page view:', pageViewError);
-        }
-      }
+      await supabase.from('contact_page_views').insert({
+        contact_id: contactId,
+        page_type: 'link_lider',
+        page_identifier: leaderToken || '',
+        page_name: `Cadastro via ${leader.nome_completo}`,
+      });
+
+      // Enviar mensagem de verificação
+      await sendVerificationMessage({
+        contactId,
+        contactName: data.nome.trim(),
+        contactPhone: telefone_norm,
+        leaderName: leader.nome_completo,
+        verificationCode,
+      });
 
       // Tracking
       trackLead({ content_name: "leader_registration" });
@@ -151,8 +224,9 @@ export default function LeaderRegistrationForm() {
         leader_id: leader.id 
       });
 
+      setNeedsVerification(true);
       setIsSuccess(true);
-      toast.success("Cadastro realizado com sucesso!");
+      toast.success("Cadastro realizado! Verifique seu WhatsApp para confirmar.");
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
       toast.error("Erro ao realizar cadastro. Tente novamente.");
@@ -193,14 +267,33 @@ export default function LeaderRegistrationForm() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Cadastro Realizado!</h2>
-            <p className="text-muted-foreground mb-4">
-              Obrigado por se cadastrar! Em breve entraremos em contato.
-            </p>
-            <p className="text-sm text-muted-foreground">
+            {needsVerification ? (
+              <>
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShieldCheck className="h-8 w-8 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Quase Lá!</h2>
+                <p className="text-muted-foreground mb-4">
+                  Enviamos um código de verificação para seu WhatsApp. 
+                  <strong> Responda a mensagem com o código</strong> para confirmar seu cadastro.
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                  <p className="font-semibold mb-1">⚠️ Importante</p>
+                  <p>Seu cadastro só será confirmado após a verificação. Verifique seu WhatsApp!</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Cadastro Atualizado!</h2>
+                <p className="text-muted-foreground mb-4">
+                  Seus dados foram atualizados com sucesso!
+                </p>
+              </>
+            )}
+            <p className="text-sm text-muted-foreground mt-4">
               Indicado por: <strong>{leader.nome_completo}</strong>
             </p>
           </CardContent>

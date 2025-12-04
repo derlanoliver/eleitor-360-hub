@@ -197,10 +197,53 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   const normalizedPhone = normalizePhone(phone);
   const { data: contact } = await supabase
     .from("office_contacts")
-    .select("id")
+    .select("id, nome, is_verified, verification_code, source_id, source_type, pending_messages")
     .eq("telefone_norm", normalizedPhone)
     .limit(1)
     .single();
+
+  // Check if message is a verification code (5 alphanumeric chars)
+  const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5}$/);
+  
+  if (codeMatch) {
+    const code = codeMatch[0];
+    console.log(`[zapi-webhook] Detected potential verification code: ${code}`);
+    
+    // Search for contact with this verification code
+    const { data: contactToVerify, error: verifyError } = await supabase
+      .from("office_contacts")
+      .select("id, nome, source_id, source_type, is_verified, pending_messages, telefone_norm")
+      .eq("verification_code", code)
+      .eq("is_verified", false)
+      .single();
+    
+    if (contactToVerify && !verifyError) {
+      console.log(`[zapi-webhook] Found contact to verify: ${contactToVerify.id}`);
+      
+      // Mark as verified
+      const { error: updateError } = await supabase
+        .from("office_contacts")
+        .update({ 
+          is_verified: true, 
+          verified_at: new Date().toISOString() 
+        })
+        .eq("id", contactToVerify.id);
+      
+      if (updateError) {
+        console.error("[zapi-webhook] Error updating verification status:", updateError);
+      } else {
+        console.log(`[zapi-webhook] Contact ${contactToVerify.id} verified successfully`);
+        
+        // Send pending messages
+        await sendPendingMessages(supabase, contactToVerify);
+        
+        // Send verification confirmation
+        await sendVerificationConfirmation(supabase, contactToVerify.telefone_norm, contactToVerify.nome);
+      }
+    } else {
+      console.log(`[zapi-webhook] No pending verification found for code: ${code}`);
+    }
+  }
 
   // Insert received message
   const { error } = await supabase
@@ -219,6 +262,164 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     console.error("[zapi-webhook] Error saving received message:", error);
   } else {
     console.log("[zapi-webhook] Received message saved successfully");
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendPendingMessages(supabase: any, contact: any) {
+  const pendingMessages = contact.pending_messages || [];
+  
+  if (pendingMessages.length === 0) {
+    console.log("[zapi-webhook] No pending messages to send");
+    return;
+  }
+  
+  console.log(`[zapi-webhook] Sending ${pendingMessages.length} pending messages`);
+  
+  // Get integration settings for Z-API
+  const { data: settings } = await supabase
+    .from("integrations_settings")
+    .select("zapi_instance_id, zapi_token, zapi_enabled")
+    .limit(1)
+    .single();
+  
+  if (!settings?.zapi_enabled || !settings?.zapi_instance_id || !settings?.zapi_token) {
+    console.log("[zapi-webhook] Z-API not configured, skipping pending messages");
+    return;
+  }
+  
+  for (const pending of pendingMessages) {
+    try {
+      // Get template
+      const { data: template } = await supabase
+        .from("whatsapp_templates")
+        .select("mensagem")
+        .eq("slug", pending.template)
+        .single();
+      
+      if (!template) {
+        console.log(`[zapi-webhook] Template ${pending.template} not found`);
+        continue;
+      }
+      
+      // Replace variables
+      let message = template.mensagem;
+      for (const [key, value] of Object.entries(pending.variables || {})) {
+        message = message.replace(new RegExp(`{{${key}}}`, "g"), value as string);
+      }
+      
+      // Send via Z-API
+      const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+      const response = await fetch(zapiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: contact.telefone_norm.replace("+", ""),
+          message: message,
+        }),
+      });
+      
+      const result = await response.json();
+      console.log(`[zapi-webhook] Sent pending message ${pending.template}:`, result);
+      
+      // Record in whatsapp_messages
+      await supabase.from("whatsapp_messages").insert({
+        message_id: result.messageId || result.zapiMessageId,
+        phone: contact.telefone_norm,
+        message: message,
+        direction: "outgoing",
+        status: "sent",
+        contact_id: contact.id,
+        sent_at: new Date().toISOString(),
+      });
+      
+      // Small delay between messages
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+    } catch (err) {
+      console.error(`[zapi-webhook] Error sending pending message:`, err);
+    }
+  }
+  
+  // Clear pending messages
+  await supabase
+    .from("office_contacts")
+    .update({ pending_messages: [] })
+    .eq("id", contact.id);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendVerificationConfirmation(supabase: any, phone: string, nome: string) {
+  // Get integration settings
+  const { data: settings } = await supabase
+    .from("integrations_settings")
+    .select("zapi_instance_id, zapi_token, zapi_enabled")
+    .limit(1)
+    .single();
+  
+  if (!settings?.zapi_enabled) {
+    console.log("[zapi-webhook] Z-API not enabled, skipping confirmation");
+    return;
+  }
+  
+  // Get organization name
+  const { data: org } = await supabase
+    .from("organization")
+    .select("nome")
+    .limit(1)
+    .single();
+  
+  // Get confirmation template
+  const { data: template } = await supabase
+    .from("whatsapp_templates")
+    .select("mensagem")
+    .eq("slug", "verificacao-confirmada")
+    .single();
+  
+  if (!template) {
+    console.log("[zapi-webhook] Confirmation template not found");
+    return;
+  }
+  
+  // Replace variables
+  let message = template.mensagem;
+  message = message.replace(/{{nome}}/g, nome);
+  message = message.replace(/{{deputado_nome}}/g, org?.nome || "Deputado");
+  
+  // Send via Z-API
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const response = await fetch(zapiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone.replace("+", ""),
+        message: message,
+      }),
+    });
+    
+    const result = await response.json();
+    console.log("[zapi-webhook] Sent verification confirmation:", result);
+    
+    // Record in whatsapp_messages
+    const { data: contact } = await supabase
+      .from("office_contacts")
+      .select("id")
+      .eq("telefone_norm", phone)
+      .single();
+    
+    await supabase.from("whatsapp_messages").insert({
+      message_id: result.messageId || result.zapiMessageId,
+      phone: phone,
+      message: message,
+      direction: "outgoing",
+      status: "sent",
+      contact_id: contact?.id,
+      sent_at: new Date().toISOString(),
+    });
+    
+  } catch (err) {
+    console.error("[zapi-webhook] Error sending confirmation:", err);
   }
 }
 

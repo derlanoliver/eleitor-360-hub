@@ -711,8 +711,10 @@ export type Database = {
           genero: string | null
           id: string
           instagram: string | null
+          is_verified: boolean | null
           nome: string
           observacao: string | null
+          pending_messages: Json | null
           source_id: string | null
           source_type: string | null
           telefone_norm: string
@@ -721,6 +723,9 @@ export type Database = {
           utm_content: string | null
           utm_medium: string | null
           utm_source: string | null
+          verification_code: string | null
+          verification_sent_at: string | null
+          verified_at: string | null
         }
         Insert: {
           cidade_id: string
@@ -732,8 +737,10 @@ export type Database = {
           genero?: string | null
           id?: string
           instagram?: string | null
+          is_verified?: boolean | null
           nome: string
           observacao?: string | null
+          pending_messages?: Json | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm: string
@@ -742,6 +749,9 @@ export type Database = {
           utm_content?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Update: {
           cidade_id?: string
@@ -753,8 +763,10 @@ export type Database = {
           genero?: string | null
           id?: string
           instagram?: string | null
+          is_verified?: boolean | null
           nome?: string
           observacao?: string | null
+          pending_messages?: Json | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm?: string
@@ -763,6 +775,9 @@ export type Database = {
           utm_content?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -1591,6 +1606,7 @@ export type Database = {
         | { Args: { _prefix?: string }; Returns: string }
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
       generate_support_protocol: { Args: never; Returns: string }
+      generate_verification_code: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
       get_leader_by_phone_or_email: {
         Args: { _email: string; _phone: string }
