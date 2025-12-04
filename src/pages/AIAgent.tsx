@@ -318,8 +318,8 @@ const AIAgent = () => {
     <div className="flex h-[calc(100vh-8rem)] sm:h-[calc(100vh-4rem)] bg-background">
       {/* Sidebar de Conversas - Desktop */}
       {!isMobile && (
-        <div className="w-64 border-r bg-card flex flex-col">
-          <div className="p-3 border-b">
+        <div className="w-64 border-r bg-card flex flex-col overflow-hidden flex-shrink-0">
+          <div className="p-3 border-b flex-shrink-0">
             <Button onClick={handleNewConversation} className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Nova conversa
@@ -331,15 +331,15 @@ const AIAgent = () => {
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                  className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors overflow-hidden ${
                     conv.id === currentConversationId 
                       ? 'bg-primary/10 text-primary' 
                       : 'hover:bg-muted'
                   }`}
                 >
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{conv.title}</p>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium truncate max-w-full">{conv.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
                     </p>
@@ -347,7 +347,7 @@ const AIAgent = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
                     onClick={(e) => handleDeleteConversation(e, conv.id)}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -369,7 +369,7 @@ const AIAgent = () => {
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <div className="p-3">
+            <div className="p-3 flex-shrink-0">
               <Button onClick={handleNewConversation} className="w-full" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova conversa
@@ -381,15 +381,15 @@ const AIAgent = () => {
                   <div
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv.id)}
-                    className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer ${
+                    className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer overflow-hidden ${
                       conv.id === currentConversationId 
                         ? 'bg-primary/10 text-primary' 
                         : 'hover:bg-muted'
                     }`}
                   >
                     <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{conv.title}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium truncate max-w-full">{conv.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
                       </p>
@@ -397,7 +397,7 @@ const AIAgent = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 flex-shrink-0"
                       onClick={(e) => handleDeleteConversation(e, conv.id)}
                     >
                       <Trash2 className="h-4 w-4" />
