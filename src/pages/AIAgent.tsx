@@ -58,6 +58,8 @@ const AIAgent = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -298,6 +300,35 @@ const AIAgent = () => {
     }
   };
 
+  // Funções para renomear conversa
+  const handleStartEditing = (e: React.MouseEvent, conv: { id: string; title: string }) => {
+    e.stopPropagation();
+    setEditingConversationId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const handleSaveTitle = async (conversationId: string) => {
+    const originalTitle = conversations.find(c => c.id === conversationId)?.title;
+    if (editingTitle.trim() && editingTitle.trim() !== originalTitle) {
+      const success = await updateTitle(conversationId, editingTitle.trim());
+      if (success) {
+        toast({ title: "Conversa renomeada" });
+      }
+    }
+    setEditingConversationId(null);
+    setEditingTitle('');
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveTitle(conversationId);
+    } else if (e.key === 'Escape') {
+      setEditingConversationId(null);
+      setEditingTitle('');
+    }
+  };
+
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({
@@ -339,7 +370,25 @@ const AIAgent = () => {
                 >
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    <p className="text-sm font-medium truncate max-w-full">{conv.title}</p>
+                    {editingConversationId === conv.id ? (
+                      <Input
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleSaveTitle(conv.id)}
+                        onKeyDown={(e) => handleTitleKeyDown(e, conv.id)}
+                        className="h-6 text-sm px-1"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <p 
+                        className="text-sm font-medium truncate max-w-full cursor-text"
+                        onDoubleClick={(e) => handleStartEditing(e, conv)}
+                        title="Duplo-clique para renomear"
+                      >
+                        {conv.title}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
                     </p>
@@ -389,7 +438,25 @@ const AIAgent = () => {
                   >
                     <MessageSquare className="h-4 w-4 flex-shrink-0" />
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="text-sm font-medium truncate max-w-full">{conv.title}</p>
+                      {editingConversationId === conv.id ? (
+                        <Input
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onBlur={() => handleSaveTitle(conv.id)}
+                          onKeyDown={(e) => handleTitleKeyDown(e, conv.id)}
+                          className="h-6 text-sm px-1"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <p 
+                          className="text-sm font-medium truncate max-w-full cursor-text"
+                          onDoubleClick={(e) => handleStartEditing(e, conv)}
+                          title="Duplo-clique para renomear"
+                        >
+                          {conv.title}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true, locale: ptBR })}
                       </p>
