@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import type { OfficeVisit } from "@/types/office";
 import { ptBR } from "date-fns/locale";
@@ -33,7 +32,7 @@ export function RescheduleVisitDialog({ visit, open, onOpenChange, onReschedule 
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Reagendar Reunião</DialogTitle>
           <DialogDescription>
@@ -41,15 +40,15 @@ export function RescheduleVisitDialog({ visit, open, onOpenChange, onReschedule 
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4">
-          <Label>Nova Data</Label>
+        <div className="flex flex-col items-center py-6">
           <Calendar
             mode="single"
             selected={date}
             onSelect={setDate}
             disabled={(date) => date < new Date()}
             locale={ptBR}
-            className="rounded-md border"
+            className="rounded-md border pointer-events-auto"
+            initialFocus
           />
         </div>
         
