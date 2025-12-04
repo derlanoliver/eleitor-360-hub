@@ -15,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  phone: z.string().optional(),
   role: z.enum(["admin", "atendente", "checkin_operator"], {
     required_error: "Selecione um nível",
   }),
@@ -59,6 +61,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       name: "",
       email: "",
       password: "",
+      phone: "",
       role: undefined,
     },
   });
@@ -68,6 +71,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       name: data.name,
       email: data.email,
       password: data.password,
+      phone: data.phone || undefined,
       role: data.role,
     });
     form.reset();
@@ -110,6 +114,27 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>WhatsApp (opcional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="tel"
+                      placeholder="(61) 99999-9999"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Se informado, as credenciais também serão enviadas via WhatsApp
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
