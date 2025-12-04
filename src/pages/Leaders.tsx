@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Filter, Trophy, Pencil, Phone, Loader2, MapPin, Calendar, Copy, CheckCircle, Download, QrCode } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +18,40 @@ import { LeaderLevelBadge, LeaderLevelProgress, getLeaderCardColorClass } from "
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .filter(Boolean)
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
+
+const getAvatarGradient = (name: string) => {
+  const colors = [
+    'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700',
+    'bg-gradient-to-br from-green-100 to-green-200 text-green-700',
+    'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700',
+    'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700',
+    'bg-gradient-to-br from-rose-100 to-rose-200 text-rose-700',
+    'bg-gradient-to-br from-cyan-100 to-cyan-200 text-cyan-700',
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
+};
+
+const formatPhone = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 13) {
+    return `(${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9)}`;
+  }
+  if (cleaned.length === 11) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
+  }
+  return phone;
+};
 
 const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,7 +98,6 @@ const Leaders = () => {
     try {
       const affiliateLink = generateAffiliateUrl(leader.affiliate_token);
       
-      // Gerar QR code em alta definição (1024x1024)
       const qrDataURL = await QRCode.toDataURL(affiliateLink, {
         width: 1024,
         margin: 4,
@@ -74,10 +107,8 @@ const Leaders = () => {
         }
       });
 
-      // Criar nome do arquivo: qr-lider-[nome]-[token].png
       const fileName = `qr-lider-${leader.nome_completo.toLowerCase().replace(/\s+/g, '-')}-${leader.affiliate_token.substring(0, 8)}.png`;
       
-      // Download
       const link = document.createElement('a');
       link.download = fileName;
       link.href = qrDataURL;
@@ -118,271 +149,243 @@ const Leaders = () => {
   });
 
   const activeLeaders = leaders?.filter(leader => leader.is_active).length || 0;
+  const totalPoints = leaders?.reduce((sum, l) => sum + l.pontuacao_total, 0) || 0;
 
   return (
-    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                Gestão de Lideranças
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600">
-                {isLoading ? "Carregando..." : `${sortedLeaders.length} líderes • ${activeLeaders} ativos`}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-              <Button asChild>
-                <Link to="/leaders/ranking">
-                  <Trophy className="h-4 w-4 mr-2" />
-                  Ver Ranking Completo
-                </Link>
-              </Button>
-              <ImportLeadersDialog />
-              <LeaderRegistrationQRDialog>
-                <Button variant="outline">
-                  <QrCode className="h-4 w-4 mr-2" />
-                  Formulário de Cadastro
-                </Button>
-              </LeaderRegistrationQRDialog>
-              <AddLeaderDialog>
-                <Button variant="outline">
-                  <Users className="h-4 w-4 mr-2" />
-                  Adicionar Líder
-                </Button>
-              </AddLeaderDialog>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão de Lideranças</h1>
+            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Users className="h-4 w-4" />
+                <strong className="text-foreground">{sortedLeaders.length}</strong> líderes
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <strong className="text-foreground">{activeLeaders}</strong> ativos
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Star className="h-4 w-4 text-amber-500" />
+                <strong className="text-foreground">{totalPoints}</strong> pontos totais
+              </span>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link to="/leaders/ranking">
+                <Trophy className="h-4 w-4 mr-2" />
+                Ver Ranking
+              </Link>
+            </Button>
+            <ImportLeadersDialog />
+            <LeaderRegistrationQRDialog>
+              <Button variant="outline">
+                <QrCode className="h-4 w-4 mr-2" />
+                Formulário
+              </Button>
+            </LeaderRegistrationQRDialog>
+            <AddLeaderDialog>
+              <Button variant="outline">
+                <Users className="h-4 w-4 mr-2" />
+                Adicionar
+              </Button>
+            </AddLeaderDialog>
+          </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-          {/* Filtros */}
-          <div className="lg:col-span-1">
-            <Card className="card-default">
-              <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="flex items-center text-base sm:text-lg">
-                  <Filter className="h-5 w-5 text-primary-600 mr-2" />
-                  Filtros
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Buscar líder
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Nome..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
+      {/* Filtros Horizontais */}
+      <div className="bg-card border rounded-lg p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar líder..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Região" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as regiões</SelectItem>
+              {cities?.map(city => (
+                <SelectItem key={city.id} value={city.id}>
+                  {city.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="inactive">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cadastros_desc">Maior Cadastros</SelectItem>
+              <SelectItem value="cadastros_asc">Menor Cadastros</SelectItem>
+              <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
+              <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
+              <SelectItem value="nome_asc">Nome A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Lista de Líderes */}
+      <div className="space-y-3">
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Carregando líderes...</p>
+            </CardContent>
+          </Card>
+        ) : sortedLeaders.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Nenhum líder encontrado
+              </h3>
+              <p className="text-muted-foreground">
+                Tente ajustar os filtros ou adicionar novos líderes.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          sortedLeaders.map((leader) => (
+            <Card key={leader.id} className={getLeaderCardColorClass(leader.pontuacao_total)}>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Coluna Principal */}
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    {/* Avatar com Iniciais */}
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0 ${getAvatarGradient(leader.nome_completo)}`}>
+                      {getInitials(leader.nome_completo)}
+                    </div>
+                    
+                    {/* Informações */}
+                    <div className="flex-1 min-w-0">
+                      {/* Nome + Badge Nível */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-lg text-foreground truncate">
+                          {leader.nome_completo}
+                        </h3>
+                        <LeaderLevelBadge points={leader.pontuacao_total} size="sm" />
+                      </div>
+                      
+                      {/* Região */}
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {leader.cidade?.nome || "Sem região"}
+                      </p>
+                      
+                      {/* Badges de Métricas + Status */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+                          📊 {leader.cadastros} cadastros
+                        </Badge>
+                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
+                          ⭐ {leader.pontuacao_total} pontos
+                        </Badge>
+                        <Badge 
+                          variant={leader.is_active ? "default" : "secondary"}
+                          className={leader.is_active ? "bg-green-500/10 text-green-600 border-0" : ""}
+                        >
+                          {leader.is_active ? '✓ Ativo' : 'Inativo'}
+                        </Badge>
+                      </div>
+                      
+                      {/* Contatos */}
+                      <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
+                        {leader.telefone && (
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-4 w-4" />
+                            {formatPhone(leader.telefone)}
+                          </span>
+                        )}
+                        {leader.email && (
+                          <span className="flex items-center gap-1.5">
+                            <Mail className="h-4 w-4" />
+                            <span className="truncate max-w-[200px]">{leader.email}</span>
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Barra de Progresso do Nível */}
+                      <div className="mt-3 max-w-md">
+                        <LeaderLevelProgress points={leader.pontuacao_total} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Região Administrativa
-                  </label>
-                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas as regiões" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as regiões</SelectItem>
-                      {cities?.map(city => (
-                        <SelectItem key={city.id} value={city.id}>
-                          {city.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Status
-                  </label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="active">Ativos</SelectItem>
-                      <SelectItem value="inactive">Inativos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Ordenar por
-                  </label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cadastros_desc">Maior Cadastros</SelectItem>
-                      <SelectItem value="cadastros_asc">Menor Cadastros</SelectItem>
-                      <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
-                      <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
-                      <SelectItem value="nome_asc">Nome A-Z</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  
+                  {/* Coluna de Ações - Vertical */}
+                  <div className="flex flex-col gap-1 flex-shrink-0">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleCopyAffiliateLink(leader)}
+                      title="Copiar link de indicação"
+                    >
+                      {copiedId === leader.id ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDownloadQRCode(leader)}
+                      title="Baixar QR Code"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    {leader.telefone && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => handleWhatsAppClick(leader.telefone!)}
+                        title="WhatsApp"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <EditLeaderDialog leader={leader}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </EditLeaderDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Lista de Líderes */}
-          <div className="lg:col-span-3">
-            <div className="space-y-3 sm:space-y-4">
-              {isLoading ? (
-                <Card className="card-default">
-                  <CardContent className="p-8 text-center">
-                    <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Carregando líderes...</p>
-                  </CardContent>
-                </Card>
-              ) : sortedLeaders.length === 0 ? (
-                <Card className="card-default">
-                  <CardContent className="p-8 text-center">
-                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Nenhum líder encontrado
-                    </h3>
-                    <p className="text-gray-600">
-                      Tente ajustar os filtros ou adicionar novos líderes.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                sortedLeaders.map((leader) => (
-                  <Card key={leader.id} className={`card-default ${getLeaderCardColorClass(leader.pontuacao_total)}`}>
-                    <CardContent className="p-4 sm:p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
-                        {/* Info Básica */}
-                        <div className="md:col-span-4">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex-shrink-0">
-                              <div className="flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-600 rounded-lg">
-                                <Users className="h-5 w-5" />
-                              </div>
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold text-gray-900 truncate">
-                                  {leader.nome_completo}
-                                </h3>
-                                <LeaderLevelBadge points={leader.pontuacao_total} size="sm" />
-                              </div>
-                              {leader.email && (
-                                <p className="text-sm text-gray-600 truncate">
-                                  {leader.email}
-                                </p>
-                              )}
-                              <p className="text-sm text-gray-500 flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {leader.cidade?.nome || "Sem região"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Métricas e Progresso */}
-                        <div className="md:col-span-4">
-                          <div className="grid grid-cols-2 gap-3 mb-2">
-                            <div className="text-center p-2 bg-primary-50 rounded-lg">
-                              <p className="text-xs text-gray-600">Cadastros</p>
-                              <p className="font-bold text-primary-600">
-                                {leader.cadastros}
-                              </p>
-                            </div>
-                            <div className="text-center p-2 bg-blue-50 rounded-lg">
-                              <p className="text-xs text-gray-600">Pontos</p>
-                              <p className="font-bold text-blue-600">
-                                {leader.pontuacao_total}
-                              </p>
-                            </div>
-                          </div>
-                          <LeaderLevelProgress points={leader.pontuacao_total} />
-                        </div>
-
-                        {/* Status e Ações */}
-                        <div className="md:col-span-4">
-                          <div className="flex items-center justify-between space-x-3">
-                            <Badge variant={leader.is_active ? "default" : "secondary"}>
-                              {leader.is_active ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                            
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCopyAffiliateLink(leader)}
-                                className="text-primary hover:text-primary hover:bg-primary/10"
-                                title="Copiar link de indicação"
-                              >
-                                {copiedId === leader.id ? (
-                                  <CheckCircle className="h-4 w-4" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownloadQRCode(leader)}
-                                className="text-primary hover:text-primary hover:bg-primary/10"
-                                title="Baixar QR Code do link de indicação"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              {leader.telefone && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleWhatsAppClick(leader.telefone!)}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                >
-                                  <Phone className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <EditLeaderDialog leader={leader}>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  title="Editar líder"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </EditLeaderDialog>
-                            </div>
-                          </div>
-                          
-                          {leader.last_activity && (
-                            <div className="mt-2">
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {new Date(leader.last_activity).toLocaleDateString('pt-BR')}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
