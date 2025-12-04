@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { TrackingProvider } from "./components/TrackingProvider";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -85,7 +86,7 @@ const App = () => (
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />
             <Route path="/lider/cadastro" element={<PublicLeaderRegistration />} />
             
-            {/* Protected check-in routes */}
+            {/* Protected check-in routes - all authenticated users can do check-in */}
             <Route path="/checkin/:qrCode" element={
               <ProtectedRoute>
                 <EventCheckin />
@@ -97,73 +98,91 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Protected dashboard routes */}
+            {/* Dashboard - admin e atendente */}
             <Route path="/dashboard" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Dashboard />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Leaders - admin e atendente */}
             <Route path="/leaders" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Leaders />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/leaders/ranking" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <LeadersRanking />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Contacts - admin e atendente */}
             <Route path="/contacts" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Contacts />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Campaigns - admin e atendente */}
             <Route path="/campaigns" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Campaigns />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Events - admin, atendente e checkin_operator */}
             <Route path="/events" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente', 'checkin_operator']}>
                 <DashboardLayout>
                   <Events />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Projects - admin e atendente */}
             <Route path="/projects" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Projects />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* AI Agent - admin e atendente */}
             <Route path="/ai-agent" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <AIAgent />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* WhatsApp - admin e atendente */}
             <Route path="/whatsapp" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <WhatsAppMarketing />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Email - admin e atendente */}
             <Route path="/email" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <EmailMarketing />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Settings - todos os roles autenticados */}
             <Route path="/settings" element={
               <ProtectedRoute>
                 <DashboardLayout>
@@ -171,34 +190,57 @@ const App = () => (
                 </DashboardLayout>
               </ProtectedRoute>
             } />
+            
+            {/* Settings - apenas admin */}
             <Route path="/settings/ai-providers" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <AIProviders />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/settings/tracking" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <TrackingSettings />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            <Route path="/settings/organization" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <Organization />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/settings/integrations" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <Integrations />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/settings/team" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <Team />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Settings - admin e atendente */}
             <Route path="/settings/affiliate-form" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <AffiliateFormSettings />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/settings/leader-form" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <LeaderFormSettings />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
+            
+            {/* Settings - todos */}
             <Route path="/settings/profile" element={
               <ProtectedRoute>
                 <Profile />
@@ -209,62 +251,47 @@ const App = () => (
                 <Privacy />
               </ProtectedRoute>
             } />
-            <Route path="/settings/organization" element={
-              <ProtectedRoute>
-                <Organization />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings/integrations" element={
-              <ProtectedRoute>
-                <Integrations />
-              </ProtectedRoute>
-            } />
             <Route path="/settings/support" element={
               <ProtectedRoute>
                 <Support />
               </ProtectedRoute>
             } />
+            
+            {/* Admin Tickets - apenas super_admin */}
             <Route path="/settings/admin-tickets" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <AdminTickets />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings/team" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Team />
-                </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             
-            {/* Office module routes */}
+            {/* Office module routes - admin e atendente */}
             <Route path="/office/new" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <NewVisit />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/office/queue" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Queue />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/office/history" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <History />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             <Route path="/office/settings" element={
-              <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <OfficeSettings />
                 </DashboardLayout>
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             } />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

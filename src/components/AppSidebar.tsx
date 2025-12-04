@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { 
   LayoutDashboard, 
   Users, 
@@ -43,40 +44,49 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Menu items organizados por seção
-const mainItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Contatos", url: "/contacts", icon: Users },
-  { title: "Lideranças", url: "/leaders", icon: UserCheck },
+type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
+
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: any;
+  roles: AppRole[];
+}
+
+// Menu items organizados por seção com roles permitidos
+const mainItems: MenuItem[] = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Contatos", url: "/contacts", icon: Users, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Lideranças", url: "/leaders", icon: UserCheck, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 
-const campaignItems = [
-  { title: "Campanhas", url: "/campaigns", icon: Target },
-  { title: "Eventos", url: "/events", icon: Calendar },
-  { title: "Programas", url: "/projects", icon: FolderKanban },
+const campaignItems: MenuItem[] = [
+  { title: "Campanhas", url: "/campaigns", icon: Target, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Eventos", url: "/events", icon: Calendar, roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'] },
+  { title: "Programas", url: "/projects", icon: FolderKanban, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 
-const communicationItems = [
-  { title: "Agente IA", url: "/ai-agent", icon: Bot },
-  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare },
-  { title: "Email", url: "/email", icon: Mail },
+const communicationItems: MenuItem[] = [
+  { title: "Agente IA", url: "/ai-agent", icon: Bot, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Email", url: "/email", icon: Mail, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 
-const officeItems = [
-  { title: "Nova Visita", url: "/office/new", icon: UserPlus },
-  { title: "Fila do Dia", url: "/office/queue", icon: List },
-  { title: "Histórico", url: "/office/history", icon: HistoryIcon },
-  { title: "Configurações", url: "/office/settings", icon: Settings },
+const officeItems: MenuItem[] = [
+  { title: "Nova Visita", url: "/office/new", icon: UserPlus, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Fila do Dia", url: "/office/queue", icon: List, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Histórico", url: "/office/history", icon: HistoryIcon, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Configurações", url: "/office/settings", icon: Settings, roles: ['super_admin', 'admin'] },
 ];
 
-const settingsItems = [
-  { title: "Privacidade", url: "/settings/privacy", icon: Shield },
-  { title: "Organização", url: "/settings/organization", icon: Building },
-  { title: "Suporte", url: "/settings/support", icon: HelpCircle },
+const settingsItems: MenuItem[] = [
+  { title: "Privacidade", url: "/settings/privacy", icon: Shield, roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'] },
+  { title: "Organização", url: "/settings/organization", icon: Building, roles: ['super_admin', 'admin'] },
+  { title: "Suporte", url: "/settings/support", icon: HelpCircle, roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'] },
 ];
 
-const adminSettingsItems = [
-  { title: "Administrar Tickets", url: "/settings/admin-tickets", icon: Ticket },
+const adminSettingsItems: MenuItem[] = [
+  { title: "Administrar Tickets", url: "/settings/admin-tickets", icon: Ticket, roles: ['super_admin'] },
 ];
 
 export function AppSidebar() {
@@ -86,9 +96,16 @@ export function AppSidebar() {
   const isMobile = useIsMobile();
   const { data: isSuperAdmin } = useIsSuperAdmin();
   const { logout } = useAuth();
+  const { role } = useUserRole();
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
+
+  // Filter menu items based on user role
+  const filterByRole = (items: MenuItem[]) => {
+    if (!role) return [];
+    return items.filter(item => item.roles.includes(role as AppRole));
+  };
 
   // Auto-close sidebar on mobile after navigation
   useEffect(() => {
@@ -100,7 +117,7 @@ export function AppSidebar() {
   const getNavCls = (isActive: boolean) =>
     isActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "hover:bg-gray-100 text-gray-700";
 
-  const renderMenuItem = (item: { title: string; url: string; icon: any }) => {
+  const renderMenuItem = (item: MenuItem) => {
     const content = (
       <SidebarMenuButton asChild>
         <NavLink 
@@ -133,6 +150,13 @@ export function AppSidebar() {
     return content;
   };
 
+  const filteredMainItems = filterByRole(mainItems);
+  const filteredCampaignItems = filterByRole(campaignItems);
+  const filteredCommunicationItems = filterByRole(communicationItems);
+  const filteredOfficeItems = filterByRole(officeItems);
+  const filteredSettingsItems = filterByRole(settingsItems);
+  const filteredAdminSettingsItems = filterByRole(adminSettingsItems);
+
   return (
     <Sidebar className={isCollapsed ? "w-20" : "w-64"} collapsible="icon">
       <SidebarContent className="bg-white border-r border-gray-200">
@@ -152,99 +176,109 @@ export function AppSidebar() {
         </div>
 
         {/* Menu Principal */}
-        <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-              Principal
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filteredMainItems.length > 0 && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+                Principal
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredMainItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Campanhas & Eventos */}
-        <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-              Campanhas
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {campaignItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filteredCampaignItems.length > 0 && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+                Campanhas
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredCampaignItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Comunicação */}
-        <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-              Comunicação
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {communicationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filteredCommunicationItems.length > 0 && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+                Comunicação
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredCommunicationItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Gabinete */}
-        <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-              Gabinete
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {officeItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filteredOfficeItems.length > 0 && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+                Gabinete
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredOfficeItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Configurações */}
-        <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-              Configurações
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-              {isSuperAdmin && adminSettingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {renderMenuItem(item)}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {(filteredSettingsItems.length > 0 || filteredAdminSettingsItems.length > 0) && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+                Configurações
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredSettingsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+                {isSuperAdmin && filteredAdminSettingsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    {renderMenuItem(item)}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Logout */}
         <div className={`mt-auto ${isCollapsed ? 'py-6 px-2.5' : 'p-4'} ${!isCollapsed ? 'border-t border-gray-200' : ''}`}>

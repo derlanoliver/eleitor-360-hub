@@ -19,7 +19,7 @@ export function useUpdateMember() {
     mutationFn: async ({ userId, role, isActive, name }: UpdateMemberData) => {
       // Update role if provided
       if (role) {
-        // Check if user already has a role
+        // Check if user already has a role in user_roles
         const { data: existingRole } = await supabase
           .from("user_roles")
           .select("id")
@@ -39,6 +39,17 @@ export function useUpdateMember() {
             .insert({ user_id: userId, role });
 
           if (insertError) throw insertError;
+        }
+
+        // TAMBÉM atualizar profiles.role para manter sincronizado
+        const { error: profileRoleError } = await supabase
+          .from("profiles")
+          .update({ role })
+          .eq("id", userId);
+
+        if (profileRoleError) {
+          console.error("Erro ao sincronizar role em profiles:", profileRoleError);
+          // Não falha a operação principal, apenas loga
         }
       }
 
