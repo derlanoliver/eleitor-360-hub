@@ -933,9 +933,9 @@ const ContactDetails = ({ contact }: { contact: any }) => {
             {eventParticipation.map((event: any, idx: number) => (
               <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div>
-                  <p className="font-medium">{event.event?.name || 'Evento'}</p>
+                  <p className="font-medium">{event.event_name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {event.event?.date ? format(new Date(event.event.date), "dd/MM/yyyy", { locale: ptBR }) : 'Data não informada'}
+                    {event.event_date ? format(new Date(event.event_date), "dd/MM/yyyy", { locale: ptBR }) : 'Data não informada'}
                   </p>
                 </div>
                 <Badge variant={event.checked_in ? "default" : "secondary"} className={event.checked_in ? "bg-green-100 text-green-700" : ""}>
