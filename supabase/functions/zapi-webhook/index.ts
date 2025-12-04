@@ -8,7 +8,9 @@ const corsHeaders = {
 interface ZapiMessageStatus {
   zapiMessageId?: string;
   messageId?: string;
+  ids?: string[];
   status?: string;
+  type?: string;
   phone?: { user?: string } | string;
   chatId?: string;
   isStatusReply?: boolean;
@@ -22,12 +24,14 @@ interface ZapiReceivedMessage {
   text?: { message?: string };
   fromMe?: boolean;
   senderName?: string;
+  type?: string;
 }
 
 interface ZapiConnectionStatus {
   connected?: boolean;
   status?: string;
   error?: string;
+  type?: string;
 }
 
 Deno.serve(async (req) => {
@@ -47,7 +51,7 @@ Deno.serve(async (req) => {
 
     // Detect webhook type based on payload structure
     const webhookType = detectWebhookType(body);
-    console.log("[zapi-webhook] Detected webhook type:", webhookType);
+    console.log("[zapi-webhook] Detected webhook type:", webhookType, "| Z-API type:", body.type);
 
     switch (webhookType) {
       case "message-status":
@@ -78,18 +82,33 @@ Deno.serve(async (req) => {
 });
 
 function detectWebhookType(body: Record<string, unknown>): string {
-  // Message status update
-  if (body.status && (body.zapiMessageId || body.messageId)) {
+  // Use Z-API's 'type' field as primary source
+  const zapiType = body.type as string | undefined;
+  
+  if (zapiType) {
+    switch (zapiType) {
+      case "MessageStatusCallback":
+      case "DeliveryCallback":
+      case "ReadCallback":
+        return "message-status";
+      case "ReceivedCallback":
+        return "received-message";
+      case "DisconnectedCallback":
+      case "ConnectedCallback":
+        return "connection-status";
+    }
+  }
+  
+  // Fallback to previous logic if no 'type' field
+  if (body.status && (body.zapiMessageId || body.messageId || body.ids)) {
     return "message-status";
   }
   
-  // Received message
-  if (body.text || (body.phone && !body.status)) {
+  if (body.text || (body.phone && !body.status && !zapiType)) {
     return "received-message";
   }
   
-  // Connection status
-  if (body.connected !== undefined || body.status === "connected" || body.status === "disconnected") {
+  if (body.connected !== undefined) {
     return "connection-status";
   }
   
@@ -98,15 +117,33 @@ function detectWebhookType(body: Record<string, unknown>): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleMessageStatus(supabase: any, data: ZapiMessageStatus) {
-  const messageId = data.zapiMessageId || data.messageId;
-  const status = data.status?.toLowerCase();
+  // Extract messageId from multiple possible sources
+  const messageId = data.zapiMessageId || data.messageId || 
+    (Array.isArray(data.ids) && data.ids.length > 0 ? data.ids[0] : null);
   
   if (!messageId) {
-    console.log("[zapi-webhook] No messageId in status update");
+    console.log("[zapi-webhook] No messageId in status update, data:", JSON.stringify(data));
     return;
   }
 
-  console.log(`[zapi-webhook] Updating message ${messageId} status to ${status}`);
+  // Determine status based on callback type and status field
+  let status = data.status?.toLowerCase();
+  const zapiType = data.type;
+  
+  // If DeliveryCallback without explicit status, it's "delivered"
+  if (zapiType === "DeliveryCallback" && !status) {
+    status = "delivered";
+  }
+  // If ReadCallback without explicit status, it's "read"
+  if (zapiType === "ReadCallback" && !status) {
+    status = "read";
+  }
+  // Map common Z-API statuses
+  if (status === "received") {
+    status = "delivered";
+  }
+
+  console.log(`[zapi-webhook] Updating message ${messageId} status to ${status} (type: ${zapiType})`);
 
   const updateData: Record<string, unknown> = {
     status: mapZapiStatus(status),
@@ -114,15 +151,18 @@ async function handleMessageStatus(supabase: any, data: ZapiMessageStatus) {
   };
 
   // Set timestamps based on status
-  if (status === "delivered" || status === "received") {
+  const mappedStatus = mapZapiStatus(status);
+  if (mappedStatus === "delivered") {
     updateData.delivered_at = new Date().toISOString();
-  } else if (status === "read" || status === "viewed") {
+  } else if (mappedStatus === "read") {
     updateData.read_at = new Date().toISOString();
-  } else if (status === "failed" || status === "error") {
-    updateData.error_message = data.status;
+    // Also set delivered_at if not already set
+    updateData.delivered_at = new Date().toISOString();
+  } else if (mappedStatus === "failed") {
+    updateData.error_message = data.status || "Failed";
   }
 
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("whatsapp_messages")
     .update(updateData)
     .eq("message_id", messageId);
@@ -130,7 +170,7 @@ async function handleMessageStatus(supabase: any, data: ZapiMessageStatus) {
   if (error) {
     console.error("[zapi-webhook] Error updating message status:", error);
   } else {
-    console.log("[zapi-webhook] Message status updated successfully");
+    console.log(`[zapi-webhook] Message status updated successfully (matched: ${count})`);
   }
 }
 
@@ -184,7 +224,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleConnectionStatus(supabase: any, data: ZapiConnectionStatus) {
-  const isConnected = data.connected || data.status === "connected";
+  const isConnected = data.connected || data.status === "connected" || data.type === "ConnectedCallback";
   console.log(`[zapi-webhook] Connection status: ${isConnected ? "connected" : "disconnected"}`);
   
   // Optionally update integrations_settings with connection status
@@ -201,6 +241,7 @@ function mapZapiStatus(status: string | undefined): string {
     "read": "read",
     "viewed": "read",
     "played": "read",
+    "read_by_me": "read",
     "failed": "failed",
     "error": "failed",
     "pending": "pending",
