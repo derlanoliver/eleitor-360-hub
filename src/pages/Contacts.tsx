@@ -418,7 +418,7 @@ const Contacts = () => {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Base de Contatos</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Base de Contatos</h1>
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
