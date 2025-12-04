@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Mapear role para label amigável
+const roleLabels: Record<string, string> = {
+  'super_admin': 'Super Administrador',
+  'admin': 'Administrador',
+  'atendente': 'Atendente',
+  'checkin_operator': 'Operador de Check-in'
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -23,7 +31,7 @@ serve(async (req) => {
       }
     });
 
-    const { email, password, name, role = 'admin' } = await req.json();
+    const { email, password, name, role = 'admin', phone } = await req.json();
 
     console.log('Creating admin user:', { email, name, role });
 
@@ -55,7 +63,8 @@ serve(async (req) => {
         id: authData.user.id,
         email: email,
         name: name,
-        role: role
+        role: role,
+        telefone: phone || null
       }, { onConflict: 'id' })
       .select()
       .single();
@@ -80,11 +89,77 @@ serve(async (req) => {
       console.log('Role created successfully:', role);
     }
 
+    // Preparar variáveis para os templates
+    const templateVariables = {
+      nome: name,
+      email: email,
+      senha: password,
+      nivel: roleLabels[role] || role,
+      link_plataforma: 'https://app.rafaelprudente.com'
+    };
+
+    // Enviar Email de boas-vindas
+    let emailSent = false;
+    try {
+      console.log('Sending welcome email to:', email);
+      
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceRoleKey}`
+        },
+        body: JSON.stringify({
+          templateSlug: 'membro-cadastro-boas-vindas',
+          to: email,
+          toName: name,
+          variables: templateVariables
+        })
+      });
+      
+      const emailResult = await emailResponse.json();
+      console.log('Email response:', emailResult);
+      emailSent = emailResponse.ok;
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+    }
+
+    // Enviar WhatsApp de boas-vindas (se telefone informado)
+    let whatsappSent = false;
+    if (phone) {
+      try {
+        console.log('Sending welcome WhatsApp to:', phone);
+        
+        const whatsappResponse = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceRoleKey}`
+          },
+          body: JSON.stringify({
+            phone: phone,
+            templateSlug: 'membro-cadastro-boas-vindas',
+            variables: templateVariables
+          })
+        });
+        
+        const whatsappResult = await whatsappResponse.json();
+        console.log('WhatsApp response:', whatsappResult);
+        whatsappSent = whatsappResponse.ok;
+      } catch (whatsappError) {
+        console.error('Error sending welcome WhatsApp:', whatsappError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         user: authData.user,
-        profile 
+        profile,
+        notifications: {
+          emailSent,
+          whatsappSent
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

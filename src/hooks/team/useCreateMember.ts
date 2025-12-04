@@ -7,6 +7,7 @@ interface CreateMemberData {
   password: string;
   name: string;
   role: string;
+  phone?: string;
 }
 
 export function useCreateMember() {
@@ -22,6 +23,7 @@ export function useCreateMember() {
             password: data.password,
             name: data.name,
             role: data.role,
+            phone: data.phone,
           },
         }
       );
@@ -31,9 +33,17 @@ export function useCreateMember() {
 
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
-      toast.success("Membro adicionado com sucesso!");
+      
+      const notifications = result?.notifications;
+      if (notifications?.emailSent && notifications?.whatsappSent) {
+        toast.success("Membro adicionado! Credenciais enviadas por email e WhatsApp.");
+      } else if (notifications?.emailSent) {
+        toast.success("Membro adicionado! Credenciais enviadas por email.");
+      } else {
+        toast.success("Membro adicionado com sucesso!");
+      }
     },
     onError: (error) => {
       console.error("Erro ao criar membro:", error);
