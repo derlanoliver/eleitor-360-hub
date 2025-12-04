@@ -38,31 +38,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const isAuthenticated = !!user && !!session;
 
-  // Fetch user profile from profiles table
+  // Fetch user profile from profiles table and role from user_roles table
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await (supabase as any)
+      // Buscar perfil
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         return null;
       }
 
-      if (!data) {
+      if (!profileData) {
         console.log('No profile found for user:', userId);
         return null;
       }
 
+      // Buscar role da tabela user_roles (fonte correta)
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+      }
+
+      // Role vem de user_roles, com fallback para profiles.role ou 'admin'
+      const userRole = roleData?.role || profileData.role || 'admin';
+
       return {
         id: userId,
-        email: data.email || '',
-        name: data.name || 'User',
-        role: data.role || 'admin',
-        avatar: data.avatar_url || undefined
+        email: profileData.email || '',
+        name: profileData.name || 'User',
+        role: userRole,
+        avatar: profileData.avatar_url || undefined
       };
     } catch (err) {
       console.error('Exception fetching profile:', err);

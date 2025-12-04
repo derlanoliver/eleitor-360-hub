@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
 import { 
   Building2, 
   Users, 
@@ -14,14 +15,28 @@ import {
   HelpCircle
 } from "lucide-react";
 
+type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
+
+interface SettingSection {
+  title: string;
+  description: string;
+  icon: any;
+  href: string;
+  available: boolean;
+  roles: AppRole[];
+}
+
 const Settings = () => {
-  const settingsSections = [
+  const { role, isAdmin } = useUserRole();
+
+  const settingsSections: SettingSection[] = [
     {
       title: "Organização",
       description: "Configure os dados do político e informações da campanha",
       icon: Building2,
       href: "/settings/organization",
       available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Equipe",
@@ -29,6 +44,7 @@ const Settings = () => {
       icon: Users,
       href: "/settings/team",
       available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Provedores de IA",
@@ -36,6 +52,7 @@ const Settings = () => {
       icon: Bot,
       href: "/settings/ai-providers",
       available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Rastreamento",
@@ -43,6 +60,7 @@ const Settings = () => {
       icon: BarChart3,
       href: "/settings/tracking",
       available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Formulário de Indicação",
@@ -50,6 +68,7 @@ const Settings = () => {
       icon: FileText,
       href: "/settings/affiliate-form",
       available: true,
+      roles: ['super_admin', 'admin', 'atendente'],
     },
     {
       title: "Formulário de Líder",
@@ -57,6 +76,7 @@ const Settings = () => {
       icon: Users,
       href: "/settings/leader-form",
       available: true,
+      roles: ['super_admin', 'admin', 'atendente'],
     },
     {
       title: "Faturamento",
@@ -64,6 +84,7 @@ const Settings = () => {
       icon: CreditCard,
       href: "/settings/billing",
       available: false,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Integrações",
@@ -71,6 +92,7 @@ const Settings = () => {
       icon: Plug,
       href: "/settings/integrations",
       available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Branding",
@@ -78,6 +100,7 @@ const Settings = () => {
       icon: Palette,
       href: "/settings/branding",
       available: false,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Privacidade",
@@ -85,6 +108,7 @@ const Settings = () => {
       icon: Shield,
       href: "/settings/privacy",
       available: true,
+      roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'],
     },
     {
       title: "Suporte",
@@ -92,8 +116,15 @@ const Settings = () => {
       icon: HelpCircle,
       href: "/settings/support",
       available: true,
+      roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'],
     },
   ];
+
+  // Filtrar seções baseado no role do usuário
+  const visibleSections = settingsSections.filter(section => {
+    if (!role) return false;
+    return section.roles.includes(role as AppRole);
+  });
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -105,7 +136,7 @@ const Settings = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {settingsSections.map((section) => {
+        {visibleSections.map((section) => {
           const Icon = section.icon;
           const content = (
             <Card 
