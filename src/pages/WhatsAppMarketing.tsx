@@ -8,7 +8,7 @@ import { WhatsAppBulkSendTab } from "@/components/whatsapp/WhatsAppBulkSendTab";
 import { WhatsAppHistoryTab } from "@/components/whatsapp/WhatsAppHistoryTab";
 
 export default function WhatsAppMarketing() {
-  const [activeTab, setActiveTab] = useState("templates");
+  const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
 
   return (
@@ -44,17 +44,17 @@ export default function WhatsAppMarketing() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full grid grid-cols-3 mb-6">
-              <TabsTrigger value="templates">Templates</TabsTrigger>
               <TabsTrigger value="bulk">Envio em Massa</TabsTrigger>
+              <TabsTrigger value="templates">Templates</TabsTrigger>
               <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="templates">
-              <WhatsAppTemplatesTab />
-            </TabsContent>
-
             <TabsContent value="bulk">
               <WhatsAppBulkSendTab />
+            </TabsContent>
+
+            <TabsContent value="templates">
+              <WhatsAppTemplatesTab />
             </TabsContent>
 
             <TabsContent value="history">

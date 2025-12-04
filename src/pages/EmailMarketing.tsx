@@ -8,7 +8,7 @@ import { EmailHistoryTab } from "@/components/email/EmailHistoryTab";
 import { Input } from "@/components/ui/input";
 
 const EmailMarketing = () => {
-  const [activeTab, setActiveTab] = useState("templates");
+  const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
 
   return (
@@ -43,13 +43,13 @@ const EmailMarketing = () => {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="templates" className="gap-2">
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Templates</span>
-              </TabsTrigger>
               <TabsTrigger value="bulk" className="gap-2">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Envio em Massa</span>
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Templates</span>
               </TabsTrigger>
               <TabsTrigger value="history" className="gap-2">
                 <History className="h-4 w-4" />
@@ -57,12 +57,12 @@ const EmailMarketing = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="templates">
-              <EmailTemplatesTab searchTerm={searchTerm} />
-            </TabsContent>
-
             <TabsContent value="bulk">
               <EmailBulkSendTab />
+            </TabsContent>
+
+            <TabsContent value="templates">
+              <EmailTemplatesTab searchTerm={searchTerm} />
             </TabsContent>
 
             <TabsContent value="history">
