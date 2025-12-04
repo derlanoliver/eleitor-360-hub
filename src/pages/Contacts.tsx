@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
 import { EditContactDialog } from "@/components/contacts/EditContactDialog";
 import { ImportEmailsDialog } from "@/components/contacts/ImportEmailsDialog";
@@ -24,30 +25,30 @@ import {
   Mail, 
   MapPin, 
   Search, 
-  Filter, 
   Eye,
   Calendar,
-  MessageSquare,
   UserCheck,
-  CheckCircle,
-  XCircle,
   Clock,
-  ExternalLink,
   Edit,
   Sparkles,
   Loader2,
   FileSpreadsheet,
   Megaphone,
-  FileText,
   Download,
   Building2,
   ShieldCheck,
   ShieldAlert,
-  RefreshCw
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  ExternalLink,
+  Filter,
+  X
 } from "lucide-react";
 import { resendVerificationCode } from "@/hooks/contacts/useContactVerification";
 
-// Cores e labels para badges de origem (cores suaves conforme preferência do usuário)
+// Cores e labels para badges de origem
 const sourceConfig: Record<string, { label: string; className: string; icon: typeof Calendar }> = {
   evento: { 
     label: "Evento", 
@@ -55,7 +56,7 @@ const sourceConfig: Record<string, { label: string; className: string; icon: typ
     icon: Calendar
   },
   lider: { 
-    label: "Link de Líder", 
+    label: "Líder", 
     className: "bg-blue-50 text-blue-700 border-blue-200",
     icon: UserCheck
   },
@@ -70,163 +71,40 @@ const sourceConfig: Record<string, { label: string; className: string; icon: typ
     icon: Megaphone
   },
   visita: { 
-    label: "Visita ao Gabinete", 
+    label: "Visita", 
     className: "bg-teal-50 text-teal-700 border-teal-200",
     icon: Building2
   }
 };
 
-// Mock data antigo removido - agora usa dados reais
-const mockContactsData_OLD = [
-  {
-    id: 1,
-    name: "Ana Carolina Silva",
-    phone: "61987654321",
-    email: "ana.silva@email.com",
-    region: "Águas Claras",
-    profession: "Professora",
-    registrationDate: "2024-01-15",
-    source: "Líder: Maria Santos",
-    consentWhatsApp: true,
-    consentEmail: true,
-    consentEvents: true,
-    lastActivity: "2024-01-14",
-    conversations: [
-      { 
-        date: "2024-01-14", 
-        source: "WhatsApp", 
-        categories: ["educação", "elogio"], 
-        summary: "Parabenizou por projeto de educação integral" 
-      },
-      { 
-        date: "2024-01-10", 
-        source: "Evento", 
-        categories: ["educação"], 
-        summary: "Participou do evento sobre Educação no DF" 
-      }
-    ],
-    events: [
-      { name: "Educação no DF", date: "2024-01-10", attended: true }
-    ]
-  },
-  {
-    id: 2,
-    name: "Carlos Eduardo Mendes",
-    phone: "61912345678",
-    email: "carlos.mendes@email.com",
-    region: "Taguatinga",
-    profession: "Empresário",
-    registrationDate: "2024-01-12",
-    source: "Campanha UTM: facebook_jan24",
-    consentWhatsApp: true,
-    consentEmail: false,
-    consentEvents: true,
-    lastActivity: "2024-01-13",
-    conversations: [
-      { 
-        date: "2024-01-13", 
-        source: "IA WhatsApp", 
-        categories: ["empreendedorismo", "sugestão"], 
-        summary: "Sugestão sobre incentivos para pequenas empresas" 
-      }
-    ],
-    events: []
-  },
-  {
-    id: 3,
-    name: "Maria Fernanda Costa",
-    phone: "61998765432",
-    email: "maria.costa@email.com",
-    region: "Brasília",
-    profession: "Enfermeira",
-    registrationDate: "2024-01-08",
-    source: "Líder: João Oliveira",
-    consentWhatsApp: true,
-    consentEmail: true,
-    consentEvents: true,
-    lastActivity: "2024-01-12",
-    conversations: [
-      { 
-        date: "2024-01-12", 
-        source: "WhatsApp", 
-        categories: ["saúde", "reclamação"], 
-        summary: "Relato sobre falta de medicamentos na UPA" 
-      },
-      { 
-        date: "2024-01-09", 
-        source: "Líder", 
-        categories: ["saúde"], 
-        summary: "Discussão sobre melhorias na saúde pública" 
-      }
-    ],
-    events: [
-      { name: "Saúde em Foco", date: "2024-01-05", attended: false }
-    ]
-  },
-  {
-    id: 4,
-    name: "Roberto Silva Santos",
-    phone: "61987123456",
-    email: "roberto.santos@email.com",
-    region: "Ceilândia",
-    profession: "Motorista",
-    registrationDate: "2024-01-05",
-    source: "Evento: Mobilidade Urbana",
-    consentWhatsApp: true,
-    consentEmail: true,
-    consentEvents: false,
-    lastActivity: "2024-01-11",
-    conversations: [
-      { 
-        date: "2024-01-11", 
-        source: "IA WhatsApp", 
-        categories: ["mobilidade", "reclamação", "urgente"], 
-        summary: "Problemas graves no transporte público" 
-      }
-    ],
-    events: [
-      { name: "Mobilidade Urbana", date: "2024-01-05", attended: true }
-    ]
-  }
-];
-
-// Mock categories
-const categories = [
-  "saúde", "educação", "segurança", "mobilidade", "emprego", "habitação",
-  "assistência_social", "cultura", "esporte", "infraestrutura", "meio_ambiente",
-  "tributação", "direitos_humanos", "empreendedorismo", "turismo", "outros"
-];
-
-const categoryColors: { [key: string]: string } = {
-  "saúde": "bg-red-100 text-red-700",
-  "educação": "bg-blue-100 text-blue-700",
-  "segurança": "bg-orange-100 text-orange-700",
-  "mobilidade": "bg-green-100 text-green-700",
-  "emprego": "bg-purple-100 text-purple-700",
-  "habitação": "bg-yellow-100 text-yellow-700",
-  "empreendedorismo": "bg-indigo-100 text-indigo-700",
-  "elogio": "bg-emerald-100 text-emerald-700",
-  "reclamação": "bg-red-100 text-red-700",
-  "sugestão": "bg-cyan-100 text-cyan-700",
-  "urgente": "bg-red-200 text-red-800"
+// Função para gerar cor de avatar baseada no nome
+const getAvatarColor = (name: string) => {
+  const colors = [
+    { bg: "from-blue-100 to-blue-200", text: "text-blue-700" },
+    { bg: "from-purple-100 to-purple-200", text: "text-purple-700" },
+    { bg: "from-emerald-100 to-emerald-200", text: "text-emerald-700" },
+    { bg: "from-amber-100 to-amber-200", text: "text-amber-700" },
+    { bg: "from-rose-100 to-rose-200", text: "text-rose-700" },
+    { bg: "from-cyan-100 to-cyan-200", text: "text-cyan-700" },
+    { bg: "from-indigo-100 to-indigo-200", text: "text-indigo-700" },
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
 };
 
 const Contacts = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
-  const [consentFilter, setConsentFilter] = useState("all");
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [editingContact, setEditingContact] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const ITEMS_PER_PAGE = 50;
   
-  // Estados para filtro de origem
   const [sourceFilter, setSourceFilter] = useState("all");
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  
-  // Estado para filtro de verificação
   const [verificationFilter, setVerificationFilter] = useState("all");
   
   const identifyGenders = useIdentifyGenders();
@@ -268,7 +146,7 @@ const Contacts = () => {
     }
   });
 
-  // Buscar contact_ids que participaram de eventos (para filtro de eventos)
+  // Buscar contact_ids que participaram de eventos
   const { data: eventParticipantIds = [] } = useQuery({
     queryKey: ['event-participant-contact-ids', sourceFilter],
     queryFn: async () => {
@@ -301,11 +179,10 @@ const Contacts = () => {
     enabled: sourceFilter === "evento" && !!selectedEventId
   });
 
-  // Buscar contatos reais do banco (em batches para contornar limite de 1000 do Supabase)
+  // Buscar contatos reais do banco
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
-      // Primeiro, obter total de registros
       const { count } = await supabase
         .from('office_contacts')
         .select('*', { count: 'exact', head: true });
@@ -314,7 +191,6 @@ const Contacts = () => {
       const batchSize = 1000;
       const batches = Math.ceil(totalRecords / batchSize);
       
-      // Buscar em batches paralelos
       const batchPromises = [];
       for (let i = 0; i < batches; i++) {
         batchPromises.push(
@@ -332,11 +208,9 @@ const Contacts = () => {
       const results = await Promise.all(batchPromises);
       const data = results.flatMap(r => r.data || []);
       
-      // Verificar se houve erro em algum batch
       const errorBatch = results.find(r => r.error);
       if (errorBatch?.error) throw errorBatch.error;
 
-      // Buscar TODOS os líderes, campanhas e eventos de uma vez (muito mais eficiente)
       const liderIds = data?.filter(c => c.source_type === 'lider' && c.source_id).map(c => c.source_id) || [];
       const campanhaIds = data?.filter(c => c.source_type === 'campanha' && c.source_id).map(c => c.source_id) || [];
       const eventoIds = data?.filter(c => c.source_type === 'evento' && c.source_id).map(c => c.source_id) || [];
@@ -367,7 +241,6 @@ const Contacts = () => {
       const captacaoMap = new Map((captacaoCampanhasData.data || []).map((c: any) => [c.id, c]));
       const visitasMap = new Map((visitasData.data || []).map((v: any) => [v.id, v]));
       
-      // Transformar dados para formato compatível com a UI
       return (data || []).map((contact: any) => {
         let sourceInfo = 'Manual';
         let sourceName: string | null = null;
@@ -401,49 +274,40 @@ const Contacts = () => {
           phone: formatPhoneToBR(contact.telefone_norm),
           email: contact.email || '',
           region: contact.cidade?.nome || 'N/A',
-          profession: '',
           registrationDate: new Date(contact.created_at).toISOString().split('T')[0],
           source: sourceInfo,
           sourceName,
           sourceType,
           consentWhatsApp: true,
           consentEmail: !!contact.email,
-          consentEvents: true,
           lastActivity: new Date(contact.updated_at).toISOString().split('T')[0],
-          conversations: [],
-          events: [],
-          // Keep raw data for editing
           cidade_id: contact.cidade_id,
           telefone_norm: contact.telefone_norm,
           source_type: contact.source_type,
           source_id: contact.source_id,
           genero: contact.genero,
-          // Verification fields
           is_verified: contact.is_verified,
           verification_code: contact.verification_code,
           verification_sent_at: contact.verification_sent_at,
           verified_at: contact.verified_at,
-          // Check if verification is required (only for leader-referred contacts)
           requiresVerification: contact.source_type === 'lider' && contact.source_id
         };
       });
     }
   });
 
-  // Buscar contagem total real (não limitada a 1000)
+  // Buscar contagens
   const { data: totalCount = 0 } = useQuery({
     queryKey: ['contacts-total-count'],
     queryFn: async () => {
       const { count, error } = await supabase
         .from('office_contacts')
         .select('*', { count: 'exact', head: true });
-      
       if (error) throw error;
       return count || 0;
     }
   });
 
-  // Buscar contagem de contatos com telefone (WhatsApp)
   const { data: totalWithWhatsAppCount = 0 } = useQuery({
     queryKey: ['contacts-whatsapp-count'],
     queryFn: async () => {
@@ -451,13 +315,11 @@ const Contacts = () => {
         .from('office_contacts')
         .select('*', { count: 'exact', head: true })
         .not('telefone_norm', 'is', null);
-      
       if (error) throw error;
       return count || 0;
     }
   });
 
-  // Buscar contagem de contatos com email
   const { data: totalWithEmailCount = 0 } = useQuery({
     queryKey: ['contacts-email-count'],
     queryFn: async () => {
@@ -465,7 +327,6 @@ const Contacts = () => {
         .from('office_contacts')
         .select('*', { count: 'exact', head: true })
         .not('email', 'is', null);
-      
       if (error) throw error;
       return count || 0;
     }
@@ -484,55 +345,39 @@ const Contacts = () => {
   // Filtros
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contact.profession.toLowerCase().includes(searchTerm.toLowerCase());
+                         contact.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRegion = selectedRegion === "all" || contact.region === selectedRegion;
-    const matchesConsent = consentFilter === "all" || 
-                          (consentFilter === "whatsapp" && contact.consentWhatsApp) ||
-                          (consentFilter === "email" && contact.consentEmail) ||
-                          (consentFilter === "events" && contact.consentEvents);
     
-    // Filtro por Origem
     let matchesSource = true;
     if (sourceFilter !== "all") {
       const contactSourceType = contact.source_type || 'manual';
       
       if (sourceFilter === "manual") {
-        // Manual inclui source_type = 'manual' ou null
         matchesSource = contactSourceType === 'manual' || contact.source_type === null;
       } else if (sourceFilter === "evento") {
-        // Evento inclui:
-        // 1. Contatos com source_type='evento'
-        // 2. Contatos que participaram de eventos (via event_registrations)
         if (selectedEventId) {
-          // Filtro por evento específico: apenas contatos inscritos nesse evento
           matchesSource = specificEventContactIds.includes(contact.id);
         } else {
-          // Filtro geral de eventos: todos que participaram de qualquer evento
           matchesSource = contactSourceType === 'evento' || eventParticipantIds.includes(contact.id);
         }
       } else {
         matchesSource = contactSourceType === sourceFilter;
       }
       
-      // Filtro adicional por líder específico
       if (sourceFilter === "lider" && selectedLeaderId) {
         matchesSource = contact.source_id === selectedLeaderId;
       }
       
-      // Filtro adicional por campanha específica (captação)
       if (sourceFilter === "captacao" && selectedCampaignId) {
         matchesSource = contact.source_id === selectedCampaignId;
       }
     }
     
-    return matchesSearch && matchesRegion && matchesConsent && matchesSource;
+    return matchesSearch && matchesRegion && matchesSource;
   });
 
-  // Contagem de verificações pendentes
   const pendingVerificationCount = contacts.filter(c => c.requiresVerification && !c.is_verified).length;
 
-  // Aplicar filtro de verificação
   const verificationFilteredContacts = filteredContacts.filter(contact => {
     if (verificationFilter === "all") return true;
     if (verificationFilter === "verified") return contact.is_verified === true;
@@ -541,639 +386,452 @@ const Contacts = () => {
     return true;
   });
 
-  // Paginação (usar verificationFilteredContacts)
   const totalPages = Math.ceil(verificationFilteredContacts.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedContacts = verificationFilteredContacts.slice(startIndex, endIndex);
 
-  // Buscar todas as regiões administrativas
   const { data: allRegions = [] } = useRegions();
   
-  // Reset para página 1 quando filtros mudarem
   const handleFilterChange = () => {
     setCurrentPage(1);
   };
 
-  // Usar todas as regiões administrativas disponíveis no filtro
   const regions = allRegions.map(r => r.nome).sort();
-  const totalWithWhatsApp = contacts.filter(c => c.consentWhatsApp).length;
-  const totalWithEmail = contacts.filter(c => c.consentEmail).length;
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedRegion("all");
+    setSourceFilter("all");
+    setSelectedLeaderId(null);
+    setSelectedEventId(null);
+    setSelectedCampaignId(null);
+    setVerificationFilter("all");
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchTerm || selectedRegion !== "all" || sourceFilter !== "all" || verificationFilter !== "all";
 
   return (
-    <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                Base de Contatos
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600">
-                {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all"
-                  ? totalCount 
-                  : filteredContacts.length} contatos •
-                {totalWithWhatsAppCount} WhatsApp • {totalWithEmailCount} E-mail
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-              <Button 
-                variant="outline" 
-                onClick={() => identifyGenders.mutate()}
-                disabled={identifyGenders.isPending}
-                className="flex-shrink-0"
-              >
-                {identifyGenders.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Identificando...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Identificar Gêneros
-                  </>
-                )}
-              </Button>
-              <ImportContactsExcelDialog />
-              <ImportEmailsDialog />
-              <Button>
-                <Users className="h-4 w-4 mr-2" />
-                Adicionar Contato
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-          {/* Filtros */}
-          <div className="lg:col-span-1">
-            <Card className="card-default">
-              <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="flex items-center text-base sm:text-lg">
-                  <Filter className="h-5 w-5 text-primary-600 mr-2" />
-                  Filtros
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 pt-0 space-y-3 sm:space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Buscar contato
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Nome, e-mail ou profissão..."
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        handleFilterChange();
-                      }}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Região Administrativa
-                  </label>
-                  <Select value={selectedRegion} onValueChange={(value) => {
-                    setSelectedRegion(value);
-                    handleFilterChange();
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas as regiões" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as regiões</SelectItem>
-                      {regions.map(region => (
-                        <SelectItem key={region} value={region}>
-                          {region}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Filtro de Origem */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Origem
-                  </label>
-                  <Select value={sourceFilter} onValueChange={(value) => {
-                    setSourceFilter(value);
-                    setSelectedLeaderId(null);
-                    setSelectedEventId(null);
-                    setSelectedCampaignId(null);
-                    handleFilterChange();
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas as origens" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as origens</SelectItem>
-                      <SelectItem value="evento">
-                        <span className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-purple-600" />
-                          Evento
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="lider">
-                        <span className="flex items-center gap-2">
-                          <UserCheck className="h-4 w-4 text-blue-600" />
-                          Link de Líder
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="manual">
-                        <span className="flex items-center gap-2">
-                          <FileSpreadsheet className="h-4 w-4 text-gray-600" />
-                          Importação
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="captacao">
-                        <span className="flex items-center gap-2">
-                          <Megaphone className="h-4 w-4 text-amber-600" />
-                          Captação
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="visita">
-                        <span className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-teal-600" />
-                          Visita ao Gabinete
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Filtro de Líder (condicional) */}
-                {sourceFilter === "lider" && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Líder
-                    </label>
-                    <Select 
-                      value={selectedLeaderId || "all"} 
-                      onValueChange={(value) => {
-                        setSelectedLeaderId(value === "all" ? null : value);
-                        handleFilterChange();
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos os líderes" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os líderes</SelectItem>
-                        {leadersForFilter.map(leader => (
-                          <SelectItem key={leader.id} value={leader.id}>
-                            {leader.nome_completo}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Filtro de Evento (condicional) */}
-                {sourceFilter === "evento" && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Evento
-                    </label>
-                    <Select 
-                      value={selectedEventId || "all"} 
-                      onValueChange={(value) => {
-                        setSelectedEventId(value === "all" ? null : value);
-                        handleFilterChange();
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos os eventos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os eventos</SelectItem>
-                        {eventsForFilter.map(event => (
-                          <SelectItem key={event.id} value={event.id}>
-                            {event.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Filtro de Funil de Captação (condicional - para Captação) */}
-                {sourceFilter === "captacao" && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Funil de Captação
-                    </label>
-                    <Select 
-                      value={selectedCampaignId || "all"} 
-                      onValueChange={(value) => {
-                        setSelectedCampaignId(value === "all" ? null : value);
-                        handleFilterChange();
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos os funis" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os funis</SelectItem>
-                        {funnelsForFilter.map(funnel => (
-                          <SelectItem key={funnel.id} value={funnel.id}>
-                            {funnel.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Consentimento
-                  </label>
-                  <Select value={consentFilter} onValueChange={(value) => {
-                    setConsentFilter(value);
-                    handleFilterChange();
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                      <SelectItem value="email">E-mail</SelectItem>
-                      <SelectItem value="events">Eventos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Filtro de Verificação */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Verificação
-                    {pendingVerificationCount > 0 && (
-                      <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 text-xs">
-                        {pendingVerificationCount} pendentes
-                      </Badge>
-                    )}
-                  </label>
-                  <Select value={verificationFilter} onValueChange={(value) => {
-                    setVerificationFilter(value);
-                    handleFilterChange();
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="verified">
-                        <span className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-green-600" />
-                          Verificados
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="pending">
-                        <span className="flex items-center gap-2">
-                          <ShieldAlert className="h-4 w-4 text-amber-600" />
-                          Pendentes
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="not_required">
-                        <span className="flex items-center gap-2">
-                          Não requer verificação
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Lista de Contatos */}
-          <div className="lg:col-span-3">
-            {/* Info da Paginação */}
-            <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-              <div>
-                Mostrando <span className="font-medium text-foreground">{startIndex + 1}</span> a{" "}
-                <span className="font-medium text-foreground">{Math.min(endIndex, verificationFilteredContacts.length)}</span> de{" "}
-                <span className="font-medium text-foreground">
-                  {searchTerm === "" && selectedRegion === "all" && consentFilter === "all" && sourceFilter === "all" && verificationFilter === "all"
-                    ? totalCount
-                    : verificationFilteredContacts.length}
-                </span> contatos
-              </div>
-              <div className="text-xs">
-                Página {currentPage} de {totalPages || 1}
-              </div>
-            </div>
-
-            <div className="space-y-3 sm:space-y-4">
-              {paginatedContacts.map((contact) => (
-                <Card key={contact.id} className="card-default hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
-                      {/* Info Principal */}
-                      <div className="md:col-span-4 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
-                            {contact.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="font-semibold text-gray-900 truncate">
-                              {contact.name}
-                            </h3>
-                            <p className="text-sm text-gray-600 truncate">
-                              {contact.profession}
-                            </p>
-                            <p className="text-xs text-gray-500 flex items-center">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {contact.region}
-                            </p>
-                            {/* Badges de Origem e Atribuição */}
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {(() => {
-                                const config = sourceConfig[contact.sourceType] || sourceConfig.manual;
-                                const IconComponent = config.icon;
-                                return (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={`text-xs border ${config.className} py-0 px-1.5`}
-                                  >
-                                    <IconComponent className="h-3 w-3 mr-1" />
-                                    {config.label}
-                                  </Badge>
-                                );
-                              })()}
-                              {contact.sourceName && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-xs py-0 px-1.5 bg-background"
-                                >
-                                  {contact.sourceName}
-                                </Badge>
-                              )}
-                              {/* Badge de Verificação */}
-                              {contact.requiresVerification && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs py-0 px-1.5 ${
-                                    contact.is_verified 
-                                      ? 'bg-green-50 text-green-700 border-green-200' 
-                                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                                  }`}
-                                >
-                                  {contact.is_verified ? (
-                                    <>
-                                      <ShieldCheck className="h-3 w-3 mr-1" />
-                                      Verificado
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ShieldAlert className="h-3 w-3 mr-1" />
-                                      Pendente
-                                    </>
-                                  )}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Contato & Consentimentos */}
-                      <div className="md:col-span-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600">{contact.phone}</span>
-                            {contact.consentWhatsApp && (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Mail className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600 truncate">{contact.email}</span>
-                            {contact.consentEmail && (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {contact.consentWhatsApp && (
-                              <Badge variant="outline" className="text-xs">WhatsApp</Badge>
-                            )}
-                            {contact.consentEmail && (
-                              <Badge variant="outline" className="text-xs">E-mail</Badge>
-                            )}
-                            {contact.consentEvents && (
-                              <Badge variant="outline" className="text-xs">Eventos</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Categorias & Ações */}
-                      <div className="md:col-span-4">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap gap-1">
-                            {contact.conversations
-                              .flatMap(conv => conv.categories)
-                              .slice(0, 3)
-                              .map((category, idx) => (
-                                <Badge 
-                                  key={idx} 
-                                  className={`text-xs ${categoryColors[category] || 'bg-gray-100 text-gray-700'}`}
-                                >
-                                  {category}
-                                </Badge>
-                              ))
-                            }
-                            {contact.conversations.flatMap(conv => conv.categories).length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{contact.conversations.flatMap(conv => conv.categories).length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="text-xs text-gray-500 flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(contact.lastActivity).toLocaleDateString()}
-                            </div>
-                            
-                            <div className="flex space-x-2">
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => setEditingContact({
-                                  id: contact.id,
-                                  nome: contact.name,
-                                  telefone_norm: contact.telefone_norm,
-                                  cidade_id: contact.cidade_id,
-                                  source_type: contact.source_type,
-                                  source_id: contact.source_id,
-                                  genero: contact.genero
-                                })}
-                                className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              {contact.consentWhatsApp && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleWhatsAppClick(contact.phone)}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                >
-                                  <Phone className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {contact.consentEmail && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEmailClick(contact.email)}
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                >
-                                  <Mail className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => setSelectedContact(contact)}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                                  <DialogHeader>
-                                    <DialogTitle>Detalhes do Contato</DialogTitle>
-                                  </DialogHeader>
-                                  {selectedContact && <ContactDetails contact={selectedContact} />}
-                                </DialogContent>
-                              </Dialog>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {paginatedContacts.length === 0 && (
-                <Card className="card-default">
-                  <CardContent className="p-8 text-center">
-                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Nenhum contato encontrado
-                    </h3>
-                    <p className="text-gray-600">
-                      Tente ajustar os filtros ou adicionar novos contatos.
-                    </p>
-                  </CardContent>
-                </Card>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      {/* Header Compacto */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Base de Contatos</h1>
+            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Users className="h-4 w-4" />
+                <strong className="text-foreground">{totalCount}</strong> contatos
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Phone className="h-4 w-4 text-green-600" />
+                <strong className="text-foreground">{totalWithWhatsAppCount}</strong>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Mail className="h-4 w-4 text-blue-600" />
+                <strong className="text-foreground">{totalWithEmailCount}</strong>
+              </span>
+              {pendingVerificationCount > 0 && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                  {pendingVerificationCount} pendentes
+                </Badge>
               )}
             </div>
-
-            {/* Componente de Paginação */}
-            {totalPages > 1 && (
-              <Card className="card-default mt-6">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="gap-2"
-                    >
-                      <span className="hidden sm:inline">Anterior</span>
-                      <span className="sm:hidden">←</span>
-                    </Button>
-
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      {/* Primeira página */}
-                      {currentPage > 3 && (
-                        <>
-                          <Button
-                            variant={currentPage === 1 ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(1)}
-                            className="w-9 h-9 p-0"
-                          >
-                            1
-                          </Button>
-                          {currentPage > 4 && (
-                            <span className="px-1 text-muted-foreground">...</span>
-                          )}
-                        </>
-                      )}
-
-                      {/* Páginas ao redor da atual */}
-                      {Array.from({ length: totalPages }, (_, i) => i + 1)
-                        .filter(page => {
-                          return page === currentPage ||
-                                 page === currentPage - 1 ||
-                                 page === currentPage + 1 ||
-                                 (currentPage <= 2 && page <= 3) ||
-                                 (currentPage >= totalPages - 1 && page >= totalPages - 2);
-                        })
-                        .map(page => (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(page)}
-                            className="w-9 h-9 p-0"
-                          >
-                            {page}
-                          </Button>
-                        ))}
-
-                      {/* Última página */}
-                      {currentPage < totalPages - 2 && (
-                        <>
-                          {currentPage < totalPages - 3 && (
-                            <span className="px-1 text-muted-foreground">...</span>
-                          )}
-                          <Button
-                            variant={currentPage === totalPages ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(totalPages)}
-                            className="w-9 h-9 p-0"
-                          >
-                            {totalPages}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="gap-2"
-                    >
-                      <span className="hidden sm:inline">Próximo</span>
-                      <span className="sm:hidden">→</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => identifyGenders.mutate()}
+              disabled={identifyGenders.isPending}
+            >
+              {identifyGenders.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline ml-2">Identificar Gêneros</span>
+            </Button>
+            <ImportContactsExcelDialog />
+            <ImportEmailsDialog />
           </div>
         </div>
       </div>
+
+      {/* Barra de Filtros */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Busca */}
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou e-mail..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  handleFilterChange();
+                }}
+                className="pl-9 h-9"
+              />
+            </div>
+
+            {/* Região */}
+            <Select value={selectedRegion} onValueChange={(value) => {
+              setSelectedRegion(value);
+              handleFilterChange();
+            }}>
+              <SelectTrigger className="w-[180px] h-9">
+                <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Região" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as regiões</SelectItem>
+                {regions.map(region => (
+                  <SelectItem key={region} value={region}>{region}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Origem */}
+            <Select value={sourceFilter} onValueChange={(value) => {
+              setSourceFilter(value);
+              setSelectedLeaderId(null);
+              setSelectedEventId(null);
+              setSelectedCampaignId(null);
+              handleFilterChange();
+            }}>
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as origens</SelectItem>
+                <SelectItem value="evento">Evento</SelectItem>
+                <SelectItem value="lider">Link de Líder</SelectItem>
+                <SelectItem value="manual">Importação</SelectItem>
+                <SelectItem value="captacao">Captação</SelectItem>
+                <SelectItem value="visita">Visita</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Filtro condicional: Líder */}
+            {sourceFilter === "lider" && (
+              <Select 
+                value={selectedLeaderId || "all"} 
+                onValueChange={(value) => {
+                  setSelectedLeaderId(value === "all" ? null : value);
+                  handleFilterChange();
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Líder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os líderes</SelectItem>
+                  {leadersForFilter.map(leader => (
+                    <SelectItem key={leader.id} value={leader.id}>{leader.nome_completo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Filtro condicional: Evento */}
+            {sourceFilter === "evento" && (
+              <Select 
+                value={selectedEventId || "all"} 
+                onValueChange={(value) => {
+                  setSelectedEventId(value === "all" ? null : value);
+                  handleFilterChange();
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os eventos</SelectItem>
+                  {eventsForFilter.map(event => (
+                    <SelectItem key={event.id} value={event.id}>{event.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Filtro condicional: Funil */}
+            {sourceFilter === "captacao" && (
+              <Select 
+                value={selectedCampaignId || "all"} 
+                onValueChange={(value) => {
+                  setSelectedCampaignId(value === "all" ? null : value);
+                  handleFilterChange();
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Funil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os funis</SelectItem>
+                  {funnelsForFilter.map(funnel => (
+                    <SelectItem key={funnel.id} value={funnel.id}>{funnel.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Verificação */}
+            <Select value={verificationFilter} onValueChange={(value) => {
+              setVerificationFilter(value);
+              handleFilterChange();
+            }}>
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Verificação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="verified">Verificados</SelectItem>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="not_required">Não requer</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Limpar filtros */}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+                <X className="h-4 w-4 mr-1" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Info da Paginação */}
+      <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+        <span>
+          Mostrando <strong className="text-foreground">{startIndex + 1}</strong>-
+          <strong className="text-foreground">{Math.min(endIndex, verificationFilteredContacts.length)}</strong> de{" "}
+          <strong className="text-foreground">{verificationFilteredContacts.length}</strong>
+        </span>
+        <span>Página {currentPage} de {totalPages || 1}</span>
+      </div>
+
+      {/* Lista de Contatos */}
+      <div className="space-y-3">
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              <p className="mt-2 text-muted-foreground">Carregando contatos...</p>
+            </CardContent>
+          </Card>
+        ) : paginatedContacts.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Nenhum contato encontrado</h3>
+              <p className="text-muted-foreground">Tente ajustar os filtros ou adicionar novos contatos.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          paginatedContacts.map((contact) => {
+            const avatarColor = getAvatarColor(contact.name);
+            const initials = contact.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+            const sourceConf = sourceConfig[contact.sourceType] || sourceConfig.manual;
+            const SourceIcon = sourceConf.icon;
+
+            return (
+              <Card key={contact.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Lado Esquerdo: Avatar + Info */}
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      {/* Avatar */}
+                      <div className={`w-12 h-12 bg-gradient-to-br ${avatarColor.bg} ${avatarColor.text} rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-sm`}>
+                        {initials}
+                      </div>
+
+                      {/* Informações */}
+                      <div className="flex-1 min-w-0">
+                        {/* Nome e Região */}
+                        <h3 className="font-semibold text-foreground truncate">{contact.name}</h3>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">{contact.region}</span>
+                        </p>
+
+                        {/* Badges */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {/* Badge de Origem */}
+                          <Badge variant="outline" className={`text-xs ${sourceConf.className} border`}>
+                            <SourceIcon className="h-3 w-3 mr-1" />
+                            {sourceConf.label}
+                          </Badge>
+
+                          {/* Badge de Atribuição (nome do líder/evento/etc) */}
+                          {contact.sourceName && (
+                            <Badge variant="secondary" className="text-xs bg-muted/50">
+                              {contact.sourceName}
+                            </Badge>
+                          )}
+
+                          {/* Badge de Verificação */}
+                          {contact.requiresVerification && (
+                            contact.is_verified ? (
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Verificado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                                <ShieldAlert className="h-3 w-3 mr-1" />
+                                Pendente
+                              </Badge>
+                            )
+                          )}
+                        </div>
+
+                        {/* Contatos */}
+                        <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Phone className="h-4 w-4" />
+                            {contact.phone}
+                          </span>
+                          {contact.email && (
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Mail className="h-4 w-4" />
+                              <span className="truncate max-w-[200px]">{contact.email}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Data de Cadastro */}
+                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Cadastrado em {format(new Date(contact.registrationDate), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Lado Direito: Ações */}
+                    <div className="flex flex-col gap-1">
+                      <Button 
+                        size="icon" 
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => setEditingContact({
+                          id: contact.id,
+                          nome: contact.name,
+                          telefone_norm: contact.telefone_norm,
+                          cidade_id: contact.cidade_id,
+                          source_type: contact.source_type,
+                          source_id: contact.source_id,
+                          genero: contact.genero
+                        })}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => handleWhatsAppClick(contact.phone)}
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                      {contact.email && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleEmailClick(contact.email)}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => setSelectedContact(contact)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-3">
+                              <div className={`w-10 h-10 bg-gradient-to-br ${avatarColor.bg} ${avatarColor.text} rounded-lg flex items-center justify-center font-bold`}>
+                                {initials}
+                              </div>
+                              {contact.name}
+                            </DialogTitle>
+                          </DialogHeader>
+                          {selectedContact && <ContactDetails contact={selectedContact} />}
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {currentPage > 3 && (
+              <>
+                <Button variant={currentPage === 1 ? "default" : "outline"} size="sm" onClick={() => setCurrentPage(1)} className="w-9 h-9 p-0">1</Button>
+                {currentPage > 4 && <span className="px-2 text-muted-foreground">...</span>}
+              </>
+            )}
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(page => page === currentPage || page === currentPage - 1 || page === currentPage + 1 || (currentPage <= 2 && page <= 3) || (currentPage >= totalPages - 1 && page >= totalPages - 2))
+              .map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className="w-9 h-9 p-0"
+                >
+                  {page}
+                </Button>
+              ))}
+
+            {currentPage < totalPages - 2 && (
+              <>
+                {currentPage < totalPages - 3 && <span className="px-2 text-muted-foreground">...</span>}
+                <Button variant={currentPage === totalPages ? "default" : "outline"} size="sm" onClick={() => setCurrentPage(totalPages)} className="w-9 h-9 p-0">{totalPages}</Button>
+              </>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Dialog de Edição */}
       {editingContact && (
@@ -1187,13 +845,10 @@ const Contacts = () => {
   );
 };
 
-// Componente de detalhes do contato
+// Componente de detalhes do contato com Tabs
 const ContactDetails = ({ contact }: { contact: any }) => {
-  // Buscar participação em eventos real
   const { data: eventParticipation = [], isLoading: isLoadingEvents } = useContactEventParticipation(contact.id);
-  // Buscar páginas acessadas
   const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
-  // Buscar downloads de materiais
   const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
@@ -1203,347 +858,201 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Informações Básicas */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Informações Pessoais</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+    <Tabs defaultValue="info" className="mt-4">
+      <TabsList className="grid w-full grid-cols-4">
+        <TabsTrigger value="info">Informações</TabsTrigger>
+        <TabsTrigger value="eventos">Eventos</TabsTrigger>
+        <TabsTrigger value="atividade">Atividade</TabsTrigger>
+        <TabsTrigger value="verificacao">Verificação</TabsTrigger>
+      </TabsList>
+
+      {/* Tab: Informações */}
+      <TabsContent value="info" className="mt-4 space-y-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-600">Nome</label>
-              <p className="font-semibold">{contact.name}</p>
+              <label className="text-xs font-medium text-muted-foreground">Região Administrativa</label>
+              <p className="font-medium flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                {contact.region}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Profissão</label>
-              <p>{contact.profession}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Região</label>
-              <p>{contact.region}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Origem</label>
+              <label className="text-xs font-medium text-muted-foreground">Origem</label>
               <p className="text-sm">{contact.source}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Data de Cadastro</label>
-              <p className="text-sm">{new Date(contact.registrationDate).toLocaleDateString()}</p>
+              <label className="text-xs font-medium text-muted-foreground">Data de Cadastro</label>
+              <p className="text-sm">{format(new Date(contact.registrationDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Contato & Consentimentos</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-gray-400" />
-                <span>{contact.phone}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {contact.consentWhatsApp ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleWhatsAppClick(contact.phone)}
-                  disabled={!contact.consentWhatsApp}
-                  className="text-green-600 hover:bg-green-50"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <span className="truncate">{contact.email}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {contact.consentEmail ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.open(`mailto:${contact.email}`, '_blank')}
-                  disabled={!contact.consentEmail}
-                  className="text-blue-600 hover:bg-blue-50"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span>Eventos</span>
-              </div>
-              {contact.consentEvents ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : (
-                <XCircle className="h-4 w-4 text-red-500" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Status de Verificação */}
-      {contact.requiresVerification && (
-        <Card className={contact.is_verified ? "border-green-200 bg-green-50/30" : "border-amber-200 bg-amber-50/30"}>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center text-lg">
-              {contact.is_verified ? (
-                <>
-                  <ShieldCheck className="h-5 w-5 text-green-600 mr-2" />
-                  Contato Verificado
-                </>
-              ) : (
-                <>
-                  <ShieldAlert className="h-5 w-5 text-amber-600 mr-2" />
-                  Verificação Pendente
-                </>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {contact.is_verified ? (
-              <div className="text-sm text-green-700">
-                <p>Este contato confirmou seu cadastro via WhatsApp.</p>
-                {contact.verified_at && (
-                  <p className="mt-1 text-xs text-green-600">
-                    Verificado em: {new Date(contact.verified_at).toLocaleString('pt-BR')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-amber-700">
-                  Este contato foi indicado por um líder e precisa confirmar seu cadastro via WhatsApp.
-                </p>
-                <div className="flex items-center justify-between text-xs text-amber-600">
-                  <div>
-                    {contact.verification_sent_at && (
-                      <span>Código enviado em: {new Date(contact.verification_sent_at).toLocaleString('pt-BR')}</span>
-                    )}
-                  </div>
-                  <div className="font-mono bg-amber-100 px-2 py-1 rounded">
-                    Código: {contact.verification_code || 'N/A'}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    await resendVerificationCode(contact.id);
-                  }}
-                  className="text-amber-700 border-amber-300 hover:bg-amber-100"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reenviar Código de Verificação
-                </Button>
+            {contact.genero && contact.genero !== 'Não identificado' && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Gênero</label>
+                <p className="text-sm">{contact.genero}</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Histórico de Conversas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="h-5 w-5 text-primary-600 mr-2" />
-            Histórico de Conversas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {contact.conversations.map((conversation: any, idx: number) => (
-              <div key={idx} className="border-l-4 border-primary-200 pl-4 py-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className="text-xs">
-                      {conversation.source}
-                    </Badge>
-                    <span className="text-sm text-gray-600">
-                      {new Date(conversation.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {conversation.categories.map((category: string, catIdx: number) => (
-                      <Badge 
-                        key={catIdx}
-                        className={`text-xs ${categoryColors[category] || 'bg-gray-100 text-gray-700'}`}
-                      >
-                        {category}
-                      </Badge>
-                    ))}
-                  </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">WhatsApp</label>
+              <div className="flex items-center justify-between">
+                <p className="font-medium">{contact.phone}</p>
+                <Button variant="ghost" size="sm" className="text-green-600 hover:bg-green-50" onClick={() => handleWhatsAppClick(contact.phone)}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {contact.email && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">E-mail</label>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium truncate">{contact.email}</p>
+                  <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-50" onClick={() => window.open(`mailto:${contact.email}`, '_blank')}>
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
                 </div>
-                <p className="text-sm text-gray-700">{conversation.summary}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </TabsContent>
+
+      {/* Tab: Eventos */}
+      <TabsContent value="eventos" className="mt-4">
+        {isLoadingEvents ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : eventParticipation.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
+            <p>Nenhuma participação em eventos registrada.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {eventParticipation.map((event: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div>
+                  <p className="font-medium">{event.event?.name || 'Evento'}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {event.event?.date ? format(new Date(event.event.date), "dd/MM/yyyy", { locale: ptBR }) : 'Data não informada'}
+                  </p>
+                </div>
+                <Badge variant={event.checked_in ? "default" : "secondary"} className={event.checked_in ? "bg-green-100 text-green-700" : ""}>
+                  {event.checked_in ? "✓ Check-in" : "Inscrito"}
+                </Badge>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </TabsContent>
 
-      {/* Participação em Eventos */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Calendar className="h-5 w-5 text-primary-600 mr-2" />
-            Participação em Eventos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingEvents ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {eventParticipation.length > 0 ? (
-                eventParticipation.map((participation) => (
-                  <div key={participation.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium">{participation.event_name}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(participation.event_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                        </p>
-                        {participation.event_time && (
-                          <>
-                            <span className="text-muted-foreground">•</span>
-                            <p className="text-sm text-muted-foreground">
-                              {participation.event_time.substring(0, 5)}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      {participation.checked_in && participation.checked_in_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Check-in: {format(new Date(participation.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant={participation.checked_in ? "default" : "secondary"}>
-                      {participation.checked_in ? "Compareceu" : "Inscrito"}
-                    </Badge>
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-center py-4">
-                  Nenhuma participação em eventos registrada
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Páginas Acessadas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 text-primary-600 mr-2" />
+      {/* Tab: Atividade */}
+      <TabsContent value="atividade" className="mt-4 space-y-6">
+        {/* Páginas Acessadas */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
             Páginas Acessadas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h4>
           {isLoadingPageViews ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : pageViews.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma página acessada.</p>
           ) : (
-            <div className="space-y-3">
-              {pageViews.length > 0 ? (
-                pageViews.map((view) => (
-                  <div key={view.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {view.page_type === 'evento' ? '📅 Evento' : 
-                           view.page_type === 'captacao' ? '📢 Captação' : 
-                           '👤 Afiliado'}
-                        </Badge>
-                        <h4 className="font-medium">{view.page_name || view.page_identifier}</h4>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {format(new Date(view.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                      </p>
-                      {(view.utm_source || view.utm_campaign) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {view.utm_source && <span>Fonte: {view.utm_source}</span>}
-                          {view.utm_campaign && <span className="ml-2">Campanha: {view.utm_campaign}</span>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-center py-4">
-                  Nenhuma página acessada registrada
-                </p>
-              )}
+            <div className="space-y-2">
+              {pageViews.slice(0, 5).map((view: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
+                  <span>{view.page_name || view.page_identifier}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(view.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Downloads de Materiais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Download className="h-5 w-5 text-primary-600 mr-2" />
+        {/* Downloads */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Download className="h-4 w-4 text-muted-foreground" />
             Downloads de Materiais
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h4>
           {isLoadingDownloads ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : downloads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum material baixado.</p>
           ) : (
-            <div className="space-y-3">
-              {downloads.length > 0 ? (
-                downloads.map((download) => (
-                  <div key={download.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium">{download.lead_magnet_nome}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Funil: {download.funnel_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(download.downloaded_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <Badge variant="default" className="bg-green-100 text-green-700">
-                      Baixado
-                    </Badge>
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-center py-4">
-                  Nenhum download de material registrado
-                </p>
-              )}
+            <div className="space-y-2">
+              {downloads.map((download: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
+                  <span>{download.lead_magnet_nome}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(download.downloaded_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </TabsContent>
+
+      {/* Tab: Verificação */}
+      <TabsContent value="verificacao" className="mt-4">
+        {!contact.requiresVerification ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <ShieldCheck className="h-10 w-10 mx-auto mb-2 opacity-50" />
+            <p>Este contato não requer verificação.</p>
+            <p className="text-xs mt-1">Apenas contatos indicados por líderes precisam confirmar o cadastro.</p>
+          </div>
+        ) : contact.is_verified ? (
+          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+            <div className="flex items-center gap-2 text-green-700 font-medium">
+              <ShieldCheck className="h-5 w-5" />
+              Contato Verificado
+            </div>
+            <p className="text-sm text-green-600 mt-2">Este contato confirmou seu cadastro via WhatsApp.</p>
+            {contact.verified_at && (
+              <p className="text-xs text-green-500 mt-2">
+                Verificado em: {format(new Date(contact.verified_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-4">
+            <div className="flex items-center gap-2 text-amber-700 font-medium">
+              <ShieldAlert className="h-5 w-5" />
+              Verificação Pendente
+            </div>
+            <p className="text-sm text-amber-600">
+              Este contato foi indicado por um líder e precisa confirmar seu cadastro via WhatsApp.
+            </p>
+            <div className="flex items-center justify-between text-xs text-amber-600">
+              <div>
+                {contact.verification_sent_at && (
+                  <span>Enviado em: {format(new Date(contact.verification_sent_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                )}
+              </div>
+              <div className="font-mono bg-amber-100 px-2 py-1 rounded">
+                Código: {contact.verification_code || 'N/A'}
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await resendVerificationCode(contact.id);
+              }}
+              className="text-amber-700 border-amber-300 hover:bg-amber-100"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reenviar Código
+            </Button>
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 };
 
