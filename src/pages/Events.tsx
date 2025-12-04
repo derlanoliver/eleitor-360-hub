@@ -59,6 +59,7 @@ import { ptBR } from "date-fns/locale";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import EventQRCode from "@/components/EventQRCode";
 import { EventAffiliateDialog } from "@/components/events/EventAffiliateDialog";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const eventCategories = [
   { value: "educacao", label: "Educação", color: "bg-blue-500" },
@@ -77,6 +78,8 @@ const Events = () => {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const { isAdmin, isAtendente } = useUserRole();
+  const canManageEvents = isAdmin || isAtendente;
   
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -242,6 +245,7 @@ const Events = () => {
                 {filteredEvents.length} eventos encontrados
               </p>
             </div>
+            {canManageEvents && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -417,6 +421,7 @@ const Events = () => {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
         </div>
 
@@ -541,28 +546,32 @@ const Events = () => {
                                 >
                                   <LinkIcon className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    setEditingEvent({
-                                      ...event,
-                                      coverImage: null
-                                    });
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                  title="Editar"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleDeleteEvent(event.id)}
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canManageEvents && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      setEditingEvent({
+                                        ...event,
+                                        coverImage: null
+                                      });
+                                      setIsEditDialogOpen(true);
+                                    }}
+                                    title="Editar"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {canManageEvents && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
@@ -608,14 +617,16 @@ const Events = () => {
                             <Eye className="h-4 w-4 mr-2" />
                             Ver Detalhes e Inscrições
                           </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAffiliateDialogEvent(event)}
-                  >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Link do Líder
-                  </Button>
+                          {canManageEvents && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAffiliateDialogEvent(event)}
+                            >
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Link do Líder
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
