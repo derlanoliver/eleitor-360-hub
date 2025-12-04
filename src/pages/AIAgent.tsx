@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Send, Paperclip, Copy, Trash2, Plus, FileText, Image as ImageIcon, Bot, User, MessageSquare, Menu, X } from "lucide-react";
@@ -369,7 +369,7 @@ const AIAgent = () => {
                   }`}
                 >
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                  <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex-1 min-w-0 overflow-hidden w-0">
                     {editingConversationId === conv.id ? (
                       <Input
                         value={editingTitle}
@@ -437,7 +437,7 @@ const AIAgent = () => {
                     }`}
                   >
                     <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                    <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex-1 min-w-0 overflow-hidden w-0">
                       {editingConversationId === conv.id ? (
                         <Input
                           value={editingTitle}
@@ -654,8 +654,15 @@ const AIAgent = () => {
 
                   {message.role === "user" && (
                     <Avatar className="h-8 w-8 flex-shrink-0 self-start">
+                      <AvatarImage src={user?.avatar} alt={user?.name || 'Usuário'} />
                       <AvatarFallback className="bg-secondary text-secondary-foreground">
-                        <User className="h-4 w-4" />
+                        {user?.name ? (
+                          <span className="text-xs font-medium">
+                            {user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                          </span>
+                        ) : (
+                          <User className="h-4 w-4" />
+                        )}
                       </AvatarFallback>
                     </Avatar>
                   )}
