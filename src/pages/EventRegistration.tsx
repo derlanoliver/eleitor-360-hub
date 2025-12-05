@@ -238,7 +238,16 @@ export default function EventRegistration() {
           setNeedsVerification(true);
         }
       } else {
-        // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
+      // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
+        // Buscar contact_id pelo telefone normalizado
+        const { data: contactForMessaging } = await supabase
+          .from("office_contacts")
+          .select("id")
+          .eq("telefone_norm", normalizedPhone)
+          .maybeSingle();
+
+        const contactIdForMessaging = contactForMessaging?.id;
+
         try {
           await supabase.functions.invoke('send-whatsapp', {
             body: {
@@ -252,7 +261,7 @@ export default function EventRegistration() {
                 evento_local: event.location,
                 evento_endereco: event.address || event.location,
               },
-              contactId: undefined,
+              contactId: contactIdForMessaging,
               imageUrl: qrCodeImageUrl, // Enviar QR Code como imagem
             },
           });
@@ -277,6 +286,7 @@ export default function EventRegistration() {
                 evento_descricao: event.description || '',
                 qr_code_url: qrCodeImageUrl,
               },
+              contactId: contactIdForMessaging,
               eventId: event.id,
             },
           });

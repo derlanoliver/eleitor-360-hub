@@ -92,13 +92,14 @@ export default function PublicLeaderRegistration() {
 
       if (error) throw error;
 
-      // Get the created leader to obtain the affiliate_token
+      // Get the created leader to obtain the affiliate_token and id
       const { data: createdLeader } = await supabase
         .from("lideres")
-        .select("affiliate_token")
+        .select("id, affiliate_token")
         .eq("email", data.email.trim().toLowerCase())
         .single();
 
+      const leaderId = createdLeader?.id;
       const affiliateToken = createdLeader?.affiliate_token;
 
       // Send WhatsApp confirmation (lider-cadastro-confirmado)
@@ -110,6 +111,7 @@ export default function PublicLeaderRegistration() {
             variables: {
               nome: data.nome_completo,
             },
+            leaderId: leaderId,
           },
         });
       } catch (whatsappError) {
@@ -130,6 +132,7 @@ export default function PublicLeaderRegistration() {
                 nome: data.nome_completo,
                 link_indicacao: `${getBaseUrl()}/cadastro/${affiliateToken}`,
               },
+              leaderId: leaderId,
             },
           });
         } catch (emailError) {

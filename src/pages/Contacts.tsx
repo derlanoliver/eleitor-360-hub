@@ -986,7 +986,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
   const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
   const { data: activityLog = [], isLoading: isLoadingActivityLog } = useContactActivityLog(contact.id);
-  const { data: communications, isLoading: isLoadingCommunications } = useContactCommunications(contact.id);
+  const { data: communications, isLoading: isLoadingCommunications } = useContactCommunications(contact.id, contact.telefone_norm, contact.email);
   const { data: visits = [], isLoading: isLoadingVisits } = useContactVisits(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
