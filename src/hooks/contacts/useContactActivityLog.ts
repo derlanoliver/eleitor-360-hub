@@ -10,6 +10,11 @@ export interface ContactActivity {
     leader_id?: string;
     leader_name?: string;
     reason?: string;
+    old_value?: string;
+    new_value?: string;
+    field?: string;
+    event_name?: string;
+    template_name?: string;
   } | null;
   created_at: string;
   user_name?: string | null;
