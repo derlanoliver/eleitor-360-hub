@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useDeactivateContact } from "@/hooks/contacts/useDeactivateContact";
+import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, UserMinus } from "lucide-react";
 
 interface DeactivateContactDialogProps {
@@ -30,6 +31,7 @@ export function DeactivateContactDialog({
 }: DeactivateContactDialogProps) {
   const [reason, setReason] = useState("");
   const deactivateMutation = useDeactivateContact();
+  const { user } = useAuth();
 
   const handleDeactivate = () => {
     if (!contact) return;
@@ -37,7 +39,8 @@ export function DeactivateContactDialog({
     deactivateMutation.mutate(
       { 
         contactId: contact.id, 
-        reason: reason || "Desativado pelo administrador" 
+        reason: reason || "Desativado pelo administrador",
+        userId: user?.id,
       },
       {
         onSuccess: () => {

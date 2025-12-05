@@ -16,6 +16,7 @@ import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
 import { useContactEventParticipation } from "@/hooks/contacts/useContactEventParticipation";
 import { useContactPageViews } from "@/hooks/contacts/useContactPageViews";
 import { useContactDownloads } from "@/hooks/contacts/useContactDownloads";
+import { useContactActivityLog } from "@/hooks/contacts/useContactActivityLog";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,12 +48,15 @@ import {
   X,
   UserMinus,
   UserPlus,
-  Ban
+  Ban,
+  Crown,
+  History
 } from "lucide-react";
 import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
 import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
 import { useUserRole } from "@/hooks/useUserRole";
 import { resendVerificationCode } from "@/hooks/contacts/useContactVerification";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Cores e labels para badges de origem
 const sourceConfig: Record<string, { label: string; className: string; icon: typeof Calendar }> = {
@@ -118,6 +122,7 @@ const Contacts = () => {
   const identifyGenders = useIdentifyGenders();
   const reactivateContact = useReactivateContact();
   const { isAdmin } = useUserRole();
+  const { user } = useAuth();
 
   // Buscar líderes ativos para o filtro
   const { data: leadersForFilter = [] } = useQuery({
@@ -836,7 +841,7 @@ const Contacts = () => {
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => reactivateContact.mutate(contact.id)}
+                            onClick={() => reactivateContact.mutate({ contactId: contact.id, userId: user?.id })}
                             disabled={reactivateContact.isPending}
                             title="Reativar contato"
                           >
@@ -930,6 +935,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   const { data: eventParticipation = [], isLoading: isLoadingEvents } = useContactEventParticipation(contact.id);
   const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
   const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
+  const { data: activityLog = [], isLoading: isLoadingActivityLog } = useContactActivityLog(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -943,12 +949,19 @@ const ContactDetails = ({ contact }: { contact: any }) => {
     admin: "Administrador"
   };
 
+  const actionLabels: Record<string, { label: string; icon: any; color: string }> = {
+    promoted_to_leader: { label: "Promovido a Líder", icon: Crown, color: "text-amber-600 bg-amber-50" },
+    deactivated: { label: "Desativado", icon: UserMinus, color: "text-red-600 bg-red-50" },
+    reactivated: { label: "Reativado", icon: UserPlus, color: "text-green-600 bg-green-50" },
+  };
+
   return (
     <Tabs defaultValue="info" className="mt-4">
-      <TabsList className="grid w-full grid-cols-5">
-        <TabsTrigger value="info">Informações</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-6">
+        <TabsTrigger value="info">Info</TabsTrigger>
         <TabsTrigger value="eventos">Eventos</TabsTrigger>
         <TabsTrigger value="atividade">Atividade</TabsTrigger>
+        <TabsTrigger value="historico">Histórico</TabsTrigger>
         <TabsTrigger value="verificacao">Verificação</TabsTrigger>
         <TabsTrigger value="status">Status</TabsTrigger>
       </TabsList>
@@ -1090,6 +1103,62 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      </TabsContent>
+
+      {/* Tab: Histórico de Alterações */}
+      <TabsContent value="historico" className="mt-4">
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium flex items-center gap-2">
+            <History className="h-4 w-4 text-muted-foreground" />
+            Histórico de Atividades
+          </h4>
+          
+          {isLoadingActivityLog ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activityLog.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <History className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>Nenhuma atividade registrada.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityLog.map((activity) => {
+                const actionConfig = actionLabels[activity.action] || { 
+                  label: activity.action, 
+                  icon: History, 
+                  color: "text-gray-600 bg-gray-50" 
+                };
+                const IconComponent = actionConfig.icon;
+                
+                return (
+                  <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${actionConfig.color}`}>
+                      <IconComponent className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{actionConfig.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        por {activity.user_name || 'Sistema'} • {format(new Date(activity.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      {activity.details?.reason && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Motivo: {activity.details.reason}
+                        </p>
+                      )}
+                      {activity.details?.leader_name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Líder criado: {activity.details.leader_name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useRegions } from "@/hooks/useRegions";
 import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
 import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
-import { Loader2 } from "lucide-react";
+import { usePromoteToLeader } from "@/hooks/contacts/usePromoteToLeader";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2, Crown, UserCheck } from "lucide-react";
 
 interface EditContactDialogProps {
   contact: {
@@ -18,6 +22,8 @@ interface EditContactDialogProps {
     source_type: string | null;
     source_id: string | null;
     genero?: string;
+    email?: string | null;
+    data_nascimento?: string | null;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,12 +33,36 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [cidadeId, setCidadeId] = useState(contact.cidade_id);
   const [leaderId, setLeaderId] = useState(contact.source_id || "");
   const [genero, setGenero] = useState(contact.genero || "Não identificado");
+  const [promoteToLeader, setPromoteToLeader] = useState(false);
   
   const { data: regions = [] } = useRegions();
   const { data: leaders = [] } = useOfficeLeaders();
   const updateContact = useUpdateContact();
+  const promoteToLeaderMutation = usePromoteToLeader();
+  const { user } = useAuth();
 
-  const handleSave = () => {
+  // Reset state when contact changes
+  useEffect(() => {
+    setCidadeId(contact.cidade_id);
+    setLeaderId(contact.source_id || "");
+    setGenero(contact.genero || "Não identificado");
+    setPromoteToLeader(false);
+  }, [contact]);
+
+  // Verificar se contato já é líder (por telefone)
+  const normalizePhone = (phone: string) => {
+    return phone.replace(/\D/g, '').slice(-11);
+  };
+  
+  const isAlreadyLeader = leaders.some(leader => {
+    if (!leader.telefone) return false;
+    const leaderPhone = normalizePhone(leader.telefone);
+    const contactPhone = normalizePhone(contact.telefone_norm);
+    return leaderPhone === contactPhone;
+  });
+
+  const handleSave = async () => {
+    // 1. Atualizar contato
     updateContact.mutate(
       {
         id: contact.id,
@@ -44,12 +74,28 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          // 2. Se marcou para promover e tem user id, criar líder
+          if (promoteToLeader && user?.id) {
+            promoteToLeaderMutation.mutate({
+              contact: {
+                id: contact.id,
+                nome: contact.nome,
+                telefone_norm: contact.telefone_norm,
+                email: contact.email,
+                cidade_id: cidadeId,
+                data_nascimento: contact.data_nascimento,
+              },
+              actionBy: user.id,
+            });
+          }
           onOpenChange(false);
         },
       }
     );
   };
+
+  const isPending = updateContact.isPending || promoteToLeaderMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,13 +108,13 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
           {/* Nome (read-only) */}
           <div>
             <Label>Nome</Label>
-            <Input value={contact.nome} disabled className="bg-gray-50" />
+            <Input value={contact.nome} disabled className="bg-muted/50" />
           </div>
 
           {/* Telefone (read-only) */}
           <div>
             <Label>Telefone</Label>
-            <Input value={contact.telefone_norm} disabled className="bg-gray-50" />
+            <Input value={contact.telefone_norm} disabled className="bg-muted/50" />
           </div>
 
           {/* Gênero */}
@@ -120,14 +166,42 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
               </SelectContent>
             </Select>
           </div>
+
+          {/* Seção: Promover a Líder */}
+          <div className="border-t pt-4 mt-4">
+            {!isAlreadyLeader ? (
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-4 w-4 text-amber-500" />
+                    <Label className="text-base font-medium">Promover a Líder</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Transformar este contato em um líder da rede
+                  </p>
+                </div>
+                <Switch 
+                  checked={promoteToLeader} 
+                  onCheckedChange={setPromoteToLeader} 
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  Este contato já é um líder
+                </Badge>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={updateContact.isPending}>
-            {updateContact.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleSave} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar Alterações
           </Button>
         </div>
