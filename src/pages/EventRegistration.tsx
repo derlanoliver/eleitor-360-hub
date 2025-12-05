@@ -135,19 +135,7 @@ export default function EventRegistration() {
         utm_content: searchParams.get("utm_content") || undefined,
       });
 
-      // Record page view for contact if contact_id exists
-      if (registration.contact_id) {
-        await supabase.from('contact_page_views').insert({
-          contact_id: registration.contact_id,
-          page_type: 'evento',
-          page_identifier: event.slug,
-          page_name: event.name,
-          utm_source: searchParams.get("utm_source"),
-          utm_medium: searchParams.get("utm_medium"),
-          utm_campaign: searchParams.get("utm_campaign"),
-          utm_content: searchParams.get("utm_content"),
-        });
-      }
+      // Page view tracking is now handled by the trigger/function
 
       // Generate QR Code with full URL for check-in
       const checkInUrl = `${getBaseUrl()}/checkin/${registration.qr_code}`;
@@ -242,7 +230,7 @@ export default function EventRegistration() {
                 evento_hora: event.time,
                 evento_local: event.location,
               },
-              contactId: registration.contact_id,
+              contactId: undefined,
             },
           });
         } catch (whatsappError) {
