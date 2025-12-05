@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { getBaseUrl, generateEventAffiliateUrl } from "@/lib/urlHelper";
 
 type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
 
@@ -48,7 +48,7 @@ export function EmailBulkSendTab() {
   // Estados para envio individual
   const [singleContactSearch, setSingleContactSearch] = useState("");
   const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; email: string} | null>(null);
-  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; email: string} | null>(null);
+  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; email: string; affiliate_token: string | null} | null>(null);
 
   // Detectar tipo do template selecionado
   const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
@@ -121,7 +121,7 @@ export function EmailBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lideres")
-        .select("id, nome_completo, email")
+        .select("id, nome_completo, email, affiliate_token")
         .eq("is_active", true)
         .not("email", "is", null)
         .neq("email", "")
@@ -142,7 +142,7 @@ export function EmailBulkSendTab() {
       }
 
       if (recipientType === "single_leader" && selectedSingleLeader) {
-        return [{ id: selectedSingleLeader.id, name: selectedSingleLeader.nome_completo, email: selectedSingleLeader.email, type: "leader" as const }];
+        return [{ id: selectedSingleLeader.id, name: selectedSingleLeader.nome_completo, email: selectedSingleLeader.email, type: "leader" as const, affiliateToken: selectedSingleLeader.affiliate_token }];
       }
 
       if (recipientType === "all_contacts") {
@@ -183,12 +183,12 @@ export function EmailBulkSendTab() {
       if (recipientType === "leaders") {
         const { data, error } = await supabase
           .from("lideres")
-          .select("id, nome_completo, email")
+          .select("id, nome_completo, email, affiliate_token")
           .eq("is_active", true)
           .not("email", "is", null)
           .neq("email", "");
         if (error) throw error;
-        return data.map(l => ({ id: l.id, name: l.nome_completo, email: l.email!, type: "leader" as const }));
+        return data.map(l => ({ id: l.id, name: l.nome_completo, email: l.email!, type: "leader" as const, affiliateToken: l.affiliate_token }));
       }
 
       return [];
@@ -252,6 +252,12 @@ export function EmailBulkSendTab() {
         variables.evento_endereco = targetEvent.address || "";
         variables.evento_descricao = targetEvent.description || "";
         variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
+        
+        // Se for líder, gerar link_afiliado exclusivo
+        const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
+        if ((recipientType === "leaders" || recipientType === "single_leader") && affiliateToken) {
+          variables.link_afiliado = generateEventAffiliateUrl(targetEvent.slug, affiliateToken);
+        }
       }
 
       // Se for template de captação, adicionar variáveis do funil destino
