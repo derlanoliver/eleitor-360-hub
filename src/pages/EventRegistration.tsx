@@ -246,6 +246,7 @@ export default function EventRegistration() {
                 evento_data: eventDate,
                 evento_hora: event.time,
                 evento_local: event.location,
+                evento_endereco: event.address || event.location,
               },
               contactId: undefined,
             },
