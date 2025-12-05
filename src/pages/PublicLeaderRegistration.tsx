@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { CalendarIcon, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
-import { useAppSettings } from "@/hooks/useAppSettings";
+import { usePublicFormSettings } from "@/hooks/usePublicFormSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,7 +53,7 @@ export default function PublicLeaderRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { data: cities } = useOfficeCities();
-  const { data: settings } = useAppSettings();
+  const { data: settings } = usePublicFormSettings();
 
   const activeCities = cities?.filter((c) => c.status === "active") || [];
 
@@ -69,10 +69,10 @@ export default function PublicLeaderRegistration() {
     },
   });
 
-  const coverUrl = (settings as any)?.leader_form_cover_url || (settings as any)?.affiliate_form_cover_url;
-  const logoUrl = (settings as any)?.leader_form_logo_url || (settings as any)?.affiliate_form_logo_url;
-  const title = (settings as any)?.leader_form_title || "Cadastro de Liderança";
-  const subtitle = (settings as any)?.leader_form_subtitle || "Faça parte da nossa rede de lideranças e contribua para transformar nossa região.";
+  const coverUrl = settings?.leader_form_cover_url || settings?.affiliate_form_cover_url;
+  const logoUrl = settings?.leader_form_logo_url || settings?.affiliate_form_logo_url;
+  const title = settings?.leader_form_title || "Cadastro de Liderança";
+  const subtitle = settings?.leader_form_subtitle || "Faça parte da nossa rede de lideranças e contribua para transformar nossa região.";
 
   async function onSubmit(data: FormData) {
     setIsSubmitting(true);

@@ -1730,6 +1730,17 @@ export type Database = {
         Args: { _email: string; _phone: string }
         Returns: string
       }
+      get_public_form_settings: {
+        Args: never
+        Returns: {
+          affiliate_form_cover_url: string
+          affiliate_form_logo_url: string
+          leader_form_cover_url: string
+          leader_form_logo_url: string
+          leader_form_subtitle: string
+          leader_form_title: string
+        }[]
+      }
       get_user_context: {
         Args: { user_id: string }
         Returns: {
