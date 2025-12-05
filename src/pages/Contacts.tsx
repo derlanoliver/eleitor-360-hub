@@ -17,6 +17,8 @@ import { useContactEventParticipation } from "@/hooks/contacts/useContactEventPa
 import { useContactPageViews } from "@/hooks/contacts/useContactPageViews";
 import { useContactDownloads } from "@/hooks/contacts/useContactDownloads";
 import { useContactActivityLog } from "@/hooks/contacts/useContactActivityLog";
+import { useContactCommunications } from "@/hooks/contacts/useContactCommunications";
+import { useContactVisits } from "@/hooks/contacts/useContactVisits";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -50,7 +52,13 @@ import {
   UserPlus,
   Ban,
   Crown,
-  History
+  History,
+  MessageSquare,
+  Send,
+  CheckCheck,
+  Check,
+  AlertCircle,
+  Briefcase
 } from "lucide-react";
 import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
 import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
@@ -978,6 +986,8 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
   const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
   const { data: activityLog = [], isLoading: isLoadingActivityLog } = useContactActivityLog(contact.id);
+  const { data: communications, isLoading: isLoadingCommunications } = useContactCommunications(contact.id);
+  const { data: visits = [], isLoading: isLoadingVisits } = useContactVisits(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -992,9 +1002,38 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   };
 
   const actionLabels: Record<string, { label: string; icon: any; color: string }> = {
+    created: { label: "Contato Criado", icon: UserPlus, color: "text-blue-600 bg-blue-50" },
+    edited: { label: "Contato Editado", icon: Edit, color: "text-purple-600 bg-purple-50" },
     promoted_to_leader: { label: "Promovido a Líder", icon: Crown, color: "text-amber-600 bg-amber-50" },
     deactivated: { label: "Desativado", icon: UserMinus, color: "text-red-600 bg-red-50" },
     reactivated: { label: "Reativado", icon: UserPlus, color: "text-green-600 bg-green-50" },
+    verified: { label: "Verificado", icon: ShieldCheck, color: "text-green-600 bg-green-50" },
+    verification_sent: { label: "Código de Verificação Enviado", icon: Send, color: "text-blue-600 bg-blue-50" },
+    whatsapp_sent: { label: "WhatsApp Enviado", icon: MessageSquare, color: "text-green-600 bg-green-50" },
+    email_sent: { label: "E-mail Enviado", icon: Mail, color: "text-blue-600 bg-blue-50" },
+    event_registered: { label: "Inscrito em Evento", icon: Calendar, color: "text-purple-600 bg-purple-50" },
+    event_checkin: { label: "Check-in em Evento", icon: CheckCheck, color: "text-green-600 bg-green-50" },
+    visit_created: { label: "Visita Agendada", icon: Building2, color: "text-blue-600 bg-blue-50" },
+    visit_checkin: { label: "Check-in de Visita", icon: CheckCheck, color: "text-green-600 bg-green-50" },
+  };
+
+  const whatsappStatusConfig: Record<string, { label: string; icon: any; color: string }> = {
+    pending: { label: "Pendente", icon: Clock, color: "text-gray-500" },
+    sent: { label: "Enviado", icon: Check, color: "text-gray-500" },
+    delivered: { label: "Entregue", icon: CheckCheck, color: "text-green-600" },
+    read: { label: "Lido", icon: CheckCheck, color: "text-blue-600" },
+    failed: { label: "Erro", icon: AlertCircle, color: "text-red-600" },
+  };
+
+  const visitStatusLabels: Record<string, string> = {
+    REGISTERED: "Registrada",
+    LINK_SENT: "Link Enviado",
+    FORM_OPENED: "Formulário Aberto",
+    FORM_SUBMITTED: "Formulário Enviado",
+    CHECKED_IN: "Check-in Realizado",
+    CANCELLED: "Cancelada",
+    MEETING_COMPLETED: "Reunião Concluída",
+    RESCHEDULED: "Reagendada",
   };
 
   return (
@@ -1083,16 +1122,46 @@ const ContactDetails = ({ contact }: { contact: any }) => {
         ) : (
           <div className="space-y-3">
             {eventParticipation.map((event: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium">{event.event_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {event.event_date ? format(new Date(event.event_date), "dd/MM/yyyy", { locale: ptBR }) : 'Data não informada'}
-                  </p>
+              <div key={idx} className="p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="font-medium">{event.event_name}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {event.event_date ? format(new Date(event.event_date), "dd/MM/yyyy", { locale: ptBR }) : 'Data não informada'}
+                      </span>
+                      {event.event_time && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {event.event_time}
+                        </span>
+                      )}
+                    </div>
+                    {event.event_location && (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {event.event_location}
+                        {event.event_address && ` - ${event.event_address}`}
+                      </p>
+                    )}
+                    {event.event_category && (
+                      <Badge variant="outline" className="mt-2 text-xs">
+                        {event.event_category}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant={event.checked_in ? "default" : "secondary"} className={event.checked_in ? "bg-green-100 text-green-700" : ""}>
+                      {event.checked_in ? "✓ Check-in" : "Inscrito"}
+                    </Badge>
+                    {event.checked_in_at && (
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(event.checked_in_at), "dd/MM HH:mm", { locale: ptBR })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <Badge variant={event.checked_in ? "default" : "secondary"} className={event.checked_in ? "bg-green-100 text-green-700" : ""}>
-                  {event.checked_in ? "✓ Check-in" : "Inscrito"}
-                </Badge>
               </div>
             ))}
           </div>
@@ -1101,18 +1170,119 @@ const ContactDetails = ({ contact }: { contact: any }) => {
 
       {/* Tab: Atividade */}
       <TabsContent value="atividade" className="mt-4 space-y-6">
+        {/* Comunicações WhatsApp */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-green-600" />
+            WhatsApp ({communications?.whatsapp?.length || 0})
+          </h4>
+          {isLoadingCommunications ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : !communications?.whatsapp?.length ? (
+            <p className="text-sm text-muted-foreground">Nenhuma mensagem WhatsApp.</p>
+          ) : (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {communications.whatsapp.slice(0, 10).map((msg: any, idx: number) => {
+                const statusConfig = whatsappStatusConfig[msg.status] || whatsappStatusConfig.pending;
+                const StatusIcon = statusConfig.icon;
+                return (
+                  <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-xs">{msg.message.substring(0, 60)}...</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                      <StatusIcon className={`h-3.5 w-3.5 ${statusConfig.color}`} />
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(msg.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Comunicações E-mail */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Mail className="h-4 w-4 text-blue-600" />
+            E-mails ({communications?.email?.length || 0})
+          </h4>
+          {isLoadingCommunications ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : !communications?.email?.length ? (
+            <p className="text-sm text-muted-foreground">Nenhum e-mail enviado.</p>
+          ) : (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {communications.email.slice(0, 10).map((email: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate font-medium text-xs">{email.subject}</p>
+                    {email.template_name && (
+                      <p className="text-xs text-muted-foreground">{email.template_name}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <Badge variant="outline" className={`text-xs ${email.status === 'sent' ? 'text-green-600' : email.status === 'failed' ? 'text-red-600' : 'text-gray-500'}`}>
+                      {email.status === 'sent' ? 'Enviado' : email.status === 'failed' ? 'Erro' : 'Pendente'}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(email.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Visitas */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-purple-600" />
+            Visitas ao Gabinete ({visits?.length || 0})
+          </h4>
+          {isLoadingVisits ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : !visits?.length ? (
+            <p className="text-sm text-muted-foreground">Nenhuma visita registrada.</p>
+          ) : (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {visits.map((visit: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-xs">{visit.protocolo}</p>
+                    {visit.leader_name && (
+                      <p className="text-xs text-muted-foreground">Líder: {visit.leader_name}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <Badge variant="outline" className="text-xs">
+                      {visitStatusLabels[visit.status] || visit.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(visit.created_at), "dd/MM/yy", { locale: ptBR })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Páginas Acessadas */}
         <div>
           <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            Páginas Acessadas
+            Páginas Acessadas ({pageViews?.length || 0})
           </h4>
           {isLoadingPageViews ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : pageViews.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma página acessada.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-32 overflow-y-auto">
               {pageViews.slice(0, 5).map((view: any, idx: number) => (
                 <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
                   <span>{view.page_name || view.page_identifier}</span>
@@ -1129,14 +1299,14 @@ const ContactDetails = ({ contact }: { contact: any }) => {
         <div>
           <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
             <Download className="h-4 w-4 text-muted-foreground" />
-            Downloads de Materiais
+            Downloads de Materiais ({downloads?.length || 0})
           </h4>
           {isLoadingDownloads ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : downloads.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum material baixado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-32 overflow-y-auto">
               {downloads.map((download: any, idx: number) => (
                 <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
                   <span>{download.lead_magnet_nome}</span>
@@ -1168,7 +1338,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <p>Nenhuma atividade registrada.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {activityLog.map((activity) => {
                 const actionConfig = actionLabels[activity.action] || { 
                   label: activity.action, 
@@ -1195,6 +1365,21 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                       {activity.details?.leader_name && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Líder criado: {activity.details.leader_name}
+                        </p>
+                      )}
+                      {activity.details?.field && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Campo: {activity.details.field}
+                        </p>
+                      )}
+                      {activity.details?.event_name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Evento: {activity.details.event_name}
+                        </p>
+                      )}
+                      {activity.details?.template_name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Template: {activity.details.template_name}
                         </p>
                       )}
                     </div>
