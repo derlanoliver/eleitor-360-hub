@@ -20,6 +20,14 @@ interface SendEmailRequest {
   eventId?: string;
 }
 
+// Templates públicos que podem ser enviados sem autenticação
+const PUBLIC_TEMPLATES = [
+  'evento-cadastro-confirmado',
+  'captacao-boas-vindas',
+  'lider-cadastro-confirmado',
+  'visita-link-formulario',
+];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,45 +38,55 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // ============ AUTHENTICATION CHECK ============
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      console.error("[send-email] Missing authorization header");
-      return new Response(
-        JSON.stringify({ success: false, error: "Não autenticado" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Parse body first to check if it's a public template
+    const body: SendEmailRequest = await req.json();
+    const { templateSlug, templateId, to, toName, subject: customSubject, html: customHtml, variables = {}, contactId, leaderId, eventId } = body;
+
+    const isPublicTemplate = templateSlug && PUBLIC_TEMPLATES.includes(templateSlug);
+
+    // ============ AUTHENTICATION CHECK (skip for public templates) ============
+    if (!isPublicTemplate) {
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        console.error("[send-email] Missing authorization header");
+        return new Response(
+          JSON.stringify({ success: false, error: "Não autenticado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+      if (authError || !user) {
+        console.error("[send-email] Invalid token:", authError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Token inválido" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check user has admin, super_admin, or atendente role
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .in("role", ["admin", "super_admin", "atendente"])
+        .limit(1)
+        .single();
+
+      if (roleError || !roleData) {
+        console.error("[send-email] User lacks required role:", user.id);
+        return new Response(
+          JSON.stringify({ success: false, error: "Acesso não autorizado. Requer permissão de admin ou atendente." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[send-email] Authenticated user: ${user.email} with role: ${roleData.role}`);
+    } else {
+      console.log(`[send-email] Public template '${templateSlug}' - skipping authentication`);
     }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      console.error("[send-email] Invalid token:", authError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Token inválido" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check user has admin, super_admin, or atendente role
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .in("role", ["admin", "super_admin", "atendente"])
-      .limit(1)
-      .single();
-
-    if (roleError || !roleData) {
-      console.error("[send-email] User lacks required role:", user.id);
-      return new Response(
-        JSON.stringify({ success: false, error: "Acesso não autorizado. Requer permissão de admin ou atendente." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[send-email] Authenticated user: ${user.email} with role: ${roleData.role}`);
     // ============ END AUTHENTICATION CHECK ============
 
     // Get integration settings
@@ -99,9 +117,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const body: SendEmailRequest = await req.json();
-    const { templateSlug, templateId, to, toName, subject: customSubject, html: customHtml, variables = {}, contactId, leaderId, eventId } = body;
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
