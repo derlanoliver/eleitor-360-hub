@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -33,10 +34,10 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getBaseUrl } from "@/lib/urlHelper";
 
-type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts";
+type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader";
 
 // Templates que precisam de evento destino
-const EVENT_INVITE_TEMPLATES = ["evento-convite"];
+const EVENT_INVITE_TEMPLATES = ["evento-convite", "lideranca-evento-link"];
 // Templates que precisam de funil destino
 const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
 
@@ -44,6 +45,7 @@ const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
 const CONVITE_TEMPLATES_LEADERS = [
   "evento-convite",
   "captacao-convite",
+  "lideranca-evento-link",
 ];
 
 const CONVITE_TEMPLATES_CONTACTS = [
@@ -62,6 +64,11 @@ export function WhatsAppBulkSendTab() {
   // Estados para evento/funil DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
   const [targetFunnelId, setTargetFunnelId] = useState("");
+  
+  // Estados para envio individual
+  const [singleContactSearch, setSingleContactSearch] = useState("");
+  const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; telefone_norm: string} | null>(null);
+  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; telefone: string} | null>(null);
 
   // Delay aleatório entre 3-6 segundos para parecer mais humano e evitar bloqueio
   const getRandomDelay = () => {
@@ -135,10 +142,51 @@ export function WhatsAppBulkSendTab() {
     enabled: !!targetFunnelId && !!isFunnelInviteTemplate,
   });
 
+  // Busca de contatos para envio individual
+  const { data: contactSearchResults } = useQuery({
+    queryKey: ["contact-search-whatsapp", singleContactSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_contacts")
+        .select("id, nome, telefone_norm")
+        .not("telefone_norm", "is", null)
+        .ilike("nome", `%${singleContactSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "single_contact" && singleContactSearch.length >= 2,
+  });
+
+  // Busca de líderes para envio individual
+  const { data: leaderSearchResults } = useQuery({
+    queryKey: ["leader-search-whatsapp", singleContactSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, telefone")
+        .eq("is_active", true)
+        .not("telefone", "is", null)
+        .ilike("nome_completo", `%${singleContactSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "single_leader" && singleContactSearch.length >= 2,
+  });
+
   // Fetch recipients count based on selection
   const { data: recipientsData, isLoading: recipientsLoading } = useQuery({
-    queryKey: ["whatsapp-recipients", recipientType, selectedEvent, selectedFunnel],
+    queryKey: ["whatsapp-recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id],
     queryFn: async () => {
+      if (recipientType === "single_contact" && selectedSingleContact) {
+        return { count: 1, recipients: [selectedSingleContact] };
+      }
+
+      if (recipientType === "single_leader" && selectedSingleLeader) {
+        return { count: 1, recipients: [selectedSingleLeader] };
+      }
+
       if (recipientType === "leaders") {
         const { data, error } = await supabase
           .from("lideres")
@@ -183,6 +231,8 @@ export function WhatsAppBulkSendTab() {
     enabled:
       recipientType === "leaders" ||
       recipientType === "all_contacts" ||
+      (recipientType === "single_contact" && !!selectedSingleContact) ||
+      (recipientType === "single_leader" && !!selectedSingleLeader) ||
       (recipientType === "event_contacts" && !!selectedEvent) ||
       (recipientType === "funnel_contacts" && !!selectedFunnel),
   });
@@ -193,7 +243,7 @@ export function WhatsAppBulkSendTab() {
 
     const activeTemplates = templates.filter((t) => t.is_active);
 
-    if (recipientType === "leaders") {
+    if (recipientType === "leaders" || recipientType === "single_leader") {
       return activeTemplates.filter((t) => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
 
@@ -206,6 +256,8 @@ export function WhatsAppBulkSendTab() {
     recipientsData.count > 0 &&
     (recipientType === "leaders" ||
       recipientType === "all_contacts" ||
+      (recipientType === "single_contact" && selectedSingleContact) ||
+      (recipientType === "single_leader" && selectedSingleLeader) ||
       (recipientType === "event_contacts" && selectedEvent) ||
       (recipientType === "funnel_contacts" && selectedFunnel)) &&
     (!isEventInviteTemplate || targetEventId) &&
@@ -231,7 +283,7 @@ export function WhatsAppBulkSendTab() {
         let nome: string = "Visitante";
         let contactId: string | null = null;
 
-        if (recipientType === "leaders") {
+        if (recipientType === "leaders" || recipientType === "single_leader") {
           phone = recipient.telefone as string;
           nome = (recipient.nome_completo as string) || "Líder";
           contactId = null;
@@ -361,12 +413,27 @@ export function WhatsAppBulkSendTab() {
                   setSelectedTemplate("");
                   setTargetEventId("");
                   setTargetFunnelId("");
+                  setSelectedSingleContact(null);
+                  setSelectedSingleLeader(null);
+                  setSingleContactSearch("");
                 }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="single_contact">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Contato Único
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="single_leader">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4" />
+                      Líder Único
+                    </div>
+                  </SelectItem>
                   <SelectItem value="all_contacts">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
@@ -376,7 +443,7 @@ export function WhatsAppBulkSendTab() {
                   <SelectItem value="leaders">
                     <div className="flex items-center gap-2">
                       <UserCheck className="h-4 w-4" />
-                      Líderes
+                      Todos os Líderes
                     </div>
                   </SelectItem>
                   <SelectItem value="event_contacts">
@@ -394,6 +461,82 @@ export function WhatsAppBulkSendTab() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Busca de Contato Único */}
+            {recipientType === "single_contact" && (
+              <div className="space-y-2">
+                <Label>Buscar Contato</Label>
+                <Input
+                  placeholder="Digite o nome do contato..."
+                  value={singleContactSearch}
+                  onChange={(e) => {
+                    setSingleContactSearch(e.target.value);
+                    setSelectedSingleContact(null);
+                  }}
+                />
+                {contactSearchResults && contactSearchResults.length > 0 && !selectedSingleContact && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {contactSearchResults.map((contact) => (
+                      <button
+                        key={contact.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedSingleContact(contact);
+                          setSingleContactSearch(contact.nome);
+                        }}
+                      >
+                        <p className="font-medium">{contact.nome}</p>
+                        <p className="text-xs text-muted-foreground">{contact.telefone_norm}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSingleContact && (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    <p className="font-medium">{selectedSingleContact.nome}</p>
+                    <p className="text-muted-foreground">{selectedSingleContact.telefone_norm}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Busca de Líder Único */}
+            {recipientType === "single_leader" && (
+              <div className="space-y-2">
+                <Label>Buscar Líder</Label>
+                <Input
+                  placeholder="Digite o nome do líder..."
+                  value={singleContactSearch}
+                  onChange={(e) => {
+                    setSingleContactSearch(e.target.value);
+                    setSelectedSingleLeader(null);
+                  }}
+                />
+                {leaderSearchResults && leaderSearchResults.length > 0 && !selectedSingleLeader && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {leaderSearchResults.map((leader) => (
+                      <button
+                        key={leader.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedSingleLeader(leader);
+                          setSingleContactSearch(leader.nome_completo);
+                        }}
+                      >
+                        <p className="font-medium">{leader.nome_completo}</p>
+                        <p className="text-xs text-muted-foreground">{leader.telefone}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSingleLeader && (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    <p className="font-medium">{selectedSingleLeader.nome_completo}</p>
+                    <p className="text-muted-foreground">{selectedSingleLeader.telefone}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {recipientType === "event_contacts" && (
               <div className="space-y-2">
