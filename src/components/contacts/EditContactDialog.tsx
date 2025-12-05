@@ -44,10 +44,19 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   // Reset state when contact changes
   useEffect(() => {
     setCidadeId(contact.cidade_id);
-    setLeaderId(contact.source_id || "");
+    
+    // Só usar source_id como leaderId se:
+    // 1. O source_type era 'lider', E
+    // 2. O líder ainda existe na lista
+    const shouldShowLeader = 
+      contact.source_type === 'lider' && 
+      contact.source_id &&
+      leaders.some(l => l.id === contact.source_id);
+    
+    setLeaderId(shouldShowLeader ? contact.source_id || "" : "");
     setGenero(contact.genero || "Não identificado");
     setPromoteToLeader(false);
-  }, [contact]);
+  }, [contact, leaders]);
 
   // Verificar se contato já é líder (por telefone)
   const normalizePhone = (phone: string) => {
@@ -62,14 +71,29 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   });
 
   const handleSave = async () => {
+    // Determinar source_type e source_id corretamente
+    let newSourceType = contact.source_type;
+    let newSourceId: string | null = leaderId || null;
+    
+    // Se selecionou um líder (novo ou diferente), define como 'lider'
+    if (leaderId) {
+      newSourceType = 'lider';
+    }
+    // Se removeu o líder e era 'lider', limpa ambos
+    else if (!leaderId && contact.source_type === 'lider') {
+      newSourceType = null;
+      newSourceId = null;
+    }
+    // Se não tinha líder e continua sem, mantém o source_type original
+    
     // 1. Atualizar contato
     updateContact.mutate(
       {
         id: contact.id,
         data: {
           cidade_id: cidadeId,
-          source_id: leaderId || null,
-          source_type: leaderId ? 'lider' : contact.source_type,
+          source_id: newSourceId,
+          source_type: newSourceType,
           genero,
         },
       },
