@@ -2,7 +2,35 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Secure public check-in via QR code (uses SECURITY DEFINER function)
 export function useUpdateVisitCheckIn() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (qrCode: string) => {
+      const { data, error } = await supabase
+        .rpc("checkin_visit_by_qr", { _qr_code: qrCode });
+
+      if (error) throw error;
+      if (!data) throw new Error("Check-in failed - visit not found or invalid status");
+      
+      return { success: true };
+    },
+    onSuccess: (_, qrCode) => {
+      queryClient.invalidateQueries({ queryKey: ["visit_by_qr", qrCode] });
+      queryClient.invalidateQueries({ queryKey: ["office_visits"] });
+      queryClient.invalidateQueries({ queryKey: ["office_visit"] });
+      toast.success("Check-in realizado com sucesso!");
+    },
+    onError: (error: Error) => {
+      console.error("Error updating check-in:", error);
+      toast.error("Erro ao realizar check-in: " + error.message);
+    }
+  });
+}
+
+// Authenticated check-in via visit ID (for admin/atendente staff)
+export function useUpdateVisitCheckInById() {
   const queryClient = useQueryClient();
 
   return useMutation({
