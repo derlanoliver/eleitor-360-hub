@@ -355,59 +355,135 @@ async function sendPendingMessages(supabase: any, contact: any) {
   // Get integration settings for Z-API
   const { data: settings } = await supabase
     .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled")
+    .select("zapi_instance_id, zapi_token, zapi_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name")
     .limit(1)
     .single();
   
-  if (!settings?.zapi_enabled || !settings?.zapi_instance_id || !settings?.zapi_token) {
-    console.log("[zapi-webhook] Z-API not configured, skipping pending messages");
-    return;
-  }
-  
   for (const pending of pendingMessages) {
     try {
-      // Get template
-      const { data: template } = await supabase
-        .from("whatsapp_templates")
-        .select("mensagem")
-        .eq("slug", pending.template)
-        .single();
-      
-      if (!template) {
-        console.log(`[zapi-webhook] Template ${pending.template} not found`);
-        continue;
-      }
-      
-      // Replace variables
-      let message = template.mensagem;
-      for (const [key, value] of Object.entries(pending.variables || {})) {
-        message = message.replace(new RegExp(`{{${key}}}`, "g"), value as string);
-      }
-      
-      // Send via Z-API
-      const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
-      const response = await fetch(zapiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: contact.telefone_norm.replace("+", ""),
+      // Check if it's an email template (prefixed with "email:")
+      if (pending.template.startsWith("email:")) {
+        // Process email
+        const emailTemplateSlug = pending.template.replace("email:", "");
+        console.log(`[zapi-webhook] Processing pending email: ${emailTemplateSlug}`);
+        
+        if (!settings?.resend_enabled || !settings?.resend_api_key) {
+          console.log("[zapi-webhook] Resend not configured, skipping email");
+          continue;
+        }
+        
+        // Get email template
+        const { data: emailTemplate } = await supabase
+          .from("email_templates")
+          .select("assunto, conteudo_html")
+          .eq("slug", emailTemplateSlug)
+          .single();
+        
+        if (!emailTemplate) {
+          console.log(`[zapi-webhook] Email template ${emailTemplateSlug} not found`);
+          continue;
+        }
+        
+        // Replace variables in subject and content
+        let subject = emailTemplate.assunto;
+        let htmlContent = emailTemplate.conteudo_html;
+        
+        for (const [key, value] of Object.entries(pending.variables || {})) {
+          const regex = new RegExp(`{{${key}}}`, "g");
+          subject = subject.replace(regex, value as string);
+          htmlContent = htmlContent.replace(regex, value as string);
+        }
+        
+        // Get recipient email from variables
+        const recipientEmail = pending.variables?.email;
+        if (!recipientEmail) {
+          console.log("[zapi-webhook] No email in pending message variables");
+          continue;
+        }
+        
+        // Send email via Resend
+        const resendResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${settings.resend_api_key}`,
+          },
+          body: JSON.stringify({
+            from: settings.resend_from_email 
+              ? `${settings.resend_from_name || 'Sistema'} <${settings.resend_from_email}>`
+              : "Sistema <onboarding@resend.dev>",
+            to: [recipientEmail],
+            subject: subject,
+            html: htmlContent,
+          }),
+        });
+        
+        const resendResult = await resendResponse.json();
+        console.log(`[zapi-webhook] Sent pending email ${emailTemplateSlug}:`, resendResult);
+        
+        // Record in email_logs
+        await supabase.from("email_logs").insert({
+          to_email: recipientEmail,
+          to_name: pending.variables?.nome || null,
+          subject: subject,
+          status: resendResult.id ? "sent" : "failed",
+          resend_id: resendResult.id || null,
+          sent_at: resendResult.id ? new Date().toISOString() : null,
+          error_message: resendResult.error?.message || null,
+          contact_id: contact.id,
+          event_id: pending.variables?.eventId || null,
+        });
+        
+      } else {
+        // Process WhatsApp message
+        if (!settings?.zapi_enabled || !settings?.zapi_instance_id || !settings?.zapi_token) {
+          console.log("[zapi-webhook] Z-API not configured, skipping WhatsApp message");
+          continue;
+        }
+        
+        // Get template
+        const { data: template } = await supabase
+          .from("whatsapp_templates")
+          .select("mensagem")
+          .eq("slug", pending.template)
+          .single();
+        
+        if (!template) {
+          console.log(`[zapi-webhook] Template ${pending.template} not found`);
+          continue;
+        }
+        
+        // Replace variables
+        let message = template.mensagem;
+        for (const [key, value] of Object.entries(pending.variables || {})) {
+          message = message.replace(new RegExp(`{{${key}}}`, "g"), value as string);
+        }
+        
+        // Send via Z-API
+        const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+        const response = await fetch(zapiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: contact.telefone_norm.replace("+", ""),
+            message: message,
+          }),
+        });
+        
+        const result = await response.json();
+        console.log(`[zapi-webhook] Sent pending message ${pending.template}:`, result);
+        
+        // Record in whatsapp_messages
+        await supabase.from("whatsapp_messages").insert({
+          message_id: result.messageId || result.zapiMessageId,
+          phone: contact.telefone_norm,
           message: message,
-        }),
-      });
-      
-      const result = await response.json();
-      console.log(`[zapi-webhook] Sent pending message ${pending.template}:`, result);
-      
-      // Record in whatsapp_messages
-      await supabase.from("whatsapp_messages").insert({
-        message_id: result.messageId || result.zapiMessageId,
-        phone: contact.telefone_norm,
-        message: message,
-        direction: "outgoing",
-        status: "sent",
-        contact_id: contact.id,
-        sent_at: new Date().toISOString(),
-      });
+          direction: "outgoing",
+          status: "sent",
+          contact_id: contact.id,
+          sent_at: new Date().toISOString(),
+        });
+      }
       
       // Small delay between messages
       await new Promise(resolve => setTimeout(resolve, 2000));
