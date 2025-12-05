@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +14,7 @@ import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { LeaderRegistrationQRDialog } from "@/components/leaders/LeaderRegistrationQRDialog";
+import { LeaderDetailsDialog } from "@/components/leaders/LeaderDetailsDialog";
 import { LeaderLevelBadge, LeaderLevelProgress, getLeaderCardColorClass } from "@/components/leaders/LeaderLevelBadge";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
@@ -337,6 +338,16 @@ const Leaders = () => {
                   
                   {/* Coluna de Ações - Vertical */}
                   <div className="flex flex-col gap-1 flex-shrink-0">
+                    <LeaderDetailsDialog leader={leader}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </LeaderDetailsDialog>
                     <Button 
                       variant="ghost" 
                       size="icon"
