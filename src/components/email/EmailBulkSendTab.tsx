@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -22,7 +23,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getBaseUrl } from "@/lib/urlHelper";
 
-type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders";
+type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
 
 // Templates que precisam de evento destino
 const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-convite"];
@@ -43,6 +44,11 @@ export function EmailBulkSendTab() {
   // Estados para evento/funil DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
   const [targetFunnelId, setTargetFunnelId] = useState("");
+  
+  // Estados para envio individual
+  const [singleContactSearch, setSingleContactSearch] = useState("");
+  const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; email: string} | null>(null);
+  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; email: string} | null>(null);
 
   // Detectar tipo do template selecionado
   const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
@@ -92,10 +98,53 @@ export function EmailBulkSendTab() {
     enabled: !!targetFunnelId && isFunnelInviteTemplate,
   });
 
+  // Busca de contatos para envio individual
+  const { data: contactSearchResults } = useQuery({
+    queryKey: ["contact-search-email", singleContactSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_contacts")
+        .select("id, nome, email")
+        .not("email", "is", null)
+        .neq("email", "")
+        .ilike("nome", `%${singleContactSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "single_contact" && singleContactSearch.length >= 2,
+  });
+
+  // Busca de líderes para envio individual
+  const { data: leaderSearchResults } = useQuery({
+    queryKey: ["leader-search-email", singleContactSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, email")
+        .eq("is_active", true)
+        .not("email", "is", null)
+        .neq("email", "")
+        .ilike("nome_completo", `%${singleContactSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recipientType === "single_leader" && singleContactSearch.length >= 2,
+  });
+
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
-    queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel],
+    queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id],
     queryFn: async () => {
+      if (recipientType === "single_contact" && selectedSingleContact) {
+        return [{ id: selectedSingleContact.id, name: selectedSingleContact.nome, email: selectedSingleContact.email, type: "contact" as const }];
+      }
+
+      if (recipientType === "single_leader" && selectedSingleLeader) {
+        return [{ id: selectedSingleLeader.id, name: selectedSingleLeader.nome_completo, email: selectedSingleLeader.email, type: "leader" as const }];
+      }
+
       if (recipientType === "all_contacts") {
         const { data, error } = await supabase
           .from("office_contacts")
@@ -146,6 +195,8 @@ export function EmailBulkSendTab() {
     },
     enabled: recipientType === "all_contacts" || 
              recipientType === "leaders" ||
+             (recipientType === "single_contact" && !!selectedSingleContact) ||
+             (recipientType === "single_leader" && !!selectedSingleLeader) ||
              (recipientType === "event_contacts" && !!selectedEvent) ||
              (recipientType === "funnel_contacts" && !!selectedFunnel),
   });
@@ -166,12 +217,20 @@ export function EmailBulkSendTab() {
   const filteredTemplates = useMemo(() => {
     if (!templates) return [];
     
-    if (recipientType === "leaders") {
+    if (recipientType === "leaders" || recipientType === "single_leader") {
       return templates.filter(t => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
     
     return templates.filter(t => CONVITE_TEMPLATES_CONTACTS.includes(t.slug));
   }, [templates, recipientType]);
+
+  const canSend = 
+    selectedTemplate && 
+    recipients && 
+    recipients.length > 0 && 
+    confirmed &&
+    (!isEventInviteTemplate || targetEventId) &&
+    (!isFunnelInviteTemplate || targetFunnelId);
 
   const handleSend = () => {
     if (!selectedTemplate || !recipients?.length) return;
@@ -218,14 +277,6 @@ export function EmailBulkSendTab() {
     });
   };
 
-  const canSend = 
-    selectedTemplate && 
-    recipients && 
-    recipients.length > 0 && 
-    confirmed &&
-    (!isEventInviteTemplate || targetEventId) &&
-    (!isFunnelInviteTemplate || targetFunnelId);
-
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
@@ -251,8 +302,25 @@ export function EmailBulkSendTab() {
                   setTargetEventId("");
                   setTargetFunnelId("");
                   setConfirmed(false);
+                  setSelectedSingleContact(null);
+                  setSelectedSingleLeader(null);
+                  setSingleContactSearch("");
                 }}
               >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="single_contact" id="single_contact" />
+                  <Label htmlFor="single_contact" className="flex items-center gap-2 cursor-pointer">
+                    <Users className="h-4 w-4" />
+                    Contato Único
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="single_leader" id="single_leader" />
+                  <Label htmlFor="single_leader" className="flex items-center gap-2 cursor-pointer">
+                    <UserCheck className="h-4 w-4" />
+                    Líder Único
+                  </Label>
+                </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all_contacts" id="all_contacts" />
                   <Label htmlFor="all_contacts" className="flex items-center gap-2 cursor-pointer">
@@ -278,11 +346,87 @@ export function EmailBulkSendTab() {
                   <RadioGroupItem value="leaders" id="leaders" />
                   <Label htmlFor="leaders" className="flex items-center gap-2 cursor-pointer">
                     <UserCheck className="h-4 w-4" />
-                    Lideranças
+                    Todas as Lideranças
                   </Label>
                 </div>
               </RadioGroup>
             </div>
+
+            {/* Busca de Contato Único */}
+            {recipientType === "single_contact" && (
+              <div className="space-y-2">
+                <Label>Buscar Contato</Label>
+                <Input
+                  placeholder="Digite o nome do contato..."
+                  value={singleContactSearch}
+                  onChange={(e) => {
+                    setSingleContactSearch(e.target.value);
+                    setSelectedSingleContact(null);
+                  }}
+                />
+                {contactSearchResults && contactSearchResults.length > 0 && !selectedSingleContact && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {contactSearchResults.map((contact) => (
+                      <button
+                        key={contact.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedSingleContact(contact);
+                          setSingleContactSearch(contact.nome);
+                        }}
+                      >
+                        <p className="font-medium">{contact.nome}</p>
+                        <p className="text-xs text-muted-foreground">{contact.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSingleContact && (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    <p className="font-medium">{selectedSingleContact.nome}</p>
+                    <p className="text-muted-foreground">{selectedSingleContact.email}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Busca de Líder Único */}
+            {recipientType === "single_leader" && (
+              <div className="space-y-2">
+                <Label>Buscar Líder</Label>
+                <Input
+                  placeholder="Digite o nome do líder..."
+                  value={singleContactSearch}
+                  onChange={(e) => {
+                    setSingleContactSearch(e.target.value);
+                    setSelectedSingleLeader(null);
+                  }}
+                />
+                {leaderSearchResults && leaderSearchResults.length > 0 && !selectedSingleLeader && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {leaderSearchResults.map((leader) => (
+                      <button
+                        key={leader.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedSingleLeader(leader);
+                          setSingleContactSearch(leader.nome_completo);
+                        }}
+                      >
+                        <p className="font-medium">{leader.nome_completo}</p>
+                        <p className="text-xs text-muted-foreground">{leader.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSingleLeader && (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    <p className="font-medium">{selectedSingleLeader.nome_completo}</p>
+                    <p className="text-muted-foreground">{selectedSingleLeader.email}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Event Selection (ORIGEM - de onde vêm os contatos) */}
             {recipientType === "event_contacts" && (

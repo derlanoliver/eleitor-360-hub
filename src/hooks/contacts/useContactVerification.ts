@@ -36,14 +36,15 @@ export async function sendVerificationMessage({
       return false;
     }
 
-    // Replace variables
+    // Replace variables (exceto código que vai em mensagem separada)
     let message = template.mensagem;
     message = message.replace(/{{nome}}/g, contactName);
     message = message.replace(/{{lider_nome}}/g, leaderName);
     message = message.replace(/{{deputado_nome}}/g, org?.nome || "Deputado");
-    message = message.replace(/{{codigo}}/g, verificationCode);
+    // Remove {{codigo}} do template principal - será enviado separadamente
+    message = message.replace(/{{codigo}}/g, "").trim();
 
-    // Call send-whatsapp edge function
+    // Enviar mensagem principal
     const { data, error } = await supabase.functions.invoke("send-whatsapp", {
       body: {
         phone: contactPhone,
@@ -55,6 +56,23 @@ export async function sendVerificationMessage({
     if (error) {
       console.error("Error sending verification message:", error);
       return false;
+    }
+
+    // Aguardar 2 segundos antes de enviar o código
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Enviar código em mensagem separada (facilita copiar no WhatsApp)
+    const { error: codeError } = await supabase.functions.invoke("send-whatsapp", {
+      body: {
+        phone: contactPhone,
+        message: verificationCode,
+        contactId: contactId,
+      },
+    });
+
+    if (codeError) {
+      console.error("Error sending verification code:", codeError);
+      // Não retorna false pois a mensagem principal foi enviada
     }
 
     // Update verification_sent_at
