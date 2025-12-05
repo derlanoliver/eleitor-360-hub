@@ -98,9 +98,21 @@ export function EmailBulkSendTab() {
     enabled: !!targetFunnelId && isFunnelInviteTemplate,
   });
 
+  // Buscar IDs de contatos promovidos (excluir do envio)
+  const { data: promotedContactIds = [] } = useQuery({
+    queryKey: ['promoted-contact-ids-email'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('contact_activity_log')
+        .select('contact_id')
+        .eq('action', 'promoted_to_leader');
+      return [...new Set((data || []).map(r => r.contact_id))];
+    }
+  });
+
   // Busca de contatos para envio individual
   const { data: contactSearchResults } = useQuery({
-    queryKey: ["contact-search-email", singleContactSearch],
+    queryKey: ["contact-search-email", singleContactSearch, promotedContactIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("office_contacts")
@@ -108,9 +120,10 @@ export function EmailBulkSendTab() {
         .not("email", "is", null)
         .neq("email", "")
         .ilike("nome", `%${singleContactSearch}%`)
-        .limit(10);
+        .limit(20);
       if (error) throw error;
-      return data;
+      // Filtrar contatos promovidos
+      return (data || []).filter(c => !promotedContactIds.includes(c.id)).slice(0, 10);
     },
     enabled: recipientType === "single_contact" && singleContactSearch.length >= 2,
   });
@@ -135,7 +148,7 @@ export function EmailBulkSendTab() {
 
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
-    queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id],
+    queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id, promotedContactIds],
     queryFn: async () => {
       if (recipientType === "single_contact" && selectedSingleContact) {
         return [{ id: selectedSingleContact.id, name: selectedSingleContact.nome, email: selectedSingleContact.email, type: "contact" as const }];
@@ -152,7 +165,9 @@ export function EmailBulkSendTab() {
           .not("email", "is", null)
           .neq("email", "");
         if (error) throw error;
-        return data.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
+        // Filtrar contatos promovidos
+        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        return filteredData.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
       }
 
       if (recipientType === "event_contacts" && selectedEvent) {
@@ -177,7 +192,9 @@ export function EmailBulkSendTab() {
           .eq("source_id", selectedFunnel)
           .not("email", "is", null);
         if (error) throw error;
-        return data.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
+        // Filtrar contatos promovidos
+        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        return filteredData.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
       }
 
       if (recipientType === "leaders") {
