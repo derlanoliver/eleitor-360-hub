@@ -120,7 +120,7 @@ serve(async (req) => {
         .single();
       
       if (contactData?.unsubscribe_token) {
-        const unsubscribeUrl = `${supabaseUrl}/functions/v1/unsubscribe?token=${contactData.unsubscribe_token}`;
+        const unsubscribeUrl = `https://app.rafaelprudente.com/descadastro?token=${contactData.unsubscribe_token}`;
         // Replace unsubscribe placeholder in HTML
         finalHtml = finalHtml.replace(/{{link_descadastro}}/g, unsubscribeUrl);
         finalHtml = finalHtml.replace(/href="#"([^>]*>Se não deseja mais receber)/g, `href="${unsubscribeUrl}"$1`);

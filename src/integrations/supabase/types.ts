@@ -1756,6 +1756,10 @@ export type Database = {
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      unsubscribe_contact_by_token: {
+        Args: { p_reason?: string; p_token: string }
+        Returns: Json
+      }
       upsert_contact_from_public_form: {
         Args: {
           _cidade_id?: string

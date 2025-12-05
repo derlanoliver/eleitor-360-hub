@@ -54,6 +54,7 @@ import OfficeSettings from "./pages/office/Settings";
 import VisitCheckin from "./pages/office/VisitCheckin";
 import ScheduleVisit from "./pages/ScheduleVisit";
 import AffiliateForm from "./pages/AffiliateForm";
+import Unsubscribe from "./pages/Unsubscribe";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />
             <Route path="/lider/cadastro" element={<PublicLeaderRegistration />} />
+            <Route path="/descadastro" element={<Unsubscribe />} />
             
             {/* Protected check-in routes - all authenticated users can do check-in */}
             <Route path="/checkin/:qrCode" element={
