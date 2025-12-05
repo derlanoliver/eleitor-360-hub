@@ -5,6 +5,7 @@ import { toast } from "sonner";
 interface Organization {
   id: string;
   nome: string;
+  nome_plataforma: string | null;
   cargo: string | null;
   partido: string | null;
   estado: string | null;

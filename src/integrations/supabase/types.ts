@@ -1146,6 +1146,7 @@ export type Database = {
           instagram: string | null
           logo_url: string | null
           nome: string
+          nome_plataforma: string | null
           partido: string | null
           twitter: string | null
           updated_at: string
@@ -1165,6 +1166,7 @@ export type Database = {
           instagram?: string | null
           logo_url?: string | null
           nome?: string
+          nome_plataforma?: string | null
           partido?: string | null
           twitter?: string | null
           updated_at?: string
@@ -1184,6 +1186,7 @@ export type Database = {
           instagram?: string | null
           logo_url?: string | null
           nome?: string
+          nome_plataforma?: string | null
           partido?: string | null
           twitter?: string | null
           updated_at?: string
