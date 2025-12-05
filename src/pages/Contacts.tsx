@@ -124,6 +124,20 @@ const Contacts = () => {
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
 
+  // Buscar contact_ids que foram promovidos a líder
+  const { data: promotedContactIds = [] } = useQuery({
+    queryKey: ['promoted-contact-ids'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contact_activity_log')
+        .select('contact_id')
+        .eq('action', 'promoted_to_leader');
+      
+      if (error) throw error;
+      return [...new Set((data || []).map(r => r.contact_id))];
+    }
+  });
+
   // Buscar líderes ativos para o filtro
   const { data: leadersForFilter = [] } = useQuery({
     queryKey: ['leaders-for-filter'],
@@ -309,7 +323,8 @@ const Contacts = () => {
           is_active: contact.is_active !== false,
           opted_out_at: contact.opted_out_at,
           opt_out_reason: contact.opt_out_reason,
-          opt_out_channel: contact.opt_out_channel
+          opt_out_channel: contact.opt_out_channel,
+          is_promoted: false // será atualizado após a query
         };
       });
     }
@@ -392,11 +407,22 @@ const Contacts = () => {
       }
     }
     
+    // Verificar se contato foi promovido a líder
+    const isPromoted = promotedContactIds.includes(contact.id);
+    
     let matchesStatus = true;
     if (statusFilter === "active") {
-      matchesStatus = contact.is_active !== false;
+      // Ativos: is_active=true E NÃO foi promovido
+      matchesStatus = contact.is_active !== false && !isPromoted;
     } else if (statusFilter === "inactive") {
-      matchesStatus = contact.is_active === false;
+      // Inativos: is_active=false E NÃO foi promovido
+      matchesStatus = contact.is_active === false && !isPromoted;
+    } else if (statusFilter === "promoted") {
+      // Promovidos: apenas contatos que foram promovidos a líder
+      matchesStatus = isPromoted;
+    } else if (statusFilter === "all") {
+      // Todos: EXCETO os promovidos
+      matchesStatus = !isPromoted;
     }
     
     return matchesSearch && matchesRegion && matchesSource && matchesStatus;
@@ -439,7 +465,8 @@ const Contacts = () => {
 
   const hasActiveFilters = searchTerm || selectedRegion !== "all" || sourceFilter !== "all" || verificationFilter !== "all" || statusFilter !== "active";
   
-  const inactiveCount = contacts.filter(c => c.is_active === false).length;
+  const inactiveCount = contacts.filter(c => c.is_active === false && !promotedContactIds.includes(c.id)).length;
+  const promotedCount = promotedContactIds.length;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -464,6 +491,12 @@ const Contacts = () => {
               {pendingVerificationCount > 0 && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
                   {pendingVerificationCount} pendentes
+                </Badge>
+              )}
+              {promotedCount > 0 && (
+                <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 text-xs">
+                  <Crown className="h-3 w-3 mr-1" />
+                  {promotedCount} promovidos
                 </Badge>
               )}
             </div>
@@ -628,13 +661,14 @@ const Contacts = () => {
               setStatusFilter(value);
               handleFilterChange();
             }}>
-              <SelectTrigger className="w-[140px] h-9">
+              <SelectTrigger className="w-[180px] h-9">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="inactive">Inativos ({inactiveCount})</SelectItem>
+                <SelectItem value="promoted">Promovido a Líder ({promotedCount})</SelectItem>
               </SelectContent>
             </Select>
 
@@ -734,10 +768,18 @@ const Contacts = () => {
                           )}
 
                           {/* Badge de Status Inativo */}
-                          {contact.is_active === false && (
+                          {contact.is_active === false && !promotedContactIds.includes(contact.id) && (
                             <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                               <Ban className="h-3 w-3 mr-1" />
                               Inativo
+                            </Badge>
+                          )}
+
+                          {/* Badge de Promovido a Líder */}
+                          {promotedContactIds.includes(contact.id) && (
+                            <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
+                              <Crown className="h-3 w-3 mr-1" />
+                              Promovido a Líder
                             </Badge>
                           )}
                         </div>

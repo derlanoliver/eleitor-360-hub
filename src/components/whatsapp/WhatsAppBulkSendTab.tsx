@@ -142,18 +142,31 @@ export function WhatsAppBulkSendTab() {
     enabled: !!targetFunnelId && !!isFunnelInviteTemplate,
   });
 
+  // Buscar IDs de contatos promovidos (excluir do envio)
+  const { data: promotedContactIds = [] } = useQuery({
+    queryKey: ['promoted-contact-ids-whatsapp'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('contact_activity_log')
+        .select('contact_id')
+        .eq('action', 'promoted_to_leader');
+      return [...new Set((data || []).map(r => r.contact_id))];
+    }
+  });
+
   // Busca de contatos para envio individual
   const { data: contactSearchResults } = useQuery({
-    queryKey: ["contact-search-whatsapp", singleContactSearch],
+    queryKey: ["contact-search-whatsapp", singleContactSearch, promotedContactIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("office_contacts")
         .select("id, nome, telefone_norm")
         .not("telefone_norm", "is", null)
         .ilike("nome", `%${singleContactSearch}%`)
-        .limit(10);
+        .limit(20);
       if (error) throw error;
-      return data;
+      // Filtrar contatos promovidos
+      return (data || []).filter(c => !promotedContactIds.includes(c.id)).slice(0, 10);
     },
     enabled: recipientType === "single_contact" && singleContactSearch.length >= 2,
   });
@@ -177,7 +190,7 @@ export function WhatsAppBulkSendTab() {
 
   // Fetch recipients count based on selection
   const { data: recipientsData, isLoading: recipientsLoading } = useQuery({
-    queryKey: ["whatsapp-recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id],
+    queryKey: ["whatsapp-recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id, promotedContactIds],
     queryFn: async () => {
       if (recipientType === "single_contact" && selectedSingleContact) {
         return { count: 1, recipients: [selectedSingleContact] };
@@ -214,7 +227,9 @@ export function WhatsAppBulkSendTab() {
           .eq("source_id", selectedFunnel)
           .not("telefone_norm", "is", null);
         if (error) throw error;
-        return { count: data?.length || 0, recipients: data || [] };
+        // Filtrar contatos promovidos
+        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        return { count: filteredData.length, recipients: filteredData };
       }
 
       if (recipientType === "all_contacts") {
@@ -223,7 +238,9 @@ export function WhatsAppBulkSendTab() {
           .select("id, nome, telefone_norm")
           .not("telefone_norm", "is", null);
         if (error) throw error;
-        return { count: data?.length || 0, recipients: data || [] };
+        // Filtrar contatos promovidos
+        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        return { count: filteredData.length, recipients: filteredData };
       }
 
       return { count: 0, recipients: [] };
