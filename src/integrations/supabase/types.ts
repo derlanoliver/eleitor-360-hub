@@ -1760,6 +1760,16 @@ export type Database = {
         Args: { p_reason?: string; p_token: string }
         Returns: Json
       }
+      update_whatsapp_message_status: {
+        Args: {
+          _delivered_at?: string
+          _error_message?: string
+          _message_id: string
+          _read_at?: string
+          _status: string
+        }
+        Returns: boolean
+      }
       upsert_contact_from_public_form: {
         Args: {
           _cidade_id?: string
