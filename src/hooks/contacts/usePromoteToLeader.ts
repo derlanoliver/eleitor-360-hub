@@ -55,6 +55,43 @@ export function usePromoteToLeader() {
         console.error("Erro ao registrar histórico:", logError);
       }
 
+      // 3. Enviar WhatsApp de confirmação
+      try {
+        await supabase.functions.invoke("send-whatsapp", {
+          body: {
+            phone: contact.telefone_norm,
+            templateSlug: "lider-cadastro-confirmado",
+            variables: {
+              nome: contact.nome,
+            },
+          },
+        });
+        console.log("WhatsApp de confirmação enviado para líder promovido");
+      } catch (whatsappError) {
+        console.error("Erro ao enviar WhatsApp de confirmação:", whatsappError);
+      }
+
+      // 4. Enviar email de boas-vindas (se tiver email)
+      if (contact.email && leader.affiliate_token) {
+        try {
+          const baseUrl = window.location.origin;
+          await supabase.functions.invoke("send-email", {
+            body: {
+              to: contact.email,
+              toName: contact.nome,
+              templateSlug: "lideranca-boas-vindas",
+              variables: {
+                nome: contact.nome,
+                link_indicacao: `${baseUrl}/cadastro/${leader.affiliate_token}`,
+              },
+            },
+          });
+          console.log("Email de boas-vindas enviado para líder promovido");
+        } catch (emailError) {
+          console.error("Erro ao enviar email de boas-vindas:", emailError);
+        }
+      }
+
       return leader;
     },
     onSuccess: () => {
