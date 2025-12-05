@@ -136,8 +136,7 @@ export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> 
 export async function getLeaders(filters?: { cidade_id?: string; search?: string }) {
   let query = supabase
     .from("lideres")
-    .select("*, cidade:office_cities(*)")
-    .eq("status", "active");
+    .select("*, cidade:office_cities(*)");
   
   if (filters?.cidade_id) {
     query = query.eq("cidade_id", filters.cidade_id);
