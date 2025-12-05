@@ -187,6 +187,41 @@ export type Database = {
           },
         ]
       }
+      contact_activity_log: {
+        Row: {
+          action: string
+          action_by: string | null
+          contact_id: string
+          created_at: string
+          details: Json | null
+          id: string
+        }
+        Insert: {
+          action: string
+          action_by?: string | null
+          contact_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+        }
+        Update: {
+          action?: string
+          action_by?: string | null
+          contact_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activity_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_downloads: {
         Row: {
           contact_id: string

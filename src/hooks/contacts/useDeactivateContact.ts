@@ -5,13 +5,14 @@ import { toast } from "sonner";
 interface DeactivateContactParams {
   contactId: string;
   reason: string;
+  userId?: string;
 }
 
 export function useDeactivateContact() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ contactId, reason }: DeactivateContactParams) => {
+    mutationFn: async ({ contactId, reason, userId }: DeactivateContactParams) => {
       const { data, error } = await supabase
         .from("office_contacts")
         .update({
@@ -25,11 +26,23 @@ export function useDeactivateContact() {
         .single();
 
       if (error) throw error;
+
+      // Registrar no histórico de atividades
+      if (userId) {
+        await supabase.from("contact_activity_log").insert({
+          contact_id: contactId,
+          action: "deactivated",
+          action_by: userId,
+          details: { reason },
+        });
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["contacts-total-count"] });
+      queryClient.invalidateQueries({ queryKey: ["contact_activity_log"] });
       toast.success("Contato desativado com sucesso");
     },
     onError: (error: any) => {
@@ -43,7 +56,7 @@ export function useReactivateContact() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (contactId: string) => {
+    mutationFn: async ({ contactId, userId }: { contactId: string; userId?: string }) => {
       const { data, error } = await supabase
         .from("office_contacts")
         .update({
@@ -57,11 +70,23 @@ export function useReactivateContact() {
         .single();
 
       if (error) throw error;
+
+      // Registrar no histórico de atividades
+      if (userId) {
+        await supabase.from("contact_activity_log").insert({
+          contact_id: contactId,
+          action: "reactivated",
+          action_by: userId,
+          details: {},
+        });
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["contacts-total-count"] });
+      queryClient.invalidateQueries({ queryKey: ["contact_activity_log"] });
       toast.success("Contato reativado com sucesso");
     },
     onError: (error: any) => {
