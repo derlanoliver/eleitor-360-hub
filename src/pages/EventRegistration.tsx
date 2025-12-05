@@ -253,6 +253,7 @@ export default function EventRegistration() {
                 evento_endereco: event.address || event.location,
               },
               contactId: undefined,
+              imageUrl: qrCodeImageUrl, // Enviar QR Code como imagem
             },
           });
         } catch (whatsappError) {
