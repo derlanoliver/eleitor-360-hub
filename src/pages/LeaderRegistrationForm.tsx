@@ -71,18 +71,13 @@ export default function LeaderRegistrationForm() {
     }
   });
 
-  // Buscar configurações (imagem de capa e logo)
+  // Buscar configurações via secure RPC (only safe columns - no API credentials)
   const { data: settings } = useQuery({
-    queryKey: ["app_settings"],
+    queryKey: ["public_form_settings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("affiliate_form_cover_url, affiliate_form_logo_url")
-        .limit(1)
-        .single();
-      
+      const { data, error } = await supabase.rpc("get_public_form_settings");
       if (error) throw error;
-      return data;
+      return data?.[0] || null;
     }
   });
 
