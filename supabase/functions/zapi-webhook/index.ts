@@ -197,10 +197,86 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   const normalizedPhone = normalizePhone(phone);
   const { data: contact } = await supabase
     .from("office_contacts")
-    .select("id, nome, is_verified, verification_code, source_id, source_type, pending_messages")
+    .select("id, nome, is_verified, verification_code, source_id, source_type, pending_messages, is_active, telefone_norm")
     .eq("telefone_norm", normalizedPhone)
     .limit(1)
     .single();
+
+  // Check for opt-out commands
+  const optOutCommands = ["SAIR", "PARAR", "CANCELAR", "DESCADASTRAR", "STOP", "UNSUBSCRIBE"];
+  const normalizedMessage = message.trim().toUpperCase();
+  
+  if (optOutCommands.includes(normalizedMessage)) {
+    console.log(`[zapi-webhook] Opt-out command detected: ${normalizedMessage}`);
+    
+    if (contact && contact.is_active !== false) {
+      // Mark contact as inactive
+      const { error: optOutError } = await supabase
+        .from("office_contacts")
+        .update({
+          is_active: false,
+          opted_out_at: new Date().toISOString(),
+          opt_out_reason: `Solicitação via WhatsApp: ${normalizedMessage}`,
+          opt_out_channel: "whatsapp",
+        })
+        .eq("id", contact.id);
+      
+      if (optOutError) {
+        console.error("[zapi-webhook] Error processing opt-out:", optOutError);
+      } else {
+        console.log(`[zapi-webhook] Contact ${contact.id} opted out successfully`);
+        // Send confirmation message
+        await sendOptOutConfirmation(supabase, normalizedPhone, contact.nome);
+      }
+    } else if (contact && contact.is_active === false) {
+      console.log("[zapi-webhook] Contact already opted out");
+    }
+    
+    // Record incoming message regardless
+    await supabase.from("whatsapp_messages").insert({
+      message_id: messageId,
+      phone: phone,
+      message: message,
+      direction: "incoming",
+      status: "received",
+      contact_id: contact?.id || null,
+      sent_at: new Date().toISOString(),
+    });
+    
+    return;
+  }
+
+  // Check for re-subscribe command
+  if (normalizedMessage === "VOLTAR" && contact && contact.is_active === false) {
+    console.log("[zapi-webhook] Re-subscribe command detected");
+    
+    const { error: resubError } = await supabase
+      .from("office_contacts")
+      .update({
+        is_active: true,
+        opted_out_at: null,
+        opt_out_reason: null,
+        opt_out_channel: null,
+      })
+      .eq("id", contact.id);
+    
+    if (!resubError) {
+      console.log(`[zapi-webhook] Contact ${contact.id} re-subscribed successfully`);
+      await sendResubscribeConfirmation(supabase, normalizedPhone, contact.nome);
+    }
+    
+    await supabase.from("whatsapp_messages").insert({
+      message_id: messageId,
+      phone: phone,
+      message: message,
+      direction: "incoming",
+      status: "received",
+      contact_id: contact?.id || null,
+      sent_at: new Date().toISOString(),
+    });
+    
+    return;
+  }
 
   // Check if message is a verification code (5 alphanumeric chars)
   const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5}$/);
@@ -424,12 +500,97 @@ async function sendVerificationConfirmation(supabase: any, phone: string, nome: 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendOptOutConfirmation(supabase: any, phone: string, nome: string) {
+  // Get integration settings
+  const { data: settings } = await supabase
+    .from("integrations_settings")
+    .select("zapi_instance_id, zapi_token, zapi_enabled")
+    .limit(1)
+    .single();
+  
+  if (!settings?.zapi_enabled) {
+    console.log("[zapi-webhook] Z-API not enabled, skipping opt-out confirmation");
+    return;
+  }
+  
+  // Get template or use default message
+  const { data: template } = await supabase
+    .from("whatsapp_templates")
+    .select("mensagem")
+    .eq("slug", "descadastro-confirmado")
+    .single();
+  
+  let message = template?.mensagem || `Olá ${nome}! 👋\n\nVocê foi descadastrado(a) com sucesso e não receberá mais nossas comunicações.\n\nSe desejar voltar a receber, basta enviar "VOLTAR" para este número.\n\nObrigado pelo tempo que esteve conosco! 🙏`;
+  message = message.replace(/{{nome}}/g, nome);
+  
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const response = await fetch(zapiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone.replace("+", ""),
+        message: message,
+      }),
+    });
+    
+    const result = await response.json();
+    console.log("[zapi-webhook] Sent opt-out confirmation:", result);
+    
+    // Record in whatsapp_messages
+    const { data: contact } = await supabase
+      .from("office_contacts")
+      .select("id")
+      .eq("telefone_norm", phone.startsWith("+") ? phone : "+" + phone)
+      .single();
+    
+    await supabase.from("whatsapp_messages").insert({
+      message_id: result.messageId || result.zapiMessageId,
+      phone: phone,
+      message: message,
+      direction: "outgoing",
+      status: "sent",
+      contact_id: contact?.id,
+      sent_at: new Date().toISOString(),
+    });
+    
+  } catch (err) {
+    console.error("[zapi-webhook] Error sending opt-out confirmation:", err);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendResubscribeConfirmation(supabase: any, phone: string, nome: string) {
+  const { data: settings } = await supabase
+    .from("integrations_settings")
+    .select("zapi_instance_id, zapi_token, zapi_enabled")
+    .limit(1)
+    .single();
+  
+  if (!settings?.zapi_enabled) return;
+  
+  const message = `Olá ${nome}! 🎉\n\nVocê voltou a receber nossas comunicações!\n\nSe precisar de algo, estamos à disposição.`;
+  
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    await fetch(zapiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone.replace("+", ""),
+        message: message,
+      }),
+    });
+    console.log("[zapi-webhook] Sent re-subscribe confirmation");
+  } catch (err) {
+    console.error("[zapi-webhook] Error sending re-subscribe confirmation:", err);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleConnectionStatus(supabase: any, data: ZapiConnectionStatus) {
   const isConnected = data.connected || data.status === "connected" || data.type === "ConnectedCallback";
   console.log(`[zapi-webhook] Connection status: ${isConnected ? "connected" : "disconnected"}`);
-  
-  // Optionally update integrations_settings with connection status
-  // For now, just log - can be extended later
 }
 
 function mapZapiStatus(status: string | undefined): string {

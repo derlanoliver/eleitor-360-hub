@@ -111,6 +111,22 @@ serve(async (req) => {
       });
     }
 
+    // Generate unsubscribe link if contact exists
+    if (contactId) {
+      const { data: contactData } = await supabase
+        .from('office_contacts')
+        .select('unsubscribe_token')
+        .eq('id', contactId)
+        .single();
+      
+      if (contactData?.unsubscribe_token) {
+        const unsubscribeUrl = `${supabaseUrl}/functions/v1/unsubscribe?token=${contactData.unsubscribe_token}`;
+        // Replace unsubscribe placeholder in HTML
+        finalHtml = finalHtml.replace(/{{link_descadastro}}/g, unsubscribeUrl);
+        finalHtml = finalHtml.replace(/href="#"([^>]*>Se não deseja mais receber)/g, `href="${unsubscribeUrl}"$1`);
+      }
+    }
+
     if (!finalHtml || !finalSubject) {
       return new Response(
         JSON.stringify({ success: false, error: 'Conteúdo do email ou assunto não fornecido' }),

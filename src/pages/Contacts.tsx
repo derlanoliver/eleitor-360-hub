@@ -44,8 +44,14 @@ import {
   FileText,
   ExternalLink,
   Filter,
-  X
+  X,
+  UserMinus,
+  UserPlus,
+  Ban
 } from "lucide-react";
+import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
+import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
+import { useUserRole } from "@/hooks/useUserRole";
 import { resendVerificationCode } from "@/hooks/contacts/useContactVerification";
 
 // Cores e labels para badges de origem
@@ -106,8 +112,12 @@ const Contacts = () => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [verificationFilter, setVerificationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [deactivatingContact, setDeactivatingContact] = useState<{id: string; name: string} | null>(null);
   
   const identifyGenders = useIdentifyGenders();
+  const reactivateContact = useReactivateContact();
+  const { isAdmin } = useUserRole();
 
   // Buscar líderes ativos para o filtro
   const { data: leadersForFilter = [] } = useQuery({
@@ -290,7 +300,11 @@ const Contacts = () => {
           verification_code: contact.verification_code,
           verification_sent_at: contact.verification_sent_at,
           verified_at: contact.verified_at,
-          requiresVerification: contact.source_type === 'lider' && contact.source_id
+          requiresVerification: contact.source_type === 'lider' && contact.source_id,
+          is_active: contact.is_active !== false,
+          opted_out_at: contact.opted_out_at,
+          opt_out_reason: contact.opt_out_reason,
+          opt_out_channel: contact.opt_out_channel
         };
       });
     }
@@ -373,7 +387,14 @@ const Contacts = () => {
       }
     }
     
-    return matchesSearch && matchesRegion && matchesSource;
+    let matchesStatus = true;
+    if (statusFilter === "active") {
+      matchesStatus = contact.is_active !== false;
+    } else if (statusFilter === "inactive") {
+      matchesStatus = contact.is_active === false;
+    }
+    
+    return matchesSearch && matchesRegion && matchesSource && matchesStatus;
   });
 
   const pendingVerificationCount = contacts.filter(c => c.requiresVerification && !c.is_verified).length;
@@ -407,10 +428,13 @@ const Contacts = () => {
     setSelectedEventId(null);
     setSelectedCampaignId(null);
     setVerificationFilter("all");
+    setStatusFilter("active");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = searchTerm || selectedRegion !== "all" || sourceFilter !== "all" || verificationFilter !== "all";
+  const hasActiveFilters = searchTerm || selectedRegion !== "all" || sourceFilter !== "all" || verificationFilter !== "all" || statusFilter !== "active";
+  
+  const inactiveCount = contacts.filter(c => c.is_active === false).length;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -594,6 +618,21 @@ const Contacts = () => {
               </SelectContent>
             </Select>
 
+            {/* Status */}
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value);
+              handleFilterChange();
+            }}>
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Ativos</SelectItem>
+                <SelectItem value="inactive">Inativos ({inactiveCount})</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Limpar filtros */}
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
@@ -688,6 +727,14 @@ const Contacts = () => {
                               </Badge>
                             )
                           )}
+
+                          {/* Badge de Status Inativo */}
+                          {contact.is_active === false && (
+                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                              <Ban className="h-3 w-3 mr-1" />
+                              Inativo
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Contatos */}
@@ -771,6 +818,32 @@ const Contacts = () => {
                           {selectedContact && <ContactDetails contact={selectedContact} />}
                         </DialogContent>
                       </Dialog>
+                      
+                      {/* Botão Desativar/Reativar - Apenas Admin */}
+                      {isAdmin && (
+                        contact.is_active !== false ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setDeactivatingContact({ id: contact.id, name: contact.name })}
+                            title="Desativar contato"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => reactivateContact.mutate(contact.id)}
+                            disabled={reactivateContact.isPending}
+                            title="Reativar contato"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        )
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -841,6 +914,13 @@ const Contacts = () => {
           onOpenChange={(open) => !open && setEditingContact(null)}
         />
       )}
+
+      {/* Dialog de Desativação */}
+      <DeactivateContactDialog
+        open={!!deactivatingContact}
+        onOpenChange={(open) => !open && setDeactivatingContact(null)}
+        contact={deactivatingContact}
+      />
     </div>
   );
 };
@@ -857,13 +937,20 @@ const ContactDetails = ({ contact }: { contact: any }) => {
     window.open(whatsappUrl, '_blank');
   };
 
+  const optOutChannelLabels: Record<string, string> = {
+    email: "E-mail",
+    whatsapp: "WhatsApp",
+    admin: "Administrador"
+  };
+
   return (
     <Tabs defaultValue="info" className="mt-4">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="info">Informações</TabsTrigger>
         <TabsTrigger value="eventos">Eventos</TabsTrigger>
         <TabsTrigger value="atividade">Atividade</TabsTrigger>
         <TabsTrigger value="verificacao">Verificação</TabsTrigger>
+        <TabsTrigger value="status">Status</TabsTrigger>
       </TabsList>
 
       {/* Tab: Informações */}
@@ -913,6 +1000,16 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                 </div>
               </div>
             )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <div className="flex items-center gap-2 mt-1">
+                {contact.is_active !== false ? (
+                  <Badge className="bg-green-100 text-green-700 border-green-200">Ativo</Badge>
+                ) : (
+                  <Badge variant="destructive">Inativo (Descadastrado)</Badge>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </TabsContent>
@@ -1049,6 +1146,61 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <RefreshCw className="h-4 w-4 mr-2" />
               Reenviar Código
             </Button>
+          </div>
+        )}
+      </TabsContent>
+
+      {/* Tab: Status */}
+      <TabsContent value="status" className="mt-4 space-y-4">
+        {contact.is_active !== false ? (
+          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+            <div className="flex items-center gap-2 text-green-700 font-medium">
+              <UserCheck className="h-5 w-5" />
+              Contato Ativo
+            </div>
+            <p className="text-sm text-green-600 mt-2">
+              Este contato está ativo e pode receber comunicações por e-mail e WhatsApp.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+              <div className="flex items-center gap-2 text-red-700 font-medium">
+                <Ban className="h-5 w-5" />
+                Contato Inativo (Descadastrado)
+              </div>
+              <p className="text-sm text-red-600 mt-2">
+                Este contato não receberá mais comunicações.
+              </p>
+            </div>
+            
+            <div className="border rounded-lg p-4 space-y-3">
+              <h4 className="font-medium text-sm">Detalhes do Descadastro</h4>
+              
+              <div className="grid gap-3 text-sm">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Data</label>
+                  <p>{contact.opted_out_at ? format(new Date(contact.opted_out_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : 'N/A'}</p>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Canal</label>
+                  <p className="flex items-center gap-2">
+                    {contact.opt_out_channel === 'email' && <Mail className="h-4 w-4 text-blue-600" />}
+                    {contact.opt_out_channel === 'whatsapp' && <Phone className="h-4 w-4 text-green-600" />}
+                    {contact.opt_out_channel === 'admin' && <UserMinus className="h-4 w-4 text-red-600" />}
+                    {contact.opt_out_channel === 'email' ? 'E-mail' : 
+                     contact.opt_out_channel === 'whatsapp' ? 'WhatsApp' : 
+                     contact.opt_out_channel === 'admin' ? 'Administrador' : 'N/A'}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Motivo</label>
+                  <p className="text-muted-foreground">{contact.opt_out_reason || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </TabsContent>

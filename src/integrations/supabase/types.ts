@@ -770,13 +770,18 @@ export type Database = {
           genero: string | null
           id: string
           instagram: string | null
+          is_active: boolean | null
           is_verified: boolean | null
           nome: string
           observacao: string | null
+          opt_out_channel: string | null
+          opt_out_reason: string | null
+          opted_out_at: string | null
           pending_messages: Json | null
           source_id: string | null
           source_type: string | null
           telefone_norm: string
+          unsubscribe_token: string | null
           updated_at: string
           utm_campaign: string | null
           utm_content: string | null
@@ -796,13 +801,18 @@ export type Database = {
           genero?: string | null
           id?: string
           instagram?: string | null
+          is_active?: boolean | null
           is_verified?: boolean | null
           nome: string
           observacao?: string | null
+          opt_out_channel?: string | null
+          opt_out_reason?: string | null
+          opted_out_at?: string | null
           pending_messages?: Json | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm: string
+          unsubscribe_token?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
@@ -822,13 +832,18 @@ export type Database = {
           genero?: string | null
           id?: string
           instagram?: string | null
+          is_active?: boolean | null
           is_verified?: boolean | null
           nome?: string
           observacao?: string | null
+          opt_out_channel?: string | null
+          opt_out_reason?: string | null
+          opted_out_at?: string | null
           pending_messages?: Json | null
           source_id?: string | null
           source_type?: string | null
           telefone_norm?: string
+          unsubscribe_token?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_content?: string | null
