@@ -2,6 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useOrganization } from "@/hooks/useOrganization";
 import { 
   LayoutDashboard, 
   Users, 
@@ -97,6 +98,10 @@ export function AppSidebar() {
   const { data: isSuperAdmin } = useIsSuperAdmin();
   const { logout } = useAuth();
   const { role } = useUserRole();
+  const { data: organization } = useOrganization();
+
+  const platformName = organization?.nome_plataforma || "Minha Plataforma";
+  const platformInitial = platformName.charAt(0).toUpperCase();
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -165,12 +170,12 @@ export function AppSidebar() {
           {!isCollapsed ? (
             <div>
               <h2 className="text-lg font-bold text-primary-600">
-                Rafael Prudente 360.ai
+                {platformName}
               </h2>
             </div>
           ) : (
             <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center mx-auto">
-              <span className="text-white font-bold text-base">R</span>
+              <span className="text-white font-bold text-base">{platformInitial}</span>
             </div>
           )}
         </div>

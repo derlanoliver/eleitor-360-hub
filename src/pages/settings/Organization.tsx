@@ -30,6 +30,7 @@ const Organization = () => {
   const updateOrganization = useUpdateOrganization();
   
   const [nome, setNome] = useState("");
+  const [nomePlataforma, setNomePlataforma] = useState("");
   const [cargo, setCargo] = useState("");
   const [partido, setPartido] = useState("");
   const [estado, setEstado] = useState("");
@@ -48,6 +49,7 @@ const Organization = () => {
   useEffect(() => {
     if (organization) {
       setNome(organization.nome || "");
+      setNomePlataforma(organization.nome_plataforma || "");
       setCargo(organization.cargo || "");
       setPartido(organization.partido || "");
       setEstado(organization.estado || "");
@@ -89,6 +91,7 @@ const Organization = () => {
   const handleSave = () => {
     updateOrganization.mutate({
       nome,
+      nome_plataforma: nomePlataforma,
       cargo,
       partido,
       estado,
@@ -181,6 +184,19 @@ const Organization = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nomePlataforma">Nome da Plataforma</Label>
+                <Input
+                  id="nomePlataforma"
+                  value={nomePlataforma}
+                  onChange={(e) => setNomePlataforma(e.target.value)}
+                  placeholder="Ex: Rafael Prudente 360.ai"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este nome aparece no topo da barra lateral
+                </p>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome Completo</Label>
