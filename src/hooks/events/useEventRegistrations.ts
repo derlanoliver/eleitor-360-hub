@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
+
 
 export function useEventRegistrations(eventId?: string) {
   return useQuery({
@@ -43,49 +43,33 @@ export function useCreateRegistration() {
 
   return useMutation({
     mutationFn: async (data: CreateRegistrationData) => {
-      // Check if already registered
-      const { data: existing } = await supabase
-        .from("event_registrations")
-        .select("id")
-        .eq("event_id", data.event_id)
-        .eq("email", data.email)
-        .maybeSingle();
-
-      if (existing) {
-        throw new Error("Você já está inscrito neste evento!");
-      }
-
-      // Check if phone/email belongs to a leader - mark the registration accordingly
-      let isLeader = false;
-      try {
-        const telefone_norm = normalizePhoneToE164(data.whatsapp);
-        const { data: existingLeader } = await supabase
-          .from('lideres')
-          .select('id')
-          .or(`telefone.eq.${telefone_norm},email.eq.${data.email}`)
-          .maybeSingle();
-        
-        if (existingLeader) {
-          isLeader = true;
-          console.log('Registrant is a leader, skipping contact creation');
-        }
-      } catch (e) {
-        // Ignore phone normalization errors
-      }
-
-      // Create registration (contact_id will be null for leaders to avoid duplicate contact)
-      const { data: registration, error } = await supabase
-        .from("event_registrations")
-        .insert({
-          ...data,
-          // If the registrant is a leader, we don't link to a contact to avoid duplication
-          contact_id: isLeader ? null : undefined,
-        })
-        .select()
-        .single();
+      // Use SECURITY DEFINER RPC function to avoid RLS issues
+      const { data: result, error } = await supabase.rpc('create_event_registration', {
+        _event_id: data.event_id,
+        _nome: data.nome,
+        _email: data.email,
+        _whatsapp: data.whatsapp,
+        _cidade_id: data.cidade_id || null,
+        _leader_id: data.leader_id || null,
+        _utm_source: data.utm_source || null,
+        _utm_medium: data.utm_medium || null,
+        _utm_campaign: data.utm_campaign || null,
+        _utm_content: data.utm_content || null,
+      });
 
       if (error) throw error;
-      return registration;
+      
+      // RPC returns array, get first result
+      const registration = Array.isArray(result) ? result[0] : result;
+      if (!registration) throw new Error("Erro ao criar inscrição");
+      
+      return {
+        ...registration,
+        event_id: data.event_id,
+        nome: data.nome,
+        email: data.email,
+        whatsapp: data.whatsapp,
+      };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["event_registrations", variables.event_id] });

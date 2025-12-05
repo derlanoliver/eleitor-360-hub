@@ -1716,6 +1716,25 @@ export type Database = {
         Returns: boolean
       }
       checkin_visit_by_qr: { Args: { _qr_code: string }; Returns: boolean }
+      create_event_registration: {
+        Args: {
+          _cidade_id?: string
+          _email: string
+          _event_id: string
+          _leader_id?: string
+          _nome: string
+          _utm_campaign?: string
+          _utm_content?: string
+          _utm_medium?: string
+          _utm_source?: string
+          _whatsapp: string
+        }
+        Returns: {
+          checked_in: boolean
+          id: string
+          qr_code: string
+        }[]
+      }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
