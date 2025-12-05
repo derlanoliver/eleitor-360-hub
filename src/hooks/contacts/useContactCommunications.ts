@@ -30,25 +30,50 @@ export interface ContactCommunications {
   email: ContactEmailLog[];
 }
 
-export function useContactCommunications(contactId: string | undefined) {
+export function useContactCommunications(contactId: string | undefined, contactPhone?: string, contactEmail?: string) {
   return useQuery({
-    queryKey: ["contact_communications", contactId],
+    queryKey: ["contact_communications", contactId, contactPhone, contactEmail],
     queryFn: async (): Promise<ContactCommunications> => {
       if (!contactId) return { whatsapp: [], email: [] };
 
-      // Fetch WhatsApp messages
-      const { data: whatsappMessages, error: whatsappError } = await supabase
+      // Fetch WhatsApp messages by contact_id first
+      let whatsappMessages: ContactWhatsAppMessage[] = [];
+      
+      const { data: msgById, error: whatsappError } = await supabase
         .from("whatsapp_messages")
         .select("*")
         .eq("contact_id", contactId)
         .order("created_at", { ascending: false });
 
       if (whatsappError) {
-        console.error("Error fetching WhatsApp messages:", whatsappError);
+        console.error("Error fetching WhatsApp messages by contact_id:", whatsappError);
+      }
+      
+      whatsappMessages = (msgById || []) as ContactWhatsAppMessage[];
+
+      // If no messages found by contact_id and we have a phone, try searching by phone
+      if (whatsappMessages.length === 0 && contactPhone) {
+        const normalizedPhone = contactPhone.replace(/\D/g, '');
+        const phoneSuffix = normalizedPhone.slice(-8); // Last 8 digits for matching
+        
+        const { data: msgByPhone, error: phoneError } = await supabase
+          .from("whatsapp_messages")
+          .select("*")
+          .ilike("phone", `%${phoneSuffix}%`)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (phoneError) {
+          console.error("Error fetching WhatsApp messages by phone:", phoneError);
+        } else {
+          whatsappMessages = (msgByPhone || []) as ContactWhatsAppMessage[];
+        }
       }
 
-      // Fetch Email logs
-      const { data: emailLogs, error: emailError } = await supabase
+      // Fetch Email logs by contact_id first
+      let emailLogs: ContactEmailLog[] = [];
+      
+      const { data: emailById, error: emailError } = await supabase
         .from("email_logs")
         .select(`
           id,
@@ -67,15 +92,48 @@ export function useContactCommunications(contactId: string | undefined) {
         .order("created_at", { ascending: false });
 
       if (emailError) {
-        console.error("Error fetching email logs:", emailError);
+        console.error("Error fetching email logs by contact_id:", emailError);
+      }
+      
+      emailLogs = (emailById || []).map((log: any) => ({
+        ...log,
+        template_name: log.email_templates?.nome || null,
+      })) as ContactEmailLog[];
+
+      // If no emails found by contact_id and we have an email, try searching by email address
+      if (emailLogs.length === 0 && contactEmail) {
+        const { data: emailByAddress, error: emailAddressError } = await supabase
+          .from("email_logs")
+          .select(`
+            id,
+            to_email,
+            subject,
+            status,
+            sent_at,
+            created_at,
+            error_message,
+            template_id,
+            email_templates (
+              nome
+            )
+          `)
+          .eq("to_email", contactEmail)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (emailAddressError) {
+          console.error("Error fetching email logs by email address:", emailAddressError);
+        } else {
+          emailLogs = (emailByAddress || []).map((log: any) => ({
+            ...log,
+            template_name: log.email_templates?.nome || null,
+          })) as ContactEmailLog[];
+        }
       }
 
       return {
-        whatsapp: (whatsappMessages || []) as ContactWhatsAppMessage[],
-        email: (emailLogs || []).map((log: any) => ({
-          ...log,
-          template_name: log.email_templates?.nome || null,
-        })) as ContactEmailLog[],
+        whatsapp: whatsappMessages,
+        email: emailLogs,
       };
     },
     enabled: !!contactId,
