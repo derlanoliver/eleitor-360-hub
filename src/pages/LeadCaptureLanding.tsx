@@ -267,6 +267,27 @@ export default function LeadCaptureLanding() {
         }
       }
 
+      // Send Email welcome message (captacao-boas-vindas)
+      if (data.email) {
+        try {
+          await supabase.functions.invoke('send-email', {
+            body: {
+              templateSlug: 'captacao-boas-vindas',
+              to: data.email,
+              toName: data.nome,
+              variables: {
+                nome: data.nome,
+                material_nome: funnel.lead_magnet_nome,
+              },
+              contactId: contactData?.id,
+            },
+          });
+        } catch (emailError) {
+          console.error('Error sending email welcome:', emailError);
+          // Don't fail the submission if email fails
+        }
+      }
+
       setIsSuccess(true);
     } catch (error: any) {
       console.error('Error submitting lead:', error);
