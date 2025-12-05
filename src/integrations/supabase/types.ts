@@ -1711,6 +1711,11 @@ export type Database = {
         Args: { _leader_id: string; _points: number; _reason?: string }
         Returns: undefined
       }
+      checkin_event_by_qr: {
+        Args: { _checked_in: boolean; _qr_code: string }
+        Returns: boolean
+      }
+      checkin_visit_by_qr: { Args: { _qr_code: string }; Returns: boolean }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
@@ -1744,12 +1749,42 @@ export type Database = {
           leader_form_title: string
         }[]
       }
+      get_registration_by_qr: {
+        Args: { _qr_code: string }
+        Returns: {
+          checked_in: boolean
+          checked_in_at: string
+          event_address: string
+          event_category: string
+          event_date: string
+          event_id: string
+          event_location: string
+          event_name: string
+          event_time: string
+          id: string
+          nome: string
+        }[]
+      }
       get_user_context: {
         Args: { user_id: string }
         Returns: {
           accessible_tenants: string[]
           user_data: Json
           user_type: string
+        }[]
+      }
+      get_visit_by_qr: {
+        Args: { _qr_code: string }
+        Returns: {
+          checked_in: boolean
+          checked_in_at: string
+          city_nome: string
+          contact_nome: string
+          contact_telefone: string
+          id: string
+          leader_nome: string
+          protocolo: string
+          status: Database["public"]["Enums"]["office_visit_status"]
         }[]
       }
       grant_role_by_email: {

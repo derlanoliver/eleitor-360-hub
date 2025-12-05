@@ -14,12 +14,8 @@ export default function VisitCheckin() {
   const updateCheckIn = useUpdateVisitCheckIn();
 
   const handleCheckIn = async () => {
-    if (!visit) return;
-    
-    await updateCheckIn.mutateAsync({ 
-      id: visit.id, 
-      checked_in: true 
-    });
+    if (!qrCode) return;
+    await updateCheckIn.mutateAsync(qrCode);
   };
 
   if (isLoading) {
@@ -68,7 +64,7 @@ export default function VisitCheckin() {
               <User className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Visitante</p>
-                <p className="font-medium">{visit.contact?.nome}</p>
+                <p className="font-medium">{visit.contact_nome}</p>
               </div>
             </div>
             
@@ -105,7 +101,7 @@ export default function VisitCheckin() {
               <User className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Visitante</p>
-                <p className="font-medium">{visit.contact?.nome}</p>
+                <p className="font-medium">{visit.contact_nome}</p>
               </div>
             </div>
 
@@ -113,7 +109,7 @@ export default function VisitCheckin() {
               <Phone className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Telefone</p>
-                <p className="font-medium">{visit.contact?.telefone_norm}</p>
+                <p className="font-medium">{visit.contact_telefone}</p>
               </div>
             </div>
 
@@ -121,7 +117,7 @@ export default function VisitCheckin() {
               <MapPin className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Cidade</p>
-                <p className="font-medium">{visit.city?.nome}</p>
+                <p className="font-medium">{visit.city_nome}</p>
               </div>
             </div>
           </div>

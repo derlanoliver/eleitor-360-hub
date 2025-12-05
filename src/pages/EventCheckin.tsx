@@ -1,10 +1,9 @@
 import { useParams } from "react-router-dom";
-import { useRegistrationByQR } from "@/hooks/events/useRegistrationByQR";
-import { useUpdateCheckIn } from "@/hooks/events/useEventRegistrations";
+import { useRegistrationByQR, useUpdateCheckInByQR } from "@/hooks/events/useRegistrationByQR";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Calendar, Clock, MapPin, User, Mail, Phone, MapPinIcon } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar, Clock, MapPin, User } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -22,24 +21,16 @@ const eventCategories = {
 export default function EventCheckin() {
   const { qrCode } = useParams<{ qrCode: string }>();
   const { data: registration, isLoading, error } = useRegistrationByQR(qrCode || "");
-  const updateCheckIn = useUpdateCheckIn();
+  const updateCheckIn = useUpdateCheckInByQR();
 
   const handleCheckIn = async () => {
-    if (!registration) return;
-    
-    await updateCheckIn.mutateAsync({
-      id: registration.id,
-      checked_in: true
-    });
+    if (!qrCode) return;
+    await updateCheckIn.mutateAsync({ qrCode, checked_in: true });
   };
 
   const handleUndoCheckIn = async () => {
-    if (!registration) return;
-    
-    await updateCheckIn.mutateAsync({
-      id: registration.id,
-      checked_in: false
-    });
+    if (!qrCode) return;
+    await updateCheckIn.mutateAsync({ qrCode, checked_in: false });
   };
 
   if (isLoading) {
@@ -69,9 +60,8 @@ export default function EventCheckin() {
     );
   }
 
-  const event = registration.event;
-  const categoryInfo = eventCategories[event?.category as keyof typeof eventCategories] || {
-    label: event?.category || "",
+  const categoryInfo = eventCategories[registration.event_category as keyof typeof eventCategories] || {
+    label: registration.event_category || "",
     color: "bg-gray-500",
   };
 
@@ -94,7 +84,7 @@ export default function EventCheckin() {
                   </Badge>
                 )}
               </div>
-              <CardTitle className="text-2xl">{event?.name}</CardTitle>
+              <CardTitle className="text-2xl">{registration.event_name}</CardTitle>
             </div>
           </div>
         </CardHeader>
@@ -106,16 +96,22 @@ export default function EventCheckin() {
             <div className="space-y-2">
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{event?.date ? format(new Date(event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Data não disponível"}</span>
+                <span>{registration.event_date ? format(new Date(registration.event_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Data não disponível"}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{event?.time || "Horário não disponível"}</span>
+                <span>{registration.event_time || "Horário não disponível"}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{event?.location || "Local não disponível"}</span>
+                <span>{registration.event_location || "Local não disponível"}</span>
               </div>
+              {registration.event_address && (
+                <div className="flex items-center gap-3 text-sm">
+                  <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span>{registration.event_address}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -127,20 +123,6 @@ export default function EventCheckin() {
                 <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium">{registration.nome}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{registration.email}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{registration.whatsapp}</span>
-              </div>
-              {registration.cidade && (
-                <div className="flex items-center gap-3 text-sm">
-                  <MapPinIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span>{registration.cidade.nome}</span>
-                </div>
-              )}
             </div>
           </div>
 

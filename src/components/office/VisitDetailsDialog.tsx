@@ -17,7 +17,7 @@ import { Copy, QrCode, Printer, CheckCircle2, XCircle, Download } from "lucide-r
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
-import { useUpdateVisitCheckIn } from "@/hooks/office/useUpdateVisitCheckIn";
+import { useUpdateVisitCheckInById } from "@/hooks/office/useUpdateVisitCheckIn";
 import { useMeetingMinutes } from "@/hooks/office/useMeetingMinutes";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -31,7 +31,7 @@ interface VisitDetailsDialogProps {
 
 export function VisitDetailsDialog({ visit, open, onOpenChange }: VisitDetailsDialogProps) {
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const updateCheckIn = useUpdateVisitCheckIn();
+  const updateCheckIn = useUpdateVisitCheckInById();
   const { data: meetingMinutes } = useMeetingMinutes(visit?.id);
   
   useEffect(() => {
