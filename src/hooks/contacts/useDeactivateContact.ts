@@ -84,10 +84,10 @@ export function useReactivateContact() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts-total-count"] });
+      queryClient.refetchQueries({ queryKey: ["contacts"] });
+      queryClient.refetchQueries({ queryKey: ["contacts-total-count"] });
       queryClient.invalidateQueries({ queryKey: ["contact_activity_log"] });
-      toast.success("Contato reativado com sucesso");
+      toast.success("Contato reativado! Ele agora aparece na lista de 'Ativos'.");
     },
     onError: (error: any) => {
       console.error("Error reactivating contact:", error);
