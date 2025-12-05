@@ -145,6 +145,9 @@ export default function EventRegistration() {
       });
       setQrCodeUrl(qrData);
 
+      // QR Code URL para email (usando Google Charts API para compatibilidade)
+      const qrCodeImageUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(checkInUrl)}`;
+
       // Track Lead event
       trackLead({ 
         content_name: `evento_${event.slug}`,
@@ -196,6 +199,7 @@ export default function EventRegistration() {
               evento_local: event.location,
               evento_endereco: event.address || event.location,
               evento_descricao: event.description || '',
+              qr_code_url: qrCodeImageUrl,
               email: formData.email,
               eventId: event.id,
             }
@@ -270,6 +274,7 @@ export default function EventRegistration() {
                 evento_local: event.location,
                 evento_endereco: event.address || event.location,
                 evento_descricao: event.description || '',
+                qr_code_url: qrCodeImageUrl,
               },
               eventId: event.id,
             },
