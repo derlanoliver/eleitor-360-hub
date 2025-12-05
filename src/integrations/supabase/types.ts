@@ -1717,6 +1717,15 @@ export type Database = {
       generate_support_protocol: { Args: never; Returns: string }
       generate_verification_code: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
+      get_leader_by_affiliate_token: {
+        Args: { _token: string }
+        Returns: {
+          cidade_id: string
+          cidade_nome: string
+          id: string
+          nome_completo: string
+        }[]
+      }
       get_leader_by_phone_or_email: {
         Args: { _email: string; _phone: string }
         Returns: string
