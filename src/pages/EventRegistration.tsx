@@ -171,8 +171,8 @@ export default function EventRegistration() {
           .single();
 
         if (contactForVerification && !contactForVerification.is_verified) {
-          // Armazenar mensagem de confirmação como pendente
-          const pendingMessages = addPendingMessage(
+          // Armazenar mensagens de confirmação como pendentes (WhatsApp e Email)
+          let pendingMessages = addPendingMessage(
             contactForVerification.pending_messages || [],
             'evento-inscricao-confirmada',
             {
@@ -181,6 +181,23 @@ export default function EventRegistration() {
               evento_data: eventDate,
               evento_hora: event.time,
               evento_local: event.location,
+            }
+          );
+          
+          // Adicionar email pendente também
+          pendingMessages = addPendingMessage(
+            pendingMessages,
+            'email:evento-cadastro-confirmado',
+            {
+              nome: formData.nome,
+              evento_nome: event.name,
+              evento_data: eventDate,
+              evento_hora: event.time,
+              evento_local: event.location,
+              evento_endereco: event.address || event.location,
+              evento_descricao: event.description || '',
+              email: formData.email,
+              eventId: event.id,
             }
           );
 
@@ -235,6 +252,29 @@ export default function EventRegistration() {
           });
         } catch (whatsappError) {
           console.error('Error sending WhatsApp confirmation:', whatsappError);
+        }
+
+        // Enviar email de confirmação
+        try {
+          await supabase.functions.invoke('send-email', {
+            body: {
+              templateSlug: 'evento-cadastro-confirmado',
+              to: formData.email,
+              toName: formData.nome,
+              variables: {
+                nome: formData.nome,
+                evento_nome: event.name,
+                evento_data: eventDate,
+                evento_hora: event.time,
+                evento_local: event.location,
+                evento_endereco: event.address || event.location,
+                evento_descricao: event.description || '',
+              },
+              eventId: event.id,
+            },
+          });
+        } catch (emailError) {
+          console.error('Error sending email confirmation:', emailError);
         }
       }
 
