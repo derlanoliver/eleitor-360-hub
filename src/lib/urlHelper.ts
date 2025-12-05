@@ -111,3 +111,10 @@ export function generateFunnelCampaignUrl(
   });
   return `${getBaseUrl()}/captacao/${funnelSlug}?${params.toString()}`;
 }
+
+/**
+ * Gera link de descadastro com token
+ */
+export function generateUnsubscribeUrl(token: string): string {
+  return `${getBaseUrl()}/descadastro?token=${token}`;
+}
