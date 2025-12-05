@@ -30,6 +30,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ============ AUTHENTICATION CHECK ============
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      console.error("[send-email] Missing authorization header");
+      return new Response(
+        JSON.stringify({ success: false, error: "Não autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error("[send-email] Invalid token:", authError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Token inválido" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check user has admin, super_admin, or atendente role
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ["admin", "super_admin", "atendente"])
+      .limit(1)
+      .single();
+
+    if (roleError || !roleData) {
+      console.error("[send-email] User lacks required role:", user.id);
+      return new Response(
+        JSON.stringify({ success: false, error: "Acesso não autorizado. Requer permissão de admin ou atendente." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[send-email] Authenticated user: ${user.email} with role: ${roleData.role}`);
+    // ============ END AUTHENTICATION CHECK ============
+
     // Get integration settings
     const { data: settings, error: settingsError } = await supabase
       .from('integrations_settings')
