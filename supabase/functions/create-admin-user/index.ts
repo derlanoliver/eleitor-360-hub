@@ -24,6 +24,52 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    // ========== AUTHENTICATION CHECK ==========
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.error('[create-admin-user] No authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Não autenticado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create a client to verify the user
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const { data: { user: callingUser }, error: authError } = await supabaseAuth.auth.getUser(token);
+    
+    if (authError || !callingUser) {
+      console.error('[create-admin-user] Invalid token:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Token inválido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Check if calling user has admin role
+    const { data: userRole, error: roleError } = await supabaseAuth
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', callingUser.id)
+      .in('role', ['admin', 'super_admin'])
+      .maybeSingle();
+
+    if (roleError || !userRole) {
+      console.error('[create-admin-user] User not authorized:', callingUser.id, roleError);
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado. Apenas administradores podem criar usuários.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    console.log(`[create-admin-user] Authorized user ${callingUser.email} with role ${userRole.role}`);
+    // ========== END AUTHENTICATION CHECK ==========
+    
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -33,10 +79,19 @@ serve(async (req) => {
 
     const { email, password, name, role = 'admin', phone } = await req.json();
 
+    // Validate that only admins can create super_admin users
+    if (role === 'super_admin' && userRole.role !== 'super_admin') {
+      console.error('[create-admin-user] Non-super_admin trying to create super_admin');
+      return new Response(
+        JSON.stringify({ error: 'Apenas super administradores podem criar outros super administradores.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
     console.log('Creating admin user:', { email, name, role });
 
     // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -46,9 +101,9 @@ serve(async (req) => {
       }
     });
 
-    if (authError) {
-      console.error('Auth error:', authError);
-      throw authError;
+    if (createError) {
+      console.error('Auth error:', createError);
+      throw createError;
     }
 
     console.log('User created in auth:', authData.user.id);
@@ -76,15 +131,15 @@ serve(async (req) => {
     }
 
     // Create user_roles entry
-    const { error: roleError } = await supabaseAdmin
+    const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .upsert({
         user_id: authData.user.id,
         role: role
       }, { onConflict: 'user_id, role' });
 
-    if (roleError) {
-      console.error('Role creation error:', roleError);
+    if (roleInsertError) {
+      console.error('Role creation error:', roleInsertError);
     } else {
       console.log('Role created successfully:', role);
     }
