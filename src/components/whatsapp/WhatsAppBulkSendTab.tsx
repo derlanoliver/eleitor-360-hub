@@ -32,7 +32,7 @@ import {
 } from "@/hooks/useWhatsAppTemplates";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { getBaseUrl, generateEventAffiliateUrl } from "@/lib/urlHelper";
 
 type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader";
 
@@ -68,7 +68,7 @@ export function WhatsAppBulkSendTab() {
   // Estados para envio individual
   const [singleContactSearch, setSingleContactSearch] = useState("");
   const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; telefone_norm: string} | null>(null);
-  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; telefone: string} | null>(null);
+  const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; telefone: string; affiliate_token: string | null} | null>(null);
 
   // Delay aleatório entre 3-6 segundos para parecer mais humano e evitar bloqueio
   const getRandomDelay = () => {
@@ -164,7 +164,7 @@ export function WhatsAppBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lideres")
-        .select("id, nome_completo, telefone")
+        .select("id, nome_completo, telefone, affiliate_token")
         .eq("is_active", true)
         .not("telefone", "is", null)
         .ilike("nome_completo", `%${singleContactSearch}%`)
@@ -190,7 +190,7 @@ export function WhatsAppBulkSendTab() {
       if (recipientType === "leaders") {
         const { data, error } = await supabase
           .from("lideres")
-          .select("id, nome_completo, telefone")
+          .select("id, nome_completo, telefone, affiliate_token")
           .eq("is_active", true)
           .not("telefone", "is", null);
         if (error) throw error;
@@ -313,6 +313,11 @@ export function WhatsAppBulkSendTab() {
           variables.evento_endereco = targetEvent.address || "";
           variables.evento_descricao = targetEvent.description || "";
           variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
+          
+          // Se for líder, gerar link_afiliado exclusivo
+          if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
+            variables.link_afiliado = generateEventAffiliateUrl(targetEvent.slug, recipient.affiliate_token as string);
+          }
         }
 
         // Se for template de captação, adicionar variáveis do funil destino
@@ -337,6 +342,18 @@ export function WhatsAppBulkSendTab() {
             errorCount++;
           } else {
             successCount++;
+            
+            // Se for template lideranca-evento-link, enviar link em mensagem separada
+            if (selectedTemplateData.slug === "lideranca-evento-link" && variables.link_afiliado) {
+              await new Promise((resolve) => setTimeout(resolve, 2000)); // Delay de 2s
+              await supabase.functions.invoke("send-whatsapp", {
+                body: {
+                  phone,
+                  message: variables.link_afiliado,
+                  contactId,
+                },
+              });
+            }
           }
         } catch (err) {
           errorCount++;
