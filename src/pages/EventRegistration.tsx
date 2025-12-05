@@ -145,8 +145,8 @@ export default function EventRegistration() {
       });
       setQrCodeUrl(qrData);
 
-      // QR Code URL para email (usando Google Charts API para compatibilidade)
-      const qrCodeImageUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(checkInUrl)}`;
+      // QR Code URL para email (usando QR Server API - gratuita e funcional)
+      const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkInUrl)}`;
 
       // Track Lead event
       trackLead({ 
