@@ -12,6 +12,7 @@ interface SendWhatsAppRequest {
   variables?: Record<string, string>;
   visitId?: string;
   contactId?: string;
+  imageUrl?: string; // URL da imagem a ser enviada após a mensagem de texto
 }
 
 // Replace template variables {{var}} with actual values
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
 
     // Parse body first to check if it's a public template
     const requestBody: SendWhatsAppRequest = await req.json();
-    const { phone, message, templateSlug, variables, visitId, contactId } = requestBody;
+    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl } = requestBody;
 
     const isPublicTemplate = templateSlug && PUBLIC_TEMPLATES.includes(templateSlug);
 
@@ -262,6 +263,39 @@ Deno.serve(async (req) => {
         }),
         { status: zapiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Se tiver imageUrl, enviar imagem após a mensagem de texto
+    if (imageUrl && zapiResponse.ok) {
+      console.log(`[send-whatsapp] Enviando imagem para ${cleanPhone}: ${imageUrl}`);
+      
+      // Aguardar 2 segundos antes de enviar a imagem
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const zapiImageUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-image`;
+      
+      try {
+        const imageResponse = await fetch(zapiImageUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(settings.zapi_client_token && { "Client-Token": settings.zapi_client_token }),
+          },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            image: imageUrl,
+          }),
+        });
+        
+        const imageData = await imageResponse.json();
+        console.log(`[send-whatsapp] Resposta Z-API (imagem):`, imageData);
+        
+        if (!imageResponse.ok) {
+          console.error("[send-whatsapp] Erro ao enviar imagem:", imageData);
+        }
+      } catch (imageError) {
+        console.error("[send-whatsapp] Erro ao enviar imagem:", imageError);
+      }
     }
 
     return new Response(
