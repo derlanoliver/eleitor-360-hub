@@ -15,6 +15,7 @@ export interface ContactMapData {
   id: string;
   nome: string;
   source_type: string | null;
+  source_id: string | null;
   latitude: number;
   longitude: number;
   cidade_nome: string;
@@ -63,7 +64,7 @@ export function useStrategicMapData() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch contacts with city coordinates
+  // Fetch contacts with city coordinates and source_id for connections
   const contactsQuery = useQuery({
     queryKey: ["strategic_map_contacts"],
     queryFn: async (): Promise<ContactMapData[]> => {
@@ -73,6 +74,7 @@ export function useStrategicMapData() {
           id,
           nome,
           source_type,
+          source_id,
           cidade:office_cities(id, nome, latitude, longitude)
         `)
         .eq("is_active", true);
@@ -85,6 +87,7 @@ export function useStrategicMapData() {
           id: c.id,
           nome: c.nome,
           source_type: c.source_type,
+          source_id: c.source_id,
           latitude: c.cidade.latitude,
           longitude: c.cidade.longitude,
           cidade_nome: c.cidade.nome,
