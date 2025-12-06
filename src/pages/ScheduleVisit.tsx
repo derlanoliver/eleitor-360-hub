@@ -44,29 +44,39 @@ export default function ScheduleVisit() {
 
     try {
       setLoading(true);
+      
+      // Usar função RPC SECURITY DEFINER para buscar visita (bypassa RLS para usuários públicos)
       const { data, error } = await supabase
-        .from("office_visits")
-        .select(`
-          *,
-          contact:office_contacts(nome, telefone_norm),
-          city:office_cities(nome)
-        `)
-        .eq("id", visitId)
-        .single();
+        .rpc("get_visit_for_public_form", { _visit_id: visitId });
 
       if (error) throw error;
-      setVisit(data);
+      
+      if (!data || data.length === 0) {
+        setVisit(null);
+        return;
+      }
+
+      const visitData = data[0];
+      
+      // Mapear para estrutura esperada pelo componente
+      setVisit({
+        id: visitData.id,
+        protocolo: visitData.protocolo,
+        status: visitData.status,
+        contact_id: visitData.contact_id,
+        qr_code: visitData.qr_code,
+        contact: {
+          nome: visitData.contact_nome,
+          telefone_norm: visitData.contact_telefone,
+        },
+        city: {
+          nome: visitData.city_nome,
+        },
+      });
       
       // Atualizar status para FORM_OPENED se ainda estiver em LINK_SENT
-      if (data.status === "LINK_SENT") {
-        const { error: updateError } = await supabase
-          .from("office_visits")
-          .update({ status: "FORM_OPENED" })
-          .eq("id", visitId);
-        
-        if (updateError) {
-          console.error("Error updating status to FORM_OPENED:", updateError);
-        }
+      if (visitData.status === "LINK_SENT") {
+        await supabase.rpc("update_visit_status_form_opened", { _visit_id: visitId });
       }
     } catch (error: any) {
       console.error("Error loading visit:", error);

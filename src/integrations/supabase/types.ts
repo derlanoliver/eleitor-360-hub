@@ -1806,6 +1806,20 @@ export type Database = {
           status: Database["public"]["Enums"]["office_visit_status"]
         }[]
       }
+      get_visit_for_public_form: {
+        Args: { _visit_id: string }
+        Returns: {
+          city_id: string
+          city_nome: string
+          contact_id: string
+          contact_nome: string
+          contact_telefone: string
+          id: string
+          protocolo: string
+          qr_code: string
+          status: string
+        }[]
+      }
       grant_role_by_email: {
         Args: {
           _email: string
@@ -1836,6 +1850,10 @@ export type Database = {
       unsubscribe_contact_by_token: {
         Args: { p_reason?: string; p_token: string }
         Returns: Json
+      }
+      update_visit_status_form_opened: {
+        Args: { _visit_id: string }
+        Returns: boolean
       }
       update_whatsapp_message_status: {
         Args: {
