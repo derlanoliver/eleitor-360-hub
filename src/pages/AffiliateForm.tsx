@@ -85,6 +85,22 @@ export default function AffiliateForm() {
 
       const telefoneNorm = telefone.startsWith('+') ? telefone : `+55${telefone.replace(/\D/g, '')}`;
 
+      // Verificar se a pessoa já é um líder cadastrado
+      const { data: existingLeader } = await supabase
+        .from("lideres")
+        .select("id, nome_completo")
+        .or(`telefone.eq.${telefoneNorm}`)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (existingLeader) {
+        toast.info(`${existingLeader.nome_completo}, você já é uma liderança cadastrada!`);
+        setSubmitted(true);
+        setNeedsVerification(false);
+        setSubmitting(false);
+        return;
+      }
+
       // Verificar se já existe contato com este telefone
       const { data: existingContact } = await supabase
         .from("office_contacts")
@@ -310,6 +326,9 @@ export default function AffiliateForm() {
   }
 
   if (submitted) {
+    // Verificar se é líder (não precisa de verificação e não houve criação de contato)
+    const isLeaderMessage = !needsVerification && !leader;
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -326,7 +345,9 @@ export default function AffiliateForm() {
                 <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mb-4">
                   <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
-                <CardTitle className="text-green-600 dark:text-green-400">Cadastro Realizado!</CardTitle>
+                <CardTitle className="text-green-600 dark:text-green-400">
+                  {isLeaderMessage ? "Você já é uma Liderança!" : "Cadastro Realizado!"}
+                </CardTitle>
               </>
             )}
           </CardHeader>
@@ -344,7 +365,10 @@ export default function AffiliateForm() {
               </div>
             ) : (
               <p className="text-center text-muted-foreground">
-                Obrigado por se cadastrar! Entraremos em contato em breve.
+                {isLeaderMessage 
+                  ? "Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!"
+                  : "Obrigado por se cadastrar! Entraremos em contato em breve."
+                }
               </p>
             )}
           </CardContent>

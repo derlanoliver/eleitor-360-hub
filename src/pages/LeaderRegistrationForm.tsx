@@ -102,6 +102,22 @@ export default function LeaderRegistrationForm() {
       // Normalizar telefone
       const telefone_norm = normalizePhoneToE164(data.whatsapp);
 
+      // Verificar se a pessoa já é um líder cadastrado
+      const { data: existingLeader } = await supabase
+        .from("lideres")
+        .select("id, nome_completo")
+        .or(`telefone.eq.${telefone_norm},email.eq.${data.email.trim().toLowerCase()}`)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (existingLeader) {
+        toast.info(`${existingLeader.nome_completo}, você já é uma liderança cadastrada!`);
+        setIsSuccess(true);
+        setNeedsVerification(false);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Verificar se já existe contato com este telefone
       const { data: existingContact } = await supabase
         .from("office_contacts")
@@ -258,6 +274,9 @@ export default function LeaderRegistrationForm() {
 
   // Tela de sucesso
   if (isSuccess) {
+    // Verificar se é líder (não precisa de verificação porque já é líder)
+    const isAlreadyLeader = !needsVerification;
+    
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
         <Card className="max-w-md w-full">
@@ -282,9 +301,14 @@ export default function LeaderRegistrationForm() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Cadastro Atualizado!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  {isAlreadyLeader ? "Você já é uma Liderança!" : "Cadastro Atualizado!"}
+                </h2>
                 <p className="text-muted-foreground mb-4">
-                  Seus dados foram atualizados com sucesso!
+                  {isAlreadyLeader 
+                    ? "Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!"
+                    : "Seus dados foram atualizados com sucesso!"
+                  }
                 </p>
               </>
             )}
