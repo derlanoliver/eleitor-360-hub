@@ -14,7 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList } from "lucide-react";
 import { useEmailTemplates, useSendBulkEmail } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +29,8 @@ type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "le
 const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-convite"];
 // Templates que precisam de funil destino
 const FUNNEL_INVITE_TEMPLATES = ["captacao-convite-material"];
+// Templates que precisam de pesquisa destino
+const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite"];
 
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
@@ -41,9 +43,10 @@ export function EmailBulkSendTab() {
   const [selectedFunnel, setSelectedFunnel] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   
-  // Estados para evento/funil DESTINO (para preencher variáveis)
+  // Estados para evento/funil/pesquisa DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
   const [targetFunnelId, setTargetFunnelId] = useState("");
+  const [targetSurveyId, setTargetSurveyId] = useState("");
   
   // Estados para envio individual
   const [singleContactSearch, setSingleContactSearch] = useState("");
@@ -53,6 +56,7 @@ export function EmailBulkSendTab() {
   // Detectar tipo do template selecionado
   const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
   const isFunnelInviteTemplate = FUNNEL_INVITE_TEMPLATES.includes(selectedTemplate);
+  const isSurveyInviteTemplate = SURVEY_INVITE_TEMPLATES.includes(selectedTemplate);
 
   // Fetch funnels
   const { data: funnels } = useQuery({
@@ -96,6 +100,35 @@ export function EmailBulkSendTab() {
       return data;
     },
     enabled: !!targetFunnelId && isFunnelInviteTemplate,
+  });
+
+  // Fetch surveys for selection
+  const { data: surveys } = useQuery({
+    queryKey: ["surveys-active-email"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("surveys")
+        .select("id, titulo, slug, descricao, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch target survey details (para preencher variáveis)
+  const { data: targetSurvey } = useQuery({
+    queryKey: ["target_survey_email", targetSurveyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("surveys")
+        .select("id, titulo, slug, descricao")
+        .eq("id", targetSurveyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetSurveyId && isSurveyInviteTemplate,
   });
 
   // Buscar IDs de contatos promovidos (excluir do envio)
@@ -223,11 +256,13 @@ export function EmailBulkSendTab() {
     "lideranca-evento-convite",
     "captacao-convite-material",
     "evento-convite-participar",
+    "pesquisa-convite",
   ];
 
   const CONVITE_TEMPLATES_CONTACTS = [
     "captacao-convite-material",
     "evento-convite-participar",
+    "pesquisa-convite",
   ];
 
   // Filter templates based on recipient type
@@ -247,7 +282,8 @@ export function EmailBulkSendTab() {
     recipients.length > 0 && 
     confirmed &&
     (!isEventInviteTemplate || targetEventId) &&
-    (!isFunnelInviteTemplate || targetFunnelId);
+    (!isFunnelInviteTemplate || targetFunnelId) &&
+    (!isSurveyInviteTemplate || targetSurveyId);
 
   const handleSend = () => {
     if (!selectedTemplate || !recipients?.length) return;
@@ -282,6 +318,12 @@ export function EmailBulkSendTab() {
         variables.material_nome = targetFunnel.lead_magnet_nome;
         variables.material_descricao = targetFunnel.subtitulo || "";
         variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
+      }
+
+      // Se for template de pesquisa, adicionar variáveis da pesquisa destino
+      if (isSurveyInviteTemplate && targetSurvey) {
+        variables.pesquisa_titulo = targetSurvey.titulo;
+        variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
       }
 
       return {
@@ -324,6 +366,7 @@ export function EmailBulkSendTab() {
                   setSelectedTemplate("");
                   setTargetEventId("");
                   setTargetFunnelId("");
+                  setTargetSurveyId("");
                   setConfirmed(false);
                   setSelectedSingleContact(null);
                   setSelectedSingleLeader(null);
@@ -498,6 +541,7 @@ export function EmailBulkSendTab() {
                   setSelectedTemplate(v);
                   setTargetEventId("");
                   setTargetFunnelId("");
+                  setTargetSurveyId("");
                 }}
               >
                 <SelectTrigger>
@@ -565,6 +609,33 @@ export function EmailBulkSendTab() {
                 )}
               </div>
             )}
+
+            {/* DESTINO: Seleção da Pesquisa para convite */}
+            {isSurveyInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Para qual pesquisa deseja convidar?
+                </Label>
+                <Select value={targetSurveyId} onValueChange={setTargetSurveyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a pesquisa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {surveys?.map((survey) => (
+                      <SelectItem key={survey.id} value={survey.id}>
+                        {survey.titulo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetSurvey && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    <p>📊 {targetSurvey.descricao || "Pesquisa eleitoral"}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -613,6 +684,13 @@ export function EmailBulkSendTab() {
                   <div className="py-3 border-b">
                     <span className="text-muted-foreground">Material do Convite</span>
                     <p className="font-medium mt-1">{targetFunnel.lead_magnet_nome}</p>
+                  </div>
+                )}
+
+                {isSurveyInviteTemplate && targetSurvey && (
+                  <div className="py-3 border-b">
+                    <span className="text-muted-foreground">Pesquisa do Convite</span>
+                    <p className="font-medium mt-1">📊 {targetSurvey.titulo}</p>
                   </div>
                 )}
 
