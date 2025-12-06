@@ -767,6 +767,36 @@ export type Database = {
           },
         ]
       }
+      map_analyses: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          total_connections: number | null
+          total_contacts: number | null
+          total_leaders: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          total_connections?: number | null
+          total_contacts?: number | null
+          total_leaders?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          total_connections?: number | null
+          total_contacts?: number | null
+          total_leaders?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       office_cities: {
         Row: {
           codigo_ra: string
