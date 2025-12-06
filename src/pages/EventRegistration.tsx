@@ -98,11 +98,21 @@ export default function EventRegistration() {
       const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
       const hasLeaderRef = !!leader;
 
+      // Verificar se a pessoa já é um líder cadastrado (por telefone ou email)
+      const { data: existingLeader } = await supabase
+        .from("lideres")
+        .select("id, nome_completo")
+        .or(`telefone.eq.${normalizedPhone},email.eq.${formData.email.trim().toLowerCase()}`)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      const isLeader = !!existingLeader;
+
       // Se tem referência de líder, verificar se contato existe e está verificado
       let existingContact = null;
       let needsVerificationCheck = false;
 
-      if (hasLeaderRef) {
+      if (hasLeaderRef && !isLeader) {
         const { data: contactData } = await supabase
           .from("office_contacts")
           .select("id, nome, is_verified, verification_code, source_type, source_id, pending_messages")
