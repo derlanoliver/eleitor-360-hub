@@ -75,11 +75,21 @@ const eventCategories = [
 const Events = () => {
   const { data: events = [], isLoading } = useEvents();
   const { data: cities = [] } = useOfficeCities();
+  const { data: eventStats } = useEventStats();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const { isAdmin, isAtendente } = useUserRole();
   const canManageEvents = isAdmin || isAtendente;
+
+  // Calcula equipe necessária para check-in (1 pessoa a cada 30 participantes esperados)
+  const getCheckInStaffNeeded = (registrations: number, eventConversionRate?: number) => {
+    const RATIO = 30;
+    // Usa taxa do evento específico ou taxa média geral
+    const rate = eventConversionRate ?? eventStats?.overallConversionRate ?? 70;
+    const expectedAttendees = Math.round(registrations * (rate / 100));
+    return Math.max(1, Math.ceil(expectedAttendees / RATIO));
+  };
   
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -591,6 +601,13 @@ const Events = () => {
                               <div className="flex items-center gap-1">
                                 <Users className="h-4 w-4" />
                                 {event.registrations_count}/{event.capacity}
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 text-orange-600" 
+                                title={`Baseado em ${event.registrations_count} inscritos, taxa média de ${Math.round(eventStats?.overallConversionRate ?? 70)}% = ~${Math.round((event.registrations_count || 0) * ((eventStats?.overallConversionRate ?? 70) / 100))} pessoas esperadas. 1 atendente a cada 30.`}
+                              >
+                                <UserCheck className="h-4 w-4" />
+                                <span className="font-medium">{getCheckInStaffNeeded(event.registrations_count || 0)} p/ check-in</span>
                               </div>
                             </div>
 
