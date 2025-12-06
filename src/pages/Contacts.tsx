@@ -92,6 +92,11 @@ const sourceConfig: Record<string, { label: string; className: string; icon: typ
     label: "Visita", 
     className: "bg-teal-50 text-teal-700 border-teal-200",
     icon: Building2
+  },
+  webhook: { 
+    label: "Webhook", 
+    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    icon: ExternalLink
   }
 };
 

@@ -1,0 +1,464 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface GreatPagesPayload {
+  // Campos de nome
+  nome?: string;
+  name?: string;
+  full_name?: string;
+  nome_completo?: string;
+  
+  // Campos de email
+  email?: string;
+  "e-mail"?: string;
+  
+  // Campos de telefone
+  telefone?: string;
+  phone?: string;
+  whatsapp?: string;
+  celular?: string;
+  mobile?: string;
+  
+  // Campos de cidade/região
+  cidade?: string;
+  city?: string;
+  regiao?: string;
+  region?: string;
+  
+  // UTM params
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  
+  // Campos extras
+  [key: string]: string | undefined;
+}
+
+// Normalizar telefone para formato E.164
+function normalizePhoneE164(phone: string): string {
+  let cleanPhone = phone.replace(/\D/g, "");
+  
+  // Se já tem +55, remove para processar
+  if (cleanPhone.startsWith("55") && cleanPhone.length === 13) {
+    return `+${cleanPhone}`;
+  }
+  
+  // Corrige erros comuns do formato 5506
+  if (cleanPhone.length === 12 && cleanPhone.startsWith("5506")) {
+    cleanPhone = "61" + cleanPhone.slice(4);
+  }
+  
+  // Adiciona 9 se faltando (Brasília)
+  if (cleanPhone.length === 10 && cleanPhone.startsWith("61")) {
+    cleanPhone = "61" + "9" + cleanPhone.slice(2);
+  }
+  
+  // Adiciona DDD 61 se for só o número
+  if (cleanPhone.length === 9) {
+    cleanPhone = "61" + cleanPhone;
+  } else if (cleanPhone.length === 8) {
+    cleanPhone = "61" + "9" + cleanPhone;
+  }
+  
+  // Retorna no formato E.164
+  if (cleanPhone.length === 11) {
+    return `+55${cleanPhone}`;
+  }
+  
+  // Se não conseguiu normalizar, retorna o original com +55
+  return `+55${cleanPhone}`;
+}
+
+// Extrair nome do payload
+function extractName(payload: GreatPagesPayload): string | null {
+  return payload.nome || payload.name || payload.full_name || payload.nome_completo || null;
+}
+
+// Extrair email do payload
+function extractEmail(payload: GreatPagesPayload): string | null {
+  return payload.email || payload["e-mail"] || null;
+}
+
+// Extrair telefone do payload
+function extractPhone(payload: GreatPagesPayload): string | null {
+  return payload.telefone || payload.phone || payload.whatsapp || payload.celular || payload.mobile || null;
+}
+
+// Extrair cidade do payload
+function extractCity(payload: GreatPagesPayload): string | null {
+  return payload.cidade || payload.city || payload.regiao || payload.region || null;
+}
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ success: false, error: "Método não permitido" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Parse payload
+    const payload: GreatPagesPayload = await req.json();
+    
+    console.log("[greatpages-webhook] Payload recebido:", JSON.stringify(payload));
+
+    // Extrair dados
+    const nome = extractName(payload);
+    const email = extractEmail(payload);
+    const phone = extractPhone(payload);
+    const cityName = extractCity(payload);
+    
+    // Validar campos obrigatórios
+    if (!nome) {
+      console.error("[greatpages-webhook] Nome é obrigatório");
+      return new Response(
+        JSON.stringify({ success: false, error: "Nome é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (!phone && !email) {
+      console.error("[greatpages-webhook] Telefone ou email é obrigatório");
+      return new Response(
+        JSON.stringify({ success: false, error: "Telefone ou email é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Normalizar telefone
+    const telefone_norm = phone ? normalizePhoneE164(phone) : null;
+    
+    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, telefone_norm=${telefone_norm}`);
+
+    // Buscar cidade_id se informada
+    let cidade_id: string | null = null;
+    if (cityName) {
+      const { data: cityData } = await supabase
+        .from("office_cities")
+        .select("id")
+        .ilike("nome", `%${cityName}%`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (cityData) {
+        cidade_id = cityData.id;
+        console.log(`[greatpages-webhook] Cidade encontrada: ${cityName} -> ${cidade_id}`);
+      }
+    }
+    
+    // Se não encontrou cidade, buscar cidade padrão (primeira ativa)
+    if (!cidade_id) {
+      const { data: defaultCity } = await supabase
+        .from("office_cities")
+        .select("id")
+        .eq("status", "active")
+        .limit(1)
+        .single();
+      
+      if (defaultCity) {
+        cidade_id = defaultCity.id;
+      } else {
+        console.error("[greatpages-webhook] Nenhuma cidade encontrada no sistema");
+        return new Response(
+          JSON.stringify({ success: false, error: "Nenhuma cidade configurada no sistema" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Verificar se é líder existente
+    let existingLeader = null;
+    
+    if (telefone_norm) {
+      const { data: leaderByPhone } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, email, telefone, cidade_id")
+        .eq("is_active", true)
+        .or(`telefone.eq.${telefone_norm},telefone.ilike.%${telefone_norm.slice(-8)}%`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (leaderByPhone) {
+        existingLeader = leaderByPhone;
+      }
+    }
+    
+    if (!existingLeader && email) {
+      const { data: leaderByEmail } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, email, telefone, cidade_id")
+        .eq("is_active", true)
+        .ilike("email", email)
+        .limit(1)
+        .maybeSingle();
+      
+      if (leaderByEmail) {
+        existingLeader = leaderByEmail;
+      }
+    }
+
+    // Se é líder existente, atualizar dados faltantes
+    if (existingLeader) {
+      console.log(`[greatpages-webhook] Líder encontrado: ${existingLeader.nome_completo} (${existingLeader.id})`);
+      
+      const updateData: Record<string, unknown> = {
+        last_activity: new Date().toISOString(),
+      };
+      
+      // Atualizar apenas campos faltantes
+      if (!existingLeader.email && email) {
+        updateData.email = email;
+      }
+      if (!existingLeader.telefone && telefone_norm) {
+        updateData.telefone = telefone_norm;
+      }
+      if (!existingLeader.cidade_id && cidade_id) {
+        updateData.cidade_id = cidade_id;
+      }
+      
+      await supabase
+        .from("lideres")
+        .update(updateData)
+        .eq("id", existingLeader.id);
+      
+      console.log(`[greatpages-webhook] Líder atualizado: ${existingLeader.id}`);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          type: "leader_updated",
+          leaderId: existingLeader.id,
+          message: `Líder ${existingLeader.nome_completo} atualizado com sucesso`
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Não é líder - verificar se contato já existe
+    let existingContact = null;
+    
+    if (telefone_norm) {
+      const { data: contactByPhone } = await supabase
+        .from("office_contacts")
+        .select("id, nome, email, telefone_norm")
+        .eq("telefone_norm", telefone_norm)
+        .limit(1)
+        .maybeSingle();
+      
+      if (contactByPhone) {
+        existingContact = contactByPhone;
+      }
+    }
+    
+    if (!existingContact && email) {
+      const { data: contactByEmail } = await supabase
+        .from("office_contacts")
+        .select("id, nome, email, telefone_norm")
+        .ilike("email", email)
+        .limit(1)
+        .maybeSingle();
+      
+      if (contactByEmail) {
+        existingContact = contactByEmail;
+      }
+    }
+
+    let contactId: string;
+
+    if (existingContact) {
+      // Contato já existe - atualizar dados faltantes
+      console.log(`[greatpages-webhook] Contato existente encontrado: ${existingContact.nome} (${existingContact.id})`);
+      
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      
+      if (!existingContact.email && email) {
+        updateData.email = email;
+      }
+      if (!existingContact.telefone_norm && telefone_norm) {
+        updateData.telefone_norm = telefone_norm;
+      }
+      
+      await supabase
+        .from("office_contacts")
+        .update(updateData)
+        .eq("id", existingContact.id);
+      
+      contactId = existingContact.id;
+      
+      console.log(`[greatpages-webhook] Contato atualizado: ${contactId}`);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          type: "contact_updated",
+          contactId: contactId,
+          message: `Contato ${existingContact.nome} atualizado com sucesso`
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Criar novo contato com source_type='webhook'
+    console.log(`[greatpages-webhook] Criando novo contato: ${nome}`);
+    
+    const { data: newContact, error: insertError } = await supabase
+      .from("office_contacts")
+      .insert({
+        nome,
+        email: email || null,
+        telefone_norm: telefone_norm!,
+        cidade_id,
+        source_type: "webhook",
+        source_id: null,
+        utm_source: payload.utm_source || null,
+        utm_medium: payload.utm_medium || null,
+        utm_campaign: payload.utm_campaign || null,
+        utm_content: payload.utm_content || null,
+        is_verified: true, // Leads de webhook não precisam verificar
+        is_active: true,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("[greatpages-webhook] Erro ao criar contato:", insertError);
+      return new Response(
+        JSON.stringify({ success: false, error: insertError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    contactId = newContact.id;
+    console.log(`[greatpages-webhook] Contato criado: ${contactId}`);
+
+    // Registrar log de atividade
+    await supabase
+      .from("contact_activity_log")
+      .insert({
+        contact_id: contactId,
+        action: "created_from_webhook",
+        details: {
+          source: "greatpages",
+          payload_keys: Object.keys(payload),
+          utm_source: payload.utm_source,
+          utm_campaign: payload.utm_campaign,
+        },
+      });
+
+    // Buscar nome do deputado para as mensagens
+    const { data: orgData } = await supabase
+      .from("organization")
+      .select("nome, cargo")
+      .limit(1)
+      .single();
+    
+    const deputadoNome = orgData ? `${orgData.cargo || ''} ${orgData.nome}`.trim() : 'Gabinete';
+
+    // Enviar WhatsApp de boas-vindas (usando template captacao-boas-vindas)
+    if (telefone_norm) {
+      try {
+        console.log(`[greatpages-webhook] Enviando WhatsApp de boas-vindas para ${telefone_norm}`);
+        
+        const whatsappResponse = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            phone: telefone_norm,
+            templateSlug: "captacao-boas-vindas",
+            variables: {
+              nome: nome,
+              deputado_nome: deputadoNome,
+            },
+            contactId: contactId,
+          }),
+        });
+        
+        const whatsappResult = await whatsappResponse.json();
+        console.log(`[greatpages-webhook] Resultado WhatsApp:`, whatsappResult);
+      } catch (whatsappError) {
+        console.error("[greatpages-webhook] Erro ao enviar WhatsApp:", whatsappError);
+        // Não falhar o webhook por erro no WhatsApp
+      }
+    }
+
+    // Enviar email de boas-vindas (se tiver email)
+    if (email) {
+      try {
+        console.log(`[greatpages-webhook] Enviando email de boas-vindas para ${email}`);
+        
+        // Buscar token de unsubscribe do contato
+        const { data: contactForToken } = await supabase
+          .from("office_contacts")
+          .select("unsubscribe_token")
+          .eq("id", contactId)
+          .single();
+        
+        const unsubscribeLink = contactForToken?.unsubscribe_token 
+          ? `https://app.rafaelprudente.com/descadastro?token=${contactForToken.unsubscribe_token}`
+          : '';
+        
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            to: email,
+            toName: nome,
+            templateSlug: "captacao-boas-vindas",
+            variables: {
+              nome: nome,
+              deputado_nome: deputadoNome,
+              link_descadastro: unsubscribeLink,
+            },
+            contactId: contactId,
+          }),
+        });
+        
+        const emailResult = await emailResponse.json();
+        console.log(`[greatpages-webhook] Resultado email:`, emailResult);
+      } catch (emailError) {
+        console.error("[greatpages-webhook] Erro ao enviar email:", emailError);
+        // Não falhar o webhook por erro no email
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        type: "contact_created",
+        contactId: contactId,
+        message: `Contato ${nome} criado com sucesso`
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("[greatpages-webhook] Erro:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: (error as Error).message || "Erro interno" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
