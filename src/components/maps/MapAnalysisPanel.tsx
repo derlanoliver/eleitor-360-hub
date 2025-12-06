@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Brain, RefreshCw, Sparkles, AlertTriangle, TrendingUp, MapPin } from "lucide-react";
+import { Brain, RefreshCw, Sparkles, AlertTriangle, TrendingUp, MapPin, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CityMapData } from "@/hooks/maps/useStrategicMapData";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import jsPDF from "jspdf";
+import { toast } from "sonner";
 
 interface MapAnalysisPanelProps {
   cities: CityMapData[];
@@ -22,6 +27,110 @@ export function MapAnalysisPanel({
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+
+  // Carregar última análise salva ao montar o componente
+  useEffect(() => {
+    loadLastAnalysis();
+  }, []);
+
+  const loadLastAnalysis = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('map_analyses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setAnalysis(data.content);
+        setSavedAt(new Date(data.created_at));
+      }
+    } catch (err) {
+      console.error('Erro ao carregar análise:', err);
+    }
+  };
+
+  const saveAnalysis = async (content: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('map_analyses')
+        .insert({
+          user_id: user.id,
+          content,
+          total_leaders: totalLeaders,
+          total_contacts: totalContacts,
+          total_connections: totalConnections
+        });
+
+      if (error) throw error;
+
+      setSavedAt(new Date());
+      toast.success('Análise salva com sucesso');
+    } catch (err) {
+      console.error('Erro ao salvar análise:', err);
+      toast.error('Erro ao salvar análise');
+    }
+  };
+
+  const downloadPdf = () => {
+    if (!analysis) return;
+
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Cabeçalho
+    doc.setFontSize(18);
+    doc.text("Análise Estratégica Territorial", 14, yPos);
+    yPos += 10;
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Líderes: ${totalLeaders} | Contatos: ${totalContacts} | Conexões: ${totalConnections}`, 14, yPos);
+    yPos += 12;
+
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+
+    // Converter markdown para texto limpo
+    const plainText = analysis
+      .replace(/#{1,3}\s/g, '\n')
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/🎯|⚠️|📈|💡/g, '')
+      .trim();
+
+    const lines = doc.splitTextToSize(plainText, 180);
+    
+    for (const line of lines) {
+      if (yPos > 280) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 6;
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount}`, 14, 290);
+    }
+
+    doc.save(`analise-estrategica-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    toast.success('PDF baixado com sucesso');
+  };
 
   const generateAnalysis = async () => {
     setIsLoading(true);
@@ -153,6 +262,9 @@ Seja direto, use dados específicos dos números fornecidos, e priorize recomend
       if (!result) {
         throw new Error('Nenhum conteúdo recebido da IA');
       }
+
+      // Salvar análise automaticamente após geração
+      await saveAnalysis(result);
     } catch (err) {
       console.error('Erro ao gerar análise:', err);
       setError(err instanceof Error ? err.message : 'Erro ao gerar análise');
@@ -169,20 +281,33 @@ Seja direto, use dados específicos dos números fornecidos, e priorize recomend
             <Brain className="h-5 w-5 text-primary" />
             Análise Estratégica (IA)
           </CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={generateAnalysis}
-            disabled={isLoading}
-            className="gap-2"
-          >
-            {isLoading ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            {analysis && !isLoading && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={downloadPdf}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                PDF
+              </Button>
             )}
-            {analysis ? 'Atualizar' : 'Gerar Análise'}
-          </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={generateAnalysis}
+              disabled={isLoading}
+              className="gap-2"
+            >
+              {isLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {analysis ? 'Atualizar' : 'Gerar Análise'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -253,6 +378,13 @@ Seja direto, use dados específicos dos números fornecidos, e priorize recomend
           </div>
         )}
       </CardContent>
+      {savedAt && analysis && !isLoading && (
+        <CardFooter className="pt-0">
+          <p className="text-xs text-muted-foreground">
+            Última análise: {format(savedAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </p>
+        </CardFooter>
+      )}
     </Card>
   );
 }
