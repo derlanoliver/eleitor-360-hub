@@ -77,7 +77,8 @@ export function useStrategicMapData() {
           source_id,
           cidade:office_cities(id, nome, latitude, longitude)
         `)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .range(0, 9999);
 
       if (error) throw error;
 
@@ -117,7 +118,8 @@ export function useStrategicMapData() {
       const { data: contactCounts } = await supabase
         .from("office_contacts")
         .select("cidade_id")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .range(0, 9999);
 
       const leadersByCity = (leaderCounts || []).reduce((acc: Record<string, number>, l) => {
         if (l.cidade_id) {
