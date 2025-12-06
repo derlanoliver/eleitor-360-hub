@@ -1516,6 +1516,172 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_questions: {
+        Row: {
+          config: Json | null
+          created_at: string
+          id: string
+          obrigatoria: boolean
+          opcoes: Json | null
+          ordem: number
+          pergunta: string
+          survey_id: string
+          tipo: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          obrigatoria?: boolean
+          opcoes?: Json | null
+          ordem: number
+          pergunta: string
+          survey_id: string
+          tipo: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          obrigatoria?: boolean
+          opcoes?: Json | null
+          ordem?: number
+          pergunta?: string
+          survey_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_responses: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          id: string
+          is_leader: boolean
+          leader_id: string | null
+          referred_by_leader_id: string | null
+          respostas: Json
+          survey_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_leader?: boolean
+          leader_id?: string | null
+          referred_by_leader_id?: string | null
+          respostas?: Json
+          survey_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_leader?: boolean
+          leader_id?: string | null
+          referred_by_leader_id?: string | null
+          respostas?: Json
+          survey_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_referred_by_leader_id_fkey"
+            columns: ["referred_by_leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surveys: {
+        Row: {
+          config: Json | null
+          cover_url: string | null
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: string
+          logo_url: string | null
+          slug: string
+          status: string
+          titulo: string
+          total_respostas: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          cover_url?: string | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          logo_url?: string | null
+          slug: string
+          status?: string
+          titulo: string
+          total_respostas?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          cover_url?: string | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          logo_url?: string | null
+          slug?: string
+          status?: string
+          titulo?: string
+          total_respostas?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_notifications: {
         Row: {
           created_at: string
@@ -1802,6 +1968,7 @@ export type Database = {
         | { Args: { _prefix?: string }; Returns: string }
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
       generate_support_protocol: { Args: never; Returns: string }
+      generate_survey_slug: { Args: { base_name: string }; Returns: string }
       generate_verification_code: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
       get_leader_by_affiliate_token: {
