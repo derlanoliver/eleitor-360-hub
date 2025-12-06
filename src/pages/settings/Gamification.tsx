@@ -92,6 +92,20 @@ export default function Gamification() {
     
     setIsSaving(true);
     try {
+      // Buscar ID sem usar .single() para evitar erro
+      const { data: existing } = await supabase
+        .from("office_settings")
+        .select("id")
+        .limit(1);
+
+      const settingsId = existing?.[0]?.id;
+
+      if (!settingsId) {
+        toast.error("Configurações não encontradas");
+        setIsSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("office_settings")
         .update({
@@ -106,7 +120,7 @@ export default function Gamification() {
           nivel_ouro_max: levels[2].max,
           nivel_diamante_min: levels[3].min,
         })
-        .eq("id", (await supabase.from("office_settings").select("id").single()).data?.id);
+        .eq("id", settingsId);
 
       if (error) throw error;
 
