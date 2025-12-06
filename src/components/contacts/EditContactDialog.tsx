@@ -33,6 +33,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [cidadeId, setCidadeId] = useState(contact.cidade_id);
   const [leaderId, setLeaderId] = useState(contact.source_id || "");
   const [genero, setGenero] = useState(contact.genero || "Não identificado");
+  const [dataNascimento, setDataNascimento] = useState(contact.data_nascimento || "");
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
   const { data: regions = [] } = useRegions();
@@ -55,6 +56,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
     
     setLeaderId(shouldShowLeader ? contact.source_id || "" : "");
     setGenero(contact.genero || "Não identificado");
+    setDataNascimento(contact.data_nascimento || "");
     setPromoteToLeader(false);
   }, [contact, leaders]);
 
@@ -95,6 +97,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
           source_id: newSourceId,
           source_type: newSourceType,
           genero,
+          data_nascimento: dataNascimento || null,
         },
       },
       {
@@ -154,6 +157,17 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
                 <SelectItem value="Não identificado">Não identificado</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Data de Nascimento */}
+          <div>
+            <Label>Data de Nascimento</Label>
+            <Input
+              type="date"
+              value={dataNascimento}
+              onChange={(e) => setDataNascimento(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+            />
           </div>
 
           {/* Região Administrativa */}

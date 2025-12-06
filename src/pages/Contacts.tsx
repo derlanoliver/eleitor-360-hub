@@ -58,7 +58,8 @@ import {
   CheckCheck,
   Check,
   AlertCircle,
-  Briefcase
+  Briefcase,
+  Cake
 } from "lucide-react";
 import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
 import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
@@ -310,7 +311,7 @@ const Contacts = () => {
           sourceName = visita?.protocolo || null;
         }
         
-        return {
+          return {
           id: contact.id,
           name: contact.nome,
           phone: formatPhoneToBR(contact.telefone_norm),
@@ -328,6 +329,7 @@ const Contacts = () => {
           source_type: contact.source_type,
           source_id: contact.source_id,
           genero: contact.genero,
+          data_nascimento: contact.data_nascimento,
           is_verified: contact.is_verified,
           verification_code: contact.verification_code,
           verification_sent_at: contact.verification_sent_at,
@@ -832,7 +834,8 @@ const Contacts = () => {
                           cidade_id: contact.cidade_id,
                           source_type: contact.source_type,
                           source_id: contact.source_id,
-                          genero: contact.genero
+                          genero: contact.genero,
+                          data_nascimento: contact.data_nascimento
                         })}
                       >
                         <Edit className="h-4 w-4" />
@@ -1075,6 +1078,15 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Gênero</label>
                 <p className="text-sm">{contact.genero}</p>
+              </div>
+            )}
+            {contact.data_nascimento && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Data de Nascimento</label>
+                <p className="text-sm flex items-center gap-1.5">
+                  <Cake className="h-4 w-4 text-muted-foreground" />
+                  {format(new Date(contact.data_nascimento + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
               </div>
             )}
           </div>
