@@ -6,13 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Map, Users, UserCheck, Flame, MapPin, Link2 } from "lucide-react";
+import { Map, Users, UserCheck, Flame, MapPin, Link2, Navigation } from "lucide-react";
 import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps/useStrategicMapData";
+import { MapController } from "@/components/maps/MapController";
+import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
 import "leaflet/dist/leaflet.css";
 
 // Distrito Federal center coordinates
 const DF_CENTER: [number, number] = [-15.7801, -47.9292];
 const DF_ZOOM = 10;
+const CITY_ZOOM = 13;
 
 // Map tile styles
 const MAP_STYLES = {
@@ -171,11 +174,31 @@ export default function StrategicMap() {
   const [showContacts, setShowContacts] = useState(true);
   const [showConnections, setShowConnections] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>("clean");
+  const [selectedRegion, setSelectedRegion] = useState<string>("all");
 
   // Count connections for stats
   const connectionsCount = useMemo(() => {
     return contacts.filter((c) => c.source_type === "lider" && c.source_id).length;
   }, [contacts]);
+
+  // Get map center based on selected region
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (selectedRegion === "all") return DF_CENTER;
+    const city = cities.find(c => c.id === selectedRegion);
+    if (city && city.latitude && city.longitude) {
+      return [city.latitude, city.longitude];
+    }
+    return DF_CENTER;
+  }, [selectedRegion, cities]);
+
+  const mapZoom = selectedRegion === "all" ? DF_ZOOM : CITY_ZOOM;
+
+  // Sort cities for dropdown
+  const sortedCities = useMemo(() => {
+    return [...cities]
+      .filter(c => c.latitude && c.longitude)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [cities]);
 
   if (isLoading) {
     return (
@@ -242,10 +265,28 @@ export default function StrategicMap() {
                 <SelectTrigger className="w-[140px] h-8">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[9999]">
                   <SelectItem value="standard">Padrão</SelectItem>
                   <SelectItem value="clean">Clean</SelectItem>
                   <SelectItem value="grayscale">Escala de Cinza</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Region Selector */}
+            <div className="flex items-center gap-2">
+              <Navigation className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger className="w-[180px] h-8">
+                  <SelectValue placeholder="Região" />
+                </SelectTrigger>
+                <SelectContent className="z-[9999] max-h-[300px]">
+                  <SelectItem value="all">Todas as Regiões</SelectItem>
+                  {sortedCities.map((city) => (
+                    <SelectItem key={city.id} value={city.id}>
+                      {city.nome}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -308,11 +349,12 @@ export default function StrategicMap() {
         <CardContent className="p-0">
           <div className={`h-[600px] w-full ${currentStyle.className}`}>
             <MapContainer
-              center={DF_CENTER}
-              zoom={DF_ZOOM}
+              center={mapCenter}
+              zoom={mapZoom}
               className="h-full w-full"
               scrollWheelZoom={true}
             >
+              <MapController center={mapCenter} zoom={mapZoom} />
               <TileLayer
                 attribution={currentStyle.attribution}
                 url={currentStyle.url}
@@ -430,6 +472,14 @@ export default function StrategicMap() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Analysis Panel */}
+      <MapAnalysisPanel
+        cities={cities}
+        totalLeaders={leaders.length}
+        totalContacts={contacts.length}
+        totalConnections={connectionsCount}
+      />
     </div>
   );
 }
