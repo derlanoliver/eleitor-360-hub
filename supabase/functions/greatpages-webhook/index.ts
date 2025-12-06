@@ -16,6 +16,7 @@ const SUPPORTED_FIELDS = [
   { nome: "UTM Medium", slug: "utm_medium", obrigatorio: false, variantes: [] },
   { nome: "UTM Campaign", slug: "utm_campaign", obrigatorio: false, variantes: [] },
   { nome: "UTM Content", slug: "utm_content", obrigatorio: false, variantes: [] },
+  { nome: "URL da Página", slug: "url", obrigatorio: false, variantes: ["page_url", "PageUrl", "origem", "source_url", "URL"] },
 ];
 
 interface GreatPagesPayload {
@@ -154,6 +155,12 @@ function extractUtmParams(payload: GreatPagesPayload) {
   };
 }
 
+// Extrair URL da página de origem
+function extractPageUrl(payload: GreatPagesPayload): string | null {
+  const variants = ["URL", "url", "page_url", "PageUrl", "origem", "source_url", "Url"];
+  return findValue(payload, variants);
+}
+
 // Parsear payload baseado no Content-Type
 async function parsePayload(req: Request): Promise<GreatPagesPayload> {
   const contentType = req.headers.get("content-type") || "";
@@ -261,8 +268,9 @@ Deno.serve(async (req) => {
     const cityName = extractCity(payload);
     const birthDate = extractBirthDate(payload);
     const utmParams = extractUtmParams(payload);
+    const pageUrl = extractPageUrl(payload);
     
-    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, phone=${phone}, cidade=${cityName}, nascimento=${birthDate}`);
+    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, phone=${phone}, cidade=${cityName}, nascimento=${birthDate}, url=${pageUrl}`);
     
     // Validar campos obrigatórios
     if (!nome) {
@@ -389,6 +397,21 @@ Deno.serve(async (req) => {
       
       console.log(`[greatpages-webhook] Líder atualizado: ${existingLeader.id}`);
       
+      // Registrar página acessada para líder (se tiver URL)
+      if (pageUrl) {
+        await supabase.from("contact_page_views").insert({
+          contact_id: existingLeader.id, // Usamos o leader id como referência
+          page_type: "webhook",
+          page_identifier: pageUrl,
+          page_name: "Formulário GreatPages",
+          utm_source: utmParams.utm_source || null,
+          utm_medium: utmParams.utm_medium || null,
+          utm_campaign: utmParams.utm_campaign || null,
+          utm_content: utmParams.utm_content || null,
+        });
+        console.log(`[greatpages-webhook] Page view registrada para líder: ${pageUrl}`);
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -455,6 +478,21 @@ Deno.serve(async (req) => {
       
       console.log(`[greatpages-webhook] Contato atualizado: ${contactId}`);
       
+      // Registrar página acessada para contato existente (se tiver URL)
+      if (pageUrl) {
+        await supabase.from("contact_page_views").insert({
+          contact_id: contactId,
+          page_type: "webhook",
+          page_identifier: pageUrl,
+          page_name: "Formulário GreatPages",
+          utm_source: utmParams.utm_source || null,
+          utm_medium: utmParams.utm_medium || null,
+          utm_campaign: utmParams.utm_campaign || null,
+          utm_content: utmParams.utm_content || null,
+        });
+        console.log(`[greatpages-webhook] Page view registrada para contato existente: ${pageUrl}`);
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -511,8 +549,24 @@ Deno.serve(async (req) => {
           payload_keys: Object.keys(payload),
           utm_source: utmParams.utm_source,
           utm_campaign: utmParams.utm_campaign,
+          page_url: pageUrl,
         },
       });
+
+    // Registrar página acessada para novo contato (se tiver URL)
+    if (pageUrl) {
+      await supabase.from("contact_page_views").insert({
+        contact_id: contactId,
+        page_type: "webhook",
+        page_identifier: pageUrl,
+        page_name: "Formulário GreatPages",
+        utm_source: utmParams.utm_source || null,
+        utm_medium: utmParams.utm_medium || null,
+        utm_campaign: utmParams.utm_campaign || null,
+        utm_content: utmParams.utm_content || null,
+      });
+      console.log(`[greatpages-webhook] Page view registrada para novo contato: ${pageUrl}`);
+    }
 
     return new Response(
       JSON.stringify({ 
