@@ -470,6 +470,14 @@ const LeadersRanking = () => {
                     <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-bold">+2</span>
                     <span>Líder faz check-in em evento</span>
                   </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-bold">+1</span>
+                    <span>Líder responde uma pesquisa</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-bold">+2</span>
+                    <span>Contato indicado responde pesquisa</span>
+                  </li>
                 </ul>
               </div>
               <div>
