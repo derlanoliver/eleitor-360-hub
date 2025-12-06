@@ -22,7 +22,8 @@ import {
   MessageSquare,
   Mail,
   HelpCircle,
-  Ticket
+  Ticket,
+  Map
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
@@ -87,6 +88,7 @@ const settingsItems: MenuItem[] = [
 ];
 
 const adminSettingsItems: MenuItem[] = [
+  { title: "Mapa Estratégico", url: "/strategic-map", icon: Map, roles: ['super_admin'] },
   { title: "Administrar Tickets", url: "/settings/admin-tickets", icon: Ticket, roles: ['super_admin'] },
 ];
 

@@ -24,6 +24,8 @@ export interface OfficeCity {
   nome: string;
   codigo_ra: string;
   status: OfficeCityStatus;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
   updated_at: string;
 }

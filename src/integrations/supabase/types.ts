@@ -772,6 +772,8 @@ export type Database = {
           codigo_ra: string
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           nome: string
           status: Database["public"]["Enums"]["office_city_status"]
           updated_at: string
@@ -780,6 +782,8 @@ export type Database = {
           codigo_ra: string
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome: string
           status?: Database["public"]["Enums"]["office_city_status"]
           updated_at?: string
@@ -788,6 +792,8 @@ export type Database = {
           codigo_ra?: string
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome?: string
           status?: Database["public"]["Enums"]["office_city_status"]
           updated_at?: string
