@@ -60,6 +60,8 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, X
 import EventQRCode from "@/components/EventQRCode";
 import { EventAffiliateDialog } from "@/components/events/EventAffiliateDialog";
 import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 
 const eventCategories = [
   { value: "educacao", label: "Educação", color: "bg-blue-500" },
@@ -116,6 +118,118 @@ const Events = () => {
   });
 
   const { toast } = useToast();
+
+  const handleGenerateRegistrationsPDF = async (event: any) => {
+    try {
+      toast({
+        title: "Gerando PDF...",
+        description: "Aguarde enquanto a lista é gerada."
+      });
+
+      // Fetch registrations for this event
+      const { data: registrations, error } = await supabase
+        .from("event_registrations")
+        .select(`*, cidade:office_cities(nome)`)
+        .eq("event_id", event.id)
+        .order("nome");
+
+      if (error) throw error;
+
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      
+      // Header
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(event.name.toUpperCase(), pageWidth / 2, 20, { align: "center" });
+      
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "normal");
+      const eventDate = format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR });
+      pdf.text(`Data: ${eventDate} às ${event.time} | Local: ${event.location}`, pageWidth / 2, 28, { align: "center" });
+      
+      pdf.setFontSize(10);
+      pdf.text(`Total de Inscritos: ${registrations?.length || 0}`, pageWidth / 2, 35, { align: "center" });
+      
+      // Line separator
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(10, 40, pageWidth - 10, 40);
+      
+      // Table header
+      let y = 48;
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("#", 12, y);
+      pdf.text("Nome", 22, y);
+      pdf.text("WhatsApp", 82, y);
+      pdf.text("Email", 115, y);
+      pdf.text("Cidade", 165, y);
+      pdf.text("✓", 195, y);
+      
+      // Line under header
+      pdf.line(10, y + 2, pageWidth - 10, y + 2);
+      
+      // Table rows
+      pdf.setFont("helvetica", "normal");
+      y += 8;
+      
+      registrations?.forEach((reg: any, index: number) => {
+        if (y > 280) {
+          pdf.addPage();
+          y = 20;
+          // Repeat header on new page
+          pdf.setFont("helvetica", "bold");
+          pdf.text("#", 12, y);
+          pdf.text("Nome", 22, y);
+          pdf.text("WhatsApp", 82, y);
+          pdf.text("Email", 115, y);
+          pdf.text("Cidade", 165, y);
+          pdf.text("✓", 195, y);
+          pdf.line(10, y + 2, pageWidth - 10, y + 2);
+          pdf.setFont("helvetica", "normal");
+          y += 8;
+        }
+        
+        pdf.text(String(index + 1), 12, y);
+        pdf.text((reg.nome || "-").substring(0, 28), 22, y);
+        pdf.text((reg.whatsapp || "-").substring(0, 15), 82, y);
+        pdf.text((reg.email || "-").substring(0, 25), 115, y);
+        pdf.text(((reg.cidade as any)?.nome || "-").substring(0, 14), 165, y);
+        pdf.text(reg.checked_in ? "✓" : "", 197, y);
+        
+        y += 6;
+      });
+      
+      // Footer with generation date
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} - Página ${i} de ${totalPages}`,
+          pageWidth / 2,
+          290,
+          { align: "center" }
+        );
+        pdf.setTextColor(0, 0, 0);
+      }
+      
+      pdf.save(`inscritos-${event.slug}.pdf`);
+      
+      toast({
+        title: "PDF gerado!",
+        description: `Lista com ${registrations?.length || 0} inscritos foi baixada.`
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar a lista de inscritos.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleCreateEvent = async () => {
     if (!newEvent.name || !newEvent.slug || !newEvent.date || !newEvent.time || !newEvent.location || !newEvent.category || !newEvent.region) {
@@ -634,14 +748,24 @@ const Events = () => {
                             Ver Detalhes e Inscrições
                           </Button>
                           {canManageEvents && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setAffiliateDialogEvent(event)}
-                            >
-                              <UserPlus className="h-4 w-4 mr-2" />
-                              Link do Líder
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAffiliateDialogEvent(event)}
+                              >
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Link do Líder
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGenerateRegistrationsPDF(event)}
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                Lista de Inscritos
+                              </Button>
+                            </>
                           )}
                         </div>
                       </CardContent>
