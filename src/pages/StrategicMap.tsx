@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
+import { useState, useMemo } from "react";
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
