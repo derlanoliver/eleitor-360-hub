@@ -11,6 +11,7 @@ const SUPPORTED_FIELDS = [
   { nome: "Email", slug: "email", obrigatorio: false, variantes: ["e-mail", "E-mail", "Email"] },
   { nome: "Telefone", slug: "telefone", obrigatorio: true, variantes: ["phone", "whatsapp", "WhatsApp", "celular", "Celular", "mobile", "Telefone"] },
   { nome: "Cidade", slug: "cidade", obrigatorio: false, variantes: ["city", "regiao", "region", "Cidade", "Regiao"] },
+  { nome: "Data de Nascimento", slug: "data_nascimento", obrigatorio: false, variantes: ["birth_date", "birthDate", "nascimento", "aniversario", "Data_de_nascimento", "DataNascimento"] },
   { nome: "UTM Source", slug: "utm_source", obrigatorio: false, variantes: [] },
   { nome: "UTM Medium", slug: "utm_medium", obrigatorio: false, variantes: [] },
   { nome: "UTM Campaign", slug: "utm_campaign", obrigatorio: false, variantes: [] },
@@ -103,6 +104,44 @@ function extractPhone(payload: GreatPagesPayload): string | null {
 function extractCity(payload: GreatPagesPayload): string | null {
   const variants = ["cidade", "city", "regiao", "region", "Cidade", "City", "Regiao", "Region"];
   return findValue(payload, variants);
+}
+
+// Extrair data de nascimento do payload
+function extractBirthDate(payload: GreatPagesPayload): string | null {
+  const variants = [
+    "data_nascimento", "Data_de_nascimento", "data_de_nascimento",
+    "birth_date", "birthDate", "BirthDate", "nascimento",
+    "DataNascimento", "Data_Nascimento", "aniversario", "Aniversario"
+  ];
+  const rawDate = findValue(payload, variants);
+  if (!rawDate) return null;
+  
+  // Tentar parsear diferentes formatos de data
+  const cleanDate = rawDate.trim();
+  
+  // Formato DD/MM/YYYY ou DD-MM-YYYY
+  const brMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (brMatch) {
+    const [, day, month, year] = brMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  // Formato YYYY-MM-DD (ISO)
+  const isoMatch = cleanDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return cleanDate;
+  }
+  
+  // Formato DD/MM/YY
+  const shortYearMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (shortYearMatch) {
+    const [, day, month, year] = shortYearMatch;
+    const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
+    return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  console.log(`[greatpages-webhook] Formato de data não reconhecido: ${rawDate}`);
+  return null;
 }
 
 // Extrair UTM params
@@ -220,9 +259,10 @@ Deno.serve(async (req) => {
     const email = extractEmail(payload);
     const phone = extractPhone(payload);
     const cityName = extractCity(payload);
+    const birthDate = extractBirthDate(payload);
     const utmParams = extractUtmParams(payload);
     
-    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, phone=${phone}, cidade=${cityName}`);
+    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, phone=${phone}, cidade=${cityName}, nascimento=${birthDate}`);
     
     // Validar campos obrigatórios
     if (!nome) {
@@ -436,6 +476,7 @@ Deno.serve(async (req) => {
         email: email || null,
         telefone_norm: telefone_norm!,
         cidade_id,
+        data_nascimento: birthDate || null,
         source_type: "webhook",
         source_id: null,
         utm_source: utmParams.utm_source || null,

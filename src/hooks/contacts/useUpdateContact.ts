@@ -7,6 +7,7 @@ interface UpdateContactData {
   source_id?: string | null;
   source_type?: string | null;
   genero?: string;
+  data_nascimento?: string | null;
 }
 
 export function useUpdateContact() {
