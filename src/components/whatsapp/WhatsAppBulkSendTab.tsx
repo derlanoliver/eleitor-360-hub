@@ -9,6 +9,7 @@ import {
   Loader2,
   AlertCircle,
   Clock,
+  ClipboardList,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,17 +41,21 @@ type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_con
 const EVENT_INVITE_TEMPLATES = ["evento-convite", "lideranca-evento-link"];
 // Templates que precisam de funil destino
 const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
+// Templates que precisam de pesquisa destino
+const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite"];
 
 // Templates de convite permitidos por tipo de destinatário
 const CONVITE_TEMPLATES_LEADERS = [
   "evento-convite",
   "captacao-convite",
   "lideranca-evento-link",
+  "pesquisa-convite",
 ];
 
 const CONVITE_TEMPLATES_CONTACTS = [
   "evento-convite",
   "captacao-convite",
+  "pesquisa-convite",
 ];
 
 export function WhatsAppBulkSendTab() {
@@ -61,9 +66,10 @@ export function WhatsAppBulkSendTab() {
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
   
-  // Estados para evento/funil DESTINO (para preencher variáveis)
+  // Estados para evento/funil/pesquisa DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
   const [targetFunnelId, setTargetFunnelId] = useState("");
+  const [targetSurveyId, setTargetSurveyId] = useState("");
   
   // Estados para envio individual
   const [singleContactSearch, setSingleContactSearch] = useState("");
@@ -83,6 +89,7 @@ export function WhatsAppBulkSendTab() {
   const selectedTemplateData = templates?.find((t) => t.id === selectedTemplate);
   const isEventInviteTemplate = selectedTemplateData && EVENT_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
   const isFunnelInviteTemplate = selectedTemplateData && FUNNEL_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
+  const isSurveyInviteTemplate = selectedTemplateData && SURVEY_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
 
   // Fetch events
   const { data: events } = useQuery({
@@ -107,6 +114,20 @@ export function WhatsAppBulkSendTab() {
         .select("id, nome, slug, lead_magnet_nome, descricao")
         .eq("status", "active")
         .order("nome", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch surveys
+  const { data: surveys } = useQuery({
+    queryKey: ["surveys-active-whatsapp"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("surveys")
+        .select("id, titulo, slug, descricao, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -140,6 +161,21 @@ export function WhatsAppBulkSendTab() {
       return data;
     },
     enabled: !!targetFunnelId && !!isFunnelInviteTemplate,
+  });
+
+  // Fetch target survey details (para preencher variáveis)
+  const { data: targetSurvey } = useQuery({
+    queryKey: ["target_survey_whatsapp", targetSurveyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("surveys")
+        .select("id, titulo, slug, descricao")
+        .eq("id", targetSurveyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!targetSurveyId && !!isSurveyInviteTemplate,
   });
 
   // Buscar IDs de contatos promovidos (excluir do envio)
@@ -278,7 +314,8 @@ export function WhatsAppBulkSendTab() {
       (recipientType === "event_contacts" && selectedEvent) ||
       (recipientType === "funnel_contacts" && selectedFunnel)) &&
     (!isEventInviteTemplate || targetEventId) &&
-    (!isFunnelInviteTemplate || targetFunnelId);
+    (!isFunnelInviteTemplate || targetFunnelId) &&
+    (!isSurveyInviteTemplate || targetSurveyId);
 
   const handleSend = async () => {
     if (!canSend || !selectedTemplateData) return;
@@ -342,6 +379,13 @@ export function WhatsAppBulkSendTab() {
           variables.material_nome = targetFunnel.lead_magnet_nome;
           variables.material_descricao = targetFunnel.subtitulo || "";
           variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
+        }
+
+        // Se for template de pesquisa, adicionar variáveis da pesquisa destino
+        if (isSurveyInviteTemplate && targetSurvey) {
+          variables.pesquisa_titulo = targetSurvey.titulo;
+          variables.pesquisa_descricao = targetSurvey.descricao || "";
+          variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
         }
 
         const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
@@ -447,6 +491,7 @@ export function WhatsAppBulkSendTab() {
                   setSelectedTemplate("");
                   setTargetEventId("");
                   setTargetFunnelId("");
+                  setTargetSurveyId("");
                   setSelectedSingleContact(null);
                   setSelectedSingleLeader(null);
                   setSingleContactSearch("");
@@ -640,6 +685,7 @@ export function WhatsAppBulkSendTab() {
                   setSelectedTemplate(v);
                   setTargetEventId("");
                   setTargetFunnelId("");
+                  setTargetSurveyId("");
                 }}
               >
                 <SelectTrigger>
@@ -708,6 +754,33 @@ export function WhatsAppBulkSendTab() {
               </div>
             )}
 
+            {/* DESTINO: Seleção da Pesquisa para convite */}
+            {isSurveyInviteTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Para qual pesquisa deseja convidar?
+                </Label>
+                <Select value={targetSurveyId} onValueChange={setTargetSurveyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a pesquisa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {surveys?.map((survey) => (
+                      <SelectItem key={survey.id} value={survey.id}>
+                        {survey.titulo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetSurvey && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    <p>📊 {targetSurvey.descricao || "Pesquisa eleitoral"}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {selectedTemplateData && (
               <div className="rounded-lg border p-3 bg-muted/50">
                 <Label className="text-xs font-medium">Pré-visualização</Label>
@@ -766,6 +839,11 @@ export function WhatsAppBulkSendTab() {
               {isFunnelInviteTemplate && targetFunnel && (
                 <p className="text-sm font-medium">
                   Convite para: {targetFunnel.lead_magnet_nome}
+                </p>
+              )}
+              {isSurveyInviteTemplate && targetSurvey && (
+                <p className="text-sm font-medium">
+                  Convite para: {targetSurvey.titulo}
                 </p>
               )}
             </div>
