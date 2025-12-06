@@ -33,7 +33,7 @@ import {
 } from "@/hooks/useWhatsAppTemplates";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl, generateEventAffiliateUrl } from "@/lib/urlHelper";
+import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl } from "@/lib/urlHelper";
 
 type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader";
 
@@ -42,7 +42,9 @@ const EVENT_INVITE_TEMPLATES = ["evento-convite", "lideranca-evento-link"];
 // Templates que precisam de funil destino
 const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
 // Templates que precisam de pesquisa destino
-const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite"];
+const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
+// Templates de links de afiliado (apenas para líderes, sem necessidade de destino)
+const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
 
 // Templates de convite permitidos por tipo de destinatário
 const CONVITE_TEMPLATES_LEADERS = [
@@ -50,6 +52,9 @@ const CONVITE_TEMPLATES_LEADERS = [
   "captacao-convite",
   "lideranca-evento-link",
   "pesquisa-convite",
+  "lideranca-pesquisa-link",
+  "lideranca-reuniao-link",
+  "lideranca-cadastro-link",
 ];
 
 const CONVITE_TEMPLATES_CONTACTS = [
@@ -90,6 +95,7 @@ export function WhatsAppBulkSendTab() {
   const isEventInviteTemplate = selectedTemplateData && EVENT_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
   const isFunnelInviteTemplate = selectedTemplateData && FUNNEL_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
   const isSurveyInviteTemplate = selectedTemplateData && SURVEY_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
+  const isLeaderAffiliateLinkTemplate = selectedTemplateData && LEADER_AFFILIATE_LINK_TEMPLATES.includes(selectedTemplateData.slug);
 
   // Fetch events
   const { data: events } = useQuery({
@@ -176,6 +182,20 @@ export function WhatsAppBulkSendTab() {
       return data;
     },
     enabled: !!targetSurveyId && !!isSurveyInviteTemplate,
+  });
+
+  // Buscar nome do deputado/organização (para template de reunião)
+  const { data: organization } = useQuery({
+    queryKey: ["organization-name-whatsapp"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organization")
+        .select("nome")
+        .limit(1)
+        .single();
+      if (error) return { nome: "Deputado" };
+      return data;
+    },
   });
 
   // Buscar IDs de contatos promovidos (excluir do envio)
@@ -386,6 +406,25 @@ export function WhatsAppBulkSendTab() {
           variables.pesquisa_titulo = targetSurvey.titulo;
           variables.pesquisa_descricao = targetSurvey.descricao || "";
           variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
+          
+          // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado
+          if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token && selectedTemplateData.slug === "lideranca-pesquisa-link") {
+            variables.link_pesquisa_afiliado = generateSurveyAffiliateUrl(targetSurvey.slug, recipient.affiliate_token as string);
+          }
+        }
+
+        // Se for template de link de afiliado para líder (reunião ou cadastro)
+        if (isLeaderAffiliateLinkTemplate && (recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
+          const affiliateToken = recipient.affiliate_token as string;
+          
+          if (selectedTemplateData.slug === "lideranca-reuniao-link") {
+            variables.deputado_nome = organization?.nome || "Deputado";
+            variables.link_reuniao_afiliado = generateAffiliateUrl(affiliateToken);
+          }
+          
+          if (selectedTemplateData.slug === "lideranca-cadastro-link") {
+            variables.link_cadastro_afiliado = generateLeaderReferralUrl(affiliateToken);
+          }
         }
 
         const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
