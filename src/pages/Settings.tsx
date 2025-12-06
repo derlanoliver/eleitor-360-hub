@@ -12,7 +12,8 @@ import {
   ChevronRight,
   BarChart3,
   FileText,
-  HelpCircle
+  HelpCircle,
+  Trophy
 } from "lucide-react";
 
 type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
@@ -77,6 +78,14 @@ const Settings = () => {
       href: "/settings/leader-form",
       available: true,
       roles: ['super_admin', 'admin', 'atendente'],
+    },
+    {
+      title: "Gamificação",
+      description: "Configure regras de pontuação e níveis de líderes",
+      icon: Trophy,
+      href: "/settings/gamification",
+      available: true,
+      roles: ['super_admin', 'admin'],
     },
     {
       title: "Faturamento",

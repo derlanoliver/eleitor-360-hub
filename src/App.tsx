@@ -45,6 +45,7 @@ import EventCheckin from "./pages/EventCheckin";
 import LeadCaptureLanding from "./pages/LeadCaptureLanding";
 import PublicLeaderRegistration from "./pages/PublicLeaderRegistration";
 import LeaderFormSettings from "./pages/settings/LeaderFormSettings";
+import Gamification from "./pages/settings/Gamification";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -238,6 +239,13 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <LeaderFormSettings />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/settings/gamification" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <Gamification />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />
