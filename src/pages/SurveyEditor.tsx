@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -183,29 +182,24 @@ export default function SurveyEditor() {
 
   if (loadingSurvey || loadingQuestions) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   if (!survey) {
     return (
-      <DashboardLayout>
-        <div className="p-6 text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Pesquisa não encontrada</h2>
-          <Button onClick={() => navigate("/surveys")}>Voltar para Pesquisas</Button>
-        </div>
-      </DashboardLayout>
+      <div className="p-6 text-center">
+        <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Pesquisa não encontrada</h2>
+        <Button onClick={() => navigate("/surveys")}>Voltar para Pesquisas</Button>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -404,7 +398,6 @@ export default function SurveyEditor() {
             <span className="text-sm font-medium">Alterações não salvas</span>
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }
