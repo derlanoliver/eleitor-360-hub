@@ -51,8 +51,6 @@ function HeatmapLayer({ contacts, enabled }: { contacts: ContactMapData[]; enabl
     };
   }, [map, contacts, enabled]);
 
-  if (!enabled) return null;
-
   // Group contacts by location for heatmap effect
   const heatData = useMemo(() => {
     const grouped = contacts.reduce((acc: Record<string, { lat: number; lng: number; count: number }>, c) => {
@@ -65,6 +63,8 @@ function HeatmapLayer({ contacts, enabled }: { contacts: ContactMapData[]; enabl
     }, {});
     return Object.values(grouped);
   }, [contacts]);
+
+  if (!enabled) return null;
 
   return (
     <>
