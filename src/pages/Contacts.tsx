@@ -19,6 +19,7 @@ import { useContactDownloads } from "@/hooks/contacts/useContactDownloads";
 import { useContactActivityLog } from "@/hooks/contacts/useContactActivityLog";
 import { useContactCommunications } from "@/hooks/contacts/useContactCommunications";
 import { useContactVisits } from "@/hooks/contacts/useContactVisits";
+import { useContactSurveyParticipation } from "@/hooks/contacts/useContactSurveyParticipation";
 import { formatPhoneToBR } from "@/utils/phoneNormalizer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -59,7 +60,8 @@ import {
   Check,
   AlertCircle,
   Briefcase,
-  Cake
+  Cake,
+  ClipboardList
 } from "lucide-react";
 import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
 import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
@@ -98,6 +100,11 @@ const sourceConfig: Record<string, { label: string; className: string; icon: typ
     label: "Webhook", 
     className: "bg-indigo-50 text-indigo-700 border-indigo-200",
     icon: ExternalLink
+  },
+  pesquisa: { 
+    label: "Pesquisa", 
+    className: "bg-violet-50 text-violet-700 border-violet-200",
+    icon: ClipboardList
   }
 };
 
@@ -996,6 +1003,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
   const { data: activityLog = [], isLoading: isLoadingActivityLog } = useContactActivityLog(contact.id);
   const { data: communications, isLoading: isLoadingCommunications } = useContactCommunications(contact.id, contact.telefone_norm, contact.email);
   const { data: visits = [], isLoading: isLoadingVisits } = useContactVisits(contact.id);
+  const { data: surveyParticipation = [], isLoading: isLoadingSurveys } = useContactSurveyParticipation(contact.id);
   
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -1046,9 +1054,10 @@ const ContactDetails = ({ contact }: { contact: any }) => {
 
   return (
     <Tabs defaultValue="info" className="mt-4">
-      <TabsList className="grid w-full grid-cols-6">
+      <TabsList className="grid w-full grid-cols-7">
         <TabsTrigger value="info">Info</TabsTrigger>
         <TabsTrigger value="eventos">Eventos</TabsTrigger>
+        <TabsTrigger value="pesquisas">Pesquisas</TabsTrigger>
         <TabsTrigger value="atividade">Atividade</TabsTrigger>
         <TabsTrigger value="historico">Histórico</TabsTrigger>
         <TabsTrigger value="verificacao">Verificação</TabsTrigger>
@@ -1178,6 +1187,41 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                       </span>
                     )}
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+      )}
+      </TabsContent>
+
+      {/* Tab: Pesquisas */}
+      <TabsContent value="pesquisas" className="mt-4">
+        {isLoadingSurveys ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : surveyParticipation.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <ClipboardList className="h-10 w-10 mx-auto mb-2 opacity-50" />
+            <p>Nenhuma participação em pesquisas registrada.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {surveyParticipation.map((response: any) => (
+              <div key={response.id} className="p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="font-medium flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-violet-600" />
+                      {response.survey?.titulo || "Pesquisa"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Respondido em {format(new Date(response.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                  <Badge className="bg-violet-100 text-violet-700 border-violet-200">
+                    ✓ Respondido
+                  </Badge>
                 </div>
               </div>
             ))}
