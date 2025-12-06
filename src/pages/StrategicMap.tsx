@@ -32,28 +32,14 @@ function addOffset(coord: number, index: number): number {
   return coord + offset;
 }
 
-// Heatmap component using canvas
+// Heatmap component - only renders when enabled
 function HeatmapLayer({ contacts, enabled }: { contacts: ContactMapData[]; enabled: boolean }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!enabled || contacts.length === 0) return;
-
-    // Simple heatmap using circles with low opacity
-    const heatPoints = contacts.reduce((acc: Record<string, number>, contact) => {
-      const key = `${contact.latitude.toFixed(3)},${contact.longitude.toFixed(3)}`;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, [map, contacts, enabled]);
-
-  // Group contacts by location for heatmap effect
+  // Group contacts by location for heatmap effect - must be before any conditional returns
   const heatData = useMemo(() => {
+    if (!enabled || contacts.length === 0) return [];
+    
     const grouped = contacts.reduce((acc: Record<string, { lat: number; lng: number; count: number }>, c) => {
+      if (c.latitude == null || c.longitude == null) return acc;
       const key = `${c.latitude.toFixed(2)},${c.longitude.toFixed(2)}`;
       if (!acc[key]) {
         acc[key] = { lat: c.latitude, lng: c.longitude, count: 0 };
@@ -62,9 +48,9 @@ function HeatmapLayer({ contacts, enabled }: { contacts: ContactMapData[]; enabl
       return acc;
     }, {});
     return Object.values(grouped);
-  }, [contacts]);
+  }, [contacts, enabled]);
 
-  if (!enabled) return null;
+  if (!enabled || heatData.length === 0) return null;
 
   return (
     <>
