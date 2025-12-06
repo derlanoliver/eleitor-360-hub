@@ -946,6 +946,14 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          limite_eventos_dia: number | null
+          nivel_bronze_max: number | null
+          nivel_bronze_min: number | null
+          nivel_diamante_min: number | null
+          nivel_ouro_max: number | null
+          nivel_ouro_min: number | null
+          nivel_prata_max: number | null
+          nivel_prata_min: number | null
           pontos_aceita_reuniao: number
           pontos_form_submitted: number
           protocolo_prefix: string
@@ -956,6 +964,14 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          limite_eventos_dia?: number | null
+          nivel_bronze_max?: number | null
+          nivel_bronze_min?: number | null
+          nivel_diamante_min?: number | null
+          nivel_ouro_max?: number | null
+          nivel_ouro_min?: number | null
+          nivel_prata_max?: number | null
+          nivel_prata_min?: number | null
           pontos_aceita_reuniao?: number
           pontos_form_submitted?: number
           protocolo_prefix?: string
@@ -966,6 +982,14 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          limite_eventos_dia?: number | null
+          nivel_bronze_max?: number | null
+          nivel_bronze_min?: number | null
+          nivel_diamante_min?: number | null
+          nivel_ouro_max?: number | null
+          nivel_ouro_min?: number | null
+          nivel_prata_max?: number | null
+          nivel_prata_min?: number | null
           pontos_aceita_reuniao?: number
           pontos_form_submitted?: number
           protocolo_prefix?: string
