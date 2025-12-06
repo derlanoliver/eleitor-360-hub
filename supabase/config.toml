@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.greatpages-webhook]
 verify_jwt = false
+
+[functions.generate-survey-questions]
+verify_jwt = false

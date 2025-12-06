@@ -15,8 +15,10 @@ import {
   Eye,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
+import { AIQuestionsGeneratorDialog } from "@/components/surveys/AIQuestionsGeneratorDialog";
 import { 
   useSurvey, 
   useSurveyQuestions, 
@@ -69,6 +71,7 @@ export default function SurveyEditor() {
   const [status, setStatus] = useState<string>("draft");
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   useEffect(() => {
     if (survey) {
@@ -140,6 +143,20 @@ export default function SurveyEditor() {
     const newQuestions = [...questions];
     newQuestions[questionIndex].opcoes = newQuestions[questionIndex].opcoes.filter((_, i) => i !== optionIndex);
     setQuestions(newQuestions);
+    setHasChanges(true);
+  };
+
+  const handleAIQuestionsGenerated = (generatedQuestions: any[]) => {
+    const newQuestions: EditableQuestion[] = generatedQuestions.map((q, index) => ({
+      id: `ai-${Date.now()}-${index}`,
+      ordem: questions.length + index + 1,
+      tipo: q.tipo as QuestionType,
+      pergunta: q.pergunta,
+      opcoes: q.opcoes || [],
+      obrigatoria: q.obrigatoria ?? true,
+      config: { aiGenerated: true },
+    }));
+    setQuestions([...questions, ...newQuestions]);
     setHasChanges(true);
   };
 
@@ -274,10 +291,16 @@ export default function SurveyEditor() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Perguntas ({questions.length})</h2>
-            <Button onClick={addQuestion} variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Pergunta
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setShowAIGenerator(true)} variant="outline" size="sm">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Gerar com IA
+              </Button>
+              <Button onClick={addQuestion} variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Pergunta
+              </Button>
+            </div>
           </div>
 
           {questions.length === 0 ? (
@@ -398,6 +421,13 @@ export default function SurveyEditor() {
             <span className="text-sm font-medium">Alterações não salvas</span>
           </div>
         )}
+
+        {/* AI Questions Generator Dialog */}
+        <AIQuestionsGeneratorDialog
+          open={showAIGenerator}
+          onOpenChange={setShowAIGenerator}
+          onQuestionsGenerated={handleAIQuestionsGenerated}
+        />
     </div>
   );
 }
