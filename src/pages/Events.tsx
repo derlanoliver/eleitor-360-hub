@@ -585,7 +585,7 @@ const Events = () => {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground mb-3">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-3">
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
                                 {format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR })}
@@ -598,28 +598,27 @@ const Events = () => {
                                 <MapPin className="h-4 w-4" />
                                 {event.region}
                               </div>
-                              <div className="flex items-center gap-1">
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                              <div className="flex items-center gap-1 text-muted-foreground">
                                 <Users className="h-4 w-4" />
-                                {event.registrations_count}/{event.capacity}
+                                <span>{event.registrations_count}/{event.capacity} inscritos</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-green-600">
+                                <UserCheck className="h-4 w-4" />
+                                <span>{event.checkedin_count} check-ins</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-blue-600">
+                                <TrendingUp className="h-4 w-4" />
+                                <span>{getAttendanceRate(event)}% presença</span>
                               </div>
                               <div 
                                 className="flex items-center gap-1 text-orange-600" 
                                 title={`Baseado em ${event.registrations_count} inscritos, taxa média de ${Math.round(eventStats?.overallConversionRate ?? 70)}% = ~${Math.round((event.registrations_count || 0) * ((eventStats?.overallConversionRate ?? 70) / 100))} pessoas esperadas. 1 atendente a cada 30.`}
                               >
-                                <UserCheck className="h-4 w-4" />
+                                <Users className="h-4 w-4" />
                                 <span className="font-medium">{getCheckInStaffNeeded(event.registrations_count || 0)} p/ check-in</span>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-4 text-sm">
-                              <div>
-                                <span className="font-medium">Inscritos:</span> {event.registrations_count}
-                              </div>
-                              <div>
-                                <span className="font-medium">Check-in:</span> {event.checkedin_count}
-                              </div>
-                              <div>
-                                <span className="font-medium">Taxa presença:</span> {getAttendanceRate(event)}%
                               </div>
                             </div>
                           </div>
