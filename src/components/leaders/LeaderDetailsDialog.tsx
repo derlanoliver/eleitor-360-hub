@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
-  MessageCircle, Send, Eye, XCircle
+  MessageCircle, Send, Eye, XCircle, Globe, ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -16,6 +16,7 @@ import { useLeaderIndicatedContacts } from "@/hooks/leaders/useLeaderIndicatedCo
 import { useLeaderEventParticipation } from "@/hooks/leaders/useLeaderEventParticipation";
 import { useLeaderCommunications } from "@/hooks/leaders/useLeaderCommunications";
 import { useLeaderVisits } from "@/hooks/leaders/useLeaderVisits";
+import { useLeaderPageViews } from "@/hooks/leaders/useLeaderPageViews";
 import { LeaderLevelBadge, LeaderLevelProgress, getLeaderLevel, getNextLevel, getPointsToNextLevel } from "@/components/leaders/LeaderLevelBadge";
 
 interface LeaderDetailsDialogProps {
@@ -76,6 +77,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
     open ? leader.email : undefined
   );
   const { data: visits, isLoading: loadingVisits } = useLeaderVisits(open ? leader.id : undefined);
+  const { data: pageViews, isLoading: loadingPageViews } = useLeaderPageViews(open ? leader.id : undefined);
 
   const levelInfo = getLeaderLevel(leader.pontuacao_total);
   const nextLevel = getNextLevel(leader.pontuacao_total);
@@ -529,6 +531,59 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   </Card>
                 ))}
               </div>
+
+              {/* Páginas Acessadas por Indicações */}
+              {pageViews && pageViews.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      Páginas Acessadas (Indicações)
+                    </h4>
+                    <Badge variant="secondary">{pageViews.length} acessos</Badge>
+                  </div>
+                  
+                  {loadingPageViews ? (
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {pageViews.slice(0, 10).map((view) => (
+                        <Card key={view.id}>
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">{view.contact_name}</span>
+                                </div>
+                                <p className="font-medium text-sm">{view.page_name || "Formulário"}</p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[350px]">
+                                  {view.page_identifier}
+                                </p>
+                                {view.utm_source && (
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                      {view.utm_source}
+                                    </Badge>
+                                    {view.utm_campaign && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                        {view.utm_campaign}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {formatDateTime(view.created_at)}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
           </ScrollArea>
         </Tabs>
