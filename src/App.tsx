@@ -275,9 +275,9 @@ const App = () => (
               </RoleProtectedRoute>
             } />
             
-            {/* Strategic Map - apenas super_admin */}
+            {/* Strategic Map - admin, super_admin e atendente */}
             <Route path="/strategic-map" element={
-              <RoleProtectedRoute allowedRoles={['super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <StrategicMap />
                 </DashboardLayout>
