@@ -43,15 +43,20 @@ export default function LeaderRegistrationForm() {
     queryFn: async () => {
       if (!leaderToken) return null;
       
+      // Usar função RPC SECURITY DEFINER para buscar líder (bypassa RLS para usuários públicos)
       const { data, error } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, cidade_id, cidade:office_cities(nome)")
-        .eq("affiliate_token", leaderToken)
-        .eq("is_active", true)
-        .maybeSingle();
+        .rpc("get_leader_by_affiliate_token", { _token: leaderToken });
       
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) return null;
+      
+      // Mapear para estrutura esperada pelo componente
+      return {
+        id: data[0].id,
+        nome_completo: data[0].nome_completo,
+        cidade_id: data[0].cidade_id,
+        cidade: { nome: data[0].cidade_nome }
+      };
     },
     enabled: !!leaderToken
   });

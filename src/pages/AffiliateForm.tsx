@@ -46,21 +46,26 @@ export default function AffiliateForm() {
     try {
       setLoading(true);
       
+      // Usar função RPC SECURITY DEFINER para buscar líder (bypassa RLS para usuários públicos)
       const { data, error } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, cidade_id, cidade:office_cities(nome, codigo_ra)")
-        .eq("affiliate_token", leaderToken)
-        .eq("is_active", true)
-        .maybeSingle();
+        .rpc("get_leader_by_affiliate_token", { _token: leaderToken });
 
       if (error) throw error;
       
-      if (!data) {
+      if (!data || data.length === 0) {
         toast.error("Link inválido ou líder inativo");
         return;
       }
 
-      setLeader(data as OfficeLeader);
+      // Mapear para estrutura esperada pelo componente
+      const leaderData = {
+        id: data[0].id,
+        nome_completo: data[0].nome_completo,
+        cidade_id: data[0].cidade_id,
+        cidade: { nome: data[0].cidade_nome, codigo_ra: "" }
+      };
+
+      setLeader(leaderData as OfficeLeader);
     } catch (error: any) {
       console.error("Error loading leader:", error);
       toast.error("Erro ao carregar informações do líder");
