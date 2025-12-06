@@ -118,3 +118,10 @@ export function generateFunnelCampaignUrl(
 export function generateUnsubscribeUrl(token: string): string {
   return `${getBaseUrl()}/descadastro?token=${token}`;
 }
+
+/**
+ * Gera link de pesquisa com afiliado
+ */
+export function generateSurveyAffiliateUrl(surveySlug: string, affiliateToken: string): string {
+  return `${getBaseUrl()}/pesquisa/${surveySlug}?ref=${affiliateToken}`;
+}

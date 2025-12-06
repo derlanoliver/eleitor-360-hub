@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl, generateEventAffiliateUrl } from "@/lib/urlHelper";
+import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl } from "@/lib/urlHelper";
 
 type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
 
@@ -30,7 +30,9 @@ const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-c
 // Templates que precisam de funil destino
 const FUNNEL_INVITE_TEMPLATES = ["captacao-convite-material"];
 // Templates que precisam de pesquisa destino
-const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite"];
+const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
+// Templates de links de afiliado (apenas para líderes, sem necessidade de destino)
+const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
 
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
@@ -57,6 +59,7 @@ export function EmailBulkSendTab() {
   const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
   const isFunnelInviteTemplate = FUNNEL_INVITE_TEMPLATES.includes(selectedTemplate);
   const isSurveyInviteTemplate = SURVEY_INVITE_TEMPLATES.includes(selectedTemplate);
+  const isLeaderAffiliateLinkTemplate = LEADER_AFFILIATE_LINK_TEMPLATES.includes(selectedTemplate);
 
   // Fetch funnels
   const { data: funnels } = useQuery({
@@ -129,6 +132,20 @@ export function EmailBulkSendTab() {
       return data;
     },
     enabled: !!targetSurveyId && isSurveyInviteTemplate,
+  });
+
+  // Buscar nome do deputado/organização (para template de reunião)
+  const { data: organization } = useQuery({
+    queryKey: ["organization-name-email"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organization")
+        .select("nome")
+        .limit(1)
+        .single();
+      if (error) return { nome: "Deputado" };
+      return data;
+    },
   });
 
   // Buscar IDs de contatos promovidos (excluir do envio)
@@ -257,6 +274,9 @@ export function EmailBulkSendTab() {
     "captacao-convite-material",
     "evento-convite-participar",
     "pesquisa-convite",
+    "lideranca-pesquisa-link",
+    "lideranca-reuniao-link",
+    "lideranca-cadastro-link",
   ];
 
   const CONVITE_TEMPLATES_CONTACTS = [
@@ -324,6 +344,32 @@ export function EmailBulkSendTab() {
       if (isSurveyInviteTemplate && targetSurvey) {
         variables.pesquisa_titulo = targetSurvey.titulo;
         variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
+        
+        // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado com QR
+        const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
+        if ((recipientType === "leaders" || recipientType === "single_leader") && affiliateToken && selectedTemplate === "lideranca-pesquisa-link") {
+          const linkPesquisaAfiliado = generateSurveyAffiliateUrl(targetSurvey.slug, affiliateToken);
+          variables.link_pesquisa_afiliado = linkPesquisaAfiliado;
+          variables.qr_code_url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkPesquisaAfiliado)}`;
+        }
+      }
+
+      // Se for template de link de afiliado para líder (reunião ou cadastro)
+      if (isLeaderAffiliateLinkTemplate && (recipientType === "leaders" || recipientType === "single_leader")) {
+        const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
+        
+        if (affiliateToken && selectedTemplate === "lideranca-reuniao-link") {
+          const linkReuniaoAfiliado = generateAffiliateUrl(affiliateToken);
+          variables.deputado_nome = organization?.nome || "Deputado";
+          variables.link_reuniao_afiliado = linkReuniaoAfiliado;
+          variables.qr_code_url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkReuniaoAfiliado)}`;
+        }
+        
+        if (affiliateToken && selectedTemplate === "lideranca-cadastro-link") {
+          const linkCadastroAfiliado = generateLeaderReferralUrl(affiliateToken);
+          variables.link_cadastro_afiliado = linkCadastroAfiliado;
+          variables.qr_code_url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCadastroAfiliado)}`;
+        }
       }
 
       return {
