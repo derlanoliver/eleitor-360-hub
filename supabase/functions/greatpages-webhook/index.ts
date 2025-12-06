@@ -5,37 +5,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Campos suportados para descoberta pelo GreatPages
+const SUPPORTED_FIELDS = [
+  { nome: "Nome", slug: "nome", obrigatorio: true, variantes: ["name", "full_name", "nome_completo", "Nome_Completo"] },
+  { nome: "Email", slug: "email", obrigatorio: false, variantes: ["e-mail", "E-mail", "Email"] },
+  { nome: "Telefone", slug: "telefone", obrigatorio: true, variantes: ["phone", "whatsapp", "WhatsApp", "celular", "Celular", "mobile", "Telefone"] },
+  { nome: "Cidade", slug: "cidade", obrigatorio: false, variantes: ["city", "regiao", "region", "Cidade", "Regiao"] },
+  { nome: "UTM Source", slug: "utm_source", obrigatorio: false, variantes: [] },
+  { nome: "UTM Medium", slug: "utm_medium", obrigatorio: false, variantes: [] },
+  { nome: "UTM Campaign", slug: "utm_campaign", obrigatorio: false, variantes: [] },
+  { nome: "UTM Content", slug: "utm_content", obrigatorio: false, variantes: [] },
+];
+
 interface GreatPagesPayload {
-  // Campos de nome
-  nome?: string;
-  name?: string;
-  full_name?: string;
-  nome_completo?: string;
-  
-  // Campos de email
-  email?: string;
-  "e-mail"?: string;
-  
-  // Campos de telefone
-  telefone?: string;
-  phone?: string;
-  whatsapp?: string;
-  celular?: string;
-  mobile?: string;
-  
-  // Campos de cidade/região
-  cidade?: string;
-  city?: string;
-  regiao?: string;
-  region?: string;
-  
-  // UTM params
-  utm_source?: string;
-  utm_medium?: string;
-  utm_campaign?: string;
-  utm_content?: string;
-  
-  // Campos extras
   [key: string]: string | undefined;
 }
 
@@ -74,30 +56,145 @@ function normalizePhoneE164(phone: string): string {
   return `+55${cleanPhone}`;
 }
 
+// Normalizar chaves do payload (remover underscores, lowercase)
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/_/g, "").replace(/-/g, "").replace(/\s/g, "");
+}
+
+// Encontrar valor em payload com múltiplas variações de chave
+function findValue(payload: GreatPagesPayload, variants: string[]): string | null {
+  // Primeiro, tentar match exato
+  for (const variant of variants) {
+    if (payload[variant] !== undefined && payload[variant] !== "") {
+      return payload[variant] as string;
+    }
+  }
+  
+  // Depois, tentar match normalizado (case-insensitive, sem underscores)
+  const normalizedVariants = variants.map(normalizeKey);
+  for (const [key, value] of Object.entries(payload)) {
+    if (value && normalizedVariants.includes(normalizeKey(key))) {
+      return value;
+    }
+  }
+  
+  return null;
+}
+
 // Extrair nome do payload
 function extractName(payload: GreatPagesPayload): string | null {
-  return payload.nome || payload.name || payload.full_name || payload.nome_completo || null;
+  const variants = ["nome", "name", "full_name", "nome_completo", "Nome", "Name", "Nome_Completo", "NomeCompleto", "FullName"];
+  return findValue(payload, variants);
 }
 
 // Extrair email do payload
 function extractEmail(payload: GreatPagesPayload): string | null {
-  return payload.email || payload["e-mail"] || null;
+  const variants = ["email", "e-mail", "Email", "E-mail", "EMAIL", "E_mail"];
+  return findValue(payload, variants);
 }
 
 // Extrair telefone do payload
 function extractPhone(payload: GreatPagesPayload): string | null {
-  return payload.telefone || payload.phone || payload.whatsapp || payload.celular || payload.mobile || null;
+  const variants = ["telefone", "phone", "whatsapp", "celular", "mobile", "Telefone", "Phone", "WhatsApp", "Celular", "Mobile", "tel", "Tel"];
+  return findValue(payload, variants);
 }
 
 // Extrair cidade do payload
 function extractCity(payload: GreatPagesPayload): string | null {
-  return payload.cidade || payload.city || payload.regiao || payload.region || null;
+  const variants = ["cidade", "city", "regiao", "region", "Cidade", "City", "Regiao", "Region"];
+  return findValue(payload, variants);
+}
+
+// Extrair UTM params
+function extractUtmParams(payload: GreatPagesPayload) {
+  return {
+    utm_source: findValue(payload, ["utm_source", "utmSource", "UTM_Source"]),
+    utm_medium: findValue(payload, ["utm_medium", "utmMedium", "UTM_Medium"]),
+    utm_campaign: findValue(payload, ["utm_campaign", "utmCampaign", "UTM_Campaign"]),
+    utm_content: findValue(payload, ["utm_content", "utmContent", "UTM_Content"]),
+  };
+}
+
+// Parsear payload baseado no Content-Type
+async function parsePayload(req: Request): Promise<GreatPagesPayload> {
+  const contentType = req.headers.get("content-type") || "";
+  
+  // JSON
+  if (contentType.includes("application/json")) {
+    console.log("[greatpages-webhook] Parseando como JSON");
+    return await req.json();
+  }
+  
+  // Form URL Encoded (formato padrão do GreatPages)
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    console.log("[greatpages-webhook] Parseando como x-www-form-urlencoded");
+    const text = await req.text();
+    console.log("[greatpages-webhook] Raw text:", text);
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+  
+  // Multipart form data
+  if (contentType.includes("multipart/form-data")) {
+    console.log("[greatpages-webhook] Parseando como multipart/form-data");
+    const formData = await req.formData();
+    const payload: GreatPagesPayload = {};
+    formData.forEach((value, key) => {
+      if (typeof value === "string") {
+        payload[key] = value;
+      }
+    });
+    return payload;
+  }
+  
+  // Fallback: tentar JSON primeiro, depois URL encoded
+  console.log("[greatpages-webhook] Content-Type não reconhecido, tentando fallback");
+  const text = await req.text();
+  console.log("[greatpages-webhook] Raw text:", text);
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Tentar como URL encoded
+    return Object.fromEntries(new URLSearchParams(text));
+  }
 }
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // GET: Retornar lista de campos suportados (para descoberta do GreatPages)
+  if (req.method === "GET") {
+    console.log("[greatpages-webhook] Requisição GET - retornando campos suportados");
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Webhook GreatPages ativo",
+        campos: SUPPORTED_FIELDS.map(f => ({
+          nome: f.nome,
+          slug: f.slug,
+          obrigatorio: f.obrigatorio,
+          variantes_aceitas: [f.slug, ...f.variantes],
+        })),
+        formatos_aceitos: [
+          "application/json",
+          "application/x-www-form-urlencoded",
+          "multipart/form-data",
+        ],
+        exemplo: {
+          nome: "João Silva",
+          email: "joao@email.com",
+          telefone: "61999998888",
+          cidade: "Brasília",
+        },
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
   }
 
   if (req.method !== "POST") {
@@ -112,22 +209,31 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse payload
-    const payload: GreatPagesPayload = await req.json();
+    // Parse payload baseado no Content-Type
+    const payload = await parsePayload(req);
     
-    console.log("[greatpages-webhook] Payload recebido:", JSON.stringify(payload));
+    console.log("[greatpages-webhook] Payload parseado:", JSON.stringify(payload));
+    console.log("[greatpages-webhook] Chaves recebidas:", Object.keys(payload).join(", "));
 
-    // Extrair dados
+    // Extrair dados com suporte a variações de campo
     const nome = extractName(payload);
     const email = extractEmail(payload);
     const phone = extractPhone(payload);
     const cityName = extractCity(payload);
+    const utmParams = extractUtmParams(payload);
+    
+    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, phone=${phone}, cidade=${cityName}`);
     
     // Validar campos obrigatórios
     if (!nome) {
-      console.error("[greatpages-webhook] Nome é obrigatório");
+      console.error("[greatpages-webhook] Nome é obrigatório. Chaves recebidas:", Object.keys(payload));
       return new Response(
-        JSON.stringify({ success: false, error: "Nome é obrigatório" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "Nome é obrigatório",
+          campos_recebidos: Object.keys(payload),
+          dica: "Use um dos campos: nome, name, nome_completo, Nome_Completo"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -135,7 +241,12 @@ Deno.serve(async (req) => {
     if (!phone && !email) {
       console.error("[greatpages-webhook] Telefone ou email é obrigatório");
       return new Response(
-        JSON.stringify({ success: false, error: "Telefone ou email é obrigatório" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "Telefone ou email é obrigatório",
+          campos_recebidos: Object.keys(payload),
+          dica: "Use: telefone, phone, whatsapp, celular OU email, e-mail"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -143,7 +254,7 @@ Deno.serve(async (req) => {
     // Normalizar telefone
     const telefone_norm = phone ? normalizePhoneE164(phone) : null;
     
-    console.log(`[greatpages-webhook] Dados extraídos: nome=${nome}, email=${email}, telefone_norm=${telefone_norm}`);
+    console.log(`[greatpages-webhook] Telefone normalizado: ${telefone_norm}`);
 
     // Buscar cidade_id se informada
     let cidade_id: string | null = null;
@@ -327,10 +438,10 @@ Deno.serve(async (req) => {
         cidade_id,
         source_type: "webhook",
         source_id: null,
-        utm_source: payload.utm_source || null,
-        utm_medium: payload.utm_medium || null,
-        utm_campaign: payload.utm_campaign || null,
-        utm_content: payload.utm_content || null,
+        utm_source: utmParams.utm_source || null,
+        utm_medium: utmParams.utm_medium || null,
+        utm_campaign: utmParams.utm_campaign || null,
+        utm_content: utmParams.utm_content || null,
         is_verified: true, // Leads de webhook não precisam verificar
         is_active: true,
       })
@@ -357,8 +468,8 @@ Deno.serve(async (req) => {
         details: {
           source: "greatpages",
           payload_keys: Object.keys(payload),
-          utm_source: payload.utm_source,
-          utm_campaign: payload.utm_campaign,
+          utm_source: utmParams.utm_source,
+          utm_campaign: utmParams.utm_campaign,
         },
       });
 
@@ -457,7 +568,11 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("[greatpages-webhook] Erro:", error);
     return new Response(
-      JSON.stringify({ success: false, error: (error as Error).message || "Erro interno" }),
+      JSON.stringify({ 
+        success: false, 
+        error: (error as Error).message || "Erro interno",
+        dica: "Verifique se o formato do payload está correto (JSON ou form-urlencoded)"
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
