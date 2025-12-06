@@ -57,6 +57,10 @@ import ScheduleVisit from "./pages/ScheduleVisit";
 import AffiliateForm from "./pages/AffiliateForm";
 import Unsubscribe from "./pages/Unsubscribe";
 import StrategicMap from "./pages/StrategicMap";
+import Surveys from "./pages/Surveys";
+import SurveyEditor from "./pages/SurveyEditor";
+import SurveyResults from "./pages/SurveyResults";
+import SurveyPublicForm from "./pages/SurveyPublicForm";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +93,7 @@ const App = () => (
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />
             <Route path="/lider/cadastro" element={<PublicLeaderRegistration />} />
             <Route path="/descadastro" element={<Unsubscribe />} />
+            <Route path="/pesquisa/:slug" element={<SurveyPublicForm />} />
             
             {/* Protected check-in routes - all authenticated users can do check-in */}
             <Route path="/checkin/:qrCode" element={
@@ -159,6 +164,29 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <Projects />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Surveys - admin e atendente */}
+            <Route path="/surveys" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+                <DashboardLayout>
+                  <Surveys />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/surveys/:id/edit" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+                <DashboardLayout>
+                  <SurveyEditor />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/surveys/:id/results" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+                <DashboardLayout>
+                  <SurveyResults />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />
