@@ -82,7 +82,9 @@ export function useStrategicMapData() {
 
       if (error) throw error;
 
-      return (data || [])
+      console.log("Strategic Map - Total contacts fetched from DB:", data?.length);
+
+      const filtered = (data || [])
         .filter((c: any) => c.cidade?.latitude && c.cidade?.longitude)
         .map((c: any) => ({
           id: c.id,
@@ -93,8 +95,13 @@ export function useStrategicMapData() {
           longitude: c.cidade.longitude,
           cidade_nome: c.cidade.nome,
         }));
+
+      console.log("Strategic Map - Contacts with valid coordinates:", filtered.length);
+
+      return filtered;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch cities with aggregated counts
