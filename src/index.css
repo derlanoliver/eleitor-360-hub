@@ -161,12 +161,7 @@
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Grayscale filter for map tiles */
+.grayscale .leaflet-tile-pane {
+  filter: grayscale(100%) contrast(1.1);
 }
