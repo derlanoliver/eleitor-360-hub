@@ -1,85 +1,34 @@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { 
+  useLeaderLevels, 
+  getLeaderLevel as getDynamicLevel, 
+  getNextLevel as getDynamicNextLevel,
+  getProgressToNextLevel as getDynamicProgress,
+  getPointsToNextLevel as getDynamicPointsToNext,
+  DEFAULT_LEVELS,
+  type LeaderLevel 
+} from "@/hooks/leaders/useLeaderLevels";
 
-interface LeaderLevel {
-  name: string;
-  min: number;
-  max: number;
-  icon: string;
-  colorClass: string;
-  bgClass: string;
-  borderClass: string;
-}
+// Re-export for backward compatibility
+export type { LeaderLevel };
 
-const LEADER_LEVELS: LeaderLevel[] = [
-  { 
-    name: 'Bronze', 
-    min: 0, 
-    max: 10, 
-    icon: '🥉', 
-    colorClass: 'text-amber-700',
-    bgClass: 'bg-amber-100',
-    borderClass: 'border-amber-300'
-  },
-  { 
-    name: 'Prata', 
-    min: 11, 
-    max: 30, 
-    icon: '🥈', 
-    colorClass: 'text-gray-600',
-    bgClass: 'bg-gray-100',
-    borderClass: 'border-gray-300'
-  },
-  { 
-    name: 'Ouro', 
-    min: 31, 
-    max: 50, 
-    icon: '🥇', 
-    colorClass: 'text-yellow-700',
-    bgClass: 'bg-yellow-100',
-    borderClass: 'border-yellow-400'
-  },
-  { 
-    name: 'Diamante', 
-    min: 51, 
-    max: Infinity, 
-    icon: '💎', 
-    colorClass: 'text-blue-700',
-    bgClass: 'bg-blue-100',
-    borderClass: 'border-blue-400'
-  },
-];
-
+// Static versions that use DEFAULT_LEVELS (for components that don't need dynamic levels)
 export function getLeaderLevel(points: number): LeaderLevel {
-  return LEADER_LEVELS.find(l => points >= l.min && points <= l.max) || LEADER_LEVELS[0];
+  return getDynamicLevel(points, DEFAULT_LEVELS);
 }
 
 export function getNextLevel(points: number): LeaderLevel | null {
-  const currentLevel = getLeaderLevel(points);
-  const currentIndex = LEADER_LEVELS.findIndex(l => l.name === currentLevel.name);
-  if (currentIndex < LEADER_LEVELS.length - 1) {
-    return LEADER_LEVELS[currentIndex + 1];
-  }
-  return null;
+  return getDynamicNextLevel(points, DEFAULT_LEVELS);
 }
 
 export function getProgressToNextLevel(points: number): number {
-  const currentLevel = getLeaderLevel(points);
-  const nextLevel = getNextLevel(points);
-  
-  if (!nextLevel) return 100; // Já está no nível máximo
-  
-  const progressInLevel = points - currentLevel.min;
-  const levelRange = currentLevel.max - currentLevel.min + 1;
-  
-  return Math.min(100, Math.round((progressInLevel / levelRange) * 100));
+  return getDynamicProgress(points, DEFAULT_LEVELS);
 }
 
 export function getPointsToNextLevel(points: number): number {
-  const nextLevel = getNextLevel(points);
-  if (!nextLevel) return 0;
-  return nextLevel.min - points;
+  return getDynamicPointsToNext(points, DEFAULT_LEVELS);
 }
 
 interface LeaderLevelBadgeProps {
@@ -87,15 +36,19 @@ interface LeaderLevelBadgeProps {
   showIcon?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  levels?: LeaderLevel[];
 }
 
 export function LeaderLevelBadge({ 
   points, 
   showIcon = true, 
   size = 'md',
-  className 
+  className,
+  levels
 }: LeaderLevelBadgeProps) {
-  const level = getLeaderLevel(points);
+  const { data: dynamicLevels } = useLeaderLevels();
+  const activeLevels = levels || dynamicLevels || DEFAULT_LEVELS;
+  const level = getDynamicLevel(points, activeLevels);
   
   const sizeClasses = {
     sm: 'text-xs px-2 py-0.5',
@@ -126,17 +79,21 @@ interface LeaderLevelProgressProps {
   points: number;
   showLabel?: boolean;
   className?: string;
+  levels?: LeaderLevel[];
 }
 
 export function LeaderLevelProgress({ 
   points, 
   showLabel = true,
-  className 
+  className,
+  levels
 }: LeaderLevelProgressProps) {
-  const level = getLeaderLevel(points);
-  const nextLevel = getNextLevel(points);
-  const progress = getProgressToNextLevel(points);
-  const pointsNeeded = getPointsToNextLevel(points);
+  const { data: dynamicLevels } = useLeaderLevels();
+  const activeLevels = levels || dynamicLevels || DEFAULT_LEVELS;
+  const level = getDynamicLevel(points, activeLevels);
+  const nextLevel = getDynamicNextLevel(points, activeLevels);
+  const progress = getDynamicProgress(points, activeLevels);
+  const pointsNeeded = getDynamicPointsToNext(points, activeLevels);
   
   return (
     <div className={cn("space-y-1", className)}>
@@ -160,11 +117,13 @@ export function LeaderLevelProgress({
 
 interface LeaderLevelCardColorProps {
   points: number;
+  levels?: LeaderLevel[];
 }
 
-export function getLeaderCardColorClass(points: number): string {
-  const level = getLeaderLevel(points);
+export function getLeaderCardColorClass(points: number, levels?: LeaderLevel[]): string {
+  const activeLevels = levels || DEFAULT_LEVELS;
+  const level = getDynamicLevel(points, activeLevels);
   return `border-l-4 ${level.borderClass} ${level.bgClass.replace('100', '50')}/50`;
 }
 
-export { LEADER_LEVELS };
+export { DEFAULT_LEVELS as LEADER_LEVELS };
