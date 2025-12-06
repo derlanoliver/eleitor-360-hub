@@ -56,6 +56,7 @@ import VisitCheckin from "./pages/office/VisitCheckin";
 import ScheduleVisit from "./pages/ScheduleVisit";
 import AffiliateForm from "./pages/AffiliateForm";
 import Unsubscribe from "./pages/Unsubscribe";
+import StrategicMap from "./pages/StrategicMap";
 
 const queryClient = new QueryClient();
 
@@ -271,6 +272,15 @@ const App = () => (
             <Route path="/settings/admin-tickets" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <AdminTickets />
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Strategic Map - apenas super_admin */}
+            <Route path="/strategic-map" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout>
+                  <StrategicMap />
+                </DashboardLayout>
               </RoleProtectedRoute>
             } />
             
