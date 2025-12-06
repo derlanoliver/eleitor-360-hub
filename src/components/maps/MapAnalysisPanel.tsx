@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Brain, RefreshCw, Sparkles, AlertTriangle, TrendingUp, MapPin } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import { CityMapData } from "@/hooks/maps/useStrategicMapData";
 
@@ -27,6 +26,7 @@ export function MapAnalysisPanel({
   const generateAnalysis = async () => {
     setIsLoading(true);
     setError(null);
+    setAnalysis(null);
 
     try {
       // Preparar dados para análise
@@ -82,19 +82,76 @@ Forneça uma análise em português do Brasil com no máximo 400 palavras, organ
 
 Seja direto, use dados específicos dos números fornecidos, e priorize recomendações acionáveis.`;
 
-      const { data, error: fnError } = await supabase.functions.invoke('chat', {
-        body: { 
-          messages: [{ role: 'user', content: prompt }],
-          skipFunctions: true
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: prompt }],
+            skipFunctions: true
+          })
         }
-      });
+      );
 
-      if (fnError) throw fnError;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+      }
 
-      if (data?.content) {
-        setAnalysis(data.content);
-      } else if (data?.error) {
-        throw new Error(data.error);
+      if (!response.body) {
+        throw new Error('Resposta sem body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let result = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const json = JSON.parse(line.slice(6));
+              const content = json.choices?.[0]?.delta?.content;
+              if (content) {
+                result += content;
+                setAnalysis(result);
+              }
+            } catch {
+              // Ignorar linhas mal formadas
+            }
+          }
+        }
+      }
+
+      // Processar buffer restante
+      if (buffer.startsWith('data: ') && buffer !== 'data: [DONE]') {
+        try {
+          const json = JSON.parse(buffer.slice(6));
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            result += content;
+            setAnalysis(result);
+          }
+        } catch {
+          // Ignorar
+        }
+      }
+
+      if (!result) {
+        throw new Error('Nenhum conteúdo recebido da IA');
       }
     } catch (err) {
       console.error('Erro ao gerar análise:', err);
