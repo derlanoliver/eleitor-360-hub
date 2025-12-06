@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
-  MessageCircle, Send, Eye, XCircle, Globe, ExternalLink
+  MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,6 +17,7 @@ import { useLeaderEventParticipation } from "@/hooks/leaders/useLeaderEventParti
 import { useLeaderCommunications } from "@/hooks/leaders/useLeaderCommunications";
 import { useLeaderVisits } from "@/hooks/leaders/useLeaderVisits";
 import { useLeaderPageViews } from "@/hooks/leaders/useLeaderPageViews";
+import { useLeaderSurveyReferrals } from "@/hooks/leaders/useLeaderSurveyReferrals";
 import { LeaderLevelBadge, LeaderLevelProgress, getLeaderLevel, getNextLevel, getPointsToNextLevel } from "@/components/leaders/LeaderLevelBadge";
 
 interface LeaderDetailsDialogProps {
@@ -78,6 +79,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   );
   const { data: visits, isLoading: loadingVisits } = useLeaderVisits(open ? leader.id : undefined);
   const { data: pageViews, isLoading: loadingPageViews } = useLeaderPageViews(open ? leader.id : undefined);
+  const { data: surveyData, isLoading: loadingSurveys } = useLeaderSurveyReferrals(open ? leader.id : undefined);
 
   const levelInfo = getLeaderLevel(leader.pontuacao_total);
   const nextLevel = getNextLevel(leader.pontuacao_total);
@@ -98,10 +100,11 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="info" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
             <TabsTrigger value="indicacoes" className="text-xs">Indicações</TabsTrigger>
             <TabsTrigger value="eventos" className="text-xs">Eventos</TabsTrigger>
+            <TabsTrigger value="pesquisas" className="text-xs">Pesquisas</TabsTrigger>
             <TabsTrigger value="comunicacoes" className="text-xs">Comunicações</TabsTrigger>
             <TabsTrigger value="pontuacao" className="text-xs">Pontuação</TabsTrigger>
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
@@ -322,6 +325,74 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               )}
             </TabsContent>
 
+            {/* ABA PESQUISAS */}
+            <TabsContent value="pesquisas" className="mt-0 space-y-4">
+              {/* Pesquisas respondidas pelo líder */}
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  Pesquisas Respondidas
+                </h4>
+                <Badge variant="secondary">{surveyData?.ownResponses?.length || 0} respostas</Badge>
+              </div>
+              
+              {loadingSurveys ? (
+                <p className="text-sm text-muted-foreground">Carregando...</p>
+              ) : !surveyData?.ownResponses?.length ? (
+                <p className="text-sm text-muted-foreground">Nenhuma pesquisa respondida ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {surveyData.ownResponses.map((response) => (
+                    <Card key={response.id}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{response.survey?.titulo || "Pesquisa"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Respondida em {formatDateTime(response.created_at)}
+                            </p>
+                          </div>
+                          <Badge className="bg-green-500/10 text-green-600 border-0">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Respondida
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Indicações de pesquisa */}
+              {surveyData?.referredResponses && surveyData.referredResponses.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between mt-6">
+                    <h4 className="font-medium">Indicações em Pesquisas</h4>
+                    <Badge variant="secondary">{surveyData.referredResponses.length} indicações</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {surveyData.referredResponses.map((response) => (
+                      <Card key={response.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{response.contact?.nome || "Contato"}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {response.survey?.titulo} • {formatDateTime(response.created_at)}
+                              </p>
+                            </div>
+                            <Badge variant="outline">
+                              +2 pts
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
             {/* ABA COMUNICAÇÕES */}
             <TabsContent value="comunicacoes" className="mt-0 space-y-4">
               {/* WhatsApp */}
@@ -461,6 +532,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <li>• +2 pontos por check-in em evento</li>
                   <li>• +2 pontos por check-in de visita indicada</li>
                   <li>• +2 pontos por download de material indicado</li>
+                  <li>• +1 ponto por responder uma pesquisa</li>
+                  <li>• +2 pontos por indicação que responde pesquisa</li>
                 </ul>
               </div>
             </TabsContent>
