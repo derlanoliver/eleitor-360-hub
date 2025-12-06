@@ -6,9 +6,111 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
+import { toast } from "sonner";
+
+const WEBHOOK_URL = "https://eydqducvsddckhyatcux.supabase.co/functions/v1/greatpages-webhook";
+
+const GreatPagesWebhookCard = () => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(WEBHOOK_URL);
+      setCopied(true);
+      toast.success("URL copiada!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Erro ao copiar URL");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Link2 className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">GreatPages - Captura de Leads</CardTitle>
+              <CardDescription>
+                Receba leads automaticamente das suas landing pages GreatPages
+              </CardDescription>
+            </div>
+          </div>
+          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Ativo
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* URL do Webhook */}
+        <div className="space-y-2">
+          <Label>URL do Webhook</Label>
+          <div className="flex gap-2">
+            <Input 
+              value={WEBHOOK_URL} 
+              readOnly 
+              className="font-mono text-xs sm:text-sm bg-muted"
+            />
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={handleCopyUrl}
+              className="shrink-0"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Instruções de configuração */}
+        <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+          <h4 className="font-medium text-sm">Como configurar na GreatPages:</h4>
+          <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
+            <li>Acesse sua página no GreatPages</li>
+            <li>Vá em <strong className="text-foreground">Configurações → Integrações → Webhook</strong></li>
+            <li>Cole a URL acima no campo de webhook</li>
+            <li>Selecione método <strong className="text-foreground">POST</strong></li>
+            <li>Salve as configurações</li>
+          </ol>
+        </div>
+
+        {/* Campos aceitos */}
+        <div className="space-y-2">
+          <Label className="text-sm">Campos aceitos</Label>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="font-mono text-xs">nome / name</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">email</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">telefone / phone / whatsapp</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">cidade / city</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">utm_source</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">utm_medium</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">utm_campaign</Badge>
+          </div>
+        </div>
+
+        {/* Comportamento */}
+        <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 border border-border/50">
+          <p>
+            <strong className="text-foreground">Comportamento:</strong> O webhook verifica automaticamente se o lead já é uma liderança cadastrada. 
+            Se for, atualiza apenas dados faltantes. Se não for, cria um novo contato com origem "Webhook" 
+            e dispara mensagens de boas-vindas automaticamente.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Integrations = () => {
   const { data: settings, isLoading } = useIntegrationsSettings();
@@ -361,27 +463,8 @@ const Integrations = () => {
           </CardContent>
         </Card>
 
-        {/* Webhooks - Coming Soon */}
-        <Card className="opacity-60">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  <Link2 className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Webhooks Personalizados</CardTitle>
-                  <CardDescription>
-                    Configure endpoints para receber dados em tempo real
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="text-amber-600 border-amber-300">
-                Em breve
-              </Badge>
-            </div>
-          </CardHeader>
-        </Card>
+        {/* GreatPages Webhook */}
+        <GreatPagesWebhookCard />
       </div>
     </DashboardLayout>
   );
