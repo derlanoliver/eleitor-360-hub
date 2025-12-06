@@ -65,26 +65,45 @@ export function useStrategicMapData() {
   });
 
   // Fetch contacts with city coordinates and source_id for connections
+  // Using pagination to bypass Supabase 1000 row limit
   const contactsQuery = useQuery({
     queryKey: ["strategic_map_contacts"],
     queryFn: async (): Promise<ContactMapData[]> => {
-      const { data, error } = await supabase
-        .from("office_contacts")
-        .select(`
-          id,
-          nome,
-          source_type,
-          source_id,
-          cidade:office_cities(id, nome, latitude, longitude)
-        `)
-        .eq("is_active", true)
-        .range(0, 9999);
+      const allContacts: any[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
 
-      console.log("Strategic Map - Total contacts fetched from DB:", data?.length);
+        const { data, error } = await supabase
+          .from("office_contacts")
+          .select(`
+            id,
+            nome,
+            source_type,
+            source_id,
+            cidade:office_cities(id, nome, latitude, longitude)
+          `)
+          .eq("is_active", true)
+          .range(from, to);
 
-      const filtered = (data || [])
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allContacts.push(...data);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log("Strategic Map - Total contacts fetched from DB:", allContacts.length);
+
+      const filtered = allContacts
         .filter((c: any) => c.cidade?.latitude && c.cidade?.longitude)
         .map((c: any) => ({
           id: c.id,
