@@ -23,7 +23,8 @@ import {
   Mail,
   HelpCircle,
   Ticket,
-  Map
+  Map,
+  ClipboardList
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
@@ -65,6 +66,7 @@ const mainItems: MenuItem[] = [
 
 const campaignItems: MenuItem[] = [
   { title: "Campanhas", url: "/campaigns", icon: Target, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Pesquisas", url: "/surveys", icon: ClipboardList, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Eventos", url: "/events", icon: Calendar, roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'] },
   { title: "Programas", url: "/projects", icon: FolderKanban, roles: ['super_admin', 'admin', 'atendente'] },
 ];
