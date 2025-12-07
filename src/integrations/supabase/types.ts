@@ -1516,6 +1516,47 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_analyses: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          leader_responses: number | null
+          referred_responses: number | null
+          survey_id: string
+          total_responses: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          leader_responses?: number | null
+          referred_responses?: number | null
+          survey_id: string
+          total_responses?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          leader_responses?: number | null
+          referred_responses?: number | null
+          survey_id?: string
+          total_responses?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_analyses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_questions: {
         Row: {
           config: Json | null

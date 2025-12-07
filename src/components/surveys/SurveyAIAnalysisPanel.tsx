@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Brain, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Brain, Loader2, RefreshCw, Sparkles, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { jsPDF } from "jspdf";
+import { toast } from "sonner";
 import type { Survey, SurveyQuestion } from "@/hooks/surveys/useSurveys";
 
 interface SurveyAIAnalysisPanelProps {
@@ -16,6 +22,156 @@ export function SurveyAIAnalysisPanel({ survey, questions, responses }: SurveyAI
   const [analysis, setAnalysis] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  // Calculate response stats
+  const totalResponses = responses.length;
+  const leaderResponses = responses.filter(r => r.is_leader).length;
+  const referredResponses = responses.filter(r => r.referred_by_leader_id).length;
+
+  // Load last analysis on mount
+  useEffect(() => {
+    loadLastAnalysis();
+  }, [survey.id]);
+
+  const loadLastAnalysis = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("survey_analyses")
+        .select("*")
+        .eq("survey_id", survey.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        setAnalysis(data.content);
+        setSavedAt(data.created_at);
+      }
+    } catch (err) {
+      // No analysis found, that's ok
+    }
+  };
+
+  const saveAnalysis = async (content: string) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from("survey_analyses")
+        .insert({
+          survey_id: survey.id,
+          user_id: user.id,
+          content,
+          total_responses: totalResponses,
+          leader_responses: leaderResponses,
+          referred_responses: referredResponses,
+        });
+
+      if (error) throw error;
+
+      setSavedAt(new Date().toISOString());
+      toast.success("Análise salva com sucesso");
+    } catch (err) {
+      console.error("Erro ao salvar análise:", err);
+    }
+  };
+
+  const downloadPdf = () => {
+    if (!analysis) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
+    let yPos = margin;
+
+    // Helper to add page number
+    const addPageNumber = (pageNum: number) => {
+      pdf.setFontSize(10);
+      pdf.setTextColor(150);
+      pdf.text(
+        `Página ${pageNum}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+    };
+
+    // Helper to check page break
+    const checkPageBreak = (neededHeight: number) => {
+      if (yPos + neededHeight > pageHeight - 25) {
+        addPageNumber(pdf.getNumberOfPages());
+        pdf.addPage();
+        yPos = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Title
+    pdf.setFontSize(18);
+    pdf.setTextColor(0);
+    pdf.text(`Análise de Pesquisa`, margin, yPos);
+    yPos += 10;
+
+    pdf.setFontSize(14);
+    pdf.setTextColor(80);
+    pdf.text(survey.titulo, margin, yPos);
+    yPos += 10;
+
+    // Date
+    pdf.setFontSize(10);
+    pdf.setTextColor(120);
+    pdf.text(
+      `Gerado em: ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`,
+      margin,
+      yPos
+    );
+    yPos += 15;
+
+    // Stats
+    pdf.setFontSize(11);
+    pdf.setTextColor(0);
+    pdf.text(`Total de Respostas: ${totalResponses}`, margin, yPos);
+    yPos += 6;
+    pdf.text(`Respostas de Líderes: ${leaderResponses}`, margin, yPos);
+    yPos += 6;
+    pdf.text(`Respostas por Indicação: ${referredResponses}`, margin, yPos);
+    yPos += 15;
+
+    // Divider
+    pdf.setDrawColor(200);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
+
+    // Analysis content - convert markdown to plain text
+    const plainText = analysis
+      .replace(/#{1,6}\s/g, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/`(.*?)`/g, "$1")
+      .replace(/\n{3,}/g, "\n\n");
+
+    pdf.setFontSize(11);
+    pdf.setTextColor(40);
+
+    const lines = pdf.splitTextToSize(plainText, contentWidth);
+
+    for (const line of lines) {
+      checkPageBreak(7);
+      pdf.text(line, margin, yPos);
+      yPos += 6;
+    }
+
+    addPageNumber(pdf.getNumberOfPages());
+
+    // Save PDF
+    pdf.save(`analise-pesquisa-${survey.slug}.pdf`);
+    toast.success("PDF gerado com sucesso");
+  };
 
   const generateAnalysis = async () => {
     if (responses.length === 0) {
@@ -61,6 +217,7 @@ export function SurveyAIAnalysisPanel({ survey, questions, responses }: SurveyAI
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
+      let fullAnalysis = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -84,6 +241,7 @@ export function SurveyAIAnalysisPanel({ survey, questions, responses }: SurveyAI
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
+              fullAnalysis += content;
               setAnalysis(prev => prev + content);
             }
           } catch {
@@ -92,6 +250,11 @@ export function SurveyAIAnalysisPanel({ survey, questions, responses }: SurveyAI
             break;
           }
         }
+      }
+
+      // Save analysis after streaming completes
+      if (fullAnalysis) {
+        await saveAnalysis(fullAnalysis);
       }
     } catch (err) {
       console.error("Erro na análise:", err);
@@ -109,28 +272,41 @@ export function SurveyAIAnalysisPanel({ survey, questions, responses }: SurveyAI
             <Brain className="h-5 w-5 text-primary" />
             <CardTitle>Análise com Inteligência Artificial</CardTitle>
           </div>
-          <Button 
-            onClick={generateAnalysis} 
-            disabled={isLoading || responses.length === 0}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analisando...
-              </>
-            ) : analysis ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar Análise
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Gerar Análise
-              </>
+          <div className="flex items-center gap-2">
+            {analysis && !isLoading && (
+              <Button variant="outline" onClick={downloadPdf}>
+                <Download className="h-4 w-4 mr-2" />
+                Baixar PDF
+              </Button>
             )}
-          </Button>
+            <Button 
+              onClick={generateAnalysis} 
+              disabled={isLoading || responses.length === 0}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analisando...
+                </>
+              ) : analysis ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar Análise
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar Análise
+                </>
+              )}
+            </Button>
+          </div>
         </div>
+        {savedAt && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Última análise: {format(new Date(savedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {responses.length === 0 ? (
