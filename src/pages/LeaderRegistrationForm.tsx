@@ -107,131 +107,64 @@ export default function LeaderRegistrationForm() {
       // Normalizar telefone
       const telefone_norm = normalizePhoneToE164(data.whatsapp);
 
-      // Verificar se a pessoa já é um líder cadastrado
-      const { data: existingLeader } = await supabase
-        .from("lideres")
-        .select("id, nome_completo")
-        .or(`telefone.eq.${telefone_norm},email.eq.${data.email.trim().toLowerCase()}`)
-        .eq("is_active", true)
-        .maybeSingle();
+      // Usar função SECURITY DEFINER para upsert (bypassa RLS para usuários públicos)
+      const { data: result, error } = await supabase.rpc('upsert_contact_from_leader_form', {
+        p_nome: data.nome.trim(),
+        p_email: data.email.trim().toLowerCase(),
+        p_telefone_norm: telefone_norm,
+        p_data_nascimento: data.data_nascimento,
+        p_cidade_id: data.cidade_id,
+        p_endereco: data.endereco.trim(),
+        p_leader_id: leader.id
+      });
 
-      if (existingLeader) {
-        toast.info(`${existingLeader.nome_completo}, você já é uma liderança cadastrada!`);
+      if (error) throw error;
+
+      const contact = result?.[0];
+
+      // Já é líder ativo?
+      if (contact?.is_already_leader) {
+        toast.info("Você já é uma liderança cadastrada!");
         setIsSuccess(true);
         setNeedsVerification(false);
-        setIsSubmitting(false);
         return;
       }
 
-      // Verificar se já existe contato com este telefone
-      const { data: existingContact } = await supabase
-        .from("office_contacts")
-        .select("id, nome, is_verified, verification_code, source_type, source_id")
-        .eq("telefone_norm", telefone_norm)
-        .maybeSingle();
-
-      let contactId: string;
-      let verificationCode: string;
-
-      if (existingContact) {
-        // Contato já existe - atualizar dados se necessário
-        const updateData: Record<string, unknown> = {
-          nome: data.nome.trim(),
-          email: data.email.trim(),
-          data_nascimento: data.data_nascimento,
-          cidade_id: data.cidade_id,
-          endereco: data.endereco.trim(),
-        };
-
-        // Se não tinha source_type='lider', atualizar
-        if (existingContact.source_type !== 'lider') {
-          updateData.source_type = 'lider';
-          updateData.source_id = leader.id;
-        }
-
-        const { error: updateError } = await supabase
-          .from("office_contacts")
-          .update(updateData)
-          .eq("id", existingContact.id);
-
-        if (updateError) throw updateError;
-
-        contactId = existingContact.id;
-
-        // Se já está verificado, não precisa de verificação
-        if (existingContact.is_verified) {
-          // Já verificado - sucesso normal
-          setIsSuccess(true);
-          toast.success("Cadastro atualizado com sucesso!");
-          
-          // Tracking
-          trackLead({ content_name: "leader_registration" });
-          pushToDataLayer("lead_registration", { 
-            source: "leader_referral",
-            leader_id: leader.id 
-          });
-          return;
-        }
-
-        // Não está verificado - gerar código se não tiver
-        if (!existingContact.verification_code) {
-          const { data: newCode } = await supabase.rpc("generate_verification_code");
-          verificationCode = newCode;
-          
-          await supabase
-            .from("office_contacts")
-            .update({ verification_code: verificationCode })
-            .eq("id", contactId);
-        } else {
-          verificationCode = existingContact.verification_code;
-        }
-      } else {
-        // Novo contato - inserir com código de verificação (trigger gera automaticamente)
-        const { data: contact, error } = await supabase
-          .from("office_contacts")
-          .insert({
-            nome: data.nome.trim(),
-            email: data.email.trim(),
-            telefone_norm,
-            data_nascimento: data.data_nascimento,
-            cidade_id: data.cidade_id,
-            endereco: data.endereco.trim(),
-            source_type: "lider",
-            source_id: leader.id,
-            is_verified: false,
-          })
-          .select('id, verification_code')
-          .single();
-
-        if (error) {
-          if (error.code === "23505") {
-            toast.error("Este telefone ou e-mail já está cadastrado.");
-          } else {
-            throw error;
-          }
-          return;
-        }
-
-        contactId = contact.id;
-        verificationCode = contact.verification_code;
+      // Já está verificado?
+      if (contact?.is_verified) {
+        toast.success("Cadastro atualizado com sucesso!");
+        setIsSuccess(true);
+        setNeedsVerification(false);
+        
+        // Tracking
+        trackLead({ content_name: "leader_registration" });
+        pushToDataLayer("lead_registration", { 
+          source: "leader_referral",
+          leader_id: leader.id 
+        });
+        return;
       }
 
       // Record page view for this contact
-      await supabase.from('contact_page_views').insert({
-        contact_id: contactId,
-        page_type: 'link_lider',
-        page_identifier: leaderToken || '',
-        page_name: `Cadastro via ${leader.nome_completo}`,
-      });
+      if (contact?.contact_id) {
+        await supabase.from('contact_page_views').insert({
+          contact_id: contact.contact_id,
+          page_type: 'link_lider',
+          page_identifier: leaderToken || '',
+          page_name: `Cadastro via ${leader.nome_completo}`,
+        });
+      }
 
-      // Enviar mensagem de verificação
-      await sendVerificationMessage({
-        contactId,
-        contactName: data.nome.trim(),
-        contactPhone: telefone_norm,
-        leaderName: leader.nome_completo,
-        verificationCode,
-      });
+      // Precisa verificar - enviar código
+      if (contact?.contact_id && contact?.verification_code) {
+        await sendVerificationMessage({
+          contactId: contact.contact_id,
+          contactName: data.nome.trim(),
+          contactPhone: telefone_norm,
+          leaderName: leader.nome_completo,
+          verificationCode: contact.verification_code,
+        });
+      }
 
       // Tracking
       trackLead({ content_name: "leader_registration" });

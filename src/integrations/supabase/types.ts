@@ -2133,6 +2133,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      upsert_contact_from_leader_form: {
+        Args: {
+          p_cidade_id: string
+          p_data_nascimento: string
+          p_email: string
+          p_endereco: string
+          p_leader_id: string
+          p_nome: string
+          p_telefone_norm: string
+        }
+        Returns: {
+          contact_id: string
+          is_already_leader: boolean
+          is_new: boolean
+          is_verified: boolean
+          verification_code: string
+        }[]
+      }
       upsert_contact_from_public_form: {
         Args: {
           _cidade_id?: string
