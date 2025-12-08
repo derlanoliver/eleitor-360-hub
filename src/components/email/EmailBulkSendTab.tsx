@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +14,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList } from "lucide-react";
-import { useEmailTemplates, useSendBulkEmail } from "@/hooks/useEmailTemplates";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock } from "lucide-react";
+import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl } from "@/lib/urlHelper";
+import { toast } from "sonner";
 
 type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
 
@@ -34,16 +36,43 @@ const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
 // Templates de links de afiliado (apenas para líderes, sem necessidade de destino)
 const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
 
+// Opções de tamanho de lote
+const BATCH_SIZE_OPTIONS = [
+  { value: "10", label: "10 por vez" },
+  { value: "20", label: "20 por vez" },
+  { value: "30", label: "30 por vez" },
+  { value: "50", label: "50 por vez" },
+  { value: "100", label: "100 por vez" },
+  { value: "all", label: "Todos de uma vez" },
+];
+
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
   const { data: events } = useEvents();
-  const sendBulkEmail = useSendBulkEmail();
 
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [recipientType, setRecipientType] = useState<RecipientType>("all_contacts");
   const [selectedEvent, setSelectedEvent] = useState("");
   const [selectedFunnel, setSelectedFunnel] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  
+  // Estados para controle de lotes
+  const [batchSize, setBatchSize] = useState("20");
+  const [isSending, setIsSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const continueResolve = useRef<(() => void) | null>(null);
+  
+  // Função para continuar envio após pausa
+  const handleContinue = () => {
+    if (continueResolve.current) {
+      continueResolve.current();
+      continueResolve.current = null;
+    }
+    setIsPaused(false);
+  };
   
   // Estados para evento/funil/pesquisa DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
@@ -301,22 +330,31 @@ export function EmailBulkSendTab() {
     recipients && 
     recipients.length > 0 && 
     confirmed &&
+    !isSending &&
     (!isEventInviteTemplate || targetEventId) &&
     (!isFunnelInviteTemplate || targetFunnelId) &&
     (!isSurveyInviteTemplate || targetSurveyId);
 
-  const handleSend = () => {
+  // Calcular tempo estimado em minutos (média de 0.3 segundos por email)
+  const estimatedMinutes = Math.ceil((recipients?.length || 0) * 0.3 / 60);
+
+  const handleSend = async () => {
     if (!selectedTemplate || !recipients?.length) return;
+
+    setIsSending(true);
+    setIsPaused(false);
+    setCurrentBatch(0);
+    let successCount = 0;
+    let errorCount = 0;
 
     const baseUrl = getBaseUrl();
 
+    // Preparar lista de destinatários com variáveis
     const recipientsList = recipients.map(r => {
-      // Construir variáveis baseado no tipo de template
       const variables: Record<string, string> = {
         nome: r.name,
       };
 
-      // Se for template de evento, adicionar variáveis do evento destino
       if (isEventInviteTemplate && targetEvent) {
         variables.evento_nome = targetEvent.name;
         variables.evento_data = format(new Date(targetEvent.date), "dd 'de' MMMM", { locale: ptBR });
@@ -326,26 +364,22 @@ export function EmailBulkSendTab() {
         variables.evento_descricao = targetEvent.description || "";
         variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
         
-        // Se for líder, gerar link_afiliado exclusivo
         const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
         if ((recipientType === "leaders" || recipientType === "single_leader") && affiliateToken) {
           variables.link_afiliado = generateEventAffiliateUrl(targetEvent.slug, affiliateToken);
         }
       }
 
-      // Se for template de captação, adicionar variáveis do funil destino
       if (isFunnelInviteTemplate && targetFunnel) {
         variables.material_nome = targetFunnel.lead_magnet_nome;
         variables.material_descricao = targetFunnel.subtitulo || "";
         variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
       }
 
-      // Se for template de pesquisa, adicionar variáveis da pesquisa destino
       if (isSurveyInviteTemplate && targetSurvey) {
         variables.pesquisa_titulo = targetSurvey.titulo;
         variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
         
-        // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado com QR
         const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
         if ((recipientType === "leaders" || recipientType === "single_leader") && affiliateToken && selectedTemplate === "lideranca-pesquisa-link") {
           const linkPesquisaAfiliado = generateSurveyAffiliateUrl(targetSurvey.slug, affiliateToken);
@@ -354,7 +388,6 @@ export function EmailBulkSendTab() {
         }
       }
 
-      // Se for template de link de afiliado para líder (reunião ou cadastro)
       if (isLeaderAffiliateLinkTemplate && (recipientType === "leaders" || recipientType === "single_leader")) {
         const affiliateToken = (r as { affiliateToken?: string | null }).affiliateToken;
         
@@ -382,10 +415,74 @@ export function EmailBulkSendTab() {
       };
     });
 
-    sendBulkEmail.mutate({
-      templateSlug: selectedTemplate,
-      recipients: recipientsList,
-    });
+    try {
+      const totalRecipients = recipientsList.length;
+      const batchSizeNum = batchSize === "all" ? totalRecipients : parseInt(batchSize);
+      const numBatches = Math.ceil(totalRecipients / batchSizeNum);
+      setTotalBatches(numBatches);
+      setSendProgress({ current: 0, total: totalRecipients });
+
+      for (let batch = 0; batch < numBatches; batch++) {
+        setCurrentBatch(batch + 1);
+        const start = batch * batchSizeNum;
+        const end = Math.min(start + batchSizeNum, totalRecipients);
+        const batchRecipients = recipientsList.slice(start, end);
+
+        for (let i = 0; i < batchRecipients.length; i++) {
+          const globalIndex = start + i;
+          const recipient = batchRecipients[i];
+
+          try {
+            const { data, error } = await supabase.functions.invoke("send-email", {
+              body: {
+                templateSlug: selectedTemplate,
+                ...recipient,
+              },
+            });
+
+            if (error || !data?.success) {
+              errorCount++;
+            } else {
+              successCount++;
+            }
+          } catch (err) {
+            errorCount++;
+          }
+
+          setSendProgress({ current: globalIndex + 1, total: totalRecipients });
+
+          // Pequeno delay entre emails (200ms)
+          if (i < batchRecipients.length - 1 || batch < numBatches - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+
+        // Pausar entre lotes (exceto no último)
+        if (batch < numBatches - 1) {
+          setIsPaused(true);
+          await new Promise<void>((resolve) => {
+            continueResolve.current = resolve;
+          });
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} emails enviados com sucesso!`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} emails falharam`);
+      }
+    } catch (error) {
+      console.error("Erro no envio em massa:", error);
+      toast.error("Erro ao processar envio em massa");
+    } finally {
+      setIsSending(false);
+      setIsPaused(false);
+      setCurrentBatch(0);
+      setTotalBatches(0);
+      setSendProgress({ current: 0, total: 0 });
+      setConfirmed(false);
+    }
   };
 
   return (
@@ -400,6 +497,29 @@ export function EmailBulkSendTab() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Tamanho do Lote */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Tamanho do Lote
+              </Label>
+              <Select value={batchSize} onValueChange={setBatchSize} disabled={isSending}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BATCH_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O envio será pausado a cada {batchSize === "all" ? "término" : batchSize} emails para revisão
+              </p>
+            </div>
+
             {/* Recipient Type */}
             <div className="space-y-3">
               <Label>Tipo de Destinatários</Label>
@@ -782,16 +902,55 @@ export function EmailBulkSendTab() {
                 <Button
                   className="w-full"
                   size="lg"
-                  disabled={!canSend || sendBulkEmail.isPending}
+                  disabled={!canSend}
                   onClick={handleSend}
                 >
-                  {sendBulkEmail.isPending ? (
+                  {isSending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4 mr-2" />
                   )}
                   Enviar {recipients?.length || 0} Emails
                 </Button>
+
+                {/* Progress bar during sending */}
+                {isSending && sendProgress.total > 0 && (
+                  <div className="space-y-3 mt-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        {isPaused ? (
+                          <Badge variant="outline" className="bg-amber-50 border-amber-300 text-amber-700">
+                            Pausado
+                          </Badge>
+                        ) : (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        Lote {currentBatch} de {totalBatches}
+                      </span>
+                      <span className="font-medium">
+                        {sendProgress.current} de {sendProgress.total} emails
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(sendProgress.current / sendProgress.total) * 100} 
+                      className="h-2"
+                    />
+                    
+                    {isPaused && (
+                      <Alert className="bg-amber-50 border-amber-200">
+                        <AlertDescription className="flex items-center justify-between">
+                          <span className="text-amber-800">
+                            ✅ Lote {currentBatch} concluído! Pronto para enviar lote {currentBatch + 1}?
+                          </span>
+                          <Button size="sm" onClick={handleContinue} className="gap-2">
+                            <Play className="h-4 w-4" />
+                            Continuar
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </CardContent>

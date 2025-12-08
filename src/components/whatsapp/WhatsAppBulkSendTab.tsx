@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Send,
@@ -10,6 +10,8 @@ import {
   AlertCircle,
   Clock,
   ClipboardList,
+  Layers,
+  Play,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,16 @@ const CONVITE_TEMPLATES_CONTACTS = [
   "pesquisa-convite",
 ];
 
+// Opções de tamanho de lote
+const BATCH_SIZE_OPTIONS = [
+  { value: "10", label: "10 por vez" },
+  { value: "20", label: "20 por vez" },
+  { value: "30", label: "30 por vez" },
+  { value: "50", label: "50 por vez" },
+  { value: "100", label: "100 por vez" },
+  { value: "all", label: "Todos de uma vez" },
+];
+
 export function WhatsAppBulkSendTab() {
   const [recipientType, setRecipientType] = useState<RecipientType>("all_contacts");
   const [selectedEvent, setSelectedEvent] = useState<string>("");
@@ -70,6 +82,13 @@ export function WhatsAppBulkSendTab() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  
+  // Estados para controle de lotes
+  const [batchSize, setBatchSize] = useState("20");
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const continueResolve = useRef<(() => void) | null>(null);
   
   // Estados para evento/funil/pesquisa DESTINO (para preencher variáveis)
   const [targetEventId, setTargetEventId] = useState("");
@@ -86,6 +105,15 @@ export function WhatsAppBulkSendTab() {
     const minDelay = 3000; // 3 segundos
     const maxDelay = 6000; // 6 segundos
     return Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+  };
+  
+  // Função para continuar envio após pausa
+  const handleContinue = () => {
+    if (continueResolve.current) {
+      continueResolve.current();
+      continueResolve.current = null;
+    }
+    setIsPaused(false);
   };
 
   const { data: templates } = useWhatsAppTemplates();
@@ -341,6 +369,8 @@ export function WhatsAppBulkSendTab() {
     if (!canSend || !selectedTemplateData) return;
 
     setIsSending(true);
+    setIsPaused(false);
+    setCurrentBatch(0);
     let successCount = 0;
     let errorCount = 0;
 
@@ -349,155 +379,174 @@ export function WhatsAppBulkSendTab() {
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
       const totalRecipients = recipients.length;
+      const batchSizeNum = batchSize === "all" ? totalRecipients : parseInt(batchSize);
+      const numBatches = Math.ceil(totalRecipients / batchSizeNum);
+      setTotalBatches(numBatches);
       setSendProgress({ current: 0, total: totalRecipients });
 
-      for (let i = 0; i < recipients.length; i++) {
-        const recipient = recipients[i];
-        let phone: string | null = null;
-        let nome: string = "Visitante";
-        let contactId: string | null = null;
+      for (let batch = 0; batch < numBatches; batch++) {
+        setCurrentBatch(batch + 1);
+        const start = batch * batchSizeNum;
+        const end = Math.min(start + batchSizeNum, totalRecipients);
+        const batchRecipients = recipients.slice(start, end);
 
-        if (recipientType === "leaders" || recipientType === "single_leader") {
-          phone = recipient.telefone as string;
-          nome = (recipient.nome_completo as string) || "Líder";
-          contactId = null;
-        } else if (recipientType === "event_contacts") {
-          phone = recipient.whatsapp as string;
-          nome = (recipient.nome as string) || "Visitante";
-          contactId = (recipient.contact_id as string) || (recipient.id as string);
-        } else {
-          phone = recipient.telefone_norm as string;
-          nome = (recipient.nome as string) || "Visitante";
-          contactId = recipient.id as string;
-        }
+        for (let i = 0; i < batchRecipients.length; i++) {
+          const globalIndex = start + i;
+          const recipient = batchRecipients[i];
+          let phone: string | null = null;
+          let nome: string = "Visitante";
+          let contactId: string | null = null;
 
-        if (!phone) continue;
-
-        // Construir variáveis baseado no tipo de template
-        const variables: Record<string, string> = {
-          nome,
-        };
-
-        // Se for template de evento, adicionar variáveis do evento destino
-        if (isEventInviteTemplate && targetEvent) {
-          variables.evento_nome = targetEvent.name;
-          variables.evento_data = format(new Date(targetEvent.date), "dd 'de' MMMM", { locale: ptBR });
-          variables.evento_hora = targetEvent.time;
-          variables.evento_local = targetEvent.location;
-          variables.evento_endereco = targetEvent.address || "";
-          variables.evento_descricao = targetEvent.description || "";
-          variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
-          
-          // Se for líder, gerar link_afiliado exclusivo
-          if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
-            variables.link_afiliado = generateEventAffiliateUrl(targetEvent.slug, recipient.affiliate_token as string);
-          }
-        }
-
-        // Se for template de captação, adicionar variáveis do funil destino
-        if (isFunnelInviteTemplate && targetFunnel) {
-          variables.material_nome = targetFunnel.lead_magnet_nome;
-          variables.material_descricao = targetFunnel.subtitulo || "";
-          variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
-        }
-
-        // Se for template de pesquisa, adicionar variáveis da pesquisa destino
-        if (isSurveyInviteTemplate && targetSurvey) {
-          variables.pesquisa_titulo = targetSurvey.titulo;
-          variables.pesquisa_descricao = targetSurvey.descricao || "";
-          variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
-          
-          // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado
-          if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token && selectedTemplateData.slug === "lideranca-pesquisa-link") {
-            variables.link_pesquisa_afiliado = generateSurveyAffiliateUrl(targetSurvey.slug, recipient.affiliate_token as string);
-          }
-        }
-
-        // Se for template de link de afiliado para líder (reunião ou cadastro)
-        if (isLeaderAffiliateLinkTemplate && (recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
-          const affiliateToken = recipient.affiliate_token as string;
-          
-          if (selectedTemplateData.slug === "lideranca-reuniao-link") {
-            variables.deputado_nome = organization?.nome || "Deputado";
-            variables.link_reuniao_afiliado = generateAffiliateUrl(affiliateToken);
-          }
-          
-          if (selectedTemplateData.slug === "lideranca-cadastro-link") {
-            const linkCadastroAfiliado = generateLeaderReferralUrl(affiliateToken);
-            variables.link_cadastro_afiliado = linkCadastroAfiliado;
-            
-            // Gerar QR code e enviar junto com a mensagem
-            try {
-              const QRCode = (await import('qrcode')).default;
-              const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
-              const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
-              
-              const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-                body: {
-                  phone,
-                  message,
-                  contactId,
-                  imageUrl: qrCodeDataUrl,
-                },
-              });
-              
-              if (error || !data?.success) {
-                errorCount++;
-              } else {
-                successCount++;
-              }
-              
-              setSendProgress({ current: i + 1, total: totalRecipients });
-              
-              if (i < recipients.length - 1) {
-                await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
-              }
-              continue; // Pular o envio padrão abaixo
-            } catch (qrError) {
-              console.error("Erro ao gerar QR code:", qrError);
-              // Continua para envio sem QR code
-            }
-          }
-        }
-
-        const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
-
-        try {
-          const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-            body: {
-              phone,
-              message,
-              contactId,
-            },
-          });
-
-          if (error || !data?.success) {
-            errorCount++;
+          if (recipientType === "leaders" || recipientType === "single_leader") {
+            phone = recipient.telefone as string;
+            nome = (recipient.nome_completo as string) || "Líder";
+            contactId = null;
+          } else if (recipientType === "event_contacts") {
+            phone = recipient.whatsapp as string;
+            nome = (recipient.nome as string) || "Visitante";
+            contactId = (recipient.contact_id as string) || (recipient.id as string);
           } else {
-            successCount++;
+            phone = recipient.telefone_norm as string;
+            nome = (recipient.nome as string) || "Visitante";
+            contactId = recipient.id as string;
+          }
+
+          if (!phone) continue;
+
+          // Construir variáveis baseado no tipo de template
+          const variables: Record<string, string> = {
+            nome,
+          };
+
+          // Se for template de evento, adicionar variáveis do evento destino
+          if (isEventInviteTemplate && targetEvent) {
+            variables.evento_nome = targetEvent.name;
+            variables.evento_data = format(new Date(targetEvent.date), "dd 'de' MMMM", { locale: ptBR });
+            variables.evento_hora = targetEvent.time;
+            variables.evento_local = targetEvent.location;
+            variables.evento_endereco = targetEvent.address || "";
+            variables.evento_descricao = targetEvent.description || "";
+            variables.link_inscricao = `${baseUrl}/eventos/${targetEvent.slug}`;
             
-            // Se for template lideranca-evento-link, enviar link em mensagem separada
-            if (selectedTemplateData.slug === "lideranca-evento-link" && variables.link_afiliado) {
-              await new Promise((resolve) => setTimeout(resolve, 2000)); // Delay de 2s
-              await supabase.functions.invoke("send-whatsapp", {
-                body: {
-                  phone,
-                  message: variables.link_afiliado,
-                  contactId,
-                },
-              });
+            // Se for líder, gerar link_afiliado exclusivo
+            if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
+              variables.link_afiliado = generateEventAffiliateUrl(targetEvent.slug, recipient.affiliate_token as string);
             }
           }
-        } catch (err) {
-          errorCount++;
+
+          // Se for template de captação, adicionar variáveis do funil destino
+          if (isFunnelInviteTemplate && targetFunnel) {
+            variables.material_nome = targetFunnel.lead_magnet_nome;
+            variables.material_descricao = targetFunnel.subtitulo || "";
+            variables.link_captacao = `${baseUrl}/captacao/${targetFunnel.slug}`;
+          }
+
+          // Se for template de pesquisa, adicionar variáveis da pesquisa destino
+          if (isSurveyInviteTemplate && targetSurvey) {
+            variables.pesquisa_titulo = targetSurvey.titulo;
+            variables.pesquisa_descricao = targetSurvey.descricao || "";
+            variables.link_pesquisa = `${baseUrl}/pesquisa/${targetSurvey.slug}`;
+            
+            // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado
+            if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token && selectedTemplateData.slug === "lideranca-pesquisa-link") {
+              variables.link_pesquisa_afiliado = generateSurveyAffiliateUrl(targetSurvey.slug, recipient.affiliate_token as string);
+            }
+          }
+
+          // Se for template de link de afiliado para líder (reunião ou cadastro)
+          if (isLeaderAffiliateLinkTemplate && (recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
+            const affiliateToken = recipient.affiliate_token as string;
+            
+            if (selectedTemplateData.slug === "lideranca-reuniao-link") {
+              variables.deputado_nome = organization?.nome || "Deputado";
+              variables.link_reuniao_afiliado = generateAffiliateUrl(affiliateToken);
+            }
+            
+            if (selectedTemplateData.slug === "lideranca-cadastro-link") {
+              const linkCadastroAfiliado = generateLeaderReferralUrl(affiliateToken);
+              variables.link_cadastro_afiliado = linkCadastroAfiliado;
+              
+              // Gerar QR code e enviar junto com a mensagem
+              try {
+                const QRCode = (await import('qrcode')).default;
+                const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
+                const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
+                
+                const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+                  body: {
+                    phone,
+                    message,
+                    contactId,
+                    imageUrl: qrCodeDataUrl,
+                  },
+                });
+                
+                if (error || !data?.success) {
+                  errorCount++;
+                } else {
+                  successCount++;
+                }
+                
+                setSendProgress({ current: globalIndex + 1, total: totalRecipients });
+                
+                if (i < batchRecipients.length - 1 || batch < numBatches - 1) {
+                  await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+                }
+                continue; // Pular o envio padrão abaixo
+              } catch (qrError) {
+                console.error("Erro ao gerar QR code:", qrError);
+                // Continua para envio sem QR code
+              }
+            }
+          }
+
+          const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
+
+          try {
+            const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+              body: {
+                phone,
+                message,
+                contactId,
+              },
+            });
+
+            if (error || !data?.success) {
+              errorCount++;
+            } else {
+              successCount++;
+              
+              // Se for template lideranca-evento-link, enviar link em mensagem separada
+              if (selectedTemplateData.slug === "lideranca-evento-link" && variables.link_afiliado) {
+                await new Promise((resolve) => setTimeout(resolve, 2000)); // Delay de 2s
+                await supabase.functions.invoke("send-whatsapp", {
+                  body: {
+                    phone,
+                    message: variables.link_afiliado,
+                    contactId,
+                  },
+                });
+              }
+            }
+          } catch (err) {
+            errorCount++;
+          }
+
+          // Atualizar progresso
+          setSendProgress({ current: globalIndex + 1, total: totalRecipients });
+
+          // Delay aleatório entre 3-6 segundos (exceto na última mensagem do último lote)
+          if (i < batchRecipients.length - 1 || batch < numBatches - 1) {
+            await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+          }
         }
 
-        // Atualizar progresso
-        setSendProgress({ current: i + 1, total: totalRecipients });
-
-        // Delay aleatório entre 3-6 segundos (exceto na última mensagem)
-        if (i < recipients.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+        // Pausar entre lotes (exceto no último)
+        if (batch < numBatches - 1) {
+          setIsPaused(true);
+          await new Promise<void>((resolve) => {
+            continueResolve.current = resolve;
+          });
         }
       }
 
@@ -512,6 +561,9 @@ export function WhatsAppBulkSendTab() {
       toast.error("Erro ao processar envio em massa");
     } finally {
       setIsSending(false);
+      setIsPaused(false);
+      setCurrentBatch(0);
+      setTotalBatches(0);
       setSendProgress({ current: 0, total: 0 });
     }
   };
@@ -552,6 +604,29 @@ export function WhatsAppBulkSendTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Tamanho do Lote */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Tamanho do Lote
+              </Label>
+              <Select value={batchSize} onValueChange={setBatchSize} disabled={isSending}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BATCH_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O envio será pausado a cada {batchSize === "all" ? "término" : batchSize} mensagens para revisão
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Tipo de Destinatário</Label>
               <Select
@@ -568,6 +643,7 @@ export function WhatsAppBulkSendTab() {
                   setSelectedSingleLeader(null);
                   setSingleContactSearch("");
                 }}
+                disabled={isSending}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -877,24 +953,45 @@ export function WhatsAppBulkSendTab() {
         <CardContent className="pt-6 space-y-4">
           {/* Progress bar during sending */}
           {isSending && sendProgress.total > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Enviando mensagens...
+                  {isPaused ? (
+                    <Badge variant="outline" className="bg-amber-50 border-amber-300 text-amber-700">
+                      Pausado
+                    </Badge>
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  Lote {currentBatch} de {totalBatches}
                 </span>
                 <span className="font-medium">
-                  {sendProgress.current} de {sendProgress.total}
+                  {sendProgress.current} de {sendProgress.total} mensagens
                 </span>
               </div>
               <Progress 
                 value={(sendProgress.current / sendProgress.total) * 100} 
                 className="h-2"
               />
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Tempo restante estimado: ~{Math.ceil((sendProgress.total - sendProgress.current) * 4.5 / 60)} min
-              </p>
+              
+              {isPaused ? (
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertDescription className="flex items-center justify-between">
+                    <span className="text-amber-800">
+                      ✅ Lote {currentBatch} concluído! Pronto para enviar lote {currentBatch + 1}?
+                    </span>
+                    <Button size="sm" onClick={handleContinue} className="gap-2">
+                      <Play className="h-4 w-4" />
+                      Continuar envio
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Tempo restante estimado: ~{Math.ceil((sendProgress.total - sendProgress.current) * 4.5 / 60)} min
+                </p>
+              )}
             </div>
           )}
 
