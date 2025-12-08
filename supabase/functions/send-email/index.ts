@@ -26,6 +26,7 @@ const PUBLIC_TEMPLATES = [
   'captacao-boas-vindas',
   'lider-cadastro-confirmado',
   'visita-link-formulario',
+  'membro-cadastro-boas-vindas',
 ];
 
 serve(async (req) => {
