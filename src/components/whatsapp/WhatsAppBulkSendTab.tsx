@@ -423,7 +423,40 @@ export function WhatsAppBulkSendTab() {
           }
           
           if (selectedTemplateData.slug === "lideranca-cadastro-link") {
-            variables.link_cadastro_afiliado = generateLeaderReferralUrl(affiliateToken);
+            const linkCadastroAfiliado = generateLeaderReferralUrl(affiliateToken);
+            variables.link_cadastro_afiliado = linkCadastroAfiliado;
+            
+            // Gerar QR code e enviar junto com a mensagem
+            try {
+              const QRCode = (await import('qrcode')).default;
+              const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
+              const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
+              
+              const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+                body: {
+                  phone,
+                  message,
+                  contactId,
+                  imageUrl: qrCodeDataUrl,
+                },
+              });
+              
+              if (error || !data?.success) {
+                errorCount++;
+              } else {
+                successCount++;
+              }
+              
+              setSendProgress({ current: i + 1, total: totalRecipients });
+              
+              if (i < recipients.length - 1) {
+                await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+              }
+              continue; // Pular o envio padrão abaixo
+            } catch (qrError) {
+              console.error("Erro ao gerar QR code:", qrError);
+              // Continua para envio sem QR code
+            }
           }
         }
 
