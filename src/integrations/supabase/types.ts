@@ -2119,6 +2119,10 @@ export type Database = {
         Args: { p_reason?: string; p_token: string }
         Returns: Json
       }
+      update_contact_verification_sent: {
+        Args: { _contact_id: string }
+        Returns: boolean
+      }
       update_visit_status_form_opened: {
         Args: { _visit_id: string }
         Returns: boolean
