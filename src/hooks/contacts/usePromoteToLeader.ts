@@ -55,30 +55,22 @@ export function usePromoteToLeader() {
         console.error("Erro ao registrar histórico:", logError);
       }
 
-      // 3. Enviar WhatsApp de confirmação
+      // 3. Enviar WhatsApp de confirmação com QR code
       try {
-        const baseUrl = window.location.origin;
-        const linkIndicacao = `${baseUrl}/cadastro/${leader.affiliate_token}`;
+        const { getBaseUrl } = await import("@/lib/urlHelper");
+        const QRCode = (await import('qrcode')).default;
+        const linkCadastroAfiliado = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
+        const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
         
-        // Enviar mensagem principal com template
         await supabase.functions.invoke("send-whatsapp", {
           body: {
             phone: contact.telefone_norm,
-            templateSlug: "lider-cadastro-confirmado",
+            templateSlug: "lideranca-cadastro-link",
             variables: {
               nome: contact.nome,
-              link_indicacao: linkIndicacao,
+              link_cadastro_afiliado: linkCadastroAfiliado,
             },
-          },
-        });
-        
-        // Enviar link em mensagem separada após 2 segundos
-        // para facilitar o usuário copiar e compartilhar
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        await supabase.functions.invoke("send-whatsapp", {
-          body: {
-            phone: contact.telefone_norm,
-            message: linkIndicacao,
+            imageUrl: qrCodeDataUrl,
           },
         });
         

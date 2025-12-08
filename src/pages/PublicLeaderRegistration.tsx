@@ -102,21 +102,30 @@ export default function PublicLeaderRegistration() {
       const leaderId = createdLeader?.id;
       const affiliateToken = createdLeader?.affiliate_token;
 
-      // Send WhatsApp confirmation (lider-cadastro-confirmado)
-      try {
-        await supabase.functions.invoke('send-whatsapp', {
-          body: {
-            phone: normalizedPhone,
-            templateSlug: 'lider-cadastro-confirmado',
-            variables: {
-              nome: data.nome_completo,
+      // Send WhatsApp confirmation with QR code (lideranca-cadastro-link)
+      if (affiliateToken) {
+        try {
+          const { getBaseUrl } = await import("@/lib/urlHelper");
+          const QRCode = (await import('qrcode')).default;
+          const linkCadastroAfiliado = `${getBaseUrl()}/cadastro/${affiliateToken}`;
+          const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
+
+          await supabase.functions.invoke('send-whatsapp', {
+            body: {
+              phone: normalizedPhone,
+              templateSlug: 'lideranca-cadastro-link',
+              variables: {
+                nome: data.nome_completo,
+                link_cadastro_afiliado: linkCadastroAfiliado,
+              },
+              imageUrl: qrCodeDataUrl,
+              leaderId: leaderId,
             },
-            leaderId: leaderId,
-          },
-        });
-      } catch (whatsappError) {
-        console.error('Error sending WhatsApp confirmation:', whatsappError);
-        // Don't fail the submission if WhatsApp fails
+          });
+        } catch (whatsappError) {
+          console.error('Error sending WhatsApp confirmation:', whatsappError);
+          // Don't fail the submission if WhatsApp fails
+        }
       }
 
       // Send welcome email (lideranca-boas-vindas)

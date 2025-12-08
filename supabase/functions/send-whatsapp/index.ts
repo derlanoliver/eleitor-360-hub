@@ -35,6 +35,7 @@ const PUBLIC_TEMPLATES = [
   'visita-link-formulario',
   'verificacao-cadastro',
   'membro-cadastro-boas-vindas',
+  'lideranca-cadastro-link',
 ];
 
 Deno.serve(async (req) => {
