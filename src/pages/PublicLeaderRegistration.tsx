@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { CalendarIcon, CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { usePublicFormSettings } from "@/hooks/usePublicFormSettings";
@@ -12,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -29,20 +26,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
+import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 
 const formSchema = z.object({
   nome_completo: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
   telefone: z.string().min(10, "Telefone inválido"),
   cidade_id: z.string().min(1, "Selecione uma região"),
-  data_nascimento: z.date({ required_error: "Data de nascimento obrigatória" }),
+  data_nascimento: z.string()
+    .min(10, "Data de nascimento obrigatória")
+    .refine((val) => isValidDateBR(val), "Data inválida. Use o formato DD/MM/AAAA")
+    .refine((val) => isNotFutureDate(val), "Data não pode ser futura"),
   observacao: z.string().min(10, "Observação deve ter pelo menos 10 caracteres"),
   lgpd: z.boolean().refine((val) => val === true, "Você deve aceitar os termos"),
 });
@@ -64,6 +59,7 @@ export default function PublicLeaderRegistration() {
       email: "",
       telefone: "",
       cidade_id: "",
+      data_nascimento: "",
       observacao: "",
       lgpd: false,
     },
@@ -78,13 +74,14 @@ export default function PublicLeaderRegistration() {
     setIsSubmitting(true);
     try {
       const normalizedPhone = normalizePhoneToE164(data.telefone);
+      const dataNascimentoISO = parseDateBR(data.data_nascimento);
 
       const { error } = await supabase.from("lideres").insert({
         nome_completo: data.nome_completo.trim(),
         email: data.email.trim().toLowerCase(),
         telefone: normalizedPhone,
         cidade_id: data.cidade_id,
-        data_nascimento: format(data.data_nascimento, "yyyy-MM-dd"),
+        data_nascimento: dataNascimentoISO,
         observacao: data.observacao.trim(),
         is_active: true,
         status: "active",
@@ -314,42 +311,11 @@ export default function PublicLeaderRegistration() {
                   control={form.control}
                   name="data_nascimento"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Data de Nascimento *</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1920-01-01")
-                            }
-                            initialFocus
-                            captionLayout="dropdown-buttons"
-                            fromYear={1920}
-                            toYear={new Date().getFullYear()}
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <MaskedDateInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

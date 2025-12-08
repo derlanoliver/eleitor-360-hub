@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,13 +17,17 @@ import { User, MapPin, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { sendVerificationMessage } from "@/hooks/contacts/useContactVerification";
+import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
   email: z.string().email("E-mail inválido").max(255),
   whatsapp: z.string().min(10, "WhatsApp inválido").max(15),
-  data_nascimento: z.string().min(1, "Data de nascimento é obrigatória"),
+  data_nascimento: z.string()
+    .min(10, "Data de nascimento é obrigatória")
+    .refine((val) => isValidDateBR(val), "Data inválida. Use o formato DD/MM/AAAA")
+    .refine((val) => isNotFutureDate(val), "Data não pode ser futura"),
   cidade_id: z.string().min(1, "Selecione sua região"),
   endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres").max(500),
   consentimento: z.boolean().refine(val => val === true, "Você deve aceitar os termos")
@@ -107,12 +111,15 @@ export default function LeaderRegistrationForm() {
       // Normalizar telefone
       const telefone_norm = normalizePhoneToE164(data.whatsapp);
 
+      // Converter data DD/MM/AAAA para YYYY-MM-DD
+      const dataNascimentoISO = parseDateBR(data.data_nascimento);
+
       // Usar função SECURITY DEFINER para upsert (bypassa RLS para usuários públicos)
       const { data: result, error } = await supabase.rpc('upsert_contact_from_leader_form', {
         p_nome: data.nome.trim(),
         p_email: data.email.trim().toLowerCase(),
         p_telefone_norm: telefone_norm,
-        p_data_nascimento: data.data_nascimento,
+        p_data_nascimento: dataNascimentoISO || '',
         p_cidade_id: data.cidade_id,
         p_endereco: data.endereco.trim(),
         p_leader_id: leader.id
@@ -371,7 +378,7 @@ export default function LeaderRegistrationForm() {
                     <FormItem>
                       <FormLabel>Data de Nascimento *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <MaskedDateInput value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
