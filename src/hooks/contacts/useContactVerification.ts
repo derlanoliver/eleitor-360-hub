@@ -75,11 +75,10 @@ export async function sendVerificationMessage({
       // Não retorna false pois a mensagem principal foi enviada
     }
 
-    // Update verification_sent_at
-    await supabase
-      .from("office_contacts")
-      .update({ verification_sent_at: new Date().toISOString() })
-      .eq("id", contactId);
+    // Update verification_sent_at via SECURITY DEFINER function
+    await supabase.rpc('update_contact_verification_sent', {
+      _contact_id: contactId
+    });
 
     console.log("Verification message sent:", data);
     return true;
