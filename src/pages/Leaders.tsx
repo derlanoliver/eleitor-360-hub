@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
@@ -54,12 +55,15 @@ const formatPhone = (phone: string) => {
   return phone;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("cadastros_desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: cities } = useOfficeCities();
   const { data: leaders, isLoading } = useQuery({
@@ -152,6 +156,35 @@ const Leaders = () => {
   const activeLeaders = leaders?.filter(leader => leader.is_active).length || 0;
   const totalPoints = leaders?.reduce((sum, l) => sum + l.pontuacao_total, 0) || 0;
 
+  // Paginação
+  const totalPages = Math.ceil(sortedLeaders.length / ITEMS_PER_PAGE);
+  const paginatedLeaders = sortedLeaders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page when filters change
+  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -210,7 +243,7 @@ const Leaders = () => {
               className="pl-9"
             />
           </div>
-          <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+          <Select value={selectedRegion} onValueChange={(v) => handleFilterChange(setSelectedRegion, v)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Região" />
             </SelectTrigger>
@@ -223,7 +256,7 @@ const Leaders = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => handleFilterChange(setStatusFilter, v)}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -233,7 +266,7 @@ const Leaders = () => {
               <SelectItem value="inactive">Inativos</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
+          <Select value={sortBy} onValueChange={(v) => handleFilterChange(setSortBy, v)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
@@ -270,7 +303,7 @@ const Leaders = () => {
             </CardContent>
           </Card>
         ) : (
-          sortedLeaders.map((leader) => (
+          paginatedLeaders.map((leader) => (
             <Card key={leader.id} className={getLeaderCardColorClass(leader.pontuacao_total)}>
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -398,6 +431,46 @@ const Leaders = () => {
           ))
         )}
       </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, sortedLeaders.length)} de {sortedLeaders.length} líderes
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              {getPageNumbers().map((page, index) => (
+                <PaginationItem key={index}>
+                  {page === 'ellipsis' ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 };
