@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Send,
@@ -13,6 +13,8 @@ import {
   Layers,
   Play,
 } from "lucide-react";
+import { useBulkSendSession } from "@/hooks/useBulkSendSession";
+import { ResumeSessionAlert } from "@/components/bulk-send/ResumeSessionAlert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +101,20 @@ export function WhatsAppBulkSendTab() {
   const [singleContactSearch, setSingleContactSearch] = useState("");
   const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; telefone_norm: string} | null>(null);
   const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; telefone: string; affiliate_token: string | null} | null>(null);
+
+  // Hook de sessão para retomada
+  const {
+    pendingSession,
+    showResumeDialog,
+    startSession,
+    markSent,
+    getSentIdentifiers,
+    clearSession,
+    dismissDialog,
+  } = useBulkSendSession("whatsapp");
+  
+  // Estado para controle de retomada
+  const [isResuming, setIsResuming] = useState(false);
 
   // Delay aleatório entre 3-6 segundos para parecer mais humano e evitar bloqueio
   const getRandomDelay = () => {
@@ -365,7 +381,7 @@ export function WhatsAppBulkSendTab() {
     (!isFunnelInviteTemplate || targetFunnelId) &&
     (!isSurveyInviteTemplate || targetSurveyId);
 
-  const handleSend = async () => {
+  const handleSend = async (resumeMode = false) => {
     if (!canSend || !selectedTemplateData) return;
 
     setIsSending(true);
@@ -378,7 +394,40 @@ export function WhatsAppBulkSendTab() {
 
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
-      const totalRecipients = recipients.length;
+      
+      // Obter identificadores já enviados (para retomada)
+      const sentIdentifiers = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();
+      
+      // Filtrar recipients que ainda não receberam
+      const pendingRecipients = recipients.filter(r => {
+        const phone = (r.telefone as string) || (r.telefone_norm as string) || (r.whatsapp as string);
+        return phone && !sentIdentifiers.has(phone);
+      });
+      
+      const totalRecipients = pendingRecipients.length;
+      
+      if (totalRecipients === 0) {
+        toast.info("Todos os destinatários já receberam a mensagem");
+        clearSession();
+        setIsSending(false);
+        return;
+      }
+      
+      // Iniciar nova sessão se não estiver retomando
+      if (!resumeMode && !isResuming) {
+        startSession(
+          selectedTemplate,
+          selectedTemplateData.slug,
+          selectedTemplateData.nome,
+          recipientType,
+          recipients.length,
+          batchSize,
+          targetEventId || undefined,
+          targetFunnelId || undefined,
+          targetSurveyId || undefined
+        );
+      }
+      
       const batchSizeNum = batchSize === "all" ? totalRecipients : parseInt(batchSize);
       const numBatches = Math.ceil(totalRecipients / batchSizeNum);
       setTotalBatches(numBatches);
@@ -388,7 +437,7 @@ export function WhatsAppBulkSendTab() {
         setCurrentBatch(batch + 1);
         const start = batch * batchSizeNum;
         const end = Math.min(start + batchSizeNum, totalRecipients);
-        const batchRecipients = recipients.slice(start, end);
+        const batchRecipients = pendingRecipients.slice(start, end);
 
         for (let i = 0; i < batchRecipients.length; i++) {
           const globalIndex = start + i;
@@ -485,6 +534,7 @@ export function WhatsAppBulkSendTab() {
                   errorCount++;
                 } else {
                   successCount++;
+                  markSent(phone);
                 }
                 
                 setSendProgress({ current: globalIndex + 1, total: totalRecipients });
@@ -515,6 +565,8 @@ export function WhatsAppBulkSendTab() {
               errorCount++;
             } else {
               successCount++;
+              // Marcar como enviado para persistência
+              markSent(phone);
               
               // Se for template lideranca-evento-link, enviar link em mensagem separada
               if (selectedTemplateData.slug === "lideranca-evento-link" && variables.link_afiliado) {
@@ -552,6 +604,8 @@ export function WhatsAppBulkSendTab() {
 
       if (successCount > 0) {
         toast.success(`${successCount} mensagens enviadas com sucesso!`);
+        // Limpar sessão quando concluir com sucesso
+        clearSession();
       }
       if (errorCount > 0) {
         toast.error(`${errorCount} mensagens falharam`);
@@ -565,7 +619,28 @@ export function WhatsAppBulkSendTab() {
       setCurrentBatch(0);
       setTotalBatches(0);
       setSendProgress({ current: 0, total: 0 });
+      setIsResuming(false);
     }
+  };
+  
+  // Handlers para retomada
+  const handleResumeSession = () => {
+    if (pendingSession) {
+      setSelectedTemplate(pendingSession.templateId);
+      setBatchSize(pendingSession.batchSize);
+      setTargetEventId(pendingSession.targetEventId || "");
+      setTargetFunnelId(pendingSession.targetFunnelId || "");
+      setTargetSurveyId(pendingSession.targetSurveyId || "");
+      setRecipientType(pendingSession.recipientType as RecipientType);
+      setIsResuming(true);
+      dismissDialog();
+      // Enviar será chamado manualmente pelo usuário após configuração
+    }
+  };
+  
+  const handleDiscardSession = () => {
+    clearSession();
+    setIsResuming(false);
   };
 
   // Calcular tempo estimado em minutos (média de 4.5 segundos por mensagem)
@@ -573,6 +648,15 @@ export function WhatsAppBulkSendTab() {
 
   return (
     <div className="space-y-6">
+      {/* Alert de sessão pendente */}
+      {showResumeDialog && pendingSession && (
+        <ResumeSessionAlert
+          session={pendingSession}
+          onResume={handleResumeSession}
+          onDiscard={handleDiscardSession}
+          onDismiss={dismissDialog}
+        />
+      )}
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="space-y-1">
@@ -1018,7 +1102,7 @@ export function WhatsAppBulkSendTab() {
             </div>
             <Button
               size="lg"
-              onClick={handleSend}
+              onClick={() => handleSend(isResuming)}
               disabled={!canSend || isSending}
               className="min-w-[200px]"
             >
@@ -1026,6 +1110,11 @@ export function WhatsAppBulkSendTab() {
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {sendProgress.current}/{sendProgress.total}
+                </>
+              ) : isResuming ? (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Retomar envio ({pendingSession ? pendingSession.totalRecipients - pendingSession.sentIdentifiers.length : 0} pendentes)
                 </>
               ) : (
                 <>

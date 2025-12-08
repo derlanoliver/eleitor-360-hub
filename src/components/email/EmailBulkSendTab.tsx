@@ -24,6 +24,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl } from "@/lib/urlHelper";
 import { toast } from "sonner";
+import { useBulkSendSession } from "@/hooks/useBulkSendSession";
+import { ResumeSessionAlert } from "@/components/bulk-send/ResumeSessionAlert";
 
 type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
 
@@ -83,6 +85,20 @@ export function EmailBulkSendTab() {
   const [singleContactSearch, setSingleContactSearch] = useState("");
   const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; email: string} | null>(null);
   const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; email: string; affiliate_token: string | null} | null>(null);
+
+  // Hook de sessão para retomada
+  const {
+    pendingSession,
+    showResumeDialog,
+    startSession,
+    markSent,
+    getSentIdentifiers,
+    clearSession,
+    dismissDialog,
+  } = useBulkSendSession("email");
+  
+  // Estado para controle de retomada
+  const [isResuming, setIsResuming] = useState(false);
 
   // Detectar tipo do template selecionado
   const isEventInviteTemplate = EVENT_INVITE_TEMPLATES.includes(selectedTemplate);
@@ -338,8 +354,12 @@ export function EmailBulkSendTab() {
   // Calcular tempo estimado em minutos (média de 0.3 segundos por email)
   const estimatedMinutes = Math.ceil((recipients?.length || 0) * 0.3 / 60);
 
-  const handleSend = async () => {
+  const handleSend = async (resumeMode = false) => {
     if (!selectedTemplate || !recipients?.length) return;
+
+    // Obter o template selecionado para o nome
+    const templateData = templates?.find(t => t.slug === selectedTemplate);
+    const templateName = templateData?.nome || selectedTemplate;
 
     setIsSending(true);
     setIsPaused(false);
@@ -349,8 +369,11 @@ export function EmailBulkSendTab() {
 
     const baseUrl = getBaseUrl();
 
+    // Obter identificadores já enviados (para retomada)
+    const sentIdentifiers = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();
+
     // Preparar lista de destinatários com variáveis
-    const recipientsList = recipients.map(r => {
+    const allRecipientsList = recipients.map(r => {
       const variables: Record<string, string> = {
         nome: r.name,
       };
@@ -415,6 +438,31 @@ export function EmailBulkSendTab() {
       };
     });
 
+    // Filtrar recipients que ainda não receberam
+    const recipientsList = allRecipientsList.filter(r => !sentIdentifiers.has(r.to));
+
+    if (recipientsList.length === 0) {
+      toast.info("Todos os destinatários já receberam o email");
+      clearSession();
+      setIsSending(false);
+      return;
+    }
+
+    // Iniciar nova sessão se não estiver retomando
+    if (!resumeMode && !isResuming) {
+      startSession(
+        selectedTemplate,
+        selectedTemplate,
+        templateName,
+        recipientType,
+        allRecipientsList.length,
+        batchSize,
+        targetEventId || undefined,
+        targetFunnelId || undefined,
+        targetSurveyId || undefined
+      );
+    }
+
     try {
       const totalRecipients = recipientsList.length;
       const batchSizeNum = batchSize === "all" ? totalRecipients : parseInt(batchSize);
@@ -444,6 +492,8 @@ export function EmailBulkSendTab() {
               errorCount++;
             } else {
               successCount++;
+              // Marcar como enviado para persistência
+              markSent(recipient.to);
             }
           } catch (err) {
             errorCount++;
@@ -468,6 +518,8 @@ export function EmailBulkSendTab() {
 
       if (successCount > 0) {
         toast.success(`${successCount} emails enviados com sucesso!`);
+        // Limpar sessão quando concluir com sucesso
+        clearSession();
       }
       if (errorCount > 0) {
         toast.error(`${errorCount} emails falharam`);
@@ -482,7 +534,27 @@ export function EmailBulkSendTab() {
       setTotalBatches(0);
       setSendProgress({ current: 0, total: 0 });
       setConfirmed(false);
+      setIsResuming(false);
     }
+  };
+
+  // Handlers para retomada
+  const handleResumeSession = () => {
+    if (pendingSession) {
+      setSelectedTemplate(pendingSession.templateSlug);
+      setBatchSize(pendingSession.batchSize);
+      setTargetEventId(pendingSession.targetEventId || "");
+      setTargetFunnelId(pendingSession.targetFunnelId || "");
+      setTargetSurveyId(pendingSession.targetSurveyId || "");
+      setRecipientType(pendingSession.recipientType as RecipientType);
+      setIsResuming(true);
+      dismissDialog();
+    }
+  };
+  
+  const handleDiscardSession = () => {
+    clearSession();
+    setIsResuming(false);
   };
 
   return (
