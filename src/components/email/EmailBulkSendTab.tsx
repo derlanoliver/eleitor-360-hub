@@ -95,6 +95,7 @@ export function EmailBulkSendTab() {
     getSentIdentifiers,
     clearSession,
     dismissDialog,
+    getPendingCount,
   } = useBulkSendSession("email");
   
   // Estado para controle de retomada
@@ -559,6 +560,16 @@ export function EmailBulkSendTab() {
 
   return (
     <div className="space-y-6">
+      {/* Alert de sessão pendente */}
+      {pendingSession && showResumeDialog && (
+        <ResumeSessionAlert
+          session={pendingSession}
+          onResume={handleResumeSession}
+          onDiscard={handleDiscardSession}
+          onDismiss={dismissDialog}
+        />
+      )}
+      
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Configuration */}
         <Card>
@@ -975,14 +986,17 @@ export function EmailBulkSendTab() {
                   className="w-full"
                   size="lg"
                   disabled={!canSend}
-                  onClick={handleSend}
+                  onClick={() => handleSend(true)}
                 >
                   {isSending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4 mr-2" />
                   )}
-                  Enviar {recipients?.length || 0} Emails
+                  {isResuming && pendingSession 
+                    ? `Retomar envio (${getPendingCount()} pendentes)`
+                    : `Enviar ${recipients?.length || 0} Emails`
+                  }
                 </Button>
 
                 {/* Progress bar during sending */}
