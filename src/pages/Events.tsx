@@ -1140,11 +1140,125 @@ function CheckInSection({ events }: { events: any[] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const { data: registrations = [] } = useEventRegistrations(selectedEventId);
+  const { toast } = useToast();
+  
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+  const checkedInCount = registrations.filter((r: any) => r.checked_in).length;
+  const pendingCount = registrations.length - checkedInCount;
   
   const filteredRegistrations = registrations.filter((reg: any) =>
     reg.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     reg.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleExportCheckInPDF = () => {
+    if (!selectedEvent || registrations.length === 0) {
+      toast({
+        title: "Sem inscrições",
+        description: "Não há inscrições para exportar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lista de Check-in", pageWidth / 2, yPos, { align: "center" });
+    yPos += 10;
+
+    // Event info
+    doc.setFontSize(14);
+    doc.text(selectedEvent.name, pageWidth / 2, yPos, { align: "center" });
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const eventDate = selectedEvent.date ? format(new Date(selectedEvent.date), "dd/MM/yyyy", { locale: ptBR }) : "";
+    doc.text(`${eventDate} às ${selectedEvent.time || ""} - ${selectedEvent.location || ""}`, pageWidth / 2, yPos, { align: "center" });
+    yPos += 12;
+
+    // Statistics
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, yPos - 4, pageWidth - 28, 14, "F");
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total: ${registrations.length}  |  Check-ins: ${checkedInCount}  |  Pendentes: ${pendingCount}`, pageWidth / 2, yPos + 4, { align: "center" });
+    yPos += 18;
+
+    // Separate registrations
+    const checkedIn = registrations.filter((r: any) => r.checked_in).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+    const pending = registrations.filter((r: any) => !r.checked_in).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+
+    const addSection = (title: string, items: any[], isCheckedIn: boolean) => {
+      if (items.length === 0) return;
+
+      // Section title
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      if (isCheckedIn) {
+        doc.setTextColor(34, 139, 34);
+      } else {
+        doc.setTextColor(200, 150, 0);
+      }
+      doc.text(`${title} (${items.length})`, 14, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 6;
+
+      // Table header
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(isCheckedIn ? 220 : 255, isCheckedIn ? 255 : 250, isCheckedIn ? 220 : 220);
+      doc.rect(14, yPos - 4, pageWidth - 28, 8, "F");
+      doc.text("#", 16, yPos);
+      doc.text("Nome", 26, yPos);
+      doc.text("WhatsApp", 100, yPos);
+      doc.text("Email", 140, yPos);
+      yPos += 6;
+
+      // Table rows
+      doc.setFont("helvetica", "normal");
+      items.forEach((reg: any, index: number) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        const bgColor = index % 2 === 0 ? 250 : 255;
+        doc.setFillColor(bgColor, bgColor, bgColor);
+        doc.rect(14, yPos - 4, pageWidth - 28, 7, "F");
+
+        doc.text(String(index + 1), 16, yPos);
+        doc.text(reg.nome?.substring(0, 35) || "", 26, yPos);
+        doc.text(reg.whatsapp?.substring(0, 18) || "", 100, yPos);
+        doc.text(reg.email?.substring(0, 30) || "", 140, yPos);
+        yPos += 7;
+      });
+
+      yPos += 8;
+    };
+
+    // Add checked-in section first
+    addSection("✓ Check-in Realizado", checkedIn, true);
+    
+    // Add pending section
+    addSection("○ Aguardando Check-in", pending, false);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, 285, { align: "center" });
+
+    doc.save(`checkin-${selectedEvent.slug || "evento"}.pdf`);
+    toast({
+      title: "PDF gerado",
+      description: "A lista de check-in foi exportada com sucesso."
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -1170,14 +1284,33 @@ function CheckInSection({ events }: { events: any[] }) {
           </div>
 
           {selectedEventId && (
-            <div>
-              <Label>Buscar Participante</Label>
-              <Input
-                placeholder="Nome ou e-mail..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+            <>
+              <div className="flex justify-between items-center pt-2">
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{registrations.length}</span> inscritos • 
+                  <span className="text-green-600 font-medium ml-1">{checkedInCount}</span> check-ins • 
+                  <span className="text-amber-600 font-medium ml-1">{pendingCount}</span> pendentes
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleExportCheckInPDF}
+                  disabled={registrations.length === 0}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Imprimir Lista
+                </Button>
+              </div>
+
+              <div>
+                <Label>Buscar Participante</Label>
+                <Input
+                  placeholder="Nome ou e-mail..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
