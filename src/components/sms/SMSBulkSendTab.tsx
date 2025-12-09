@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,8 +21,14 @@ import { useEvents } from "@/hooks/events/useEvents";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-type RecipientType = "contacts" | "leaders" | "event";
+type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
+
+interface SinglePerson {
+  id: string;
+  nome: string;
+  phone: string;
+}
 
 const BATCH_SIZES: { value: BatchSize; label: string }[] = [
   { value: "10", label: "10 por lote" },
@@ -45,6 +52,10 @@ export function SMSBulkSendTab() {
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [batchSize, setBatchSize] = useState<BatchSize>("20");
   
+  // Single person states
+  const [singleSearch, setSingleSearch] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<SinglePerson | null>(null);
+  
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
   const [currentBatch, setCurrentBatch] = useState(0);
@@ -55,11 +66,51 @@ export function SMSBulkSendTab() {
 
   const activeTemplates = templates?.filter((t) => t.is_active) || [];
   const selectedTemplateData = templates?.find((t) => t.slug === selectedTemplate);
+  const isSingleSend = recipientType === "single_contact" || recipientType === "single_leader";
+
+  // Search contacts
+  const { data: contactSearchResults } = useQuery({
+    queryKey: ["sms-contact-search", singleSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("office_contacts")
+        .select("id, nome, telefone_norm")
+        .eq("is_active", true)
+        .not("telefone_norm", "is", null)
+        .ilike("nome", `%${singleSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data?.map((c) => ({ id: c.id, nome: c.nome, phone: c.telefone_norm })) || [];
+    },
+    enabled: recipientType === "single_contact" && singleSearch.length >= 2 && !selectedPerson,
+  });
+
+  // Search leaders
+  const { data: leaderSearchResults } = useQuery({
+    queryKey: ["sms-leader-search", singleSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, telefone")
+        .eq("is_active", true)
+        .not("telefone", "is", null)
+        .ilike("nome_completo", `%${singleSearch}%`)
+        .limit(10);
+      if (error) throw error;
+      return data?.map((l) => ({ id: l.id, nome: l.nome_completo, phone: l.telefone! })) || [];
+    },
+    enabled: recipientType === "single_leader" && singleSearch.length >= 2 && !selectedPerson,
+  });
+
+  const searchResults = recipientType === "single_contact" ? contactSearchResults : leaderSearchResults;
 
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
-    queryKey: ["sms-recipients", recipientType, selectedEvent],
+    queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id],
     queryFn: async () => {
+      if (isSingleSend && selectedPerson) {
+        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null }];
+      }
       if (recipientType === "contacts") {
         const { data, error } = await supabase
           .from("office_contacts")
@@ -101,7 +152,7 @@ export function SMSBulkSendTab() {
       }
       return [];
     },
-    enabled: recipientType !== "event" || !!selectedEvent,
+    enabled: isSingleSend ? !!selectedPerson : (recipientType !== "event" || !!selectedEvent),
   });
 
   const handleSendBulk = async () => {
@@ -245,12 +296,26 @@ export function SMSBulkSendTab() {
                 onValueChange={(v) => {
                   setRecipientType(v as RecipientType);
                   setSelectedEvent("");
+                  setSingleSearch("");
+                  setSelectedPerson(null);
                 }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="single_contact">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Contato Individual
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="single_leader">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4" />
+                      Líder Individual
+                    </div>
+                  </SelectItem>
                   <SelectItem value="contacts">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
@@ -273,6 +338,58 @@ export function SMSBulkSendTab() {
               </Select>
             </div>
 
+            {isSingleSend && (
+              <div className="space-y-2">
+                <Label>Buscar por Nome</Label>
+                {selectedPerson ? (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <Badge variant="secondary" className="flex-1">
+                      {selectedPerson.nome}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setSingleSearch("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Digite pelo menos 2 caracteres..."
+                      value={singleSearch}
+                      onChange={(e) => setSingleSearch(e.target.value)}
+                    />
+                    {searchResults && searchResults.length > 0 && (
+                      <div className="border rounded-md max-h-40 overflow-y-auto">
+                        {searchResults.map((person) => (
+                          <button
+                            key={person.id}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors border-b last:border-b-0"
+                            onClick={() => {
+                              setSelectedPerson(person);
+                              setSingleSearch("");
+                            }}
+                          >
+                            <div className="font-medium">{person.nome}</div>
+                            <div className="text-xs text-muted-foreground">{person.phone}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {singleSearch.length >= 2 && searchResults?.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Nenhum resultado encontrado</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {recipientType === "event" && (
               <div className="space-y-2">
                 <Label>Evento</Label>
@@ -291,21 +408,23 @@ export function SMSBulkSendTab() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Tamanho do Lote</Label>
-              <Select value={batchSize} onValueChange={(v) => setBatchSize(v as BatchSize)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BATCH_SIZES.map((size) => (
-                    <SelectItem key={size.value} value={size.value}>
-                      {size.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isSingleSend && (
+              <div className="space-y-2">
+                <Label>Tamanho do Lote</Label>
+                <Select value={batchSize} onValueChange={(v) => setBatchSize(v as BatchSize)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BATCH_SIZES.map((size) => (
+                      <SelectItem key={size.value} value={size.value}>
+                        {size.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -391,7 +510,8 @@ export function SMSBulkSendTab() {
                   isSending ||
                   !selectedTemplate ||
                   !recipients?.length ||
-                  (recipientType === "event" && !selectedEvent)
+                  (recipientType === "event" && !selectedEvent) ||
+                  (isSingleSend && !selectedPerson)
                 }
               >
                 {isSending ? (
@@ -399,7 +519,7 @@ export function SMSBulkSendTab() {
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    Iniciar Envio em Massa
+                    {isSingleSend ? "Enviar SMS" : "Iniciar Envio em Massa"}
                   </>
                 )}
               </Button>
