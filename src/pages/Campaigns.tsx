@@ -18,6 +18,9 @@ import { format } from "date-fns";
 import CampaignReportDialog from "@/components/campaigns/CampaignReportDialog";
 import LeaderReferralsDialog from "@/components/campaigns/LeaderReferralsDialog";
 import { CaptacaoTab } from "@/components/campaigns/CaptacaoTab";
+import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
+import JSZip from "jszip";
 import { 
   Target, 
   Plus, 
@@ -38,7 +41,10 @@ import {
   UserCheck,
   Megaphone,
   FileSpreadsheet,
-  Building2
+  Building2,
+  FileText,
+  Loader2,
+  FileArchive
 } from "lucide-react";
 import {
   BarChart,
@@ -77,6 +83,8 @@ const Campaigns = () => {
     leaderName: string;
     cityName: string | null;
   } | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState<'single' | 'all' | 'batch' | null>(null);
+  const [generatingLeaderId, setGeneratingLeaderId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const { data: events = [] } = useEvents();
@@ -297,6 +305,242 @@ const Campaigns = () => {
     });
   };
 
+  // Função para gerar PDF de um único líder
+  const generateSingleLeaderPdf = async (leader: typeof leaderLinks[0]) => {
+    setGeneratingPdf('single');
+    setGeneratingLeaderId(leader.id);
+    
+    try {
+      const pdf = new jsPDF();
+      const qrDataUrl = await QRCode.toDataURL(leader.link, { width: 400, margin: 1 });
+      
+      // Header
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Link de Cadastro", 105, 30, { align: "center" });
+      
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(leader.leaderName, 105, 45, { align: "center" });
+      
+      if (leader.cityName) {
+        pdf.setFontSize(12);
+        pdf.setTextColor(100);
+        pdf.text(leader.cityName, 105, 55, { align: "center" });
+      }
+      
+      // QR Code
+      pdf.addImage(qrDataUrl, "PNG", 55, 70, 100, 100);
+      
+      // Link clicável
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 102, 204);
+      pdf.textWithLink(leader.link, 105, 185, { align: "center", url: leader.link });
+      
+      // Instruções
+      pdf.setFontSize(11);
+      pdf.setTextColor(80);
+      pdf.text("Escaneie o QR Code ou acesse o link acima para se cadastrar", 105, 200, { align: "center" });
+      
+      // Rodapé
+      pdf.setFontSize(9);
+      pdf.setTextColor(150);
+      pdf.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 105, 280, { align: "center" });
+      
+      pdf.save(`link-cadastro-${leader.leaderName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      
+      toast({
+        title: "PDF gerado!",
+        description: `PDF de ${leader.leaderName} baixado com sucesso.`
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o PDF.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingPdf(null);
+      setGeneratingLeaderId(null);
+    }
+  };
+
+  // Função para gerar PDF consolidado com todos os líderes
+  const generateAllLeadersPdf = async () => {
+    if (leaderLinks.length === 0) return;
+    
+    setGeneratingPdf('all');
+    
+    try {
+      const pdf = new jsPDF();
+      
+      // Capa
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Links de Cadastro", 105, 60, { align: "center" });
+      
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Lideranças", 105, 75, { align: "center" });
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(100);
+      pdf.text(`${leaderLinks.length} líderes`, 105, 90, { align: "center" });
+      pdf.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 105, 100, { align: "center" });
+      
+      // Líderes
+      const leadersPerPage = 3;
+      for (let i = 0; i < leaderLinks.length; i++) {
+        const leader = leaderLinks[i];
+        const positionOnPage = i % leadersPerPage;
+        
+        if (i > 0 && positionOnPage === 0) {
+          pdf.addPage();
+        }
+        
+        if (i === 0 || positionOnPage === 0) {
+          if (i > 0) {
+            // Header em cada página
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            pdf.text("Links de Cadastro - Lideranças", 20, 15);
+          }
+        }
+        
+        const yOffset = i === 0 ? 140 : 30 + (positionOnPage * 85);
+        
+        // QR Code
+        const qrDataUrl = await QRCode.toDataURL(leader.link, { width: 200, margin: 1 });
+        pdf.addImage(qrDataUrl, "PNG", 20, yOffset, 50, 50);
+        
+        // Info do líder
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(0);
+        pdf.text(leader.leaderName, 80, yOffset + 15);
+        
+        if (leader.cityName) {
+          pdf.setFontSize(11);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(100);
+          pdf.text(leader.cityName, 80, yOffset + 25);
+        }
+        
+        // Link clicável
+        pdf.setFontSize(9);
+        pdf.setTextColor(0, 102, 204);
+        pdf.textWithLink(leader.link, 80, yOffset + 40, { url: leader.link });
+        
+        // Linha separadora
+        if (positionOnPage < leadersPerPage - 1 && i < leaderLinks.length - 1) {
+          pdf.setDrawColor(200);
+          pdf.line(20, yOffset + 75, 190, yOffset + 75);
+        }
+        
+        // Número da página
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        const pageNumber = Math.floor(i / leadersPerPage) + 1;
+        const totalPages = Math.ceil(leaderLinks.length / leadersPerPage) + 1; // +1 para capa
+        pdf.text(`Página ${pageNumber + 1} de ${totalPages}`, 105, 285, { align: "center" });
+      }
+      
+      pdf.save(`links-lideres-consolidado-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      
+      toast({
+        title: "PDF consolidado gerado!",
+        description: `PDF com ${leaderLinks.length} líderes baixado com sucesso.`
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF consolidado:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o PDF consolidado.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingPdf(null);
+    }
+  };
+
+  // Função para gerar PDFs individuais em lote (ZIP)
+  const generateBatchPdfs = async () => {
+    if (leaderLinks.length === 0) return;
+    
+    setGeneratingPdf('batch');
+    
+    try {
+      const zip = new JSZip();
+      
+      for (const leader of leaderLinks) {
+        const pdf = new jsPDF();
+        const qrDataUrl = await QRCode.toDataURL(leader.link, { width: 400, margin: 1 });
+        
+        // Header
+        pdf.setFontSize(20);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Link de Cadastro", 105, 30, { align: "center" });
+        
+        pdf.setFontSize(16);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(leader.leaderName, 105, 45, { align: "center" });
+        
+        if (leader.cityName) {
+          pdf.setFontSize(12);
+          pdf.setTextColor(100);
+          pdf.text(leader.cityName, 105, 55, { align: "center" });
+        }
+        
+        // QR Code
+        pdf.addImage(qrDataUrl, "PNG", 55, 70, 100, 100);
+        
+        // Link clicável
+        pdf.setFontSize(10);
+        pdf.setTextColor(0, 102, 204);
+        pdf.textWithLink(leader.link, 105, 185, { align: "center", url: leader.link });
+        
+        // Instruções
+        pdf.setFontSize(11);
+        pdf.setTextColor(80);
+        pdf.text("Escaneie o QR Code ou acesse o link acima para se cadastrar", 105, 200, { align: "center" });
+        
+        // Rodapé
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        pdf.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 105, 280, { align: "center" });
+        
+        // Adicionar ao ZIP
+        const pdfBlob = pdf.output('blob');
+        const fileName = `link-cadastro-${leader.leaderName.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+        zip.file(fileName, pdfBlob);
+      }
+      
+      // Gerar e baixar o ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `links-lideres-individuais-${format(new Date(), "yyyy-MM-dd")}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "ZIP gerado!",
+        description: `${leaderLinks.length} PDFs individuais compactados e baixados.`
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDFs em lote:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar os PDFs em lote.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingPdf(null);
+    }
+  };
+
   const toggleCampaignStatus = async (campaignId: string) => {
     const campaign = campaigns.find(c => c.id === campaignId);
     if (!campaign) return;
@@ -502,6 +746,37 @@ const Campaigns = () => {
 
           {/* Links de Líderes */}
           <TabsContent value="leaders">
+            {/* Barra de ações para geração de PDFs */}
+            {leaderLinks.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  onClick={generateAllLeadersPdf}
+                  disabled={generatingPdf !== null}
+                >
+                  {generatingPdf === 'all' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-2" />
+                  )}
+                  PDF Consolidado ({leaderLinks.length})
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={generateBatchPdfs}
+                  disabled={generatingPdf !== null}
+                >
+                  {generatingPdf === 'batch' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileArchive className="h-4 w-4 mr-2" />
+                  )}
+                  PDFs Individuais (ZIP)
+                </Button>
+              </div>
+            )}
+
             <div className="grid gap-6">
               {leaderLinks.length === 0 ? (
                 <Card className="card-default">
@@ -586,8 +861,8 @@ const Campaigns = () => {
                               </Button>
                             </div>
                             
-                            {leader.leaderPhone && (
-                              <div className="flex space-x-2">
+                            <div className="flex space-x-2">
+                              {leader.leaderPhone && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -601,8 +876,24 @@ const Campaigns = () => {
                                   <Share className="h-4 w-4 mr-2" />
                                   Compartilhar
                                 </Button>
-                              </div>
-                            )}
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => generateSingleLeaderPdf(leader)}
+                                disabled={generatingPdf !== null}
+                                title="Gerar PDF com QR Code"
+                              >
+                                {generatingPdf === 'single' && generatingLeaderId === leader.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <QrCode className="h-4 w-4 mr-1" />
+                                    PDF
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
