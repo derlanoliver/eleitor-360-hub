@@ -50,3 +50,12 @@ verify_jwt = false
 
 [functions.generate-survey-questions]
 verify_jwt = false
+
+[functions.analyze-survey]
+verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.test-smsdev-connection]
+verify_jwt = false

@@ -28,6 +28,8 @@ export async function sendVerificationSMS({
   verificationCode,
 }: SendVerificationSMSParams): Promise<boolean> {
   try {
+    console.log("Sending verification SMS to:", contactPhone);
+    
     const { data, error } = await supabase.functions.invoke("send-sms", {
       body: {
         phone: contactPhone,
@@ -45,12 +47,18 @@ export async function sendVerificationSMS({
       return false;
     }
 
-    // Update verification_sent_at via SECURITY DEFINER function
+    // Verificar se a resposta indica sucesso
+    if (!data?.success) {
+      console.error("SMS send failed:", data?.error || data);
+      return false;
+    }
+
+    // SÓ atualiza verification_sent_at se o SMS foi enviado com sucesso
     await supabase.rpc('update_contact_verification_sent', {
       _contact_id: contactId
     });
 
-    console.log("Verification SMS sent:", data);
+    console.log("Verification SMS sent successfully:", data);
     return true;
   } catch (err) {
     console.error("Error in sendVerificationSMS:", err);
