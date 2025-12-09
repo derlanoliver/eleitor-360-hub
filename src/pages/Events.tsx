@@ -1021,10 +1021,21 @@ const Events = () => {
 
 // Event Details Dialog Component
 function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: () => void }) {
+  const [searchTerm, setSearchTerm] = useState("");
   const { data: registrations = [], isLoading } = useEventRegistrations(eventId);
   const updateCheckIn = useUpdateCheckIn();
   const { data: events = [] } = useEvents();
   const event = events.find(e => e.id === eventId);
+
+  const filteredRegistrations = registrations.filter((reg: any) => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      reg.nome?.toLowerCase().includes(search) ||
+      reg.email?.toLowerCase().includes(search) ||
+      reg.whatsapp?.includes(search)
+    );
+  });
 
   if (!event) return null;
 
@@ -1063,17 +1074,33 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
           </div>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>Inscrições</CardTitle>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, email ou telefone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <p className="text-center text-muted-foreground py-4">Carregando...</p>
               ) : registrations.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">Nenhuma inscrição ainda</p>
+              ) : filteredRegistrations.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhum resultado para "{searchTerm}"</p>
               ) : (
                 <div className="space-y-2">
-                  {registrations.map((reg: any) => (
+                  {searchTerm && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {filteredRegistrations.length} resultado(s) encontrado(s)
+                    </p>
+                  )}
+                  {filteredRegistrations.map((reg: any) => (
                     <div key={reg.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium">{reg.nome}</p>
