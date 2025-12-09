@@ -13,10 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { User, MapPin, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
+import { User, MapPin, Loader2, CheckCircle2, MessageSquare } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
-import { sendVerificationMessage } from "@/hooks/contacts/useContactVerification";
+import { sendVerificationSMS } from "@/hooks/contacts/useContactVerification";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import logo from "@/assets/logo-rafael-prudente.png";
 
@@ -162,13 +162,12 @@ export default function LeaderRegistrationForm() {
         });
       }
 
-      // Precisa verificar - enviar código
+      // Precisa verificar - enviar SMS com link de verificação
       if (contact?.contact_id && contact?.verification_code) {
-        await sendVerificationMessage({
+        await sendVerificationSMS({
           contactId: contact.contact_id,
           contactName: data.nome.trim(),
           contactPhone: telefone_norm,
-          leaderName: leader.nome_completo,
           verificationCode: contact.verification_code,
         });
       }
@@ -182,7 +181,7 @@ export default function LeaderRegistrationForm() {
 
       setNeedsVerification(true);
       setIsSuccess(true);
-      toast.success("Cadastro realizado! Verifique seu WhatsApp para confirmar.");
+      toast.success("Cadastro realizado! Verifique seu celular para o SMS de confirmação.");
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
       toast.error("Erro ao realizar cadastro. Tente novamente.");
@@ -229,16 +228,16 @@ export default function LeaderRegistrationForm() {
             {needsVerification ? (
               <>
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ShieldCheck className="h-8 w-8 text-amber-600" />
+                  <MessageSquare className="h-8 w-8 text-amber-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Quase Lá!</h2>
                 <p className="text-muted-foreground mb-4">
-                  Enviamos um código de verificação para seu WhatsApp. 
-                  <strong> Responda a mensagem com o código</strong> para confirmar seu cadastro.
+                  Enviamos um <strong>link de verificação por SMS</strong> para seu celular. 
+                  Basta clicar no link e aguardar a página carregar para confirmar seu cadastro.
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
                   <p className="font-semibold mb-1">⚠️ Importante</p>
-                  <p>Seu cadastro só será confirmado após a verificação. Verifique seu WhatsApp!</p>
+                  <p>Seu cadastro só será confirmado após clicar no link que enviamos por SMS!</p>
                 </div>
               </>
             ) : (
