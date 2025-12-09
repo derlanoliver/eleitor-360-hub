@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportContactsExcelDialog } from "@/components/contacts/ImportContactsExcelDialog";
 import { EditContactDialog } from "@/components/contacts/EditContactDialog";
 import { ImportEmailsDialog } from "@/components/contacts/ImportEmailsDialog";
+import { VerificationSummaryCard } from "@/components/contacts/VerificationSummaryCard";
 import { useIdentifyGenders } from "@/hooks/contacts/useIdentifyGenders";
 import { useContactEventParticipation } from "@/hooks/contacts/useContactEventParticipation";
 import { useContactPageViews } from "@/hooks/contacts/useContactPageViews";
@@ -542,6 +543,11 @@ const Contacts = () => {
             <ImportEmailsDialog />
           </div>
         </div>
+      </div>
+
+      {/* Card de Verificação Pendente */}
+      <div className="mb-6">
+        <VerificationSummaryCard />
       </div>
 
       {/* Barra de Filtros */}
