@@ -24,31 +24,16 @@ export async function sendVerificationMessage({
       .limit(1)
       .single();
 
-    // Get template
-    const { data: template } = await supabase
-      .from("whatsapp_templates")
-      .select("mensagem")
-      .eq("slug", "verificacao-cadastro")
-      .single();
-
-    if (!template) {
-      console.error("Template verificacao-cadastro not found");
-      return false;
-    }
-
-    // Replace variables (exceto código que vai em mensagem separada)
-    let message = template.mensagem;
-    message = message.replace(/{{nome}}/g, contactName);
-    message = message.replace(/{{lider_nome}}/g, leaderName);
-    message = message.replace(/{{deputado_nome}}/g, org?.nome || "Deputado");
-    // Remove {{codigo}} do template principal - será enviado separadamente
-    message = message.replace(/{{codigo}}/g, "").trim();
-
-    // Enviar mensagem principal
+    // Enviar mensagem principal usando templateSlug (permite envio público sem autenticação)
     const { data, error } = await supabase.functions.invoke("send-whatsapp", {
       body: {
         phone: contactPhone,
-        message: message,
+        templateSlug: "verificacao-cadastro",
+        variables: {
+          nome: contactName,
+          lider_nome: leaderName,
+          deputado_nome: org?.nome || "Deputado",
+        },
         contactId: contactId,
       },
     });
@@ -62,10 +47,14 @@ export async function sendVerificationMessage({
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Enviar código em mensagem separada (facilita copiar no WhatsApp)
+    // Usar templateSlug especial ou message direta - para código, precisamos de um template público
     const { error: codeError } = await supabase.functions.invoke("send-whatsapp", {
       body: {
         phone: contactPhone,
-        message: verificationCode,
+        templateSlug: "verificacao-codigo",
+        variables: {
+          codigo: verificationCode,
+        },
         contactId: contactId,
       },
     });
