@@ -26,6 +26,7 @@ import Segments from "./pages/Segments";
 import AIAgent from "./pages/AIAgent";
 import WhatsAppMarketing from "./pages/WhatsAppMarketing";
 import EmailMarketing from "./pages/EmailMarketing";
+import SMSMarketing from "./pages/SMSMarketing";
 import Settings from "./pages/Settings";
 import AIProviders from "./pages/settings/AIProviders";
 import TrackingSettings from "./pages/settings/TrackingSettings";
@@ -211,6 +212,13 @@ const App = () => (
             <Route path="/email" element={
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <EmailMarketing />
+              </RoleProtectedRoute>
+            } />
+            
+            {/* SMS - admin e atendente */}
+            <Route path="/sms" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+                <SMSMarketing />
               </RoleProtectedRoute>
             } />
             
