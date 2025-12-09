@@ -56,6 +56,7 @@ interface EditLeaderDialogProps {
 
 export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
   const [open, setOpen] = useState(false);
+  const [dataNascimentoDisplay, setDataNascimentoDisplay] = useState("");
   const { mutate: updateLeader, isPending } = useUpdateLeader();
 
   const form = useForm<FormData>({
@@ -83,6 +84,7 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
         observacao: leader.observacao || "",
         is_active: leader.is_active,
       });
+      setDataNascimentoDisplay(leader.data_nascimento ? formatDateBR(leader.data_nascimento) : "");
     }
   }, [leader, open, form]);
 
@@ -194,11 +196,12 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
                   <FormLabel>Data de Nascimento (Opcional)</FormLabel>
                   <FormControl>
                     <MaskedDateInput
-                      value={field.value ? formatDateBR(field.value) : ""}
+                      value={dataNascimentoDisplay}
                       onChange={(value) => {
+                        setDataNascimentoDisplay(value);
                         if (value.length === 10 && isValidDateBR(value) && isNotFutureDate(value)) {
                           field.onChange(parseDateBR(value));
-                        } else if (value.length < 10) {
+                        } else if (value === "") {
                           field.onChange("");
                         }
                       }}

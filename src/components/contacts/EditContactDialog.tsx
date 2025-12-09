@@ -179,7 +179,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
                 setDataNascimentoDisplay(value);
                 if (value.length === 10 && isValidDateBR(value) && isNotFutureDate(value)) {
                   setDataNascimento(parseDateBR(value) || "");
-                } else if (value.length === 0) {
+                } else if (value === "") {
                   setDataNascimento("");
                 }
               }}
