@@ -54,7 +54,12 @@ Deno.serve(async (req) => {
     const requestBody: SendWhatsAppRequest = await req.json();
     const { phone, message, templateSlug, variables, visitId, contactId, imageUrl } = requestBody;
 
+    // DEBUG: Log request details
+    console.log(`[send-whatsapp] REQUEST RECEIVED - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}...`);
+    console.log(`[send-whatsapp] PUBLIC_TEMPLATES list:`, PUBLIC_TEMPLATES);
+
     const isPublicTemplate = templateSlug && PUBLIC_TEMPLATES.includes(templateSlug);
+    console.log(`[send-whatsapp] isPublicTemplate: ${isPublicTemplate} (templateSlug: ${templateSlug})`);
 
     // ============ AUTHENTICATION CHECK (skip for public templates) ============
     if (!isPublicTemplate) {
