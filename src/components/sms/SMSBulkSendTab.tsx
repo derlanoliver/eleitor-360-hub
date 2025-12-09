@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { generateVerificationUrl } from "@/lib/urlHelper";
 
-type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "pending_verification";
+type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "sms_not_sent" | "waiting_verification";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
 
 interface SinglePerson {
@@ -154,7 +154,8 @@ export function SMSBulkSendTab() {
           email: r.email,
           verification_code: null,
         }));
-      } else if (recipientType === "pending_verification") {
+      } else if (recipientType === "sms_not_sent") {
+        // Contatos indicados por líder que NUNCA receberam SMS (verification_sent_at IS NULL)
         const { data, error } = await supabase
           .from("office_contacts")
           .select("id, nome, telefone_norm, email, verification_code")
@@ -162,7 +163,25 @@ export function SMSBulkSendTab() {
           .eq("source_type", "lider")
           .eq("is_verified", false)
           .not("telefone_norm", "is", null)
-          .not("verification_code", "is", null);
+          .is("verification_sent_at", null);
+        if (error) throw error;
+        return data.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          phone: c.telefone_norm,
+          email: c.email,
+          verification_code: c.verification_code,
+        }));
+      } else if (recipientType === "waiting_verification") {
+        // Contatos que já receberam SMS mas ainda não verificaram
+        const { data, error } = await supabase
+          .from("office_contacts")
+          .select("id, nome, telefone_norm, email, verification_code")
+          .eq("is_active", true)
+          .eq("source_type", "lider")
+          .eq("is_verified", false)
+          .not("telefone_norm", "is", null)
+          .not("verification_sent_at", "is", null);
         if (error) throw error;
         return data.map((c) => ({
           id: c.id,
@@ -178,7 +197,9 @@ export function SMSBulkSendTab() {
   });
 
   const handleSendBulk = async () => {
-    if (!selectedTemplate || !recipients || recipients.length === 0) {
+    const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification";
+    
+    if ((!selectedTemplate && !isVerificationType) || !recipients || recipients.length === 0) {
       toast.error("Selecione um template e verifique os destinatários");
       return;
     }
@@ -220,13 +241,28 @@ export function SMSBulkSendTab() {
             }
           }
 
-          // Add verification link if recipient has verification_code (works for pending_verification AND individual contacts)
-          if (recipient.verification_code) {
-            variables.link_verificacao = generateVerificationUrl(recipient.verification_code);
+          // Generate verification code if needed for SMS not sent recipients
+          let verificationCode = recipient.verification_code;
+          if ((recipientType === "sms_not_sent" || recipientType === "waiting_verification") && !verificationCode) {
+            // Generate a 5-character alphanumeric code
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            verificationCode = Array(5).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+            
+            // Update the contact with the new verification code
+            await supabase
+              .from("office_contacts")
+              .update({ verification_code: verificationCode })
+              .eq("id", recipient.id);
           }
 
-          // Use verification template for pending verification
-          const templateToUse = recipientType === "pending_verification" 
+          // Add verification link if recipient has verification_code
+          if (verificationCode) {
+            variables.link_verificacao = generateVerificationUrl(verificationCode);
+          }
+
+          // Use verification template for SMS not sent or waiting verification
+          const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification";
+          const templateToUse = isVerificationType 
             ? "verificacao-link-sms" 
             : selectedTemplate;
 
@@ -305,7 +341,7 @@ export function SMSBulkSendTab() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recipientType !== "pending_verification" && (
+            {recipientType !== "sms_not_sent" && recipientType !== "waiting_verification" && (
               <div className="space-y-2">
                 <Label>Template SMS</Label>
                 <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
@@ -323,11 +359,13 @@ export function SMSBulkSendTab() {
               </div>
             )}
 
-            {recipientType === "pending_verification" && (
+            {(recipientType === "sms_not_sent" || recipientType === "waiting_verification") && (
               <Alert className="bg-amber-50 border-amber-200">
                 <ShieldCheck className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
-                  Será usado o template de verificação com link curto automaticamente.
+                  {recipientType === "sms_not_sent" 
+                    ? "Contatos que nunca receberam SMS de verificação. Códigos serão gerados automaticamente."
+                    : "Contatos que já receberam SMS mas não clicaram no link."}
                 </AlertDescription>
               </Alert>
             )}
@@ -377,10 +415,16 @@ export function SMSBulkSendTab() {
                       Inscritos em Evento
                     </div>
                   </SelectItem>
-                  <SelectItem value="pending_verification">
+                  <SelectItem value="sms_not_sent">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4" />
+                      SMS Não Enviado
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="waiting_verification">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" />
-                      Verificação Pendente
+                      Aguardando Verificação
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -557,7 +601,7 @@ export function SMSBulkSendTab() {
                 onClick={() => handleSendBulk()}
                 disabled={
                   isSending ||
-                  (!selectedTemplate && recipientType !== "pending_verification") ||
+                  (!selectedTemplate && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification") ||
                   !recipients?.length ||
                   (recipientType === "event" && !selectedEvent) ||
                   (isSingleSend && !selectedPerson)
@@ -568,7 +612,7 @@ export function SMSBulkSendTab() {
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    {recipientType === "pending_verification" 
+                    {(recipientType === "sms_not_sent" || recipientType === "waiting_verification")
                       ? "Enviar Verificações" 
                       : isSingleSend 
                         ? "Enviar SMS" 
