@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -20,8 +20,9 @@ import { useSMSTemplates, replaceTemplateVariables } from "@/hooks/useSMSTemplat
 import { useEvents } from "@/hooks/events/useEvents";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { generateVerificationUrl } from "@/lib/urlHelper";
 
-type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader";
+type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "pending_verification";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
 
 interface SinglePerson {
@@ -109,7 +110,7 @@ export function SMSBulkSendTab() {
     queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id],
     queryFn: async () => {
       if (isSingleSend && selectedPerson) {
-        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null }];
+        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: null }];
       }
       if (recipientType === "contacts") {
         const { data, error } = await supabase
@@ -123,6 +124,7 @@ export function SMSBulkSendTab() {
           nome: c.nome,
           phone: c.telefone_norm,
           email: c.email,
+          verification_code: null,
         }));
       } else if (recipientType === "leaders") {
         const { data, error } = await supabase
@@ -136,6 +138,7 @@ export function SMSBulkSendTab() {
           nome: l.nome_completo,
           phone: l.telefone,
           email: l.email,
+          verification_code: null,
         }));
       } else if (recipientType === "event" && selectedEvent) {
         const { data, error } = await supabase
@@ -148,6 +151,24 @@ export function SMSBulkSendTab() {
           nome: r.nome,
           phone: r.whatsapp,
           email: r.email,
+          verification_code: null,
+        }));
+      } else if (recipientType === "pending_verification") {
+        const { data, error } = await supabase
+          .from("office_contacts")
+          .select("id, nome, telefone_norm, email, verification_code")
+          .eq("is_active", true)
+          .eq("source_type", "lider")
+          .eq("is_verified", false)
+          .not("telefone_norm", "is", null)
+          .not("verification_code", "is", null);
+        if (error) throw error;
+        return data.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          phone: c.telefone_norm,
+          email: c.email,
+          verification_code: c.verification_code,
         }));
       }
       return [];
@@ -198,10 +219,20 @@ export function SMSBulkSendTab() {
             }
           }
 
+          // Add verification link for pending verification
+          if (recipientType === "pending_verification" && recipient.verification_code) {
+            variables.link_verificacao = generateVerificationUrl(recipient.verification_code);
+          }
+
+          // Use verification template for pending verification
+          const templateToUse = recipientType === "pending_verification" 
+            ? "verificacao-link-sms" 
+            : selectedTemplate;
+
           const { error } = await supabase.functions.invoke("send-sms", {
             body: {
               phone: recipient.phone,
-              templateSlug: selectedTemplate,
+              templateSlug: templateToUse,
               variables,
             },
           });
@@ -273,21 +304,32 @@ export function SMSBulkSendTab() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Template SMS</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeTemplates.map((template) => (
-                    <SelectItem key={template.slug} value={template.slug}>
-                      {template.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {recipientType !== "pending_verification" && (
+              <div className="space-y-2">
+                <Label>Template SMS</Label>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeTemplates.map((template) => (
+                      <SelectItem key={template.slug} value={template.slug}>
+                        {template.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {recipientType === "pending_verification" && (
+              <Alert className="bg-amber-50 border-amber-200">
+                <ShieldCheck className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  Será usado o template de verificação com link curto automaticamente.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-2">
               <Label>Destinatários</Label>
@@ -332,6 +374,12 @@ export function SMSBulkSendTab() {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       Inscritos em Evento
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="pending_verification">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" />
+                      Verificação Pendente
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -508,7 +556,7 @@ export function SMSBulkSendTab() {
                 onClick={() => handleSendBulk()}
                 disabled={
                   isSending ||
-                  !selectedTemplate ||
+                  (!selectedTemplate && recipientType !== "pending_verification") ||
                   !recipients?.length ||
                   (recipientType === "event" && !selectedEvent) ||
                   (isSingleSend && !selectedPerson)
@@ -519,7 +567,11 @@ export function SMSBulkSendTab() {
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    {isSingleSend ? "Enviar SMS" : "Iniciar Envio em Massa"}
+                    {recipientType === "pending_verification" 
+                      ? "Enviar Verificações" 
+                      : isSingleSend 
+                        ? "Enviar SMS" 
+                        : "Iniciar Envio em Massa"}
                   </>
                 )}
               </Button>
