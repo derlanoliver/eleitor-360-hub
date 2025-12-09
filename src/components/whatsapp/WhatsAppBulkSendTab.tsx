@@ -395,13 +395,39 @@ export function WhatsAppBulkSendTab() {
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
       
-      // Obter identificadores já enviados (para retomada)
-      const sentIdentifiers = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();
+      // Obter identificadores já enviados via localStorage (para retomada de sessão)
+      const localStorageSent = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();
       
-      // Filtrar recipients que ainda não receberam
+      // VERIFICAÇÃO DE DUPLICATAS VIA BANCO DE DADOS
+      // Buscar telefones que já receberam mensagem com este template específico
+      let dbSentPhones = new Set<string>();
+      try {
+        const { data: existingMessages } = await supabase
+          .from("whatsapp_messages")
+          .select("phone")
+          .ilike("message", `%${selectedTemplateData.slug}%`)
+          .in("status", ["sent", "delivered", "read"]);
+        
+        if (existingMessages && existingMessages.length > 0) {
+          // Normalizar telefones removendo + para comparação
+          dbSentPhones = new Set(existingMessages.map(m => m.phone.replace(/\+/g, "")));
+          console.log(`[WhatsApp Bulk] ${dbSentPhones.size} telefones já receberam o template ${selectedTemplateData.slug}`);
+        }
+      } catch (dbError) {
+        console.warn("[WhatsApp Bulk] Erro ao verificar duplicatas no banco:", dbError);
+        // Continua mesmo com erro - é apenas uma verificação adicional
+      }
+      
+      // Combinar identificadores de localStorage + banco de dados
+      const allSentIdentifiers = new Set([...localStorageSent, ...dbSentPhones]);
+      
+      // Filtrar recipients que ainda não receberam (verificação dupla)
       const pendingRecipients = recipients.filter(r => {
         const phone = (r.telefone as string) || (r.telefone_norm as string) || (r.whatsapp as string);
-        return phone && !sentIdentifiers.has(phone);
+        if (!phone) return false;
+        // Normalizar telefone para comparação
+        const normalizedPhone = phone.replace(/\+/g, "");
+        return !allSentIdentifiers.has(phone) && !allSentIdentifiers.has(normalizedPhone);
       });
       
       const totalRecipients = pendingRecipients.length;
