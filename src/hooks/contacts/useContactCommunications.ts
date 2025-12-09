@@ -14,6 +14,18 @@ export interface ContactWhatsAppMessage {
   error_message: string | null;
 }
 
+export interface ContactSMSMessage {
+  id: string;
+  phone: string;
+  message: string;
+  direction: string;
+  status: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  error_message: string | null;
+}
+
 export interface ContactEmailLog {
   id: string;
   to_email: string;
@@ -27,6 +39,7 @@ export interface ContactEmailLog {
 
 export interface ContactCommunications {
   whatsapp: ContactWhatsAppMessage[];
+  sms: ContactSMSMessage[];
   email: ContactEmailLog[];
 }
 
@@ -34,7 +47,7 @@ export function useContactCommunications(contactId: string | undefined, contactP
   return useQuery({
     queryKey: ["contact_communications", contactId, contactPhone, contactEmail],
     queryFn: async (): Promise<ContactCommunications> => {
-      if (!contactId) return { whatsapp: [], email: [] };
+      if (!contactId) return { whatsapp: [], sms: [], email: [] };
 
       // Fetch WhatsApp messages by contact_id first
       let whatsappMessages: ContactWhatsAppMessage[] = [];
@@ -67,6 +80,40 @@ export function useContactCommunications(contactId: string | undefined, contactP
           console.error("Error fetching WhatsApp messages by phone:", phoneError);
         } else {
           whatsappMessages = (msgByPhone || []) as ContactWhatsAppMessage[];
+        }
+      }
+
+      // Fetch SMS messages by contact_id first
+      let smsMessages: ContactSMSMessage[] = [];
+      
+      const { data: smsById, error: smsError } = await supabase
+        .from("sms_messages")
+        .select("*")
+        .eq("contact_id", contactId)
+        .order("created_at", { ascending: false });
+
+      if (smsError) {
+        console.error("Error fetching SMS messages by contact_id:", smsError);
+      }
+      
+      smsMessages = (smsById || []) as ContactSMSMessage[];
+
+      // If no SMS found by contact_id and we have a phone, try searching by phone
+      if (smsMessages.length === 0 && contactPhone) {
+        const normalizedPhone = contactPhone.replace(/\D/g, '');
+        const phoneSuffix = normalizedPhone.slice(-8);
+        
+        const { data: smsByPhone, error: smsPhoneError } = await supabase
+          .from("sms_messages")
+          .select("*")
+          .ilike("phone", `%${phoneSuffix}%`)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (smsPhoneError) {
+          console.error("Error fetching SMS messages by phone:", smsPhoneError);
+        } else {
+          smsMessages = (smsByPhone || []) as ContactSMSMessage[];
         }
       }
 
@@ -133,6 +180,7 @@ export function useContactCommunications(contactId: string | undefined, contactP
 
       return {
         whatsapp: whatsappMessages,
+        sms: smsMessages,
         email: emailLogs,
       };
     },

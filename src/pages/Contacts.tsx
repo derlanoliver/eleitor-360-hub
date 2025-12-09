@@ -61,12 +61,13 @@ import {
   AlertCircle,
   Briefcase,
   Cake,
-  ClipboardList
+  ClipboardList,
+  Smartphone
 } from "lucide-react";
 import { DeactivateContactDialog } from "@/components/contacts/DeactivateContactDialog";
 import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
 import { useUserRole } from "@/hooks/useUserRole";
-import { resendVerificationCode } from "@/hooks/contacts/useContactVerification";
+import { resendVerificationSMS } from "@/hooks/contacts/useContactVerification";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Cores e labels para badges de origem
@@ -1266,6 +1267,39 @@ const ContactDetails = ({ contact }: { contact: any }) => {
           )}
         </div>
 
+        {/* Comunicações SMS */}
+        <div>
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-purple-600" />
+            SMS ({communications?.sms?.length || 0})
+          </h4>
+          {isLoadingCommunications ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : !communications?.sms?.length ? (
+            <p className="text-sm text-muted-foreground">Nenhum SMS enviado.</p>
+          ) : (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {communications.sms.slice(0, 10).map((msg: any, idx: number) => {
+                const statusConfig = whatsappStatusConfig[msg.status] || whatsappStatusConfig.pending;
+                const StatusIcon = statusConfig.icon;
+                return (
+                  <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-xs">{msg.message.substring(0, 60)}...</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                      <StatusIcon className={`h-3.5 w-3.5 ${statusConfig.color}`} />
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(msg.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Comunicações E-mail */}
         <div>
           <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
@@ -1468,7 +1502,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <ShieldCheck className="h-5 w-5" />
               Contato Verificado
             </div>
-            <p className="text-sm text-green-600 mt-2">Este contato confirmou seu cadastro via WhatsApp.</p>
+            <p className="text-sm text-green-600 mt-2">Este contato confirmou seu cadastro clicando no link enviado por SMS.</p>
             {contact.verified_at && (
               <p className="text-xs text-green-500 mt-2">
                 Verificado em: {format(new Date(contact.verified_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -1482,7 +1516,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               Verificação Pendente
             </div>
             <p className="text-sm text-amber-600">
-              Este contato foi indicado por um líder e precisa confirmar seu cadastro via WhatsApp.
+              Este contato foi indicado por um líder e precisa confirmar seu cadastro clicando no link enviado por SMS.
             </p>
             <div className="flex items-center justify-between text-xs text-amber-600">
               <div>
@@ -1498,12 +1532,12 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               variant="outline"
               size="sm"
               onClick={async () => {
-                await resendVerificationCode(contact.id);
+                await resendVerificationSMS(contact.id);
               }}
               className="text-amber-700 border-amber-300 hover:bg-amber-100"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Reenviar Código
+              Reenviar SMS
             </Button>
           </div>
         )}
