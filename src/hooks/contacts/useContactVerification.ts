@@ -198,6 +198,68 @@ export async function resendVerificationCode(contactId: string): Promise<boolean
   }
 }
 
+/**
+ * Reenvia SMS de verificação para um contato
+ */
+export async function resendVerificationSMS(contactId: string): Promise<boolean> {
+  try {
+    // Get contact data
+    const { data: contact, error } = await supabase
+      .from("office_contacts")
+      .select(`
+        id,
+        nome,
+        telefone_norm,
+        verification_code,
+        source_id,
+        source_type
+      `)
+      .eq("id", contactId)
+      .single();
+
+    if (error || !contact) {
+      toast.error("Contato não encontrado");
+      return false;
+    }
+
+    if (contact.source_type !== "lider" || !contact.source_id) {
+      toast.error("Este contato não requer verificação");
+      return false;
+    }
+
+    // Generate new code if needed
+    let verificationCode = contact.verification_code;
+    if (!verificationCode) {
+      const { data: newCode } = await supabase.rpc("generate_verification_code");
+      verificationCode = newCode;
+      
+      await supabase
+        .from("office_contacts")
+        .update({ verification_code: verificationCode })
+        .eq("id", contactId);
+    }
+
+    const success = await sendVerificationSMS({
+      contactId: contact.id,
+      contactName: contact.nome,
+      contactPhone: contact.telefone_norm,
+      verificationCode: verificationCode,
+    });
+
+    if (success) {
+      toast.success("SMS de verificação reenviado!");
+    } else {
+      toast.error("Erro ao reenviar SMS");
+    }
+
+    return success;
+  } catch (err) {
+    console.error("Error resending verification SMS:", err);
+    toast.error("Erro ao reenviar verificação");
+    return false;
+  }
+}
+
 interface PendingMessage {
   template: string;
   variables: Record<string, string>;
