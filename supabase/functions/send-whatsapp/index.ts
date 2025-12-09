@@ -34,6 +34,7 @@ const PUBLIC_TEMPLATES = [
   'lider-cadastro-confirmado',
   'visita-link-formulario',
   'verificacao-cadastro',
+  'verificacao-codigo',
   'membro-cadastro-boas-vindas',
   'lideranca-cadastro-link',
 ];
