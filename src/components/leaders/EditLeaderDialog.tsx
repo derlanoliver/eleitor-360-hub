@@ -23,13 +23,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { CitySelect } from "@/components/office/CitySelect";
-import { Pencil, Loader2, CalendarIcon } from "lucide-react";
+import { Pencil, Loader2 } from "lucide-react";
 import { useUpdateLeader } from "@/hooks/leaders/useUpdateLeader";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { 
+  MaskedDateInput, 
+  formatDateBR, 
+  parseDateBR, 
+  isValidDateBR, 
+  isNotFutureDate 
+} from "@/components/ui/masked-date-input";
 
 const formSchema = z.object({
   nome_completo: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -187,40 +190,20 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
               control={form.control}
               name="data_nascimento"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Data de Nascimento (Opcional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "dd/MM/yyyy")
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
+                  <FormControl>
+                    <MaskedDateInput
+                      value={field.value ? formatDateBR(field.value) : ""}
+                      onChange={(value) => {
+                        if (value.length === 10 && isValidDateBR(value) && isNotFutureDate(value)) {
+                          field.onChange(parseDateBR(value));
+                        } else if (value.length < 10) {
+                          field.onChange("");
                         }
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

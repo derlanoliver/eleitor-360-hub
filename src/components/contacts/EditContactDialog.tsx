@@ -12,6 +12,13 @@ import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
 import { usePromoteToLeader } from "@/hooks/contacts/usePromoteToLeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Crown, UserCheck } from "lucide-react";
+import { 
+  MaskedDateInput, 
+  formatDateBR, 
+  parseDateBR, 
+  isValidDateBR, 
+  isNotFutureDate 
+} from "@/components/ui/masked-date-input";
 
 interface EditContactDialogProps {
   contact: {
@@ -34,6 +41,9 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [leaderId, setLeaderId] = useState(contact.source_id || "");
   const [genero, setGenero] = useState(contact.genero || "Não identificado");
   const [dataNascimento, setDataNascimento] = useState(contact.data_nascimento || "");
+  const [dataNascimentoDisplay, setDataNascimentoDisplay] = useState(
+    contact.data_nascimento ? formatDateBR(contact.data_nascimento) : ""
+  );
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
   const { data: regions = [] } = useRegions();
@@ -57,6 +67,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
     setLeaderId(shouldShowLeader ? contact.source_id || "" : "");
     setGenero(contact.genero || "Não identificado");
     setDataNascimento(contact.data_nascimento || "");
+    setDataNascimentoDisplay(contact.data_nascimento ? formatDateBR(contact.data_nascimento) : "");
     setPromoteToLeader(false);
   }, [contact, leaders]);
 
@@ -162,11 +173,16 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
           {/* Data de Nascimento */}
           <div>
             <Label>Data de Nascimento</Label>
-            <Input
-              type="date"
-              value={dataNascimento}
-              onChange={(e) => setDataNascimento(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
+            <MaskedDateInput
+              value={dataNascimentoDisplay}
+              onChange={(value) => {
+                setDataNascimentoDisplay(value);
+                if (value.length === 10 && isValidDateBR(value) && isNotFutureDate(value)) {
+                  setDataNascimento(parseDateBR(value) || "");
+                } else if (value.length === 0) {
+                  setDataNascimento("");
+                }
+              }}
             />
           </div>
 
