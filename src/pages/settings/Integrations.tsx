@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check } from "lucide-react";
-import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection } from "@/hooks/useIntegrationsSettings";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone } from "lucide-react";
+import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
 
@@ -117,6 +117,7 @@ const Integrations = () => {
   const updateSettings = useUpdateIntegrationsSettings();
   const testZapiConnection = useTestZapiConnection();
   const testResendConnection = useTestResendConnection();
+  const testSmsdevConnection = useTestSmsdevConnection();
 
   // Z-API state
   const [zapiInstanceId, setZapiInstanceId] = useState("");
@@ -133,16 +134,23 @@ const Integrations = () => {
   const [resendEnabled, setResendEnabled] = useState(false);
   const [showResendKey, setShowResendKey] = useState(false);
 
+  // SMSDEV state
+  const [smsdevApiKey, setSmsdevApiKey] = useState("");
+  const [smsdevEnabled, setSmsdevEnabled] = useState(false);
+  const [showSmsdevKey, setShowSmsdevKey] = useState(false);
+
   useEffect(() => {
     if (settings) {
       setZapiInstanceId(settings.zapi_instance_id || "");
       setZapiToken(settings.zapi_token || "");
       setZapiClientToken(settings.zapi_client_token || "");
       setZapiEnabled(settings.zapi_enabled || false);
-      setResendApiKey((settings as any).resend_api_key || "");
-      setResendFromEmail((settings as any).resend_from_email || "");
-      setResendFromName((settings as any).resend_from_name || "");
-      setResendEnabled((settings as any).resend_enabled || false);
+      setResendApiKey(settings.resend_api_key || "");
+      setResendFromEmail(settings.resend_from_email || "");
+      setResendFromName(settings.resend_from_name || "");
+      setResendEnabled(settings.resend_enabled || false);
+      setSmsdevApiKey(settings.smsdev_api_key || "");
+      setSmsdevEnabled(settings.smsdev_enabled || false);
     }
   }, [settings]);
 
@@ -161,7 +169,14 @@ const Integrations = () => {
       resend_from_email: resendFromEmail || null,
       resend_from_name: resendFromName || null,
       resend_enabled: resendEnabled,
-    } as any);
+    });
+  };
+
+  const handleSaveSmsdev = () => {
+    updateSettings.mutate({
+      smsdev_api_key: smsdevApiKey || null,
+      smsdev_enabled: smsdevEnabled,
+    });
   };
 
   const handleTestZapi = () => {
@@ -178,8 +193,14 @@ const Integrations = () => {
     testResendConnection.mutate(resendApiKey);
   };
 
+  const handleTestSmsdev = () => {
+    if (!smsdevApiKey) return;
+    testSmsdevConnection.mutate(smsdevApiKey);
+  };
+
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
+  const isSmsdevConfigured = !!smsdevApiKey;
 
   if (isLoading) {
     return (
@@ -452,6 +473,102 @@ const Integrations = () => {
               </Button>
               <Button
                 onClick={handleSaveResend}
+                disabled={updateSettings.isPending}
+              >
+                {updateSettings.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SMSDEV SMS */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Smartphone className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">SMSDEV - Envio de SMS</CardTitle>
+                  <CardDescription>
+                    Envie SMS automatizados e em massa
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {isSmsdevConfigured ? (
+                  smsdevEnabled ? (
+                    <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Ativo
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">
+                      Configurado
+                    </Badge>
+                  )
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Não configurado
+                  </Badge>
+                )}
+                <Switch
+                  checked={smsdevEnabled}
+                  onCheckedChange={setSmsdevEnabled}
+                  disabled={!isSmsdevConfigured}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="smsdev-key">API Key</Label>
+              <div className="relative">
+                <Input
+                  id="smsdev-key"
+                  type={showSmsdevKey ? "text" : "password"}
+                  placeholder="Sua chave de API do SMSDEV"
+                  value={smsdevApiKey}
+                  onChange={(e) => setSmsdevApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowSmsdevKey(!showSmsdevKey)}
+                >
+                  {showSmsdevKey ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Obtenha em <a href="https://www.smsdev.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline">smsdev.com.br</a>
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={handleTestSmsdev}
+                disabled={!smsdevApiKey || testSmsdevConnection.isPending}
+              >
+                {testSmsdevConnection.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Testar Conexão
+              </Button>
+              <Button
+                onClick={handleSaveSmsdev}
                 disabled={updateSettings.isPending}
               >
                 {updateSettings.isPending ? (

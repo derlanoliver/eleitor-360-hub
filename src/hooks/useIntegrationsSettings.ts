@@ -8,6 +8,12 @@ interface IntegrationsSettings {
   zapi_token: string | null;
   zapi_client_token: string | null;
   zapi_enabled: boolean;
+  resend_api_key: string | null;
+  resend_from_email: string | null;
+  resend_from_name: string | null;
+  resend_enabled: boolean;
+  smsdev_api_key: string | null;
+  smsdev_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +23,12 @@ interface UpdateIntegrationsDTO {
   zapi_token?: string | null;
   zapi_client_token?: string | null;
   zapi_enabled?: boolean;
+  resend_api_key?: string | null;
+  resend_from_email?: string | null;
+  resend_from_name?: string | null;
+  resend_enabled?: boolean;
+  smsdev_api_key?: string | null;
+  smsdev_enabled?: boolean;
 }
 
 export function useIntegrationsSettings() {
@@ -111,6 +123,36 @@ export function useTestZapiConnection() {
       toast({
         title: "Erro na conexão",
         description: error.message || "Verifique as credenciais e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useTestSmsdevConnection() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (apiKey: string) => {
+      const { data, error } = await supabase.functions.invoke('test-smsdev-connection', {
+        body: { apiKey }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Conexão bem-sucedida",
+        description: data.description || `Saldo disponível: ${data.balance} SMS`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro na conexão",
+        description: error.message || "Verifique a API Key e tente novamente.",
         variant: "destructive",
       });
     }
