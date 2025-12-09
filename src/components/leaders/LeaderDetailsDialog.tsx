@@ -178,40 +178,38 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               ) : !indicatedContacts?.length ? (
                 <p className="text-sm text-muted-foreground">Nenhum contato indicado ainda.</p>
               ) : (
-              <ScrollArea className="h-[280px]">
-                  <div className="space-y-2 pr-4">
-                    {indicatedContacts.map((contact) => (
-                      <Card key={contact.id}>
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{contact.nome}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {contact.cidade?.nome || "Sem região"} • {formatDate(contact.created_at)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {contact.is_verified ? (
-                                <Badge variant="default" className="bg-green-500/10 text-green-600 border-0">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Verificado
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Pendente
-                                </Badge>
-                              )}
-                              {!contact.is_active && (
-                                <Badge variant="secondary">Inativo</Badge>
-                              )}
-                            </div>
+                <div className="space-y-2">
+                  {indicatedContacts.map((contact) => (
+                    <Card key={contact.id}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{contact.nome}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {contact.cidade?.nome || "Sem região"} • {formatDate(contact.created_at)}
+                            </p>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
+                          <div className="flex items-center gap-2">
+                            {contact.is_verified ? (
+                              <Badge variant="default" className="bg-green-500/10 text-green-600 border-0">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verificado
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Pendente
+                              </Badge>
+                            )}
+                            {!contact.is_active && (
+                              <Badge variant="secondary">Inativo</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
 
               {/* Visitas criadas pelo líder */}
@@ -221,32 +219,30 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     <h4 className="font-medium">Visitas Agendadas</h4>
                     <Badge variant="secondary">{visits.length} visitas</Badge>
                   </div>
-                  <ScrollArea className="h-[220px]">
-                    <div className="space-y-2 pr-4">
-                      {visits.map((visit) => (
-                        <Card key={visit.id}>
-                          <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{visit.contact?.nome || "Contato"}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {visit.protocolo} • {visit.city?.nome}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">
-                                  {visitStatusLabels[visit.status] || visit.status}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(visit.created_at)}
-                                </span>
-                              </div>
+                  <div className="space-y-2">
+                    {visits.map((visit) => (
+                      <Card key={visit.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{visit.contact?.nome || "Contato"}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {visit.protocolo} • {visit.city?.nome}
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {visitStatusLabels[visit.status] || visit.status}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(visit.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </>
               )}
             </TabsContent>
