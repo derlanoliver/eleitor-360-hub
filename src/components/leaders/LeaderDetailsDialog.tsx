@@ -99,7 +99,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="info" className="flex-1">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
             <TabsTrigger value="indicacoes" className="text-xs">Indicações</TabsTrigger>
@@ -110,9 +110,9 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4">
+          <ScrollArea className="h-[calc(90vh-180px)] mt-4">
             {/* ABA INFO */}
-            <TabsContent value="info" className="mt-0 space-y-4">
+            <TabsContent value="info" className="mt-0 space-y-4 pr-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Email</p>
@@ -167,7 +167,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA INDICAÇÕES */}
-            <TabsContent value="indicacoes" className="mt-0 space-y-4">
+            <TabsContent value="indicacoes" className="mt-0 space-y-4 pr-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Contatos Indicados</h4>
                 <Badge variant="secondary">{indicatedContacts?.length || 0} contatos</Badge>
@@ -252,7 +252,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA EVENTOS */}
-            <TabsContent value="eventos" className="mt-0 space-y-4">
+            <TabsContent value="eventos" className="mt-0 space-y-4 pr-4">
               {/* Eventos próprios */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Eventos Participados</h4>
@@ -330,7 +330,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA PESQUISAS */}
-            <TabsContent value="pesquisas" className="mt-0 space-y-4">
+            <TabsContent value="pesquisas" className="mt-0 space-y-4 pr-4">
               {/* Pesquisas respondidas pelo líder */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium flex items-center gap-2">
@@ -398,7 +398,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA COMUNICAÇÕES */}
-            <TabsContent value="comunicacoes" className="mt-0 space-y-4">
+            <TabsContent value="comunicacoes" className="mt-0 space-y-4 pr-4">
               {/* WhatsApp */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium flex items-center gap-2">
@@ -486,7 +486,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA PONTUAÇÃO */}
-            <TabsContent value="pontuacao" className="mt-0 space-y-4">
+            <TabsContent value="pontuacao" className="mt-0 space-y-4 pr-4">
               <div className="text-center p-6 bg-muted rounded-lg">
                 <div className="text-5xl mb-2">{levelInfo.icon}</div>
                 <h3 className="text-2xl font-bold">{levelInfo.name}</h3>
@@ -543,7 +543,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA HISTÓRICO */}
-            <TabsContent value="historico" className="mt-0 space-y-4">
+            <TabsContent value="historico" className="mt-0 space-y-4 pr-4">
               <div className="space-y-3">
                 <Card>
                   <CardContent className="p-3">
