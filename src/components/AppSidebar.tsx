@@ -24,7 +24,8 @@ import {
   HelpCircle,
   Ticket,
   Map,
-  ClipboardList
+  ClipboardList,
+  Smartphone
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
@@ -75,6 +76,7 @@ const communicationItems: MenuItem[] = [
   { title: "Agente IA", url: "/ai-agent", icon: Bot, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Email", url: "/email", icon: Mail, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "SMS", url: "/sms", icon: Smartphone, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 
 const officeItems: MenuItem[] = [

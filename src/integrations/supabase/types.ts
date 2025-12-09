@@ -587,6 +587,8 @@ export type Database = {
           resend_enabled: boolean | null
           resend_from_email: string | null
           resend_from_name: string | null
+          smsdev_api_key: string | null
+          smsdev_enabled: boolean | null
           updated_at: string
           zapi_client_token: string | null
           zapi_enabled: boolean | null
@@ -600,6 +602,8 @@ export type Database = {
           resend_enabled?: boolean | null
           resend_from_email?: string | null
           resend_from_name?: string | null
+          smsdev_api_key?: string | null
+          smsdev_enabled?: boolean | null
           updated_at?: string
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
@@ -613,6 +617,8 @@ export type Database = {
           resend_enabled?: boolean | null
           resend_from_email?: string | null
           resend_from_name?: string | null
+          smsdev_api_key?: string | null
+          smsdev_enabled?: boolean | null
           updated_at?: string
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
@@ -1436,6 +1442,95 @@ export type Database = {
           id?: string
           ra?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_messages: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          delivered_at: string | null
+          direction: string
+          error_message: string | null
+          id: string
+          message: string
+          message_id: string | null
+          phone: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          message: string
+          message_id?: string | null
+          phone: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          message?: string
+          message_id?: string | null
+          phone?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_templates: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          mensagem: string
+          nome: string
+          slug: string
+          updated_at: string
+          variaveis: Json | null
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          mensagem: string
+          nome: string
+          slug: string
+          updated_at?: string
+          variaveis?: Json | null
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          mensagem?: string
+          nome?: string
+          slug?: string
+          updated_at?: string
+          variaveis?: Json | null
         }
         Relationships: []
       }
