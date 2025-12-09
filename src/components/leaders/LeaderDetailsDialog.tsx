@@ -178,7 +178,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               ) : !indicatedContacts?.length ? (
                 <p className="text-sm text-muted-foreground">Nenhum contato indicado ainda.</p>
               ) : (
-              <ScrollArea className={indicatedContacts.length > 4 ? "h-[280px]" : ""}>
+              <ScrollArea className="h-[280px]">
                   <div className="space-y-2 pr-4">
                     {indicatedContacts.map((contact) => (
                       <Card key={contact.id}>
@@ -221,7 +221,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     <h4 className="font-medium">Visitas Agendadas</h4>
                     <Badge variant="secondary">{visits.length} visitas</Badge>
                   </div>
-                  <ScrollArea className={visits.length > 3 ? "h-[220px]" : ""}>
+                  <ScrollArea className="h-[220px]">
                     <div className="space-y-2 pr-4">
                       {visits.map((visit) => (
                         <Card key={visit.id}>
