@@ -62,6 +62,7 @@ import Surveys from "./pages/Surveys";
 import SurveyEditor from "./pages/SurveyEditor";
 import SurveyResults from "./pages/SurveyResults";
 import SurveyPublicForm from "./pages/SurveyPublicForm";
+import VerifyContact from "./pages/VerifyContact";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/lider/cadastro" element={<PublicLeaderRegistration />} />
             <Route path="/descadastro" element={<Unsubscribe />} />
             <Route path="/pesquisa/:slug" element={<SurveyPublicForm />} />
+            <Route path="/v/:codigo" element={<VerifyContact />} />
             
             {/* Protected check-in routes - all authenticated users can do check-in */}
             <Route path="/checkin/:qrCode" element={

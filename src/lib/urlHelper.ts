@@ -125,3 +125,11 @@ export function generateUnsubscribeUrl(token: string): string {
 export function generateSurveyAffiliateUrl(surveySlug: string, affiliateToken: string): string {
   return `${getBaseUrl()}/pesquisa/${surveySlug}?ref=${affiliateToken}`;
 }
+
+/**
+ * Gera link curto de verificação de contato
+ * Formato: /v/:codigo (apenas 5 caracteres após /v/)
+ */
+export function generateVerificationUrl(verificationCode: string): string {
+  return `${getBaseUrl()}/v/${verificationCode}`;
+}

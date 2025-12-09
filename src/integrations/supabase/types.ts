@@ -2269,6 +2269,7 @@ export type Database = {
         }
         Returns: string
       }
+      verify_contact_by_code: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       app_role:
