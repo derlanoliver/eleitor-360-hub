@@ -29,6 +29,7 @@ interface SinglePerson {
   id: string;
   nome: string;
   phone: string;
+  verification_code?: string | null;
 }
 
 const BATCH_SIZES: { value: BatchSize; label: string }[] = [
@@ -69,19 +70,19 @@ export function SMSBulkSendTab() {
   const selectedTemplateData = templates?.find((t) => t.slug === selectedTemplate);
   const isSingleSend = recipientType === "single_contact" || recipientType === "single_leader";
 
-  // Search contacts
+  // Search contacts (include verification_code for SMS verification links)
   const { data: contactSearchResults } = useQuery({
     queryKey: ["sms-contact-search", singleSearch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("office_contacts")
-        .select("id, nome, telefone_norm")
+        .select("id, nome, telefone_norm, verification_code")
         .eq("is_active", true)
         .not("telefone_norm", "is", null)
         .ilike("nome", `%${singleSearch}%`)
         .limit(10);
       if (error) throw error;
-      return data?.map((c) => ({ id: c.id, nome: c.nome, phone: c.telefone_norm })) || [];
+      return data?.map((c) => ({ id: c.id, nome: c.nome, phone: c.telefone_norm, verification_code: c.verification_code })) || [];
     },
     enabled: recipientType === "single_contact" && singleSearch.length >= 2 && !selectedPerson,
   });
@@ -110,7 +111,7 @@ export function SMSBulkSendTab() {
     queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id],
     queryFn: async () => {
       if (isSingleSend && selectedPerson) {
-        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: null }];
+        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: selectedPerson.verification_code || null }];
       }
       if (recipientType === "contacts") {
         const { data, error } = await supabase
@@ -219,8 +220,8 @@ export function SMSBulkSendTab() {
             }
           }
 
-          // Add verification link for pending verification
-          if (recipientType === "pending_verification" && recipient.verification_code) {
+          // Add verification link if recipient has verification_code (works for pending_verification AND individual contacts)
+          if (recipient.verification_code) {
             variables.link_verificacao = generateVerificationUrl(recipient.verification_code);
           }
 
