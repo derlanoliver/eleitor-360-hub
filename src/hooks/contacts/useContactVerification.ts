@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { generateVerificationUrl } from "@/lib/urlHelper";
 
 interface SendVerificationParams {
   contactId: string;
@@ -7,6 +8,54 @@ interface SendVerificationParams {
   contactPhone: string;
   leaderName: string;
   verificationCode: string;
+}
+
+interface SendVerificationSMSParams {
+  contactId: string;
+  contactName: string;
+  contactPhone: string;
+  verificationCode: string;
+}
+
+/**
+ * Envia SMS com link de verificação para o contato
+ * Esta é a forma principal de verificação para cadastros via link de líder
+ */
+export async function sendVerificationSMS({
+  contactId,
+  contactName,
+  contactPhone,
+  verificationCode,
+}: SendVerificationSMSParams): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("send-sms", {
+      body: {
+        phone: contactPhone,
+        templateSlug: "verificacao-link-sms",
+        variables: {
+          nome: contactName,
+          link_verificacao: generateVerificationUrl(verificationCode),
+        },
+        contactId: contactId,
+      },
+    });
+
+    if (error) {
+      console.error("Error sending verification SMS:", error);
+      return false;
+    }
+
+    // Update verification_sent_at via SECURITY DEFINER function
+    await supabase.rpc('update_contact_verification_sent', {
+      _contact_id: contactId
+    });
+
+    console.log("Verification SMS sent:", data);
+    return true;
+  } catch (err) {
+    console.error("Error in sendVerificationSMS:", err);
+    return false;
+  }
 }
 
 export async function sendVerificationMessage({
