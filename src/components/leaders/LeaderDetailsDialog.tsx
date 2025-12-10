@@ -7,8 +7,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
-  MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList
+  MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
+  Download
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { OfficeLeader } from "@/types/office";
@@ -183,9 +186,76 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
 
             {/* ABA INDICAÇÕES */}
             <TabsContent value="indicacoes" className="mt-0 space-y-4 pr-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h4 className="font-medium">Contatos Indicados</h4>
-                <Badge variant="secondary">{indicatedContacts?.length || 0} contatos</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{indicatedContacts?.length || 0} contatos</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const pending = indicatedContacts?.filter(c => !c.is_verified) || [];
+                      if (pending.length === 0) {
+                        toast.info("Nenhum contato pendente para exportar.");
+                        return;
+                      }
+                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Data Cadastro'];
+                      const rows = pending.map(c => [
+                        c.nome,
+                        formatPhone(c.telefone_norm),
+                        c.email || '',
+                        c.cidade?.nome || '',
+                        formatDate(c.created_at)
+                      ]);
+                      const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${leader.nome_completo}_pendentes.csv`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast.success(`${pending.length} contatos pendentes exportados.`);
+                    }}
+                    disabled={!indicatedContacts?.some(c => !c.is_verified)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Pendentes ({indicatedContacts?.filter(c => !c.is_verified).length || 0})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const verified = indicatedContacts?.filter(c => c.is_verified) || [];
+                      if (verified.length === 0) {
+                        toast.info("Nenhum contato verificado para exportar.");
+                        return;
+                      }
+                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Data Cadastro', 'Data Verificação'];
+                      const rows = verified.map(c => [
+                        c.nome,
+                        formatPhone(c.telefone_norm),
+                        c.email || '',
+                        c.cidade?.nome || '',
+                        formatDate(c.created_at),
+                        c.verified_at ? formatDate(c.verified_at) : ''
+                      ]);
+                      const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${leader.nome_completo}_verificados.csv`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast.success(`${verified.length} contatos verificados exportados.`);
+                    }}
+                    disabled={!indicatedContacts?.some(c => c.is_verified)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Verificados ({indicatedContacts?.filter(c => c.is_verified).length || 0})
+                  </Button>
+                </div>
               </div>
               
               {loadingContacts ? (
