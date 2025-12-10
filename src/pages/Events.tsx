@@ -51,7 +51,7 @@ import { useLeadersEventRanking } from "@/hooks/events/useLeadersEventRanking";
 import { useCitiesEventStats } from "@/hooks/events/useCitiesEventStats";
 import { useRegistrationsTimeline } from "@/hooks/events/useRegistrationsTimeline";
 import { useCategoryStats } from "@/hooks/events/useCategoryStats";
-import { useContactsAnalysis } from "@/hooks/events/useContactsAnalysis";
+import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
 import { exportEventsToExcel, exportReportsToPdf } from "@/utils/eventReportsExport";
 import { generateEventUrl } from "@/lib/eventUrlHelper";
 import { format } from "date-fns";
@@ -63,21 +63,13 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 
-const eventCategories = [
-  { value: "educacao", label: "Educação", color: "bg-blue-500" },
-  { value: "saude", label: "Saúde", color: "bg-green-500" },
-  { value: "seguranca", label: "Segurança", color: "bg-red-500" },
-  { value: "infraestrutura", label: "Infraestrutura", color: "bg-yellow-500" },
-  { value: "cultura", label: "Cultura", color: "bg-purple-500" },
-  { value: "esporte", label: "Esporte", color: "bg-orange-500" },
-  { value: "meio_ambiente", label: "Meio Ambiente", color: "bg-teal-500" },
-  { value: "desenvolvimento", label: "Desenvolvimento", color: "bg-indigo-500" }
-];
+import { useContactsAnalysis } from "@/hooks/events/useContactsAnalysis";
 
 const Events = () => {
   const { data: events = [], isLoading } = useEvents();
   const { data: cities = [] } = useOfficeCities();
   const { data: eventStats } = useEventStats();
+  const { data: eventCategories = [] } = useEventCategories();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
@@ -329,13 +321,12 @@ const Events = () => {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const getCategoryColor = (category: string) => {
-    const cat = eventCategories.find(c => c.value === category);
-    return cat?.color || "bg-gray-500";
+  const getEventCategoryColor = (category: string) => {
+    return getCategoryColor(category);
   };
 
-  const getCategoryLabel = (category: string) => {
-    const cat = eventCategories.find(c => c.value === category);
+  const getEventCategoryLabel = (category: string) => {
+    const cat = eventCategories.find(c => c.value === category || c.label.toLowerCase() === category?.toLowerCase());
     return cat?.label || category;
   };
 
@@ -646,7 +637,7 @@ const Events = () => {
                                 <h3 className="text-lg font-semibold mb-1 truncate">{event.name}</h3>
                                 <div className="flex flex-wrap gap-2 mb-2">
                                   <Badge className={`${getCategoryColor(event.category)} text-white`}>
-                                    {getCategoryLabel(event.category)}
+                                    {getEventCategoryLabel(event.category)}
                                   </Badge>
                                   <Badge variant={event.status === "active" ? "default" : "secondary"}>
                                     {event.status === "active" ? "Ativo" : event.status === "completed" ? "Concluído" : "Cancelado"}
@@ -1347,6 +1338,7 @@ function EventReports({ events }: { events: any[] }) {
   const { data: categoryStats } = useCategoryStats();
   const { data: contactsAnalysis } = useContactsAnalysis();
   const { data: timelineData } = useRegistrationsTimeline(timelinePeriod);
+  const { data: eventCategories = [] } = useEventCategories();
   const { toast } = useToast();
 
   const categoryCounts = events.reduce((acc, event) => {

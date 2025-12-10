@@ -20,17 +20,7 @@ import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { sendVerificationMessage, addPendingMessage } from "@/hooks/contacts/useContactVerification";
-
-const eventCategories = {
-  educacao: { label: "Educação", color: "bg-blue-500" },
-  saude: { label: "Saúde", color: "bg-green-500" },
-  seguranca: { label: "Segurança", color: "bg-red-500" },
-  infraestrutura: { label: "Infraestrutura", color: "bg-yellow-500" },
-  cultura: { label: "Cultura", color: "bg-purple-500" },
-  esporte: { label: "Esporte", color: "bg-orange-500" },
-  meio_ambiente: { label: "Meio Ambiente", color: "bg-teal-500" },
-  desenvolvimento: { label: "Desenvolvimento", color: "bg-indigo-500" },
-};
+import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
 
 export default function EventRegistration() {
   const { slug } = useParams<{ slug: string }>();
@@ -40,6 +30,7 @@ export default function EventRegistration() {
   const { data: event, isLoading } = useEvent(slug || "");
   const { data: cities } = useOfficeCities();
   const { data: leader } = useLeaderByToken(affiliateToken || undefined);
+  const { data: categories = [] } = useEventCategories();
   const createRegistration = useCreateRegistration();
   
   const [formData, setFormData] = useState({
@@ -465,9 +456,14 @@ export default function EventRegistration() {
     );
   }
 
-  const categoryInfo = eventCategories[event.category as keyof typeof eventCategories] || {
-    label: event.category,
-    color: "bg-gray-500",
+  // Buscar info da categoria dinamicamente
+  const categoryData = categories.find(c => 
+    c.value === event.category || 
+    c.label.toLowerCase() === event.category?.toLowerCase()
+  );
+  const categoryInfo = {
+    label: categoryData?.label || event.category,
+    color: getCategoryColor(event.category || ""),
   };
 
   return (
