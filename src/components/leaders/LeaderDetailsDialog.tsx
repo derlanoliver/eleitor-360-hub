@@ -18,7 +18,15 @@ import { useLeaderCommunications } from "@/hooks/leaders/useLeaderCommunications
 import { useLeaderVisits } from "@/hooks/leaders/useLeaderVisits";
 import { useLeaderPageViews } from "@/hooks/leaders/useLeaderPageViews";
 import { useLeaderSurveyReferrals } from "@/hooks/leaders/useLeaderSurveyReferrals";
-import { LeaderLevelBadge, LeaderLevelProgress, getLeaderLevel, getNextLevel, getPointsToNextLevel } from "@/components/leaders/LeaderLevelBadge";
+import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
+import { 
+  useLeaderLevels, 
+  useGamificationSettings,
+  getLeaderLevel,
+  getNextLevel,
+  getPointsToNextLevel,
+  DEFAULT_LEVELS
+} from "@/hooks/leaders/useLeaderLevels";
 
 interface LeaderDetailsDialogProps {
   leader: OfficeLeader;
@@ -80,10 +88,17 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const { data: visits, isLoading: loadingVisits } = useLeaderVisits(open ? leader.id : undefined);
   const { data: pageViews, isLoading: loadingPageViews } = useLeaderPageViews(open ? leader.id : undefined);
   const { data: surveyData, isLoading: loadingSurveys } = useLeaderSurveyReferrals(open ? leader.id : undefined);
-
-  const levelInfo = getLeaderLevel(leader.pontuacao_total);
-  const nextLevel = getNextLevel(leader.pontuacao_total);
-  const pointsToNext = getPointsToNextLevel(leader.pontuacao_total);
+  
+  // Buscar níveis e configurações dinâmicas do banco
+  const { data: dynamicLevels } = useLeaderLevels();
+  const { data: gamificationSettings } = useGamificationSettings();
+  
+  // Usar níveis dinâmicos ou fallback para padrão
+  const activeLevels = dynamicLevels || DEFAULT_LEVELS;
+  
+  const levelInfo = getLeaderLevel(leader.pontuacao_total, activeLevels);
+  const nextLevel = getNextLevel(leader.pontuacao_total, activeLevels);
+  const pointsToNext = getPointsToNextLevel(leader.pontuacao_total, activeLevels);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -95,7 +110,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
           <DialogTitle className="flex items-center gap-3">
             <User className="h-5 w-5" />
             {leader.nome_completo}
-            <LeaderLevelBadge points={leader.pontuacao_total} size="sm" />
+            <LeaderLevelBadge points={leader.pontuacao_total} levels={activeLevels} size="sm" />
           </DialogTitle>
         </DialogHeader>
 
@@ -494,7 +509,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <span>Progresso para próximo nível</span>
                   <span className="font-medium">{nextLevel ? `${pointsToNext} pts restantes` : 'Nível máximo!'}</span>
                 </div>
-                <LeaderLevelProgress points={leader.pontuacao_total} />
+                <LeaderLevelProgress points={leader.pontuacao_total} levels={activeLevels} />
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-6">
@@ -527,8 +542,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               <div className="mt-4 p-4 bg-muted/50 rounded-lg">
                 <h4 className="font-medium mb-2">Como ganhar pontos:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• +1 ponto por contato indicado verificado</li>
-                  <li>• +1 ponto por inscrição em evento</li>
+                  <li>• +{gamificationSettings?.pontos_form_submitted || 1} ponto por contato indicado verificado</li>
+                  <li>• +{gamificationSettings?.pontos_form_submitted || 1} ponto por inscrição em evento</li>
                   <li>• +2 pontos por check-in em evento</li>
                   <li>• +2 pontos por check-in de visita indicada</li>
                   <li>• +2 pontos por download de material indicado</li>
