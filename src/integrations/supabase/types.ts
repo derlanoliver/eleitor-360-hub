@@ -2147,6 +2147,13 @@ export type Database = {
           nome: string
         }[]
       }
+      get_top_city: {
+        Args: never
+        Returns: {
+          city_count: number
+          city_name: string
+        }[]
+      }
       get_user_context: {
         Args: { user_id: string }
         Returns: {
