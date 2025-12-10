@@ -40,6 +40,8 @@ export default function LeaderRegistrationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [alreadyReferredByOther, setAlreadyReferredByOther] = useState(false);
+  const [originalLeaderName, setOriginalLeaderName] = useState<string | null>(null);
 
   // Buscar líder pelo affiliate_token
   const { data: leader, isLoading: leaderLoading, error: leaderError } = useQuery({
@@ -137,6 +139,15 @@ export default function LeaderRegistrationForm() {
         return;
       }
 
+      // Já está indicado por OUTRO líder - bloquear
+      if (contact?.already_referred_by_other_leader) {
+        setOriginalLeaderName(contact.original_leader_name || "outro líder");
+        setAlreadyReferredByOther(true);
+        setIsSuccess(true);
+        setNeedsVerification(false);
+        return;
+      }
+
       // Já está verificado?
       if (contact?.is_verified) {
         toast.success("Cadastro atualizado com sucesso!");
@@ -219,13 +230,27 @@ export default function LeaderRegistrationForm() {
   // Tela de sucesso
   if (isSuccess) {
     // Verificar se é líder (não precisa de verificação porque já é líder)
-    const isAlreadyLeader = !needsVerification;
+    const isAlreadyLeader = !needsVerification && !alreadyReferredByOther;
     
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            {needsVerification ? (
+            {alreadyReferredByOther ? (
+              <>
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Você Já Está Cadastrado!</h2>
+                <p className="text-muted-foreground mb-4">
+                  Identificamos que você já foi indicado por <strong>{originalLeaderName}</strong>. 
+                  Seu cadastro continua válido!
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                  <p>Não é possível alterar a indicação original.</p>
+                </div>
+              </>
+            ) : needsVerification ? (
               <>
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageSquare className="h-8 w-8 text-amber-600" />
@@ -256,9 +281,11 @@ export default function LeaderRegistrationForm() {
                 </p>
               </>
             )}
-            <p className="text-sm text-muted-foreground mt-4">
-              Indicado por: <strong>{leader.nome_completo}</strong>
-            </p>
+            {!alreadyReferredByOther && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Indicado por: <strong>{leader.nome_completo}</strong>
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

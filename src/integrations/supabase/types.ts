@@ -2250,10 +2250,12 @@ export type Database = {
           p_telefone_norm: string
         }
         Returns: {
+          already_referred_by_other_leader: boolean
           contact_id: string
           is_already_leader: boolean
-          is_new: boolean
           is_verified: boolean
+          needs_verification: boolean
+          original_leader_name: string
           verification_code: string
         }[]
       }
