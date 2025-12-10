@@ -11,7 +11,7 @@ type CreateEventData = {
   location: string;
   address?: string;
   capacity?: number;
-  category: string;
+  categories: string[];
   region: string;
   coverImage?: File;
   show_registrations_count?: boolean;
@@ -54,7 +54,7 @@ export function useCreateEvent() {
           location: data.location,
           address: data.address,
           capacity: data.capacity || 100,
-          category: data.category,
+          categories: data.categories,
           region: data.region,
           cover_image_url: coverImageUrl,
           show_registrations_count: data.show_registrations_count ?? true,
