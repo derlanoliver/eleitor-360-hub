@@ -367,6 +367,26 @@ export default function EventRegistration() {
     );
   }
 
+  // Verificar se já passou 4 horas do horário do evento
+  const eventDateTime = new Date(`${event.date}T${event.time}`);
+  const registrationDeadline = new Date(eventDateTime.getTime() + (4 * 60 * 60 * 1000));
+  const isRegistrationClosed = new Date() > registrationDeadline;
+
+  if (isRegistrationClosed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Inscrições encerradas</CardTitle>
+            <CardDescription>
+              O prazo para inscrições neste evento foi encerrado.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   if (registrationSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
