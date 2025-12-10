@@ -28,12 +28,14 @@ export function useProfileStats() {
         valor: total > 0 ? Math.round((count / total) * 100) : 0,
       }));
 
-      // Idade média (apenas para contatos com data de nascimento)
+      // Idade média (apenas para contatos com data de nascimento válida)
+      const today = new Date();
       const ages = (contacts || [])
         .filter(c => c.data_nascimento)
         .map(c => {
           const birthDate = new Date(c.data_nascimento!);
-          const today = new Date();
+          // Ignorar datas futuras
+          if (birthDate > today) return null;
           let age = today.getFullYear() - birthDate.getFullYear();
           const monthDiff = today.getMonth() - birthDate.getMonth();
           if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -41,21 +43,22 @@ export function useProfileStats() {
           }
           return age;
         })
-        .filter(age => age >= 0 && age <= 120); // Filtrar idades válidas
+        .filter((age): age is number => age !== null && age >= 18 && age <= 100);
 
       const idade_media = ages.length > 0
         ? Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length)
         : 0;
 
-      // Participação em eventos (contatos com visitas com status FORM_SUBMITTED ou CHECKED_IN)
-      const { data: visits } = await supabase
-        .from("office_visits")
-        .select("contact_id, status")
-        .in("status", ["FORM_SUBMITTED", "CHECKED_IN"]);
+      // Participação em eventos (contatos com check-in em eventos)
+      const { data: eventRegistrations } = await supabase
+        .from("event_registrations")
+        .select("contact_id")
+        .eq("checked_in", true)
+        .not("contact_id", "is", null);
 
-      const contactsWithVisits = new Set(visits?.map(v => v.contact_id));
+      const contactsWithEvents = new Set(eventRegistrations?.map(r => r.contact_id));
       const participacao_eventos_pct = total > 0
-        ? Math.round((contactsWithVisits.size / total) * 100)
+        ? Math.round((contactsWithEvents.size / total) * 100)
         : 0;
 
       return {
