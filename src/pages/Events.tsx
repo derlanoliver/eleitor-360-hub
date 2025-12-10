@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Calendar, 
@@ -103,7 +104,7 @@ const Events = () => {
     location: "",
     address: "",
     capacity: "100",
-    category: "",
+    categories: [] as string[],
     region: "",
     coverImage: null as File | null,
     show_registrations_count: true
@@ -224,7 +225,7 @@ const Events = () => {
   };
 
   const handleCreateEvent = async () => {
-    if (!newEvent.name || !newEvent.slug || !newEvent.date || !newEvent.time || !newEvent.location || !newEvent.category || !newEvent.region) {
+    if (!newEvent.name || !newEvent.slug || !newEvent.date || !newEvent.time || !newEvent.location || newEvent.categories.length === 0 || !newEvent.region) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos obrigatórios.",
@@ -243,7 +244,7 @@ const Events = () => {
         location: newEvent.location,
         address: newEvent.address,
         capacity: parseInt(newEvent.capacity),
-        category: newEvent.category,
+        categories: newEvent.categories,
         region: newEvent.region,
         coverImage: newEvent.coverImage || undefined,
         show_registrations_count: newEvent.show_registrations_count
@@ -258,7 +259,7 @@ const Events = () => {
         location: "", 
         address: "", 
         capacity: "100", 
-        category: "", 
+        categories: [], 
         region: "",
         coverImage: null,
         show_registrations_count: true
@@ -283,7 +284,7 @@ const Events = () => {
         location: editingEvent.location,
         address: editingEvent.address,
         capacity: parseInt(editingEvent.capacity),
-        category: editingEvent.category,
+        categories: editingEvent.categories,
         region: editingEvent.region,
         status: editingEvent.status,
         coverImage: editingEvent.coverImage || undefined,
@@ -316,7 +317,7 @@ const Events = () => {
     const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || event.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || event.category === categoryFilter;
+    const matchesCategory = categoryFilter === "all" || (event.categories || []).includes(categoryFilter);
     
     return matchesSearch && matchesStatus && matchesCategory;
   });
@@ -466,20 +467,26 @@ const Events = () => {
                       />
                     </div>
 
-                    <div>
-                      <Label htmlFor="category">Categoria *</Label>
-                      <Select value={newEvent.category} onValueChange={(value) => setNewEvent({ ...newEvent, category: value })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {eventCategories.map((cat) => (
-                            <SelectItem key={cat.value} value={cat.value}>
-                              {cat.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="col-span-2">
+                      <Label>Categorias *</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
+                        {eventCategories.map((cat) => (
+                          <div key={cat.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`create-cat-${cat.value}`}
+                              checked={newEvent.categories.includes(cat.value)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setNewEvent({...newEvent, categories: [...newEvent.categories, cat.value]});
+                                } else {
+                                  setNewEvent({...newEvent, categories: newEvent.categories.filter(c => c !== cat.value)});
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`create-cat-${cat.value}`} className="text-sm font-normal cursor-pointer">{cat.label}</Label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="col-span-2">
@@ -624,7 +631,7 @@ const Events = () => {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className={`w-full h-full ${getCategoryColor(event.category)} flex items-center justify-center`}>
+                              <div className={`w-full h-full ${getCategoryColor((event.categories || [])[0] || "")} flex items-center justify-center`}>
                                 <Calendar className="h-12 w-12 text-white opacity-50" />
                               </div>
                             )}
@@ -636,9 +643,11 @@ const Events = () => {
                               <div className="flex-1 min-w-0">
                                 <h3 className="text-lg font-semibold mb-1 truncate">{event.name}</h3>
                                 <div className="flex flex-wrap gap-2 mb-2">
-                                  <Badge className={`${getCategoryColor(event.category)} text-white`}>
-                                    {getEventCategoryLabel(event.category)}
-                                  </Badge>
+                                  {(event.categories || []).map((cat: string) => (
+                                    <Badge key={cat} className={`${getCategoryColor(cat)} text-white`}>
+                                      {getEventCategoryLabel(cat)}
+                                    </Badge>
+                                  ))}
                                   <Badge variant={event.status === "active" ? "default" : "secondary"}>
                                     {event.status === "active" ? "Ativo" : event.status === "completed" ? "Concluído" : "Cancelado"}
                                   </Badge>
@@ -874,23 +883,27 @@ const Events = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label>Categoria *</Label>
-                    <Select 
-                      value={editingEvent.category} 
-                      onValueChange={(value) => setEditingEvent({ ...editingEvent, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {eventCategories.map((cat) => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="col-span-2">
+                    <Label>Categorias *</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
+                      {eventCategories.map((cat) => (
+                        <div key={cat.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`edit-cat-${cat.value}`}
+                            checked={(editingEvent.categories || []).includes(cat.value)}
+                            onCheckedChange={(checked) => {
+                              const currentCategories = editingEvent.categories || [];
+                              if (checked) {
+                                setEditingEvent({...editingEvent, categories: [...currentCategories, cat.value]});
+                              } else {
+                                setEditingEvent({...editingEvent, categories: currentCategories.filter((c: string) => c !== cat.value)});
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`edit-cat-${cat.value}`} className="text-sm font-normal cursor-pointer">{cat.label}</Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="col-span-2">

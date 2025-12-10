@@ -17,7 +17,7 @@ export interface LeaderEventRegistration {
     time: string;
     location: string;
     address: string | null;
-    category: string;
+    categories: string[];
   } | null;
 }
 
@@ -86,7 +86,7 @@ export function useLeaderEventParticipation(leaderId: string | undefined, leader
           checked_in,
           checked_in_at,
           created_at,
-          event:events(id, name, slug, date, time, location, address, category)
+          event:events(id, name, slug, date, time, location, address, categories)
         `)
         .order("created_at", { ascending: false });
 

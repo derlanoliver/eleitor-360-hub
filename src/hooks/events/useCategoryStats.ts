@@ -40,7 +40,7 @@ export function useCategoryStats() {
         temasMap.set(tema.tema.toLowerCase(), tema.tema);
       });
 
-      // Group by category
+      // Group by category (now using categories array)
       const categoryMap = new Map<string, {
         totalEvents: number;
         totalRegistrations: number;
@@ -48,19 +48,21 @@ export function useCategoryStats() {
       }>();
 
       events.forEach((event: any) => {
-        const category = event.category;
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, {
-            totalEvents: 0,
-            totalRegistrations: 0,
-            totalCheckins: 0,
-          });
-        }
+        const eventCategories = event.categories || [];
+        eventCategories.forEach((category: string) => {
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, {
+              totalEvents: 0,
+              totalRegistrations: 0,
+              totalCheckins: 0,
+            });
+          }
 
-        const stats = categoryMap.get(category)!;
-        stats.totalEvents++;
-        stats.totalRegistrations += event.registrations_count || 0;
-        stats.totalCheckins += event.checkedin_count || 0;
+          const stats = categoryMap.get(category)!;
+          stats.totalEvents++;
+          stats.totalRegistrations += event.registrations_count || 0;
+          stats.totalCheckins += event.checkedin_count || 0;
+        });
       });
 
       // Convert to array and calculate metrics

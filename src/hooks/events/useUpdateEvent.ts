@@ -12,7 +12,7 @@ type UpdateEventData = {
   location?: string;
   address?: string;
   capacity?: number;
-  category?: string;
+  categories?: string[];
   region?: string;
   status?: 'active' | 'completed' | 'cancelled';
   coverImage?: File;

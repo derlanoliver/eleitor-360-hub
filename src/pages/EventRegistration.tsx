@@ -161,7 +161,7 @@ export default function EventRegistration() {
         source: 'evento',
         event_id: event.id,
         event_name: event.name,
-        event_category: event.category
+        event_categories: event.categories
       });
 
       const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
@@ -456,15 +456,22 @@ export default function EventRegistration() {
     );
   }
 
-  // Buscar info da categoria dinamicamente
-  const categoryData = categories.find(c => 
-    c.value === event.category || 
-    c.label.toLowerCase() === event.category?.toLowerCase()
-  );
-  const categoryInfo = {
-    label: categoryData?.label || event.category,
-    color: getCategoryColor(event.category || ""),
+  // Buscar info das categorias dinamicamente
+  const getCategoriesDisplay = () => {
+    const eventCategories = event.categories || [];
+    return eventCategories.map(cat => {
+      const catData = categories.find(c => 
+        c.value === cat || 
+        c.label.toLowerCase() === cat?.toLowerCase()
+      );
+      return {
+        label: catData?.label || cat,
+        color: getCategoryColor(cat || ""),
+      };
+    });
   };
+
+  const categoriesDisplay = getCategoriesDisplay();
 
   return (
     <div className="min-h-screen bg-background">
@@ -494,9 +501,13 @@ export default function EventRegistration() {
         
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-white ${categoryInfo.color} mb-3`}>
-              {categoryInfo.label}
-            </span>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {categoriesDisplay.map((cat, idx) => (
+                <span key={idx} className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-white ${cat.color}`}>
+                  {cat.label}
+                </span>
+              ))}
+            </div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{event.name}</h1>
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">

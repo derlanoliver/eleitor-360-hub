@@ -520,7 +520,7 @@ export type Database = {
         Row: {
           address: string | null
           capacity: number | null
-          category: string
+          categories: string[] | null
           checkedin_count: number | null
           cover_image_url: string | null
           created_at: string | null
@@ -540,7 +540,7 @@ export type Database = {
         Insert: {
           address?: string | null
           capacity?: number | null
-          category: string
+          categories?: string[] | null
           checkedin_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
@@ -560,7 +560,7 @@ export type Database = {
         Update: {
           address?: string | null
           capacity?: number | null
-          category?: string
+          categories?: string[] | null
           checkedin_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
