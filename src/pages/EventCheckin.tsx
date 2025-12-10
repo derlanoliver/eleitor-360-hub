@@ -7,22 +7,13 @@ import { CheckCircle2, XCircle, Calendar, Clock, MapPin, User, CalendarX2 } from
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isEventDeadlinePassed } from "@/lib/eventUtils";
-
-const eventCategories = {
-  educacao: { label: "Educação", color: "bg-blue-500" },
-  saude: { label: "Saúde", color: "bg-green-500" },
-  seguranca: { label: "Segurança", color: "bg-red-500" },
-  infraestrutura: { label: "Infraestrutura", color: "bg-yellow-500" },
-  cultura: { label: "Cultura", color: "bg-purple-500" },
-  esporte: { label: "Esporte", color: "bg-orange-500" },
-  meio_ambiente: { label: "Meio Ambiente", color: "bg-teal-500" },
-  desenvolvimento: { label: "Desenvolvimento", color: "bg-indigo-500" },
-};
+import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
 
 export default function EventCheckin() {
   const { qrCode } = useParams<{ qrCode: string }>();
   const { data: registration, isLoading, error } = useRegistrationByQR(qrCode || "");
   const updateCheckIn = useUpdateCheckInByQR();
+  const { data: categories = [] } = useEventCategories();
 
   const handleCheckIn = async () => {
     if (!qrCode) return;
@@ -61,9 +52,14 @@ export default function EventCheckin() {
     );
   }
 
-  const categoryInfo = eventCategories[registration.event_category as keyof typeof eventCategories] || {
-    label: registration.event_category || "",
-    color: "bg-gray-500",
+  // Buscar info da categoria dinamicamente
+  const categoryData = categories.find(c => 
+    c.value === registration.event_category || 
+    c.label.toLowerCase() === registration.event_category?.toLowerCase()
+  );
+  const categoryInfo = {
+    label: categoryData?.label || registration.event_category || "",
+    color: getCategoryColor(registration.event_category || ""),
   };
 
   const isCheckedIn = registration.checked_in;
