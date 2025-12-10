@@ -3,9 +3,10 @@ import { useRegistrationByQR, useUpdateCheckInByQR } from "@/hooks/events/useReg
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Calendar, Clock, MapPin, User } from "lucide-react";
+import { CheckCircle2, XCircle, Calendar, Clock, MapPin, User, CalendarX2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isEventDeadlinePassed } from "@/lib/eventUtils";
 
 const eventCategories = {
   educacao: { label: "Educação", color: "bg-blue-500" },
@@ -66,6 +67,39 @@ export default function EventCheckin() {
   };
 
   const isCheckedIn = registration.checked_in;
+  
+  // Verificar se já passou 4 horas do horário do evento
+  const isCheckinClosed = registration.event_date && registration.event_time 
+    ? isEventDeadlinePassed(registration.event_date, registration.event_time)
+    : false;
+
+  // Se o prazo de check-in passou, mostrar mensagem
+  if (isCheckinClosed && !isCheckedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <CalendarX2 className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <CardTitle>Check-in Não Disponível</CardTitle>
+            <CardDescription>
+              O período de check-in para este evento foi encerrado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-semibold">{registration.event_name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {registration.event_date && format(new Date(registration.event_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                {registration.event_time && ` às ${registration.event_time}`}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

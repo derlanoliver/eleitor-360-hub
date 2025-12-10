@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, MapPin, Users, CheckCircle2, AlertTriangle, UserCheck, ShieldCheck } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle2, AlertTriangle, UserCheck, ShieldCheck, CalendarX2 } from "lucide-react";
+import { isEventDeadlinePassed } from "@/lib/eventUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
@@ -368,18 +369,19 @@ export default function EventRegistration() {
   }
 
   // Verificar se já passou 4 horas do horário do evento
-  const eventDateTime = new Date(`${event.date}T${event.time}`);
-  const registrationDeadline = new Date(eventDateTime.getTime() + (4 * 60 * 60 * 1000));
-  const isRegistrationClosed = new Date() > registrationDeadline;
+  const isRegistrationClosed = isEventDeadlinePassed(event.date, event.time);
 
   if (isRegistrationClosed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Inscrições encerradas</CardTitle>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <CalendarX2 className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <CardTitle>Evento Encerrado</CardTitle>
             <CardDescription>
-              O prazo para inscrições neste evento foi encerrado.
+              Este evento já aconteceu e as inscrições foram encerradas.
             </CardDescription>
           </CardHeader>
         </Card>
