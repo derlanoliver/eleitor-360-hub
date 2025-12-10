@@ -33,21 +33,11 @@ export function useDashboardStats() {
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
 
-      // Cidade com mais cadastros
-      const { data: citiesRanking } = await supabase
-        .from("office_contacts")
-        .select("cidade_id, office_cities(nome)")
-        .not("cidade_id", "is", null);
+      // Cidade com mais cadastros - via RPC (evita limite de 1000 registros)
+      const { data: topCityData } = await supabase.rpc("get_top_city");
 
-      const cityCount = citiesRanking?.reduce((acc, curr) => {
-        const cityName = (curr.office_cities as any)?.nome || "Outros";
-        acc[cityName] = (acc[cityName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const topCityEntry = Object.entries(cityCount || {}).sort((a, b) => b[1] - a[1])[0];
-      const topCity = topCityEntry?.[0] || "N/A";
-      const topCityCount = topCityEntry?.[1] || 0;
+      const topCity = topCityData?.[0]?.city_name || "N/A";
+      const topCityCount = topCityData?.[0]?.city_count || 0;
 
       // Último cadastro
       const { data: lastContact } = await supabase
