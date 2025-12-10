@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList, ExternalLink } from "lucide-react";
+import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList, ExternalLink, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
@@ -61,6 +61,20 @@ const Dashboard = () => {
     },
   });
 
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ["dashboard_stats"] });
+    queryClient.invalidateQueries({ queryKey: ["top_leaders"] });
+    queryClient.invalidateQueries({ queryKey: ["profile_stats"] });
+    queryClient.invalidateQueries({ queryKey: ["temas_ranking"] });
+    queryClient.invalidateQueries({ queryKey: ["cities_ranking"] });
+    queryClient.invalidateQueries({ queryKey: ["office_stats"] });
+    
+    toast({
+      title: "Dados atualizados",
+      description: "Os dados do dashboard foram recarregados com sucesso",
+    });
+  };
+
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -106,12 +120,26 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            Dashboard
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            Visão geral do desempenho e ranking de lideranças
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                Dashboard
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                Visão geral do desempenho e ranking de lideranças
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshData}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Atualizar</span>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
