@@ -32,14 +32,14 @@ export function CoordinatorCard({
       }`}
     >
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2 overflow-hidden">
-          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden" onClick={onSelect}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1" onClick={onSelect}>
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
               <Crown className="h-5 w-5 text-amber-600" />
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold truncate">{coordinator.nome_completo}</h3>
-              <p className="text-sm text-muted-foreground truncate">
+            <div className="min-w-0 overflow-hidden">
+              <h3 className="font-semibold truncate max-w-[140px]">{coordinator.nome_completo}</h3>
+              <p className="text-sm text-muted-foreground truncate max-w-[140px]">
                 {coordinator.cidade_nome || "Sem região"}
               </p>
             </div>
