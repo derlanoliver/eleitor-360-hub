@@ -2128,6 +2128,22 @@ export type Database = {
       generate_survey_slug: { Args: { base_name: string }; Returns: string }
       generate_verification_code: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
+      get_all_coordinators_with_stats: {
+        Args: never
+        Returns: {
+          cadastros: number
+          cidade_id: string
+          cidade_nome: string
+          email: string
+          id: string
+          nome_completo: string
+          pontuacao_total: number
+          telefone: string
+          total_cadastros: number
+          total_leaders: number
+          total_pontos: number
+        }[]
+      }
       get_coordinator_network_stats: {
         Args: { _coordinator_id: string }
         Returns: {

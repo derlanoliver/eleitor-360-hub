@@ -28,23 +28,21 @@ export interface Coordinator {
   nome_completo: string;
   email: string | null;
   telefone: string | null;
+  cidade_id: string | null;
+  cidade_nome: string | null;
   cadastros: number;
   pontuacao_total: number;
-  is_active: boolean;
-  cidade_id: string | null;
-  cidade?: { nome: string } | null;
+  total_leaders: number;
+  total_cadastros: number;
+  total_pontos: number;
 }
 
-// Fetch all coordinators
+// Fetch all coordinators with their network stats
 export function useCoordinators() {
   return useQuery({
     queryKey: ["coordinators"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, email, telefone, cadastros, pontuacao_total, is_active, cidade_id, cidade:office_cities(nome)")
-        .eq("is_coordinator", true)
-        .order("nome_completo");
+      const { data, error } = await supabase.rpc("get_all_coordinators_with_stats");
 
       if (error) throw error;
       return data as Coordinator[];
