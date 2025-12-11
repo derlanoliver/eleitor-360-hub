@@ -32,8 +32,8 @@ export function CoordinatorCard({
       }`}
     >
       <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0" onClick={onSelect}>
+        <div className="flex items-start justify-between gap-2 overflow-hidden">
+          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden" onClick={onSelect}>
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
               <Crown className="h-5 w-5 text-amber-600" />
             </div>
@@ -45,7 +45,7 @@ export function CoordinatorCard({
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
