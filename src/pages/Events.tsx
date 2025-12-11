@@ -1029,6 +1029,7 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
   const { data: registrations = [], isLoading } = useEventRegistrations(eventId);
   const updateCheckIn = useUpdateCheckIn();
   const { data: events = [] } = useEvents();
+  const { toast } = useToast();
   const event = events.find(e => e.id === eventId);
 
   const filteredRegistrations = registrations.filter((reg: any) => {
@@ -1050,6 +1051,42 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
           <DialogTitle>{event.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* PIN de Check-in */}
+          {event.checkin_pin && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <QrCode className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">PIN para Check-in</p>
+                      <p className="text-2xl font-bold font-mono tracking-widest">{event.checkin_pin}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(event.checkin_pin);
+                      toast({
+                        title: "PIN copiado!",
+                        description: "Compartilhe com quem fará os check-ins no evento."
+                      });
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar PIN
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Compartilhe este PIN com quem fará os check-ins. Não é necessário criar conta.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
