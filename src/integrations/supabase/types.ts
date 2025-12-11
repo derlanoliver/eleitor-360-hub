@@ -522,6 +522,7 @@ export type Database = {
           capacity: number | null
           categories: string[] | null
           checkedin_count: number | null
+          checkin_pin: string | null
           cover_image_url: string | null
           created_at: string | null
           date: string
@@ -542,6 +543,7 @@ export type Database = {
           capacity?: number | null
           categories?: string[] | null
           checkedin_count?: number | null
+          checkin_pin?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           date: string
@@ -562,6 +564,7 @@ export type Database = {
           capacity?: number | null
           categories?: string[] | null
           checkedin_count?: number | null
+          checkin_pin?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           date?: string
@@ -2097,6 +2100,7 @@ export type Database = {
           qr_code: string
         }[]
       }
+      generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
@@ -2277,6 +2281,10 @@ export type Database = {
           _utm_source?: string
         }
         Returns: string
+      }
+      validate_checkin_pin: {
+        Args: { _event_id: string; _pin: string }
+        Returns: boolean
       }
       verify_contact_by_code: { Args: { _code: string }; Returns: Json }
     }

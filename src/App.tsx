@@ -98,12 +98,8 @@ const App = () => (
             <Route path="/pesquisa/:slug" element={<SurveyPublicForm />} />
             <Route path="/v/:codigo" element={<VerifyContact />} />
             
-            {/* Protected check-in routes - all authenticated users can do check-in */}
-            <Route path="/checkin/:qrCode" element={
-              <ProtectedRoute>
-                <EventCheckin />
-              </ProtectedRoute>
-            } />
+            {/* Public check-in route with PIN protection */}
+            <Route path="/checkin/:qrCode" element={<EventCheckin />} />
             <Route path="/office/checkin/:qrCode" element={
               <ProtectedRoute>
                 <VisitCheckin />
