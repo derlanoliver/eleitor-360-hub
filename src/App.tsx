@@ -63,6 +63,7 @@ import SurveyEditor from "./pages/SurveyEditor";
 import SurveyResults from "./pages/SurveyResults";
 import SurveyPublicForm from "./pages/SurveyPublicForm";
 import VerifyContact from "./pages/VerifyContact";
+import LeaderTree from "./pages/LeaderTree";
 
 const queryClient = new QueryClient();
 
@@ -127,6 +128,15 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <LeadersRanking />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Leader Tree - apenas super_admin */}
+            <Route path="/leaders/tree" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout>
+                  <LeaderTree />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />
