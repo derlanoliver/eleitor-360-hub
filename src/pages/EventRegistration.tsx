@@ -19,7 +19,7 @@ import { getBaseUrl } from "@/lib/urlHelper";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { sendVerificationMessage, addPendingMessage } from "@/hooks/contacts/useContactVerification";
+import { sendVerificationMessage, sendVerificationSMS, addPendingMessage } from "@/hooks/contacts/useContactVerification";
 import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
 
 export default function EventRegistration() {
@@ -240,11 +240,11 @@ export default function EventRegistration() {
           setNeedsVerification(true);
         }
       } else {
-      // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
+        // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
         // Buscar contact_id pelo telefone normalizado
         const { data: contactForMessaging } = await supabase
           .from("office_contacts")
-          .select("id")
+          .select("id, is_verified, verification_code")
           .eq("telefone_norm", normalizedPhone)
           .maybeSingle();
 
@@ -294,6 +294,34 @@ export default function EventRegistration() {
           });
         } catch (emailError) {
           console.error('Error sending email confirmation:', emailError);
+        }
+
+        // Se contato não está verificado, enviar SMS de verificação em background
+        if (contactForMessaging && !contactForMessaging.is_verified) {
+          try {
+            let verificationCode = contactForMessaging.verification_code;
+            
+            // Gerar código se não tiver
+            if (!verificationCode) {
+              const { data: newCode } = await supabase.rpc("generate_verification_code");
+              verificationCode = newCode;
+              
+              await supabase
+                .from("office_contacts")
+                .update({ verification_code: verificationCode })
+                .eq("id", contactForMessaging.id);
+            }
+            
+            // Enviar SMS em background (não bloqueia fluxo e não altera tela de sucesso)
+            sendVerificationSMS({
+              contactId: contactForMessaging.id,
+              contactName: formData.nome,
+              contactPhone: normalizedPhone,
+              verificationCode: verificationCode,
+            });
+          } catch (smsError) {
+            console.error('Error sending verification SMS:', smsError);
+          }
         }
       }
 
