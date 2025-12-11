@@ -143,7 +143,14 @@ export async function getLeaders(filters?: { cidade_id?: string; search?: string
   }
   
   if (filters?.search) {
-    query = query.ilike("nome_completo", `%${filters.search}%`);
+    const searchDigits = filters.search.replace(/\D/g, '');
+    
+    if (searchDigits.length >= 4) {
+      // Busca por nome ou telefone
+      query = query.or(`nome_completo.ilike.%${filters.search}%,telefone.ilike.%${searchDigits}%`);
+    } else {
+      query = query.ilike("nome_completo", `%${filters.search}%`);
+    }
   }
   
   query = query.order("nome_completo");

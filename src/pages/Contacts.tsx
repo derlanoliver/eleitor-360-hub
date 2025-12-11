@@ -402,8 +402,10 @@ const Contacts = () => {
 
   // Filtros
   const filteredContacts = contacts.filter(contact => {
+    const searchDigits = searchTerm.replace(/\D/g, '');
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contact.email.toLowerCase().includes(searchTerm.toLowerCase());
+                         contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (searchDigits.length >= 4 && contact.phone?.includes(searchDigits));
     const matchesRegion = selectedRegion === "all" || contact.region === selectedRegion;
     
     let matchesSource = true;
