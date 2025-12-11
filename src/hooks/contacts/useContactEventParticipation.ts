@@ -9,7 +9,7 @@ export interface ContactEventParticipation {
   event_time: string;
   event_location: string;
   event_address: string | null;
-  event_category: string;
+  event_categories: string[];
   event_slug: string;
   checked_in: boolean;
   checked_in_at: string | null;
@@ -37,7 +37,7 @@ export function useContactEventParticipation(contactId: string | undefined) {
             time,
             location,
             address,
-            category,
+            categories,
             slug
           )
         `)
@@ -54,7 +54,7 @@ export function useContactEventParticipation(contactId: string | undefined) {
         event_time: reg.events?.time || "",
         event_location: reg.events?.location || "",
         event_address: reg.events?.address || null,
-        event_category: reg.events?.category || "",
+        event_categories: Array.isArray(reg.events?.categories) ? reg.events.categories : [],
         event_slug: reg.events?.slug || "",
         checked_in: reg.checked_in || false,
         checked_in_at: reg.checked_in_at,
