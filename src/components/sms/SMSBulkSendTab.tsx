@@ -20,7 +20,7 @@ import { useSMSTemplates, replaceTemplateVariables } from "@/hooks/useSMSTemplat
 import { useEvents } from "@/hooks/events/useEvents";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { generateVerificationUrl } from "@/lib/urlHelper";
+import { generateVerificationUrl, getBaseUrl } from "@/lib/urlHelper";
 
 type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "sms_not_sent" | "waiting_verification";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
@@ -30,6 +30,7 @@ interface SinglePerson {
   nome: string;
   phone: string;
   verification_code?: string | null;
+  affiliate_token?: string | null;
 }
 
 const BATCH_SIZES: { value: BatchSize; label: string }[] = [
@@ -93,13 +94,13 @@ export function SMSBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lideres")
-        .select("id, nome_completo, telefone")
+        .select("id, nome_completo, telefone, affiliate_token")
         .eq("is_active", true)
         .not("telefone", "is", null)
         .ilike("nome_completo", `%${singleSearch}%`)
         .limit(10);
       if (error) throw error;
-      return data?.map((l) => ({ id: l.id, nome: l.nome_completo, phone: l.telefone! })) || [];
+      return data?.map((l) => ({ id: l.id, nome: l.nome_completo, phone: l.telefone!, affiliate_token: l.affiliate_token })) || [];
     },
     enabled: recipientType === "single_leader" && singleSearch.length >= 2 && !selectedPerson,
   });
@@ -111,7 +112,7 @@ export function SMSBulkSendTab() {
     queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id],
     queryFn: async () => {
       if (isSingleSend && selectedPerson) {
-        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: selectedPerson.verification_code || null }];
+        return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: selectedPerson.verification_code || null, affiliate_token: selectedPerson.affiliate_token || null }];
       }
       if (recipientType === "contacts") {
         const { data, error } = await supabase
@@ -126,11 +127,12 @@ export function SMSBulkSendTab() {
           phone: c.telefone_norm,
           email: c.email,
           verification_code: null,
+          affiliate_token: null,
         }));
       } else if (recipientType === "leaders") {
         const { data, error } = await supabase
           .from("lideres")
-          .select("id, nome_completo, telefone, email")
+          .select("id, nome_completo, telefone, email, affiliate_token")
           .eq("is_active", true)
           .not("telefone", "is", null);
         if (error) throw error;
@@ -140,6 +142,7 @@ export function SMSBulkSendTab() {
           phone: l.telefone,
           email: l.email,
           verification_code: null,
+          affiliate_token: l.affiliate_token,
         }));
       } else if (recipientType === "event" && selectedEvent) {
         const { data, error } = await supabase
@@ -153,6 +156,7 @@ export function SMSBulkSendTab() {
           phone: r.whatsapp,
           email: r.email,
           verification_code: null,
+          affiliate_token: null,
         }));
       } else if (recipientType === "sms_not_sent") {
         // Contatos indicados por líder que NUNCA receberam SMS (verification_sent_at IS NULL)
@@ -171,6 +175,7 @@ export function SMSBulkSendTab() {
           phone: c.telefone_norm,
           email: c.email,
           verification_code: c.verification_code,
+          affiliate_token: null,
         }));
       } else if (recipientType === "waiting_verification") {
         // Contatos que já receberam SMS mas ainda não verificaram
@@ -189,6 +194,7 @@ export function SMSBulkSendTab() {
           phone: c.telefone_norm,
           email: c.email,
           verification_code: c.verification_code,
+          affiliate_token: null,
         }));
       }
       return [];
@@ -229,6 +235,11 @@ export function SMSBulkSendTab() {
             nome: recipient.nome || "",
             email: recipient.email || "",
           };
+
+          // Add leader affiliate link if applicable
+          if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
+            variables.link_indicacao = `${getBaseUrl()}/cadastro/${recipient.affiliate_token}`;
+          }
 
           // Add event variables if applicable
           if (recipientType === "event" && selectedEvent) {
