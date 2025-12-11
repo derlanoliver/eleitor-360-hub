@@ -75,7 +75,7 @@ export function LeaderAutocomplete({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar líder..."
             value={search}
