@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { GitBranch, Crown, Plus, Users, Award, Target, Loader2 } from "lucide-react";
+import { GitBranch, Crown, Plus, Users, Award, Target, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { 
   useCoordinators, 
   useLeaderTree, 
@@ -26,6 +27,7 @@ import {
 export default function LeaderTree() {
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState<string | null>(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [demoteConfirm, setDemoteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const { data: coordinators, isLoading: loadingCoordinators } = useCoordinators();
@@ -33,6 +35,21 @@ export default function LeaderTree() {
   const demoteCoordinator = useDemoteCoordinator();
 
   const selectedCoordinator = coordinators?.find(c => c.id === selectedCoordinatorId);
+
+  // Filtrar coordenadores por nome, email ou telefone
+  const filteredCoordinators = coordinators?.filter((coordinator) => {
+    if (!searchTerm.trim()) return true;
+    
+    const search = searchTerm.toLowerCase().trim();
+    const searchDigits = search.replace(/\D/g, "");
+    
+    const matchesName = coordinator.nome_completo?.toLowerCase().includes(search);
+    const matchesEmail = coordinator.email?.toLowerCase().includes(search);
+    const matchesPhone = searchDigits.length >= 4 && 
+      coordinator.telefone?.replace(/\D/g, "").includes(searchDigits);
+    
+    return matchesName || matchesEmail || matchesPhone;
+  });
 
   const handleDemote = async () => {
     if (!demoteConfirm) return;
@@ -115,6 +132,15 @@ export default function LeaderTree() {
             <CardDescription>
               Selecione um coordenador para ver sua árvore
             </CardDescription>
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, email ou telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </CardHeader>
           <Separator />
           <CardContent className="p-0">
@@ -122,6 +148,18 @@ export default function LeaderTree() {
               {loadingCoordinators ? (
                 <div className="flex items-center justify-center h-32">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredCoordinators?.length === 0 && searchTerm ? (
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground p-4">
+                  <Search className="h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm text-center">Nenhum coordenador encontrado</p>
+                  <Button 
+                    variant="link" 
+                    size="sm"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    Limpar busca
+                  </Button>
                 </div>
               ) : coordinators?.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-32 text-muted-foreground p-4">
@@ -138,7 +176,7 @@ export default function LeaderTree() {
                 </div>
               ) : (
                 <div className="p-4 space-y-3">
-                  {coordinators?.map((coordinator) => (
+                  {filteredCoordinators?.map((coordinator) => (
                     <CoordinatorCard
                       key={coordinator.id}
                       coordinator={coordinator}
