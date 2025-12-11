@@ -38,8 +38,8 @@ export function CoordinatorCard({
               <Crown className="h-5 w-5 text-amber-600" />
             </div>
             <div className="min-w-0 overflow-hidden">
-              <h3 className="font-semibold truncate max-w-[140px]">{coordinator.nome_completo}</h3>
-              <p className="text-sm text-muted-foreground truncate max-w-[140px]">
+              <h3 className="font-semibold truncate max-w-[200px]">{coordinator.nome_completo}</h3>
+              <p className="text-sm text-muted-foreground truncate max-w-[200px]">
                 {coordinator.cidade_nome || "Sem região"}
               </p>
             </div>
