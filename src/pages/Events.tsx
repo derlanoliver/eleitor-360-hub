@@ -123,10 +123,18 @@ const Events = () => {
       const { data: registrations, error } = await supabase
         .from("event_registrations")
         .select(`*, cidade:office_cities(nome)`)
-        .eq("event_id", event.id)
-        .order("nome");
+        .eq("event_id", event.id);
 
       if (error) throw error;
+
+      // Separar e ordenar alfabeticamente
+      const checkedIn = (registrations || [])
+        .filter((r: any) => r.checked_in)
+        .sort((a: any, b: any) => (a.nome || "").localeCompare(b.nome || ""));
+      
+      const pending = (registrations || [])
+        .filter((r: any) => !r.checked_in)
+        .sort((a: any, b: any) => (a.nome || "").localeCompare(b.nome || ""));
 
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -141,59 +149,91 @@ const Events = () => {
       const eventDate = format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR });
       pdf.text(`Data: ${eventDate} às ${event.time} | Local: ${event.location}`, pageWidth / 2, 28, { align: "center" });
       
+      // Estatísticas resumidas
       pdf.setFontSize(10);
-      pdf.text(`Total de Inscritos: ${registrations?.length || 0}`, pageWidth / 2, 35, { align: "center" });
+      const totalCount = registrations?.length || 0;
+      const statsText = `Total: ${totalCount} inscritos | Check-ins: ${checkedIn.length} | Pendentes: ${pending.length}`;
+      pdf.text(statsText, pageWidth / 2, 35, { align: "center" });
       
       // Line separator
       pdf.setDrawColor(200, 200, 200);
       pdf.line(10, 40, pageWidth - 10, 40);
       
-      // Table header
       let y = 48;
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("#", 12, y);
-      pdf.text("Nome", 22, y);
-      pdf.text("WhatsApp", 82, y);
-      pdf.text("Email", 115, y);
-      pdf.text("Cidade", 165, y);
-      pdf.text("✓", 195, y);
-      
-      // Line under header
-      pdf.line(10, y + 2, pageWidth - 10, y + 2);
-      
-      // Table rows
-      pdf.setFont("helvetica", "normal");
-      y += 8;
-      
-      registrations?.forEach((reg: any, index: number) => {
-        if (y > 280) {
+
+      // Função para renderizar header de tabela
+      const renderTableHeader = (includeTime: boolean) => {
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("#", 12, y);
+        pdf.text("Nome", 22, y);
+        pdf.text("WhatsApp", 82, y);
+        pdf.text("Email", 115, y);
+        pdf.text("Cidade", 160, y);
+        if (includeTime) {
+          pdf.text("Horário", 188, y);
+        }
+        pdf.line(10, y + 2, pageWidth - 10, y + 2);
+        pdf.setFont("helvetica", "normal");
+        y += 8;
+      };
+
+      // Função para renderizar seção
+      const renderSection = (title: string, items: any[], includeTime: boolean) => {
+        if (items.length === 0) return;
+
+        // Verificar se precisa de nova página para o título da seção
+        if (y > 270) {
           pdf.addPage();
           y = 20;
-          // Repeat header on new page
-          pdf.setFont("helvetica", "bold");
-          pdf.text("#", 12, y);
-          pdf.text("Nome", 22, y);
-          pdf.text("WhatsApp", 82, y);
-          pdf.text("Email", 115, y);
-          pdf.text("Cidade", 165, y);
-          pdf.text("✓", 195, y);
-          pdf.line(10, y + 2, pageWidth - 10, y + 2);
-          pdf.setFont("helvetica", "normal");
-          y += 8;
         }
-        
-        pdf.text(String(index + 1), 12, y);
-        pdf.text((reg.nome || "-").substring(0, 28), 22, y);
-        pdf.text((reg.whatsapp || "-").substring(0, 15), 82, y);
-        pdf.text((reg.email || "-").substring(0, 25), 115, y);
-        pdf.text(((reg.cidade as any)?.nome || "-").substring(0, 14), 165, y);
-        pdf.text(reg.checked_in ? "✓" : "", 197, y);
-        
-        y += 6;
-      });
+
+        // Título da seção com fundo cinza
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(10, y - 4, pageWidth - 20, 8, "F");
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`${title} (${items.length})`, 14, y);
+        y += 10;
+
+        // Header da tabela
+        renderTableHeader(includeTime);
+
+        // Linhas de dados
+        items.forEach((reg: any, index: number) => {
+          if (y > 280) {
+            pdf.addPage();
+            y = 20;
+            // Repetir header na nova página
+            renderTableHeader(includeTime);
+          }
+          
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(String(index + 1), 12, y);
+          pdf.text((reg.nome || "-").substring(0, 28), 22, y);
+          pdf.text((reg.whatsapp || "-").substring(0, 15), 82, y);
+          pdf.text((reg.email || "-").substring(0, 22), 115, y);
+          pdf.text(((reg.cidade as any)?.nome || "-").substring(0, 14), 160, y);
+          
+          if (includeTime && reg.checked_in_at) {
+            const checkTime = format(new Date(reg.checked_in_at), "HH:mm", { locale: ptBR });
+            pdf.text(checkTime, 190, y);
+          }
+          
+          y += 6;
+        });
+
+        y += 6; // Espaço entre seções
+      };
+
+      // Renderizar seção de check-ins realizados
+      renderSection("CHECK-IN REALIZADO", checkedIn, true);
+
+      // Renderizar seção de check-ins pendentes
+      renderSection("CHECK-IN PENDENTE", pending, false);
       
-      // Footer with generation date
+      // Footer com data de geração
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
@@ -212,7 +252,7 @@ const Events = () => {
       
       toast({
         title: "PDF gerado!",
-        description: `Lista com ${registrations?.length || 0} inscritos foi baixada.`
+        description: `Lista com ${totalCount} inscritos (${checkedIn.length} check-ins, ${pending.length} pendentes).`
       });
     } catch (error) {
       console.error("Error generating PDF:", error);
