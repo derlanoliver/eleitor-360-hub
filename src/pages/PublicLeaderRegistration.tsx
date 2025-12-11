@@ -19,13 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 
@@ -288,20 +282,17 @@ export default function PublicLeaderRegistration() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Região Administrativa *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione sua região" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {activeCities.map((city) => (
-                            <SelectItem key={city.id} value={city.id}>
-                              {city.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <ResponsiveSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Selecione sua região"
+                          options={activeCities.map((city) => ({
+                            value: city.id,
+                            label: city.nome,
+                          }))}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

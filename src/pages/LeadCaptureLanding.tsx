@@ -7,13 +7,7 @@ import { Loader2, Download, CheckCircle, Shield, ExternalLink, Share2 } from "lu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import {
   Form,
   FormControl,
@@ -585,20 +579,17 @@ export default function LeadCaptureLanding() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cidade/Região Administrativa</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione sua cidade" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {cities.map((city) => (
-                          <SelectItem key={city.id} value={city.id}>
-                            {city.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <ResponsiveSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Selecione sua cidade"
+                        options={cities.map((city) => ({
+                          value: city.id,
+                          label: city.nome,
+                        }))}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
