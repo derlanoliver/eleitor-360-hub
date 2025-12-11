@@ -1182,10 +1182,14 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                         {event.event_address && ` - ${event.event_address}`}
                       </p>
                     )}
-                    {event.event_category && (
-                      <Badge variant="outline" className="mt-2 text-xs">
-                        {event.event_category}
-                      </Badge>
+                    {event.event_categories && event.event_categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {event.event_categories.map((cat, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {cat}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
