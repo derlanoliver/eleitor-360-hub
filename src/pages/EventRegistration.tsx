@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, MapPin, Users, CheckCircle2, AlertTriangle, UserCheck, ShieldCheck, CalendarX2 } from "lucide-react";
 import { isEventDeadlinePassed } from "@/lib/eventUtils";
@@ -600,18 +600,15 @@ export default function EventRegistration() {
 
                   <div>
                     <Label htmlFor="cidade_id">Cidade</Label>
-                    <Select value={formData.cidade_id} onValueChange={(value) => setFormData({ ...formData, cidade_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione sua cidade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities?.map((city) => (
-                          <SelectItem key={city.id} value={city.id}>
-                            {city.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ResponsiveSelect
+                      value={formData.cidade_id}
+                      onValueChange={(value) => setFormData({ ...formData, cidade_id: value })}
+                      placeholder="Selecione sua cidade"
+                      options={cities?.map((city) => ({
+                        value: city.id,
+                        label: city.nome,
+                      })) || []}
+                    />
                   </div>
 
                   <Button type="submit" className="w-full" disabled={createRegistration.isPending}>
