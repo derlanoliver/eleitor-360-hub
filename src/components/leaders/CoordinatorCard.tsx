@@ -8,11 +8,10 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Coordinator, CoordinatorStats } from "@/hooks/leaders/useLeaderTree";
+import { Coordinator } from "@/hooks/leaders/useLeaderTree";
 
 interface CoordinatorCardProps {
   coordinator: Coordinator;
-  stats?: CoordinatorStats | null;
   isSelected: boolean;
   onSelect: () => void;
   onDemote: () => void;
@@ -20,7 +19,6 @@ interface CoordinatorCardProps {
 
 export function CoordinatorCard({ 
   coordinator, 
-  stats, 
   isSelected, 
   onSelect,
   onDemote 
@@ -42,7 +40,7 @@ export function CoordinatorCard({
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold truncate">{coordinator.nome_completo}</h3>
               <p className="text-sm text-muted-foreground truncate">
-                {coordinator.cidade?.nome || "Sem região"}
+                {coordinator.cidade_nome || "Sem região"}
               </p>
             </div>
           </div>
@@ -76,14 +74,14 @@ export function CoordinatorCard({
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <Badge variant="secondary" className="gap-1">
             <Users className="h-3 w-3" />
-            {stats?.total_leaders ?? 0} líderes
+            {coordinator.total_leaders} líderes
           </Badge>
           <Badge variant="secondary" className="gap-1">
             <Award className="h-3 w-3" />
-            {stats?.total_pontos ?? coordinator.pontuacao_total} pts
+            {coordinator.total_pontos} pts
           </Badge>
           <Badge variant="outline" className="gap-1">
-            {stats?.total_cadastros ?? coordinator.cadastros} cadastros
+            {coordinator.total_cadastros} cadastros
           </Badge>
         </div>
       </CardContent>

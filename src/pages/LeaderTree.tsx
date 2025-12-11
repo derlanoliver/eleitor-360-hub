@@ -7,7 +7,6 @@ import { Separator } from "@/components/ui/separator";
 import { 
   useCoordinators, 
   useLeaderTree, 
-  useCoordinatorStats,
   useDemoteCoordinator 
 } from "@/hooks/leaders/useLeaderTree";
 import { CoordinatorCard } from "@/components/leaders/CoordinatorCard";
@@ -31,7 +30,6 @@ export default function LeaderTree() {
 
   const { data: coordinators, isLoading: loadingCoordinators } = useCoordinators();
   const { data: tree, isLoading: loadingTree } = useLeaderTree(selectedCoordinatorId);
-  const { data: stats } = useCoordinatorStats(selectedCoordinatorId);
   const demoteCoordinator = useDemoteCoordinator();
 
   const selectedCoordinator = coordinators?.find(c => c.id === selectedCoordinatorId);
@@ -84,7 +82,7 @@ export default function LeaderTree() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {coordinators?.reduce((sum, c) => sum + c.cadastros, 0) || 0}
+                {coordinators?.reduce((sum, c) => sum + c.total_cadastros, 0) || 0}
               </p>
               <p className="text-sm text-muted-foreground">Cadastros Totais</p>
             </div>
@@ -97,7 +95,7 @@ export default function LeaderTree() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {coordinators?.reduce((sum, c) => sum + c.pontuacao_total, 0) || 0}
+                {coordinators?.reduce((sum, c) => sum + c.total_pontos, 0) || 0}
               </p>
               <p className="text-sm text-muted-foreground">Pontos Totais</p>
             </div>
@@ -144,7 +142,6 @@ export default function LeaderTree() {
                     <CoordinatorCard
                       key={coordinator.id}
                       coordinator={coordinator}
-                      stats={selectedCoordinatorId === coordinator.id ? stats : null}
                       isSelected={selectedCoordinatorId === coordinator.id}
                       onSelect={() => setSelectedCoordinatorId(coordinator.id)}
                       onDemote={() => setDemoteConfirm({ id: coordinator.id, name: coordinator.nome_completo })}
@@ -167,19 +164,19 @@ export default function LeaderTree() {
                 <>Visualização da Árvore</>
               )}
             </CardTitle>
-            {selectedCoordinator && stats && (
+            {selectedCoordinator && (
               <CardDescription className="flex items-center gap-4 mt-2">
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  {stats.total_leaders} líderes
+                  {selectedCoordinator.total_leaders} líderes
                 </span>
                 <span className="flex items-center gap-1">
                   <Target className="h-4 w-4" />
-                  {stats.total_cadastros} cadastros
+                  {selectedCoordinator.total_cadastros} cadastros
                 </span>
                 <span className="flex items-center gap-1">
                   <Award className="h-4 w-4" />
-                  {stats.total_pontos} pontos
+                  {selectedCoordinator.total_pontos} pontos
                 </span>
               </CardDescription>
             )}
