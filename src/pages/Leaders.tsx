@@ -11,12 +11,13 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { useLeaderLevels, getLeaderCardColorClass } from "@/hooks/leaders/useLeaderLevels";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { LeaderRegistrationQRDialog } from "@/components/leaders/LeaderRegistrationQRDialog";
 import { LeaderDetailsDialog } from "@/components/leaders/LeaderDetailsDialog";
-import { LeaderLevelBadge, LeaderLevelProgress, getLeaderCardColorClass } from "@/components/leaders/LeaderLevelBadge";
+import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
 import { toast } from "sonner";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
@@ -66,6 +67,7 @@ const Leaders = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data: cities } = useOfficeCities();
+  const { data: leaderLevels } = useLeaderLevels();
   const { data: leaders, isLoading } = useQuery({
     queryKey: ["leaders", selectedRegion === "all" ? undefined : selectedRegion, searchTerm],
     queryFn: () => getLeaders({
@@ -304,7 +306,7 @@ const Leaders = () => {
           </Card>
         ) : (
           paginatedLeaders.map((leader) => (
-            <Card key={leader.id} className={getLeaderCardColorClass(leader.pontuacao_total)}>
+            <Card key={leader.id} className={getLeaderCardColorClass(leader.pontuacao_total, leaderLevels)}>
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
                   {/* Coluna Principal */}
@@ -321,7 +323,7 @@ const Leaders = () => {
                         <h3 className="font-semibold text-lg text-foreground truncate">
                           {leader.nome_completo}
                         </h3>
-                        <LeaderLevelBadge points={leader.pontuacao_total} size="sm" />
+                        <LeaderLevelBadge points={leader.pontuacao_total} size="sm" levels={leaderLevels} />
                       </div>
                       
                       {/* Região */}
@@ -364,7 +366,7 @@ const Leaders = () => {
                       
                       {/* Barra de Progresso do Nível */}
                       <div className="mt-3 max-w-md">
-                        <LeaderLevelProgress points={leader.pontuacao_total} />
+                        <LeaderLevelProgress points={leader.pontuacao_total} levels={leaderLevels} />
                       </div>
                     </div>
                   </div>
