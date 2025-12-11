@@ -719,12 +719,15 @@ export type Database = {
           created_at: string
           data_nascimento: string | null
           email: string | null
+          hierarchy_level: number | null
           id: string
           is_active: boolean
+          is_coordinator: boolean | null
           join_date: string | null
           last_activity: string | null
           nome_completo: string
           observacao: string | null
+          parent_leader_id: string | null
           pontuacao_total: number
           status: Database["public"]["Enums"]["office_leader_status"]
           telefone: string | null
@@ -737,12 +740,15 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           email?: string | null
+          hierarchy_level?: number | null
           id?: string
           is_active?: boolean
+          is_coordinator?: boolean | null
           join_date?: string | null
           last_activity?: string | null
           nome_completo: string
           observacao?: string | null
+          parent_leader_id?: string | null
           pontuacao_total?: number
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
@@ -755,12 +761,15 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           email?: string | null
+          hierarchy_level?: number | null
           id?: string
           is_active?: boolean
+          is_coordinator?: boolean | null
           join_date?: string | null
           last_activity?: string | null
           nome_completo?: string
           observacao?: string | null
+          parent_leader_id?: string | null
           pontuacao_total?: number
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
@@ -772,6 +781,13 @@ export type Database = {
             columns: ["cidade_id"]
             isOneToOne: false
             referencedRelation: "office_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lideres_parent_leader_id_fkey"
+            columns: ["parent_leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
             referencedColumns: ["id"]
           },
         ]
@@ -2100,6 +2116,7 @@ export type Database = {
           qr_code: string
         }[]
       }
+      demote_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
@@ -2111,6 +2128,14 @@ export type Database = {
       generate_survey_slug: { Args: { base_name: string }; Returns: string }
       generate_verification_code: { Args: never; Returns: string }
       generate_visit_qr_code: { Args: never; Returns: string }
+      get_coordinator_network_stats: {
+        Args: { _coordinator_id: string }
+        Returns: {
+          total_cadastros: number
+          total_leaders: number
+          total_pontos: number
+        }[]
+      }
       get_leader_by_affiliate_token: {
         Args: { _token: string }
         Returns: {
@@ -2123,6 +2148,22 @@ export type Database = {
       get_leader_by_phone_or_email: {
         Args: { _email: string; _phone: string }
         Returns: string
+      }
+      get_leader_tree: {
+        Args: { _leader_id: string }
+        Returns: {
+          cadastros: number
+          cidade_id: string
+          depth: number
+          email: string
+          hierarchy_level: number
+          id: string
+          is_active: boolean
+          nome_completo: string
+          parent_leader_id: string
+          pontuacao_total: number
+          telefone: string
+        }[]
       }
       get_public_form_settings: {
         Args: never
@@ -2221,6 +2262,12 @@ export type Database = {
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      promote_to_coordinator: { Args: { _leader_id: string }; Returns: boolean }
+      remove_from_tree: { Args: { _leader_id: string }; Returns: boolean }
+      set_parent_leader: {
+        Args: { _leader_id: string; _parent_id: string }
+        Returns: boolean
+      }
       unsubscribe_contact_by_token: {
         Args: { p_reason?: string; p_token: string }
         Returns: Json
