@@ -2280,6 +2280,7 @@ export type Database = {
           nome: string
         }[]
       }
+      get_subtree_max_depth: { Args: { _leader_id: string }; Returns: number }
       get_top_city: {
         Args: never
         Returns: {
@@ -2349,6 +2350,10 @@ export type Database = {
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      move_leader_branch: {
+        Args: { _leader_id: string; _new_parent_id: string }
+        Returns: Json
+      }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
       promote_to_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       register_leader_from_affiliate: {
