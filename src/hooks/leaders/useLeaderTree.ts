@@ -263,3 +263,49 @@ export function useRemoveFromTree() {
     },
   });
 }
+
+// Move leader branch to a new parent
+export function useMoveLeaderBranch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ leaderId, newParentId }: { leaderId: string; newParentId: string }) => {
+      const { data, error } = await supabase.rpc("move_leader_branch", {
+        _leader_id: leaderId,
+        _new_parent_id: newParentId,
+      });
+
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; moved_count?: number; message?: string };
+      
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao mover líder");
+      }
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["leader-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["coordinators"] });
+      queryClient.invalidateQueries({ queryKey: ["coordinator-stats"] });
+      toast({
+        title: "Líder movido",
+        description: data.message || "O líder foi movido para a nova árvore com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao mover líder",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Count subordinates of a leader
+export function countSubordinates(node: LeaderTreeNode): number {
+  if (!node.children || node.children.length === 0) return 0;
+  return node.children.reduce((acc, child) => acc + 1 + countSubordinates(child), 0);
+}

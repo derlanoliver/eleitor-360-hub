@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Crown, User, UserPlus, UserMinus, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import { Crown, User, UserPlus, UserMinus, ChevronDown, ChevronRight, MoreVertical, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -8,8 +8,9 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LeaderTreeNode, useRemoveFromTree } from "@/hooks/leaders/useLeaderTree";
+import { LeaderTreeNode, useRemoveFromTree, countSubordinates } from "@/hooks/leaders/useLeaderTree";
 import { AddSubordinateDialog } from "./AddSubordinateDialog";
+import { MoveLeaderDialog } from "./MoveLeaderDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,8 +43,10 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
   
   const removeFromTree = useRemoveFromTree();
+  const subordinatesCount = countSubordinates(node);
   
   const hasChildren = node.children && node.children.length > 0;
   const level = node.hierarchy_level || 1;
@@ -132,13 +135,19 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
               </DropdownMenuItem>
             )}
             {!isRoot && (
-              <DropdownMenuItem 
-                onClick={() => setShowRemoveDialog(true)}
-                className="text-destructive"
-              >
-                <UserMinus className="h-4 w-4 mr-2" />
-                Remover da Hierarquia
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => setShowMoveDialog(true)}>
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Mover para Outra Árvore
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setShowRemoveDialog(true)}
+                  className="text-destructive"
+                >
+                  <UserMinus className="h-4 w-4 mr-2" />
+                  Remover da Hierarquia
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -160,6 +169,17 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
         parentId={node.id}
         parentName={node.nome_completo}
         parentLevel={level}
+      />
+
+      {/* Move Leader Dialog */}
+      <MoveLeaderDialog
+        open={showMoveDialog}
+        onOpenChange={setShowMoveDialog}
+        leaderId={node.id}
+        leaderName={node.nome_completo}
+        currentLevel={level}
+        currentParentId={node.parent_leader_id}
+        subordinatesCount={subordinatesCount}
       />
 
       {/* Remove Confirmation Dialog */}
