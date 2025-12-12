@@ -8,7 +8,7 @@ import {
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
-  Download
+  Download, Crown, Star, ChevronDown, GitBranch
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import {
   getPointsToNextLevel,
   DEFAULT_LEVELS
 } from "@/hooks/leaders/useLeaderLevels";
+import { useLeaderHierarchyPath } from "@/hooks/leaders/useLeaderHierarchyPath";
 
 interface LeaderDetailsDialogProps {
   leader: OfficeLeader;
@@ -91,6 +92,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const { data: visits, isLoading: loadingVisits } = useLeaderVisits(open ? leader.id : undefined);
   const { data: pageViews, isLoading: loadingPageViews } = useLeaderPageViews(open ? leader.id : undefined);
   const { data: surveyData, isLoading: loadingSurveys } = useLeaderSurveyReferrals(open ? leader.id : undefined);
+  const { data: hierarchyPath, isLoading: loadingHierarchy } = useLeaderHierarchyPath(open ? leader.id : undefined);
   
   // Buscar níveis e configurações dinâmicas do banco
   const { data: dynamicLevels } = useLeaderLevels();
@@ -118,13 +120,14 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="info" className="flex-1">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
             <TabsTrigger value="indicacoes" className="text-xs">Indicações</TabsTrigger>
             <TabsTrigger value="eventos" className="text-xs">Eventos</TabsTrigger>
             <TabsTrigger value="pesquisas" className="text-xs">Pesquisas</TabsTrigger>
             <TabsTrigger value="comunicacoes" className="text-xs">Comunicações</TabsTrigger>
             <TabsTrigger value="pontuacao" className="text-xs">Pontuação</TabsTrigger>
+            <TabsTrigger value="arvore" className="text-xs">Árvore</TabsTrigger>
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
           </TabsList>
 
@@ -661,6 +664,112 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <li>• +2 pontos por indicação que responde pesquisa</li>
                 </ul>
               </div>
+            </TabsContent>
+
+            {/* ABA ÁRVORE */}
+            <TabsContent value="arvore" className="mt-0 space-y-4 pr-4">
+              <div className="flex items-center gap-2 mb-4">
+                <GitBranch className="h-5 w-5 text-muted-foreground" />
+                <h4 className="font-medium">Hierarquia de Liderança</h4>
+              </div>
+
+              {loadingHierarchy ? (
+                <p className="text-sm text-muted-foreground">Carregando hierarquia...</p>
+              ) : leader.is_coordinator ? (
+                <Card className="border-amber-200 bg-amber-50/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-amber-100 text-amber-600">
+                        <Crown className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Este líder é um Coordenador</p>
+                        <p className="text-sm text-muted-foreground">
+                          Coordenadores são a raiz da árvore hierárquica
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : !hierarchyPath || hierarchyPath.length === 0 || !hierarchyPath[0]?.hierarchy_level ? (
+                <Card className="border-muted">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-muted text-muted-foreground">
+                        <AlertCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Sem vínculo hierárquico</p>
+                        <p className="text-sm text-muted-foreground">
+                          Este líder não está vinculado a nenhuma árvore hierárquica
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {hierarchyPath.map((node, index) => {
+                    const isCurrentLeader = node.id === leader.id;
+                    const isCoordinator = node.is_coordinator;
+                    
+                    return (
+                      <div key={node.id}>
+                        {/* Conector */}
+                        {index > 0 && (
+                          <div className="flex justify-center py-1">
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        
+                        {/* Card do nó */}
+                        <Card className={`${isCurrentLeader ? 'border-primary ring-2 ring-primary/20' : ''} ${isCoordinator ? 'border-amber-300 bg-amber-50/30' : ''}`}>
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-full ${
+                                isCoordinator 
+                                  ? 'bg-amber-100 text-amber-600' 
+                                  : 'bg-blue-100 text-blue-600'
+                              }`}>
+                                {isCoordinator ? (
+                                  <Crown className="h-4 w-4" />
+                                ) : (
+                                  <Star className="h-4 w-4" />
+                                )}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-medium">{node.nome_completo}</p>
+                                  {isCurrentLeader && (
+                                    <Badge variant="outline" className="text-xs border-primary text-primary">
+                                      Você está aqui
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs ${isCoordinator ? 'bg-amber-100 text-amber-700' : ''}`}
+                                  >
+                                    {isCoordinator ? 'Coordenador' : `Nível ${(node.hierarchy_level || 1) - 1}`}
+                                  </Badge>
+                                  {node.cidade_nome && (
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {node.cidade_nome}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
 
             {/* ABA HISTÓRICO */}

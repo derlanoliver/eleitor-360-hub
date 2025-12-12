@@ -2237,6 +2237,20 @@ export type Database = {
         Args: { _email: string; _phone: string }
         Returns: string
       }
+      get_leader_hierarchy_path: {
+        Args: { _leader_id: string }
+        Returns: {
+          cidade_nome: string
+          depth: number
+          email: string
+          hierarchy_level: number
+          id: string
+          is_coordinator: boolean
+          nome_completo: string
+          parent_leader_id: string
+          telefone: string
+        }[]
+      }
       get_leader_tree: {
         Args: { _leader_id: string }
         Returns: {
