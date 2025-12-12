@@ -1,15 +1,19 @@
-import { useState } from "react";
-import { GitBranch, Crown, Plus, Users, Award, Target, Loader2, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { GitBranch, Crown, Plus, Users, Award, Target, Loader2, Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { 
   useCoordinators, 
   useLeaderTree, 
-  useDemoteCoordinator 
+  useDemoteCoordinator,
+  useAllLeadersForSearch,
+  LeaderSearchResult
 } from "@/hooks/leaders/useLeaderTree";
+import { useLeaderHierarchyPath } from "@/hooks/leaders/useLeaderHierarchyPath";
 import { CoordinatorCard } from "@/components/leaders/CoordinatorCard";
 import { LeaderTreeView } from "@/components/leaders/LeaderTreeView";
 import { PromoteToCoordinatorDialog } from "@/components/leaders/PromoteToCoordinatorDialog";
@@ -29,14 +33,49 @@ export default function LeaderTree() {
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [demoteConfirm, setDemoteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [highlightLeaderId, setHighlightLeaderId] = useState<string | null>(null);
+  const [pendingLeaderSelection, setPendingLeaderSelection] = useState<LeaderSearchResult | null>(null);
 
   const { data: coordinators, isLoading: loadingCoordinators } = useCoordinators();
+  const { data: allLeaders } = useAllLeadersForSearch();
   const { data: tree, isLoading: loadingTree } = useLeaderTree(selectedCoordinatorId);
   const demoteCoordinator = useDemoteCoordinator();
+  const { data: hierarchyPath } = useLeaderHierarchyPath(pendingLeaderSelection?.id);
 
   const selectedCoordinator = coordinators?.find(c => c.id === selectedCoordinatorId);
 
-  // Filtrar coordenadores por nome, email ou telefone
+  // When hierarchy path loads, find coordinator and select
+  useEffect(() => {
+    if (hierarchyPath && hierarchyPath.length > 0 && pendingLeaderSelection) {
+      const coordinator = hierarchyPath.find(node => node.is_coordinator);
+      if (coordinator) {
+        setSelectedCoordinatorId(coordinator.id);
+        setHighlightLeaderId(pendingLeaderSelection.id);
+      }
+      setPendingLeaderSelection(null);
+    }
+  }, [hierarchyPath, pendingLeaderSelection]);
+
+  // Filter all leaders by search term
+  const filteredLeaders = allLeaders?.filter((leader) => {
+    if (!searchTerm.trim()) return false;
+    
+    const search = searchTerm.toLowerCase().trim();
+    const searchDigits = search.replace(/\D/g, "");
+    
+    const matchesName = leader.nome_completo?.toLowerCase().includes(search);
+    const matchesEmail = leader.email?.toLowerCase().includes(search);
+    const matchesPhone = searchDigits.length >= 4 && 
+      leader.telefone?.replace(/\D/g, "").includes(searchDigits);
+    
+    return matchesName || matchesEmail || matchesPhone;
+  }) || [];
+
+  // Separate coordinators and non-coordinators from search results
+  const searchedCoordinators = filteredLeaders.filter(l => l.is_coordinator);
+  const searchedLeaders = filteredLeaders.filter(l => !l.is_coordinator && l.hierarchy_level);
+
+  // Original coordinator filter (when not searching)
   const filteredCoordinators = coordinators?.filter((coordinator) => {
     if (!searchTerm.trim()) return true;
     
@@ -51,6 +90,17 @@ export default function LeaderTree() {
     return matchesName || matchesEmail || matchesPhone;
   });
 
+  const handleSelectLeader = (leader: LeaderSearchResult) => {
+    if (leader.is_coordinator) {
+      setSelectedCoordinatorId(leader.id);
+      setHighlightLeaderId(null);
+      setSearchTerm("");
+    } else {
+      setPendingLeaderSelection(leader);
+      setSearchTerm("");
+    }
+  };
+
   const handleDemote = async () => {
     if (!demoteConfirm) return;
     await demoteCoordinator.mutateAsync(demoteConfirm.id);
@@ -58,6 +108,15 @@ export default function LeaderTree() {
       setSelectedCoordinatorId(null);
     }
     setDemoteConfirm(null);
+  };
+
+  const getLevelLabel = (level: number | null) => {
+    switch (level) {
+      case 2: return "Nível 1";
+      case 3: return "Nível 2";
+      case 4: return "Nível 3";
+      default: return "Líder";
+    }
   };
 
   return (
@@ -149,10 +208,63 @@ export default function LeaderTree() {
                 <div className="flex items-center justify-center h-32">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredCoordinators?.length === 0 && searchTerm ? (
+              ) : searchTerm.trim() && (searchedCoordinators.length > 0 || searchedLeaders.length > 0) ? (
+                <div className="p-4 space-y-4">
+                  {/* Coordenadores encontrados */}
+                  {searchedCoordinators.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        <Crown className="h-3 w-3" /> Coordenadores encontrados
+                      </p>
+                      {searchedCoordinators.map((leader) => {
+                        const coord = coordinators?.find(c => c.id === leader.id);
+                        if (coord) {
+                          return (
+                            <CoordinatorCard
+                              key={coord.id}
+                              coordinator={coord}
+                              isSelected={selectedCoordinatorId === coord.id}
+                              onSelect={() => handleSelectLeader(leader)}
+                              onDemote={() => setDemoteConfirm({ id: coord.id, name: coord.nome_completo })}
+                            />
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Líderes encontrados */}
+                  {searchedLeaders.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        <Star className="h-3 w-3" /> Líderes encontrados
+                      </p>
+                      {searchedLeaders.map((leader) => (
+                        <div
+                          key={leader.id}
+                          className="p-3 rounded-lg border bg-card cursor-pointer hover:bg-accent/50 transition-colors"
+                          onClick={() => handleSelectLeader(leader)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Star className="h-4 w-4 text-blue-500" />
+                            <span className="font-medium flex-1 truncate">{leader.nome_completo}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {getLevelLabel(leader.hierarchy_level)}
+                            </Badge>
+                          </div>
+                          {leader.cidade_nome && (
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">{leader.cidade_nome}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : searchTerm.trim() && filteredLeaders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-32 text-muted-foreground p-4">
                   <Search className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm text-center">Nenhum coordenador encontrado</p>
+                  <p className="text-sm text-center">Nenhum líder encontrado</p>
                   <Button 
                     variant="link" 
                     size="sm"
@@ -181,7 +293,10 @@ export default function LeaderTree() {
                       key={coordinator.id}
                       coordinator={coordinator}
                       isSelected={selectedCoordinatorId === coordinator.id}
-                      onSelect={() => setSelectedCoordinatorId(coordinator.id)}
+                      onSelect={() => {
+                        setSelectedCoordinatorId(coordinator.id);
+                        setHighlightLeaderId(null);
+                      }}
                       onDemote={() => setDemoteConfirm({ id: coordinator.id, name: coordinator.nome_completo })}
                     />
                   ))}
@@ -232,7 +347,7 @@ export default function LeaderTree() {
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : tree ? (
-                <LeaderTreeView tree={tree} />
+                <LeaderTreeView tree={tree} highlightLeaderId={highlightLeaderId} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-30" />

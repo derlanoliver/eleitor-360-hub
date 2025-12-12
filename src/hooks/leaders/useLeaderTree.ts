@@ -115,6 +115,37 @@ export function useCoordinatorStats(coordinatorId: string | null) {
   });
 }
 
+// Fetch all leaders for global search
+export interface LeaderSearchResult {
+  id: string;
+  nome_completo: string;
+  email: string | null;
+  telefone: string | null;
+  is_coordinator: boolean;
+  hierarchy_level: number | null;
+  parent_leader_id: string | null;
+  cidade_nome: string | null;
+}
+
+export function useAllLeadersForSearch() {
+  return useQuery({
+    queryKey: ["all-leaders-search"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)")
+        .eq("is_active", true)
+        .order("nome_completo");
+
+      if (error) throw error;
+      return data.map(l => ({
+        ...l,
+        cidade_nome: (l.cidade as any)?.nome || null,
+      })) as LeaderSearchResult[];
+    },
+  });
+}
+
 // Fetch available leaders (not in any tree)
 export function useAvailableLeaders() {
   return useQuery({

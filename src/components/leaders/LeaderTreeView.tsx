@@ -24,12 +24,13 @@ import {
 
 interface LeaderTreeViewProps {
   tree: LeaderTreeNode;
+  highlightLeaderId?: string | null;
 }
 
-export function LeaderTreeView({ tree }: LeaderTreeViewProps) {
+export function LeaderTreeView({ tree, highlightLeaderId }: LeaderTreeViewProps) {
   return (
     <div className="p-4">
-      <TreeNode node={tree} isRoot />
+      <TreeNode node={tree} isRoot highlightLeaderId={highlightLeaderId} />
     </div>
   );
 }
@@ -37,9 +38,10 @@ export function LeaderTreeView({ tree }: LeaderTreeViewProps) {
 interface TreeNodeProps {
   node: LeaderTreeNode;
   isRoot?: boolean;
+  highlightLeaderId?: string | null;
 }
 
-function TreeNode({ node, isRoot = false }: TreeNodeProps) {
+function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
@@ -52,6 +54,7 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
   
   const hasChildren = node.children && node.children.length > 0;
   const level = node.hierarchy_level || 1;
+  const isHighlighted = highlightLeaderId === node.id;
   
   const getLevelColor = (level: number) => {
     switch (level) {
@@ -96,7 +99,7 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
       )}
       
       {/* Node */}
-      <div className={`flex items-center gap-2 p-3 rounded-lg border ${getLevelColor(level)} mb-2`}>
+      <div className={`flex items-center gap-2 p-3 rounded-lg border ${getLevelColor(level)} mb-2 ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 animate-pulse' : ''}`}>
         {hasChildren && (
           <Button
             variant="ghost"
@@ -168,7 +171,7 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
       {hasChildren && isExpanded && (
         <div className="ml-8 border-l-2 border-muted-foreground/20 pl-4">
           {node.children!.map((child) => (
-            <TreeNode key={child.id} node={child} />
+            <TreeNode key={child.id} node={child} highlightLeaderId={highlightLeaderId} />
           ))}
         </div>
       )}
