@@ -213,7 +213,7 @@ const Leaders = () => {
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <strong className="text-foreground">{sortedLeaders.length}</strong> líderes
+                <strong className="text-foreground">{leaders?.length || 0}</strong> líderes
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle className="h-4 w-4 text-green-500" />
