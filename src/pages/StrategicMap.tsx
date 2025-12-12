@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Map, Users, UserCheck, Flame, MapPin, Link2, Navigation, Crown, Star } from "lucide-react";
+import { Map as MapIcon, Users, UserCheck, Flame, MapPin, Link2, Navigation, Crown, Star } from "lucide-react";
 import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps/useStrategicMapData";
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
@@ -46,10 +46,61 @@ function getLeaderColor(leaderId: string): string {
   return `hsl(${hue}, 70%, 50%)`;
 }
 
-// Add random offset to prevent overlapping pins in same city
-function addOffset(coord: number, index: number): number {
-  const offset = ((index % 20) - 10) * 0.002;
-  return coord + offset;
+// Golden angle spiral algorithm for spreading pins within a region
+function calculateSpreadPosition(
+  baseLat: number,
+  baseLng: number,
+  index: number,
+  type: 'coordinator' | 'leader' | 'contact'
+): { lat: number; lng: number } {
+  // Different base radius per type (coordinators center, leaders around, contacts outer)
+  const baseRadius = type === 'coordinator' ? 0.004 : type === 'leader' ? 0.008 : 0.012;
+  
+  // Golden angle for uniform distribution
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const angle = index * goldenAngle;
+  
+  // Radius increases with sqrt for uniform density
+  const radius = baseRadius * Math.sqrt(index + 1) * 0.4;
+  
+  return {
+    lat: baseLat + radius * Math.cos(angle),
+    lng: baseLng + radius * Math.sin(angle),
+  };
+}
+
+// Group items by city and calculate spread positions
+function getPositionsByCity<T extends { id: string; latitude: number; longitude: number }>(
+  items: T[],
+  type: 'coordinator' | 'leader' | 'contact'
+): Map<string, { lat: number; lng: number }> {
+  const positions = new Map<string, { lat: number; lng: number }>();
+  
+  // Group by approximate city location
+  const byCityKey = new Map<string, T[]>();
+  items.forEach((item) => {
+    if (item.latitude == null || item.longitude == null) return;
+    const key = `${item.latitude.toFixed(2)},${item.longitude.toFixed(2)}`;
+    if (!byCityKey.has(key)) {
+      byCityKey.set(key, []);
+    }
+    byCityKey.get(key)!.push(item);
+  });
+  
+  // Calculate spread positions for each group
+  byCityKey.forEach((group) => {
+    group.forEach((item, indexInGroup) => {
+      const pos = calculateSpreadPosition(
+        item.latitude,
+        item.longitude,
+        indexInGroup,
+        type
+      );
+      positions.set(item.id, pos);
+    });
+  });
+  
+  return positions;
 }
 
 // Create custom star icon for leaders
@@ -114,30 +165,93 @@ function HeatmapLayer({ contacts, enabled }: { contacts: ContactMapData[]; enabl
   );
 }
 
-// Connections layer - draws lines from leaders to their indicated contacts
-function ConnectionsLayer({
+// Hierarchy connections layer - draws lines from coordinators to their subordinate leaders
+function HierarchyConnectionsLayer({
   leaders,
-  contacts,
+  leaderPositions,
   enabled,
 }: {
   leaders: LeaderMapData[];
-  contacts: ContactMapData[];
+  leaderPositions: Map<string, { lat: number; lng: number }>;
   enabled: boolean;
 }) {
   const connections = useMemo(() => {
     if (!enabled) return [];
 
-    // Build leader position map with offsets
-    const leaderPositions: Record<string, { lat: number; lng: number; color: string }> = {};
-    leaders.forEach((leader, index) => {
-      leaderPositions[leader.id] = {
-        lat: addOffset(leader.latitude, index),
-        lng: addOffset(leader.longitude, index + 100),
-        color: getLeaderColor(leader.id),
-      };
+    const lines: Array<{
+      from: [number, number];
+      to: [number, number];
+      color: string;
+      coordinatorName: string;
+      leaderName: string;
+    }> = [];
+
+    leaders.forEach((leader) => {
+      // If has parent_leader_id, draw connection to coordinator
+      if (leader.parent_leader_id) {
+        const coordinatorPos = leaderPositions.get(leader.parent_leader_id);
+        const leaderPos = leaderPositions.get(leader.id);
+        
+        if (coordinatorPos && leaderPos) {
+          const coordinator = leaders.find(l => l.id === leader.parent_leader_id);
+          lines.push({
+            from: [coordinatorPos.lat, coordinatorPos.lng],
+            to: [leaderPos.lat, leaderPos.lng],
+            color: getLeaderColor(leader.parent_leader_id),
+            coordinatorName: coordinator?.nome_completo || "",
+            leaderName: leader.nome_completo,
+          });
+        }
+      }
     });
 
-    // Find contacts indicated by leaders
+    return lines;
+  }, [leaders, leaderPositions, enabled]);
+
+  if (!enabled || connections.length === 0) return null;
+
+  return (
+    <>
+      {connections.map((conn, i) => (
+        <Polyline
+          key={`hierarchy-${i}`}
+          positions={[conn.from, conn.to]}
+          pathOptions={{
+            color: conn.color,
+            weight: 2.5,
+            opacity: 0.8,
+            dashArray: "10, 6",
+          }}
+        >
+          <Popup>
+            <div className="text-sm">
+              <p className="font-semibold">👑 {conn.coordinatorName}</p>
+              <p className="text-muted-foreground">→ ⭐ {conn.leaderName}</p>
+            </div>
+          </Popup>
+        </Polyline>
+      ))}
+    </>
+  );
+}
+
+// Leader-to-Contact connections layer
+function ConnectionsLayer({
+  leaders,
+  contacts,
+  leaderPositions,
+  contactPositions,
+  enabled,
+}: {
+  leaders: LeaderMapData[];
+  contacts: ContactMapData[];
+  leaderPositions: Map<string, { lat: number; lng: number }>;
+  contactPositions: Map<string, { lat: number; lng: number }>;
+  enabled: boolean;
+}) {
+  const connections = useMemo(() => {
+    if (!enabled) return [];
+
     const lines: Array<{
       from: [number, number];
       to: [number, number];
@@ -146,16 +260,16 @@ function ConnectionsLayer({
       contactName: string;
     }> = [];
 
-    contacts.forEach((contact, index) => {
+    contacts.forEach((contact) => {
       if (contact.source_type === "lider" && contact.source_id) {
-        const leaderPos = leaderPositions[contact.source_id];
-        if (leaderPos) {
-          const contactLat = addOffset(contact.latitude, index * 3);
-          const contactLng = addOffset(contact.longitude, index * 3 + 50);
+        const leaderPos = leaderPositions.get(contact.source_id);
+        const contactPos = contactPositions.get(contact.id);
+        
+        if (leaderPos && contactPos) {
           lines.push({
             from: [leaderPos.lat, leaderPos.lng],
-            to: [contactLat, contactLng],
-            color: leaderPos.color,
+            to: [contactPos.lat, contactPos.lng],
+            color: getLeaderColor(contact.source_id),
             leaderName: leaders.find((l) => l.id === contact.source_id)?.nome_completo || "",
             contactName: contact.nome,
           });
@@ -164,7 +278,7 @@ function ConnectionsLayer({
     });
 
     return lines;
-  }, [leaders, contacts, enabled]);
+  }, [leaders, contacts, leaderPositions, contactPositions, enabled]);
 
   if (!enabled || connections.length === 0) return null;
 
@@ -177,7 +291,7 @@ function ConnectionsLayer({
           pathOptions={{
             color: conn.color,
             weight: 1.5,
-            opacity: 0.6,
+            opacity: 0.5,
             dashArray: "4, 4",
           }}
         >
@@ -228,14 +342,41 @@ export default function StrategicMap() {
     return [selected];
   }, [leaders, selectedLeader]);
 
+  // Calculate spread positions for all pins
+  const leaderPositions = useMemo(() => {
+    // Separate coordinators and leaders for different spread patterns
+    const coordinators = visibleLeaders.filter(l => l.is_coordinator);
+    const regularLeaders = visibleLeaders.filter(l => !l.is_coordinator);
+    
+    const positions = new Map<string, { lat: number; lng: number }>();
+    
+    // Calculate positions for coordinators
+    const coordPositions = getPositionsByCity(coordinators, 'coordinator');
+    coordPositions.forEach((pos, id) => positions.set(id, pos));
+    
+    // Calculate positions for regular leaders
+    const leaderPos = getPositionsByCity(regularLeaders, 'leader');
+    leaderPos.forEach((pos, id) => positions.set(id, pos));
+    
+    return positions;
+  }, [visibleLeaders]);
+
+  const contactPositions = useMemo(() => {
+    return getPositionsByCity(contacts, 'contact');
+  }, [contacts]);
+
   // Count stats
   const coordinatorsCount = useMemo(() => leaders.filter(l => l.is_coordinator).length, [leaders]);
   const regularLeadersCount = useMemo(() => leaders.filter(l => !l.is_coordinator).length, [leaders]);
 
   // Count connections for stats
-  const connectionsCount = useMemo(() => {
+  const contactConnectionsCount = useMemo(() => {
     return contacts.filter((c) => c.source_type === "lider" && c.source_id).length;
   }, [contacts]);
+  
+  const hierarchyConnectionsCount = useMemo(() => {
+    return leaders.filter(l => l.parent_leader_id).length;
+  }, [leaders]);
 
   // Get map center based on selected region
   const mapCenter = useMemo<[number, number]>(() => {
@@ -285,7 +426,7 @@ export default function StrategicMap() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
-            <Map className="h-6 w-6 text-primary" />
+            <MapIcon className="h-6 w-6 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Mapa Estratégico</h1>
@@ -309,7 +450,7 @@ export default function StrategicMap() {
           </Badge>
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Link2 className="h-4 w-4" />
-            {connectionsCount} Conexões
+            {contactConnectionsCount + hierarchyConnectionsCount} Conexões
           </Badge>
         </div>
       </div>
@@ -462,25 +603,35 @@ export default function StrategicMap() {
               {/* Heatmap Layer */}
               <HeatmapLayer contacts={contacts} enabled={showHeatmap} />
 
-              {/* Connections Layer - drawn before pins so pins appear on top */}
+              {/* Hierarchy Connections - Coordinator to Leader */}
+              <HierarchyConnectionsLayer
+                leaders={visibleLeaders}
+                leaderPositions={leaderPositions}
+                enabled={showConnections}
+              />
+
+              {/* Leader-to-Contact Connections */}
               <ConnectionsLayer
                 leaders={visibleLeaders}
                 contacts={contacts}
+                leaderPositions={leaderPositions}
+                contactPositions={contactPositions}
                 enabled={showConnections}
               />
 
               {/* Leader/Coordinator pins with custom icons */}
               {showLeaders &&
-                visibleLeaders.map((leader, index) => {
+                visibleLeaders.map((leader) => {
+                  const pos = leaderPositions.get(leader.id);
+                  if (!pos) return null;
+                  
                   const color = getLeaderColor(leader.id);
-                  const lat = addOffset(leader.latitude, index);
-                  const lng = addOffset(leader.longitude, index + 100);
                   const icon = leader.is_coordinator ? createCrownIcon(color) : createStarIcon(color);
 
                   return (
                     <Marker
                       key={`leader-pin-${leader.id}`}
-                      position={[lat, lng]}
+                      position={[pos.lat, pos.lng]}
                       icon={icon}
                     >
                       <Popup>
@@ -509,9 +660,10 @@ export default function StrategicMap() {
 
               {/* Contact pins */}
               {showContacts &&
-                contacts.map((contact, index) => {
-                  const lat = addOffset(contact.latitude, index * 3);
-                  const lng = addOffset(contact.longitude, index * 3 + 50);
+                contacts.map((contact) => {
+                  const pos = contactPositions.get(contact.id);
+                  if (!pos) return null;
+                  
                   // Highlighted color if has leader connection
                   const hasConnection = contact.source_type === "lider" && contact.source_id;
                   const pinColor = hasConnection
@@ -521,7 +673,7 @@ export default function StrategicMap() {
                   return (
                     <CircleMarker
                       key={`contact-${contact.id}`}
-                      center={[lat, lng]}
+                      center={[pos.lat, pos.lng]}
                       radius={hasConnection ? 5 : 4}
                       pathOptions={{
                         color: hasConnection ? "#ffffff" : pinColor,
@@ -556,7 +708,7 @@ export default function StrategicMap() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-xl">👑</span>
               <span>Coordenador</span>
@@ -570,8 +722,12 @@ export default function StrategicMap() {
               <span>Contato</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-0.5 bg-purple-500" style={{ borderTop: "2px dashed hsl(270, 70%, 50%)" }} />
-              <span>Conexão</span>
+              <div className="w-8 h-0.5" style={{ borderTop: "3px dashed hsl(270, 70%, 50%)" }} />
+              <span>Hierarquia</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5" style={{ borderTop: "2px dashed hsl(150, 70%, 50%)" }} />
+              <span>Indicação</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-3 rounded bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 opacity-50" />
@@ -586,7 +742,7 @@ export default function StrategicMap() {
         cities={cities}
         totalLeaders={leaders.length}
         totalContacts={contacts.length}
-        totalConnections={connectionsCount}
+        totalConnections={contactConnectionsCount + hierarchyConnectionsCount}
       />
     </div>
   );
