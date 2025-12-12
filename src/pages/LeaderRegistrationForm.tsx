@@ -13,11 +13,11 @@ import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { User, MapPin, Loader2, CheckCircle2, MessageSquare } from "lucide-react";
+import { User, MapPin, Loader2, CheckCircle2, Crown, AlertTriangle } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
-import { sendVerificationSMS } from "@/hooks/contacts/useContactVerification";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
+import { getBaseUrl } from "@/lib/urlHelper";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 const formSchema = z.object({
@@ -39,9 +39,12 @@ export default function LeaderRegistrationForm() {
   const { leaderToken } = useParams<{ leaderToken: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [needsVerification, setNeedsVerification] = useState(false);
+  const [isNewLeader, setIsNewLeader] = useState(false);
+  const [isAlreadyLeader, setIsAlreadyLeader] = useState(false);
   const [alreadyReferredByOther, setAlreadyReferredByOther] = useState(false);
+  const [hierarchyLevelExceeded, setHierarchyLevelExceeded] = useState(false);
   const [originalLeaderName, setOriginalLeaderName] = useState<string | null>(null);
+  const [newLeaderAffiliateToken, setNewLeaderAffiliateToken] = useState<string | null>(null);
 
   // Buscar líder pelo affiliate_token
   const { data: leader, isLoading: leaderLoading, error: leaderError } = useQuery({
@@ -116,83 +119,90 @@ export default function LeaderRegistrationForm() {
       // Converter data DD/MM/AAAA para YYYY-MM-DD
       const dataNascimentoISO = parseDateBR(data.data_nascimento);
 
-      // Usar função SECURITY DEFINER para upsert (bypassa RLS para usuários públicos)
-      const { data: result, error } = await supabase.rpc('upsert_contact_from_leader_form', {
+      // Usar nova função RPC para criar líder diretamente na hierarquia
+      const { data: result, error } = await supabase.rpc('register_leader_from_affiliate', {
         p_nome: data.nome.trim(),
         p_email: data.email.trim().toLowerCase(),
         p_telefone_norm: telefone_norm,
         p_data_nascimento: dataNascimentoISO || '',
         p_cidade_id: data.cidade_id,
         p_endereco: data.endereco.trim(),
-        p_leader_id: leader.id
+        p_referring_leader_id: leader.id
       });
 
       if (error) throw error;
 
-      const contact = result?.[0];
+      const leaderResult = result?.[0];
 
       // Já é líder ativo?
-      if (contact?.is_already_leader) {
-        toast.info("Você já é uma liderança cadastrada!");
+      if (leaderResult?.is_already_leader) {
+        setIsAlreadyLeader(true);
         setIsSuccess(true);
-        setNeedsVerification(false);
+        toast.info("Você já é uma liderança cadastrada!");
         return;
       }
 
       // Já está indicado por OUTRO líder - bloquear
-      if (contact?.already_referred_by_other_leader) {
-        setOriginalLeaderName(contact.original_leader_name || "outro líder");
+      if (leaderResult?.already_referred_by_other_leader) {
+        setOriginalLeaderName(leaderResult.original_leader_name || "outro líder");
         setAlreadyReferredByOther(true);
         setIsSuccess(true);
-        setNeedsVerification(false);
         return;
       }
 
-      // Já está verificado?
-      if (contact?.is_verified) {
-        toast.success("Cadastro atualizado com sucesso!");
+      // Hierarquia máxima atingida
+      if (leaderResult?.hierarchy_level_exceeded) {
+        setHierarchyLevelExceeded(true);
         setIsSuccess(true);
-        setNeedsVerification(false);
-        
-        // Tracking
-        trackLead({ content_name: "leader_registration" });
-        pushToDataLayer("lead_registration", { 
-          source: "leader_referral",
-          leader_id: leader.id 
-        });
+        toast.error("Nível máximo de hierarquia atingido.");
         return;
       }
 
-      // Record page view for this contact
-      if (contact?.contact_id) {
-        await supabase.from('contact_page_views').insert({
-          contact_id: contact.contact_id,
-          page_type: 'link_lider',
-          page_identifier: leaderToken || '',
-          page_name: `Cadastro via ${leader.nome_completo}`,
+      // Novo líder criado com sucesso!
+      if (leaderResult?.leader_id && leaderResult?.affiliate_token) {
+        setNewLeaderAffiliateToken(leaderResult.affiliate_token);
+        setIsNewLeader(true);
+
+        const affiliateLink = `${getBaseUrl()}/cadastro/${leaderResult.affiliate_token}`;
+
+        // Enviar SMS de boas-vindas com link de indicação
+        await supabase.functions.invoke("send-sms", {
+          body: {
+            phone: telefone_norm,
+            templateSlug: "lider-cadastro-confirmado-sms",
+            variables: {
+              nome: data.nome.trim(),
+              link_indicacao: affiliateLink,
+            },
+          },
         });
+
+        // Enviar Email de boas-vindas
+        await supabase.functions.invoke("send-email", {
+          body: {
+            to: data.email.trim().toLowerCase(),
+            toName: data.nome.trim(),
+            templateSlug: "lideranca-boas-vindas",
+            variables: {
+              nome: data.nome.trim(),
+              link_indicacao: affiliateLink,
+              lider_nome: leader.nome_completo,
+            },
+          },
+        });
+
+        // Tracking
+        trackLead({ content_name: "leader_registration_promotion" });
+        pushToDataLayer("new_leader_registered", { 
+          source: "leader_referral",
+          referring_leader_id: leader.id,
+          new_leader_id: leaderResult.leader_id
+        });
+
+        toast.success("Bem-vindo à nossa rede de lideranças!");
       }
 
-      // Precisa verificar - enviar SMS com link de verificação
-      if (contact?.contact_id && contact?.verification_code) {
-        await sendVerificationSMS({
-          contactId: contact.contact_id,
-          contactName: data.nome.trim(),
-          contactPhone: telefone_norm,
-          verificationCode: contact.verification_code,
-        });
-      }
-
-      // Tracking
-      trackLead({ content_name: "leader_registration" });
-      pushToDataLayer("lead_registration", { 
-        source: "leader_referral",
-        leader_id: leader.id 
-      });
-
-      setNeedsVerification(true);
       setIsSuccess(true);
-      toast.success("Cadastro realizado! Verifique seu celular para o SMS de confirmação.");
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
       toast.error("Erro ao realizar cadastro. Tente novamente.");
@@ -229,9 +239,6 @@ export default function LeaderRegistrationForm() {
 
   // Tela de sucesso
   if (isSuccess) {
-    // Verificar se é líder (não precisa de verificação porque já é líder)
-    const isAlreadyLeader = !needsVerification && !alreadyReferredByOther;
-    
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
         <Card className="max-w-md w-full">
@@ -250,42 +257,46 @@ export default function LeaderRegistrationForm() {
                   <p>Não é possível alterar a indicação original.</p>
                 </div>
               </>
-            ) : needsVerification ? (
+            ) : hierarchyLevelExceeded ? (
               <>
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="h-8 w-8 text-amber-600" />
+                  <AlertTriangle className="h-8 w-8 text-amber-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Quase Lá!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Limite de Hierarquia Atingido</h2>
                 <p className="text-muted-foreground mb-4">
-                  Enviamos um <strong>link de verificação por SMS</strong> para seu celular. 
-                  Basta clicar no link e aguardar a página carregar para confirmar seu cadastro.
+                  Não é possível adicionar mais níveis na estrutura de lideranças. 
+                  Entre em contato com a equipe para mais informações.
+                </p>
+              </>
+            ) : isNewLeader ? (
+              <>
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Crown className="h-8 w-8 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo(a) à Nossa Rede de Lideranças!</h2>
+                <p className="text-muted-foreground mb-4">
+                  Você agora faz parte da nossa rede! Um <strong>link exclusivo de indicação</strong> foi 
+                  enviado para seu celular via SMS e para seu email.
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                  <p className="font-semibold mb-1">⚠️ Importante</p>
-                  <p>Seu cadastro só será confirmado após clicar no link que enviamos por SMS!</p>
+                  <p className="font-semibold mb-1">🎉 Parabéns!</p>
+                  <p>Use seu link para convidar mais pessoas e fortalecer nosso movimento!</p>
                 </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Seu mentor: <strong>{leader.nome_completo}</strong>
+                </p>
               </>
-            ) : (
+            ) : isAlreadyLeader ? (
               <>
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  {isAlreadyLeader ? "Você já é uma Liderança!" : "Cadastro Atualizado!"}
-                </h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Você já é uma Liderança!</h2>
                 <p className="text-muted-foreground mb-4">
-                  {isAlreadyLeader 
-                    ? "Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!"
-                    : "Seus dados foram atualizados com sucesso!"
-                  }
+                  Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!
                 </p>
               </>
-            )}
-            {!alreadyReferredByOther && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Indicado por: <strong>{leader.nome_completo}</strong>
-              </p>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </div>
