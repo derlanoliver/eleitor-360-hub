@@ -20,7 +20,7 @@ export function useIdentifyGenders() {
 
       console.log(`Found ${contacts.length} contacts to identify`);
 
-      const BATCH_SIZE = 50; // Processar 50 nomes por vez para evitar rate limiting
+      const BATCH_SIZE = 20; // Processar 20 nomes por vez para evitar respostas truncadas
       const batches = [];
       
       for (let i = 0; i < contacts.length; i += BATCH_SIZE) {

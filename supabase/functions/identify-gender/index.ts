@@ -80,13 +80,35 @@ ${names.map((n: any) => `{"id": "${n.id}", "nome": "${n.nome}"}`).join('\n')}`;
     console.log("AI Response:", content);
     
     // Extrair JSON da resposta (pode vir com markdown ```json```)
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    let jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       console.error("Resposta sem JSON válido:", content);
       throw new Error("Resposta da IA não contém JSON válido");
     }
     
-    const genderResults = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    
+    // Tentar fazer parse, se falhar tentar reparar JSON truncado
+    let genderResults;
+    try {
+      genderResults = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.log("JSON incompleto, tentando reparar...");
+      // Tentar encontrar o último objeto completo
+      const lastCompleteIndex = jsonStr.lastIndexOf('}');
+      if (lastCompleteIndex > 0) {
+        jsonStr = jsonStr.substring(0, lastCompleteIndex + 1) + ']';
+        try {
+          genderResults = JSON.parse(jsonStr);
+          console.log(`Recuperados ${genderResults.length} resultados de JSON incompleto`);
+        } catch {
+          throw new Error("Não foi possível reparar JSON truncado");
+        }
+      } else {
+        throw new Error("JSON irrecuperável");
+      }
+    }
+    
     console.log(`Successfully identified ${genderResults.length} genders`);
 
     return new Response(
