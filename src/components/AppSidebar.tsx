@@ -64,7 +64,7 @@ const mainItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Contatos", url: "/contacts", icon: Users, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Lideranças", url: "/leaders", icon: UserCheck, roles: ['super_admin', 'admin', 'atendente'] },
-  { title: "Árvore", url: "/leaders/tree", icon: GitBranch, roles: ['super_admin'] },
+  { title: "Árvore", url: "/leaders/tree", icon: GitBranch, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Mapa Estratégico", url: "/strategic-map", icon: Map, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 

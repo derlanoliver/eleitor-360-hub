@@ -133,9 +133,9 @@ const App = () => (
               </RoleProtectedRoute>
             } />
             
-            {/* Leader Tree - apenas super_admin */}
+            {/* Leader Tree - admin, atendente e super_admin */}
             <Route path="/leaders/tree" element={
-              <RoleProtectedRoute allowedRoles={['super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <LeaderTree />
                 </DashboardLayout>
