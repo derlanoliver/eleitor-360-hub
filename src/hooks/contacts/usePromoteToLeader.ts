@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getBaseUrl } from "@/lib/urlHelper";
 
 interface PromoteToLeaderParams {
   contact: {
@@ -57,7 +58,6 @@ export function usePromoteToLeader() {
 
       // 3. Enviar WhatsApp de confirmação com QR code
       try {
-        const { getBaseUrl } = await import("@/lib/urlHelper");
         const QRCode = (await import('qrcode')).default;
         const linkCadastroAfiliado = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
         const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
@@ -82,7 +82,7 @@ export function usePromoteToLeader() {
       // 4. Enviar email de boas-vindas (se tiver email)
       if (contact.email && leader.affiliate_token) {
         try {
-          const baseUrl = window.location.origin;
+          const linkIndicacao = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
           await supabase.functions.invoke("send-email", {
             body: {
               to: contact.email,
@@ -90,7 +90,7 @@ export function usePromoteToLeader() {
               templateSlug: "lideranca-boas-vindas",
               variables: {
                 nome: contact.nome,
-                link_indicacao: `${baseUrl}/cadastro/${leader.affiliate_token}`,
+                link_indicacao: linkIndicacao,
               },
             },
           });
