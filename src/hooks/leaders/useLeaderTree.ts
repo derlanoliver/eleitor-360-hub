@@ -304,6 +304,47 @@ export function useMoveLeaderBranch() {
   });
 }
 
+// Promote leader to coordinator with all subordinates
+export function usePromoteToCoordinatorWithSubordinates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (leaderId: string) => {
+      const { data, error } = await supabase.rpc("promote_to_coordinator_with_subordinates", {
+        _leader_id: leaderId,
+      });
+
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message?: string; subordinates_moved?: number };
+      
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao promover líder");
+      }
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["coordinators"] });
+      queryClient.invalidateQueries({ queryKey: ["leader-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["available-leaders"] });
+      queryClient.invalidateQueries({ queryKey: ["coordinator-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["leaders"] });
+      toast({
+        title: "Líder promovido a Coordenador",
+        description: data.message || "O líder e seus subordinados foram promovidos com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao promover líder",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
 // Count subordinates of a leader
 export function countSubordinates(node: LeaderTreeNode): number {
   if (!node.children || node.children.length === 0) return 0;

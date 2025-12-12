@@ -2356,6 +2356,10 @@ export type Database = {
       }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
       promote_to_coordinator: { Args: { _leader_id: string }; Returns: boolean }
+      promote_to_coordinator_with_subordinates: {
+        Args: { _leader_id: string }
+        Returns: Json
+      }
       register_leader_from_affiliate: {
         Args: {
           p_cidade_id: string
