@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -54,6 +54,22 @@ const formatPhone = (phone: string) => {
     return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
   }
   return phone;
+};
+
+const getHierarchyBadge = (leader: OfficeLeader) => {
+  if (leader.is_coordinator) {
+    return { label: "Coordenador", className: "bg-amber-100 text-amber-700 border-amber-300" };
+  }
+  if (leader.hierarchy_level && leader.hierarchy_level > 1) {
+    const level = leader.hierarchy_level - 1; // hierarchy_level 2 = Nível 1
+    const colors: Record<number, string> = {
+      1: "bg-blue-100 text-blue-700 border-blue-300",
+      2: "bg-green-100 text-green-700 border-green-300",
+      3: "bg-purple-100 text-purple-700 border-purple-300",
+    };
+    return { label: `Nível ${level}`, className: colors[level] || "bg-muted text-muted-foreground" };
+  }
+  return null;
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -311,19 +327,36 @@ const Leaders = () => {
                 <div className="flex items-start justify-between gap-4">
                   {/* Coluna Principal */}
                   <div className="flex items-start gap-4 flex-1 min-w-0">
-                    {/* Avatar com Iniciais */}
-                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0 ${getAvatarGradient(leader.nome_completo)}`}>
-                      {getInitials(leader.nome_completo)}
+                    {/* Avatar com Iniciais + Coroa para Coordenador */}
+                    <div className="relative flex-shrink-0">
+                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm ${getAvatarGradient(leader.nome_completo)}`}>
+                        {getInitials(leader.nome_completo)}
+                      </div>
+                      {leader.is_coordinator && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
+                          <Crown className="h-3 w-3 text-white" />
+                        </div>
+                      )}
                     </div>
                     
                     {/* Informações */}
                     <div className="flex-1 min-w-0">
-                      {/* Nome + Badge Nível */}
+                      {/* Nome + Badge Nível + Badge Hierarquia */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-lg text-foreground truncate">
                           {leader.nome_completo}
                         </h3>
                         <LeaderLevelBadge points={leader.pontuacao_total} size="sm" levels={leaderLevels} />
+                        {(() => {
+                          const hierarchyBadge = getHierarchyBadge(leader);
+                          if (!hierarchyBadge) return null;
+                          return (
+                            <Badge variant="outline" className={`text-xs ${hierarchyBadge.className}`}>
+                              {leader.is_coordinator && <Crown className="h-3 w-3 mr-1" />}
+                              {hierarchyBadge.label}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                       
                       {/* Região */}
