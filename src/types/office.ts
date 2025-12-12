@@ -46,6 +46,10 @@ export interface OfficeLeader {
   join_date?: string;
   data_nascimento?: string; // YYYY-MM-DD
   observacao?: string;
+  // Hierarchy fields
+  is_coordinator?: boolean;
+  hierarchy_level?: number; // 1=Coordinator, 2-4=Subordinate levels
+  parent_leader_id?: string;
   created_at: string;
   updated_at: string;
 }
