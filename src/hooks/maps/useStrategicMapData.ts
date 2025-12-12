@@ -9,6 +9,11 @@ export interface LeaderMapData {
   latitude: number;
   longitude: number;
   cidade_nome: string;
+  is_coordinator: boolean;
+  hierarchy_level: number | null;
+  parent_leader_id: string | null;
+  email: string | null;
+  telefone: string | null;
 }
 
 export interface ContactMapData {
@@ -32,7 +37,7 @@ export interface CityMapData {
 }
 
 export function useStrategicMapData() {
-  // Fetch leaders with city coordinates
+  // Fetch leaders with city coordinates - always fresh data
   const leadersQuery = useQuery({
     queryKey: ["strategic_map_leaders"],
     queryFn: async (): Promise<LeaderMapData[]> => {
@@ -43,6 +48,11 @@ export function useStrategicMapData() {
           nome_completo,
           cadastros,
           pontuacao_total,
+          is_coordinator,
+          hierarchy_level,
+          parent_leader_id,
+          email,
+          telefone,
           cidade:office_cities(id, nome, latitude, longitude)
         `)
         .eq("is_active", true);
@@ -59,9 +69,16 @@ export function useStrategicMapData() {
           latitude: l.cidade.latitude,
           longitude: l.cidade.longitude,
           cidade_nome: l.cidade.nome,
+          is_coordinator: l.is_coordinator || false,
+          hierarchy_level: l.hierarchy_level,
+          parent_leader_id: l.parent_leader_id,
+          email: l.email,
+          telefone: l.telefone,
         }));
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Fetch contacts with city coordinates and source_id for connections

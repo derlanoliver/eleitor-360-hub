@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Polyline, Marker } from "react-leaflet";
+import L from "leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Map, Users, UserCheck, Flame, MapPin, Link2, Navigation } from "lucide-react";
+import { Map, Users, UserCheck, Flame, MapPin, Link2, Navigation, Crown, Star } from "lucide-react";
 import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps/useStrategicMapData";
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
@@ -49,6 +50,31 @@ function getLeaderColor(leaderId: string): string {
 function addOffset(coord: number, index: number): number {
   const offset = ((index % 20) - 10) * 0.002;
   return coord + offset;
+}
+
+// Create custom star icon for leaders
+function createStarIcon(color: string) {
+  return L.divIcon({
+    className: 'custom-star-icon',
+    html: `<svg viewBox="0 0 24 24" width="28" height="28" fill="${color}" stroke="white" stroke-width="1.5">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    </svg>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+// Create custom crown icon for coordinators
+function createCrownIcon(color: string) {
+  return L.divIcon({
+    className: 'custom-crown-icon',
+    html: `<svg viewBox="0 0 24 24" width="32" height="32" fill="${color}" stroke="white" stroke-width="1.5">
+      <path d="M2 17l2-6 4 3 4-8 4 8 4-3 2 6H2z"/>
+      <rect x="3" y="18" width="18" height="3" rx="1"/>
+    </svg>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
 }
 
 // Heatmap component
@@ -175,6 +201,36 @@ export default function StrategicMap() {
   const [showConnections, setShowConnections] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>("clean");
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
+  const [selectedLeader, setSelectedLeader] = useState<string>("all");
+
+  // Separate coordinators and regular leaders for dropdown
+  const leaderOptions = useMemo(() => {
+    const coordinators = leaders.filter(l => l.is_coordinator).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+    const regularLeaders = leaders.filter(l => !l.is_coordinator).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+    return { coordinators, regularLeaders };
+  }, [leaders]);
+
+  // Filter visible leaders based on selection
+  const visibleLeaders = useMemo(() => {
+    if (selectedLeader === "all") return leaders;
+    
+    const selected = leaders.find(l => l.id === selectedLeader);
+    if (!selected) return leaders;
+    
+    // If coordinator: show them + all subordinates
+    if (selected.is_coordinator) {
+      return leaders.filter(l => 
+        l.id === selectedLeader || l.parent_leader_id === selectedLeader
+      );
+    }
+    
+    // If regular leader: show only them
+    return [selected];
+  }, [leaders, selectedLeader]);
+
+  // Count stats
+  const coordinatorsCount = useMemo(() => leaders.filter(l => l.is_coordinator).length, [leaders]);
+  const regularLeadersCount = useMemo(() => leaders.filter(l => !l.is_coordinator).length, [leaders]);
 
   // Count connections for stats
   const connectionsCount = useMemo(() => {
@@ -240,8 +296,12 @@ export default function StrategicMap() {
         {/* Stats */}
         <div className="flex flex-wrap gap-3">
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-            <UserCheck className="h-4 w-4" />
-            {leaders.length} Líderes
+            <Crown className="h-4 w-4" />
+            {coordinatorsCount} Coordenadores
+          </Badge>
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+            <Star className="h-4 w-4" />
+            {regularLeadersCount} Líderes
           </Badge>
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Users className="h-4 w-4" />
@@ -287,6 +347,45 @@ export default function StrategicMap() {
                       {city.nome}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Leader/Coordinator Filter */}
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedLeader} onValueChange={setSelectedLeader}>
+                <SelectTrigger className="w-[220px] h-8">
+                  <SelectValue placeholder="Filtrar por Líder" />
+                </SelectTrigger>
+                <SelectContent className="z-[9999] max-h-[400px]">
+                  <SelectItem value="all">Todos os Líderes</SelectItem>
+                  
+                  {leaderOptions.coordinators.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground font-semibold border-t mt-1">
+                        👑 Coordenadores ({leaderOptions.coordinators.length})
+                      </div>
+                      {leaderOptions.coordinators.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          👑 {c.nome_completo}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {leaderOptions.regularLeaders.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground font-semibold border-t mt-1">
+                        ⭐ Líderes ({leaderOptions.regularLeaders.length})
+                      </div>
+                      {leaderOptions.regularLeaders.map(l => (
+                        <SelectItem key={l.id} value={l.id}>
+                          ⭐ {l.nome_completo}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -365,41 +464,46 @@ export default function StrategicMap() {
 
               {/* Connections Layer - drawn before pins so pins appear on top */}
               <ConnectionsLayer
-                leaders={leaders}
+                leaders={visibleLeaders}
                 contacts={contacts}
                 enabled={showConnections}
               />
 
-              {/* Leader center pins */}
+              {/* Leader/Coordinator pins with custom icons */}
               {showLeaders &&
-                leaders.map((leader, index) => {
+                visibleLeaders.map((leader, index) => {
                   const color = getLeaderColor(leader.id);
                   const lat = addOffset(leader.latitude, index);
                   const lng = addOffset(leader.longitude, index + 100);
+                  const icon = leader.is_coordinator ? createCrownIcon(color) : createStarIcon(color);
 
                   return (
-                    <CircleMarker
+                    <Marker
                       key={`leader-pin-${leader.id}`}
-                      center={[lat, lng]}
-                      radius={10}
-                      pathOptions={{
-                        color: "#ffffff",
-                        weight: 2,
-                        fillColor: color,
-                        fillOpacity: 1,
-                      }}
+                      position={[lat, lng]}
+                      icon={icon}
                     >
                       <Popup>
-                        <div className="text-sm">
-                          <p className="font-semibold">{leader.nome_completo}</p>
-                          <p className="text-muted-foreground">{leader.cidade_nome}</p>
-                          <div className="mt-1 space-y-0.5">
+                        <div className="text-sm min-w-[200px]">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">{leader.is_coordinator ? '👑' : '⭐'}</span>
+                            <div>
+                              <p className="font-semibold">{leader.nome_completo}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {leader.is_coordinator ? 'Coordenador' : 'Líder'}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-muted-foreground mb-2">📍 {leader.cidade_nome}</p>
+                          <div className="space-y-1 text-xs border-t pt-2">
                             <p>📊 {leader.cadastros} cadastros</p>
-                            <p>⭐ {leader.pontuacao_total} pontos</p>
+                            <p>🏆 {leader.pontuacao_total} pontos</p>
+                            {leader.email && <p>📧 {leader.email}</p>}
+                            {leader.telefone && <p>📞 {leader.telefone}</p>}
                           </div>
                         </div>
                       </Popup>
-                    </CircleMarker>
+                    </Marker>
                   );
                 })}
 
@@ -452,22 +556,26 @@ export default function StrategicMap() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full border-2 border-white bg-blue-500 shadow" />
-              <span>Líder (cor única por líder)</span>
+              <span className="text-xl">👑</span>
+              <span>Coordenador</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⭐</span>
+              <span>Líder</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span>Contato cadastrado</span>
+              <span>Contato</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 bg-purple-500" style={{ borderTop: "2px dashed hsl(270, 70%, 50%)" }} />
-              <span>Conexão líder → contato</span>
+              <span>Conexão</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-3 rounded bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 opacity-50" />
-              <span>Mapa de calor (densidade)</span>
+              <span>Mapa de calor</span>
             </div>
           </div>
         </CardContent>
