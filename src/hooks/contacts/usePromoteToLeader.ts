@@ -79,7 +79,25 @@ export function usePromoteToLeader() {
         console.error("Erro ao enviar WhatsApp de confirmação:", whatsappError);
       }
 
-      // 4. Enviar email de boas-vindas (se tiver email)
+      // 4. Enviar SMS de confirmação
+      try {
+        const linkIndicacaoSms = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
+        await supabase.functions.invoke("send-sms", {
+          body: {
+            phone: contact.telefone_norm,
+            templateSlug: "lider-cadastro-confirmado-sms",
+            variables: {
+              nome: contact.nome,
+              link_indicacao: linkIndicacaoSms,
+            },
+          },
+        });
+        console.log("SMS de confirmação enviado para líder promovido");
+      } catch (smsError) {
+        console.error("Erro ao enviar SMS de confirmação:", smsError);
+      }
+
+      // 5. Enviar email de boas-vindas (se tiver email)
       if (contact.email && leader.affiliate_token) {
         try {
           const linkIndicacao = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;

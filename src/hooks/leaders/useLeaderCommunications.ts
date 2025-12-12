@@ -25,6 +25,18 @@ export interface LeaderEmailLog {
   created_at: string;
 }
 
+export interface LeaderSMSMessage {
+  id: string;
+  phone: string;
+  message: string;
+  direction: string;
+  status: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
 export function useLeaderCommunications(leaderId: string | undefined, leaderPhone: string | undefined, leaderEmail: string | undefined) {
   // WhatsApp messages por leader_id primeiro, depois por telefone
   const whatsappQuery = useQuery({
@@ -100,9 +112,32 @@ export function useLeaderCommunications(leaderId: string | undefined, leaderPhon
     enabled: !!(leaderId || leaderEmail),
   });
 
+  // SMS messages por telefone
+  const smsQuery = useQuery({
+    queryKey: ["leader_sms", leaderId, leaderPhone],
+    queryFn: async (): Promise<LeaderSMSMessage[]> => {
+      if (!leaderPhone) return [];
+      
+      const normalizedPhone = leaderPhone.replace(/\D/g, '');
+      const phoneSuffix = normalizedPhone.slice(-8);
+      
+      const { data, error } = await supabase
+        .from("sms_messages")
+        .select("*")
+        .ilike("phone", `%${phoneSuffix}%`)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!leaderPhone,
+  });
+
   return {
     whatsappMessages: whatsappQuery.data || [],
     emailLogs: emailQuery.data || [],
-    isLoading: whatsappQuery.isLoading || emailQuery.isLoading,
+    smsMessages: smsQuery.data || [],
+    isLoading: whatsappQuery.isLoading || emailQuery.isLoading || smsQuery.isLoading,
   };
 }

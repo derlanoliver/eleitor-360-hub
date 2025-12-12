@@ -83,7 +83,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
     open ? leader.telefone : undefined,
     open ? leader.email : undefined
   );
-  const { whatsappMessages, emailLogs, isLoading: loadingComms } = useLeaderCommunications(
+  const { whatsappMessages, emailLogs, smsMessages, isLoading: loadingComms } = useLeaderCommunications(
     open ? leader.id : undefined,
     open ? leader.telefone : undefined,
     open ? leader.email : undefined
@@ -517,6 +517,46 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDateTime(msg.created_at)}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* SMS */}
+              <div className="flex items-center justify-between mt-6">
+                <h4 className="font-medium flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-purple-600" />
+                  SMS
+                </h4>
+                <Badge variant="secondary">{smsMessages.length} mensagens</Badge>
+              </div>
+              
+              {!smsMessages.length ? (
+                <p className="text-sm text-muted-foreground">Nenhum SMS enviado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {smsMessages.slice(0, 10).map((sms) => {
+                    const statusInfo = whatsappStatusConfig[sms.status] || whatsappStatusConfig.pending;
+                    return (
+                      <Card key={sms.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Send className="h-3 w-3 text-purple-600" />
+                                <span className={`flex items-center gap-1 text-xs ${statusInfo.className}`}>
+                                  {statusInfo.icon}
+                                  {statusInfo.label}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate">{sms.message}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDateTime(sms.created_at)}
                             </span>
                           </div>
                         </CardContent>
