@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.process-scheduled-messages]
 verify_jwt = false
+
+[functions.send-pending-leader-sms]
+verify_jwt = false
