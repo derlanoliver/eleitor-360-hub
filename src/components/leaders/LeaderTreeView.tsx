@@ -8,7 +8,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LeaderTreeNode, useRemoveFromTree, countSubordinates } from "@/hooks/leaders/useLeaderTree";
+import { LeaderTreeNode, useRemoveFromTree, usePromoteToCoordinatorWithSubordinates, countSubordinates } from "@/hooks/leaders/useLeaderTree";
 import { AddSubordinateDialog } from "./AddSubordinateDialog";
 import { MoveLeaderDialog } from "./MoveLeaderDialog";
 import {
@@ -44,8 +44,10 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   
   const removeFromTree = useRemoveFromTree();
+  const promoteToCoordinator = usePromoteToCoordinatorWithSubordinates();
   const subordinatesCount = countSubordinates(node);
   
   const hasChildren = node.children && node.children.length > 0;
@@ -79,6 +81,11 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
   const handleRemove = async () => {
     await removeFromTree.mutateAsync(node.id);
     setShowRemoveDialog(false);
+  };
+
+  const handlePromoteToCoordinator = async () => {
+    await promoteToCoordinator.mutateAsync(node.id);
+    setShowPromoteDialog(false);
   };
 
   return (
@@ -139,6 +146,10 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
                 <DropdownMenuItem onClick={() => setShowMoveDialog(true)}>
                   <ArrowRightLeft className="h-4 w-4 mr-2" />
                   Mover para Outra Árvore
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowPromoteDialog(true)}>
+                  <Crown className="h-4 w-4 mr-2" />
+                  Promover a Coordenador
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setShowRemoveDialog(true)}
@@ -203,6 +214,32 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Promote to Coordinator Dialog */}
+      <AlertDialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Promover a Coordenador</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja promover <strong>{node.nome_completo}</strong> a Coordenador?
+              {subordinatesCount > 0 && (
+                <span className="block mt-2 text-blue-600">
+                  {subordinatesCount} subordinado(s) serão mantidos e terão seus níveis ajustados automaticamente.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handlePromoteToCoordinator}
+              disabled={promoteToCoordinator.isPending}
+            >
+              {promoteToCoordinator.isPending ? "Promovendo..." : "Promover"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
