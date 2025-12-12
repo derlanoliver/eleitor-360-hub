@@ -459,7 +459,8 @@ const Contacts = () => {
   const verificationFilteredContacts = filteredContacts.filter(contact => {
     if (verificationFilter === "all") return true;
     if (verificationFilter === "verified") return contact.is_verified === true;
-    if (verificationFilter === "pending") return contact.requiresVerification && !contact.is_verified;
+    if (verificationFilter === "sms_not_sent") return contact.requiresVerification && !contact.is_verified && !contact.verification_sent_at;
+    if (verificationFilter === "pending") return contact.requiresVerification && !contact.is_verified && contact.verification_sent_at;
     if (verificationFilter === "not_required") return !contact.requiresVerification;
     return true;
   });
@@ -683,9 +684,10 @@ const Contacts = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="sms_not_sent">SMS Não Enviado</SelectItem>
+                <SelectItem value="pending">Aguardando Verificação</SelectItem>
                 <SelectItem value="verified">Verificados</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="not_required">Não requer</SelectItem>
+                <SelectItem value="not_required">Não Requer</SelectItem>
               </SelectContent>
             </Select>
 
