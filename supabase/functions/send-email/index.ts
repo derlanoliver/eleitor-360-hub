@@ -27,6 +27,7 @@ const PUBLIC_TEMPLATES = [
   'lider-cadastro-confirmado',
   'visita-link-formulario',
   'membro-cadastro-boas-vindas',
+  'lideranca-boas-vindas', // Template para promoção automática de líderes
 ];
 
 serve(async (req) => {
