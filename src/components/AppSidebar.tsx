@@ -26,7 +26,8 @@ import {
   Map,
   ClipboardList,
   Smartphone,
-  GitBranch
+  GitBranch,
+  Clock
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 
@@ -79,6 +80,7 @@ const communicationItems: MenuItem[] = [
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Email", url: "/email", icon: Mail, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "SMS", url: "/sms", icon: Smartphone, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Agendados", url: "/scheduled", icon: Clock, roles: ['super_admin', 'admin', 'atendente'] },
 ];
 
 const officeItems: MenuItem[] = [

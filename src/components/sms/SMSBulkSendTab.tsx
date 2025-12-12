@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useSMSTemplates, replaceTemplateVariables } from "@/hooks/useSMSTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
+import { useCreateScheduledMessages } from "@/hooks/useScheduledMessages";
+import { ScheduleMessageDialog } from "@/components/scheduling/ScheduleMessageDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { generateVerificationUrl, getBaseUrl } from "@/lib/urlHelper";
@@ -49,6 +51,7 @@ function getRandomDelay(): number {
 export function SMSBulkSendTab() {
   const { data: templates } = useSMSTemplates();
   const { data: events } = useEvents();
+  const createScheduledMessages = useCreateScheduledMessages();
   
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [recipientType, setRecipientType] = useState<RecipientType>("contacts");
@@ -66,6 +69,7 @@ export function SMSBulkSendTab() {
   const [sentCount, setSentCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   const activeTemplates = templates?.filter((t) => t.is_active) || [];
   const selectedTemplateData = templates?.find((t) => t.slug === selectedTemplate);
@@ -607,34 +611,86 @@ export function SMSBulkSendTab() {
                 </Button>
               </div>
             ) : (
-              <Button
-                className="w-full"
-                onClick={() => handleSendBulk()}
-                disabled={
-                  isSending ||
-                  (!selectedTemplate && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification") ||
-                  !recipients?.length ||
-                  (recipientType === "event" && !selectedEvent) ||
-                  (isSingleSend && !selectedPerson)
-                }
-              >
-                {isSending ? (
-                  <>Enviando...</>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    {(recipientType === "sms_not_sent" || recipientType === "waiting_verification")
-                      ? "Enviar Verificações" 
-                      : isSingleSend 
-                        ? "Enviar SMS" 
-                        : "Iniciar Envio em Massa"}
-                  </>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  onClick={() => handleSendBulk()}
+                  disabled={
+                    isSending ||
+                    (!selectedTemplate && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification") ||
+                    !recipients?.length ||
+                    (recipientType === "event" && !selectedEvent) ||
+                    (isSingleSend && !selectedPerson)
+                  }
+                >
+                  {isSending ? (
+                    <>Enviando...</>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      {isSingleSend ? "Enviar" : "Enviar Agora"}
+                    </>
+                  )}
+                </Button>
+                {!isSingleSend && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowScheduleDialog(true)}
+                    disabled={
+                      isSending ||
+                      !selectedTemplate ||
+                      !recipients?.length ||
+                      (recipientType === "event" && !selectedEvent)
+                    }
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Agendar
+                  </Button>
                 )}
-              </Button>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <ScheduleMessageDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        onSchedule={async (scheduledFor) => {
+          if (!recipients?.length || !selectedTemplate) return;
+          
+          const batchId = crypto.randomUUID();
+          const messages = recipients.map((r) => ({
+            message_type: "sms" as const,
+            recipient_phone: r.phone,
+            recipient_name: r.nome,
+            template_slug: selectedTemplate,
+            variables: {
+              nome: r.nome || "",
+              ...(r.affiliate_token ? { link_indicacao: `${getBaseUrl()}/cadastro/${r.affiliate_token}` } : {}),
+            },
+            scheduled_for: scheduledFor.toISOString(),
+            contact_id: recipientType === "contacts" || recipientType === "event" ? r.id : undefined,
+            leader_id: recipientType === "leaders" ? r.id : undefined,
+            batch_id: batchId,
+          }));
+
+          try {
+            await createScheduledMessages.mutateAsync(messages);
+            toast.success(`${messages.length} SMS agendados para ${format(scheduledFor, "dd/MM/yyyy 'às' HH:mm")}`);
+            setShowScheduleDialog(false);
+          } catch (error) {
+            toast.error("Erro ao agendar mensagens");
+          }
+        }}
+        onSendNow={() => {
+          setShowScheduleDialog(false);
+          handleSendBulk();
+        }}
+        recipientCount={recipients?.length || 0}
+        messageType="sms"
+        isLoading={createScheduledMessages.isPending}
+      />
     </div>
   );
 }

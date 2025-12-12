@@ -1464,6 +1464,78 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_messages: {
+        Row: {
+          batch_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          leader_id: string | null
+          message_type: string
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          template_slug: string
+          variables: Json | null
+        }
+        Insert: {
+          batch_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          leader_id?: string | null
+          message_type: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          template_slug: string
+          variables?: Json | null
+        }
+        Update: {
+          batch_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          leader_id?: string | null
+          message_type?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          template_slug?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "office_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_messages: {
         Row: {
           contact_id: string | null
