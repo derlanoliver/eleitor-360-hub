@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { useLeaderLevels, getLeaderCardColorClass } from "@/hooks/leaders/useLeaderLevels";
+import { useLeadersSubordinatesCounts } from "@/hooks/leaders/useLeaderSubordinates";
 import { AddLeaderDialog } from "@/components/leaders/AddLeaderDialog";
 import { EditLeaderDialog } from "@/components/leaders/EditLeaderDialog";
 import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
@@ -91,6 +92,10 @@ const Leaders = () => {
       search: searchTerm || undefined
     })
   });
+
+  // Buscar contagem de subordinados diretos para cada líder
+  const leaderIds = leaders?.map(l => l.id) || [];
+  const { data: subordinatesCounts } = useLeadersSubordinatesCounts(leaderIds);
 
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone?.replace(/\D/g, '');
@@ -368,7 +373,7 @@ const Leaders = () => {
                       {/* Badges de Métricas + Status */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
-                          📊 {leader.cadastros} cadastros
+                          📊 {leader.cadastros + (subordinatesCounts?.[leader.id] || 0)} indicações
                         </Badge>
                         <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
                           ⭐ {leader.pontuacao_total} pontos
