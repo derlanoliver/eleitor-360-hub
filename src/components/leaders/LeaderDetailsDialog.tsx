@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { OfficeLeader } from "@/types/office";
 import { useLeaderIndicatedContacts } from "@/hooks/leaders/useLeaderIndicatedContacts";
+import { useLeaderSubordinates } from "@/hooks/leaders/useLeaderSubordinates";
 import { useLeaderEventParticipation } from "@/hooks/leaders/useLeaderEventParticipation";
 import { useLeaderCommunications } from "@/hooks/leaders/useLeaderCommunications";
 import { useLeaderVisits } from "@/hooks/leaders/useLeaderVisits";
@@ -79,6 +80,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const [open, setOpen] = useState(false);
   
   const { data: indicatedContacts, isLoading: loadingContacts } = useLeaderIndicatedContacts(open ? leader.id : undefined);
+  const { data: subordinates, isLoading: loadingSubordinates } = useLeaderSubordinates(open ? leader.id : undefined);
   const { indicatedEvents, ownEvents, isLoading: loadingEvents } = useLeaderEventParticipation(
     open ? leader.id : undefined, 
     open ? leader.telefone : undefined,
@@ -189,10 +191,84 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
 
             {/* ABA INDICAÇÕES */}
             <TabsContent value="indicacoes" className="mt-0 space-y-4 pr-4">
+              {/* Header com total combinado */}
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h4 className="font-medium">Contatos Indicados</h4>
+                <h4 className="font-medium">Total de Indicações</h4>
+                <Badge variant="default" className="text-sm">
+                  {(indicatedContacts?.length || 0) + (subordinates?.length || 0)} indicações
+                </Badge>
+              </div>
+
+              {/* Seção: Líderes Indicados (Subordinados) */}
+              {(loadingSubordinates || (subordinates && subordinates.length > 0)) && (
+                <>
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-amber-500" />
+                      <h5 className="font-medium text-sm">Líderes Indicados</h5>
+                    </div>
+                    <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+                      {subordinates?.length || 0} líderes
+                    </Badge>
+                  </div>
+                  
+                  {loadingSubordinates ? (
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {subordinates?.map((sub) => (
+                        <Card key={sub.id}>
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{sub.nome_completo}</p>
+                                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Líder
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {sub.cidade?.nome || "Sem região"} • {formatDate(sub.created_at)}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {sub.cadastros} cadastros
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {sub.pontuacao_total} pontos
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {sub.is_active ? (
+                                  <Badge variant="default" className="bg-green-500/10 text-green-600 border-0">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Ativo
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">Inativo</Badge>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Seção: Contatos Indicados */}
+              <div className="flex items-center justify-between mt-6">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{indicatedContacts?.length || 0} contatos</Badge>
+                  <Users className="h-4 w-4 text-blue-500" />
+                  <h5 className="font-medium text-sm">Contatos Indicados</h5>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
+                    {indicatedContacts?.length || 0} contatos
+                  </Badge>
                   <Button
                     size="sm"
                     variant="outline"
@@ -272,7 +348,13 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium">{contact.nome}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{contact.nome}</p>
+                              <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                                <User className="h-3 w-3 mr-1" />
+                                Contato
+                              </Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {contact.cidade?.nome || "Sem região"} • {formatDate(contact.created_at)}
                             </p>
