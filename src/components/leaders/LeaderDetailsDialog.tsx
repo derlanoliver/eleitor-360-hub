@@ -707,17 +707,23 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                 <LeaderLevelProgress points={leader.pontuacao_total} levels={activeLevels} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="grid grid-cols-3 gap-4 mt-6">
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-3xl font-bold text-primary">{leader.cadastros}</p>
-                    <p className="text-sm text-muted-foreground">Cadastros</p>
+                    <p className="text-3xl font-bold text-primary">{(leader.cadastros || 0) + (subordinates?.length || 0)}</p>
+                    <p className="text-sm text-muted-foreground">Total Indicações</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
                     <p className="text-3xl font-bold text-primary">{indicatedContacts?.filter(c => c.is_verified).length || 0}</p>
-                    <p className="text-sm text-muted-foreground">Verificados</p>
+                    <p className="text-sm text-muted-foreground">Contatos Verificados</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold text-primary">{subordinates?.length || 0}</p>
+                    <p className="text-sm text-muted-foreground">Líderes Indicados</p>
                   </CardContent>
                 </Card>
                 <Card>
