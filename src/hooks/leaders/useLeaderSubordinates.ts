@@ -19,7 +19,7 @@ export function useLeaderSubordinates(leaderId: string | undefined) {
     queryKey: ["leader_subordinates", leaderId],
     queryFn: async (): Promise<LeaderSubordinate[]> => {
       if (!leaderId) return [];
-      
+
       const { data, error } = await supabase
         .from("lideres")
         .select(`
@@ -42,6 +42,8 @@ export function useLeaderSubordinates(leaderId: string | undefined) {
       return data || [];
     },
     enabled: !!leaderId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
