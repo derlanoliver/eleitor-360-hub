@@ -127,6 +127,9 @@ function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{node.cadastros} cadastros</span>
               <span>{node.pontuacao_total} pts</span>
+              {(node.children?.length || 0) > 0 && (
+                <span className="text-amber-600 font-medium">{node.children?.length} líderes</span>
+              )}
             </div>
           </div>
         </div>
