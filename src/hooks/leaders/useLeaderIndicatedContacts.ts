@@ -18,7 +18,7 @@ export function useLeaderIndicatedContacts(leaderId: string | undefined) {
     queryKey: ["leader_indicated_contacts", leaderId],
     queryFn: async (): Promise<LeaderIndicatedContact[]> => {
       if (!leaderId) return [];
-      
+
       const { data, error } = await supabase
         .from("office_contacts")
         .select(`
@@ -41,5 +41,7 @@ export function useLeaderIndicatedContacts(leaderId: string | undefined) {
       return data || [];
     },
     enabled: !!leaderId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
