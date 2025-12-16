@@ -35,6 +35,7 @@ export function useLeaderSubordinates(leaderId: string | undefined) {
           cidade:office_cities(nome)
         `)
         .eq("parent_leader_id", leaderId)
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -54,7 +55,8 @@ export function useLeadersSubordinatesCounts(leaderIds: string[]) {
       const { data, error } = await supabase
         .from("lideres")
         .select("parent_leader_id")
-        .in("parent_leader_id", leaderIds);
+        .in("parent_leader_id", leaderIds)
+        .eq("is_active", true);
 
       if (error) throw error;
       
