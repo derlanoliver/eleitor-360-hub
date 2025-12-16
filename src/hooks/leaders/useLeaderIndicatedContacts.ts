@@ -34,6 +34,7 @@ export function useLeaderIndicatedContacts(leaderId: string | undefined) {
         `)
         .eq("source_type", "lider")
         .eq("source_id", leaderId)
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
