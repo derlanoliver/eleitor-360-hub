@@ -207,9 +207,12 @@ const Campaigns = () => {
 
   // Buscar líderes reais do banco - buscar TODOS (até 5000)
   const { data: leaderLinks = [], isLoading: isLoadingLeaders, isError: isLeadersError, error: leadersError } = useQuery({
-    queryKey: ['leaders-with-links-v3'],
+    queryKey: ['leaders-with-links-v5'],
     queryFn: async () => {
-      console.log('[DEBUG Query] Iniciando busca de líderes com batching...');
+      const startTime = Date.now();
+      console.log('[DEBUG Query v5] ========================================');
+      console.log('[DEBUG Query v5] Iniciando busca de líderes com batching...');
+      console.log('[DEBUG Query v5] Timestamp:', new Date().toISOString());
       
       const allLeaders: any[] = [];
       const pageSize = 1000;
@@ -221,6 +224,8 @@ const Campaigns = () => {
         const from = page * pageSize;
         const to = from + pageSize - 1;
 
+        console.log(`[DEBUG Query v5] Buscando página ${page + 1} (registros ${from} a ${to})...`);
+
         const { data, error } = await supabase
           .from('lideres')
           .select('id, nome_completo, email, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
@@ -229,19 +234,25 @@ const Campaigns = () => {
           .order('cadastros', { ascending: false })
           .range(from, to);
 
-        if (error) throw error;
+        if (error) {
+          console.error(`[DEBUG Query v5] ERRO na página ${page + 1}:`, error);
+          throw error;
+        }
 
         if (data && data.length > 0) {
           allLeaders.push(...data);
-          console.log(`[DEBUG Query] Página ${page + 1}: ${data.length} registros (total: ${allLeaders.length})`);
+          console.log(`[DEBUG Query v5] Página ${page + 1}: ${data.length} registros (total acumulado: ${allLeaders.length})`);
           hasMore = data.length === pageSize;
           page++;
         } else {
+          console.log(`[DEBUG Query v5] Página ${page + 1}: 0 registros - finalizando`);
           hasMore = false;
         }
       }
 
-      console.log(`[DEBUG Query] Total de líderes carregados: ${allLeaders.length}`);
+      console.log(`[DEBUG Query v5] Total de líderes carregados: ${allLeaders.length}`);
+      console.log(`[DEBUG Query v5] Busca concluída em ${Date.now() - startTime}ms`);
+      console.log('[DEBUG Query v5] ========================================');
 
       return allLeaders.map(leader => ({
         id: leader.id,
@@ -258,6 +269,7 @@ const Campaigns = () => {
       }));
     },
     staleTime: 0,
+    gcTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: 'always',
   });
