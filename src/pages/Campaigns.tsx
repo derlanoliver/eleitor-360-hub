@@ -207,7 +207,7 @@ const Campaigns = () => {
 
   // Buscar líderes reais do banco - buscar TODOS (até 5000)
   const { data: leaderLinks = [] } = useQuery({
-    queryKey: ['leaders-with-links-v2'],
+    queryKey: ['leaders-with-links-v3'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lideres')
@@ -240,13 +240,19 @@ const Campaigns = () => {
 
   // Filtrar líderes por busca (nome, email, telefone)
   const filteredLeaderLinks = useMemo(() => {
+    console.log(`[DEBUG] Total líderes carregados: ${leaderLinks.length}`);
+    console.log(`[DEBUG] Termo de busca: "${leaderSearchTerm}"`);
+    
     if (!leaderSearchTerm.trim()) return leaderLinks;
     
     const search = normalizeString(leaderSearchTerm.trim());
     const searchDigits = leaderSearchTerm.replace(/\D/g, "");
     
+    console.log(`[DEBUG] Busca normalizada: "${search}"`);
+    
     return leaderLinks.filter((leader) => {
-      const matchesName = normalizeString(leader.leaderName || "").includes(search);
+      const normalizedName = normalizeString(leader.leaderName || "");
+      const matchesName = normalizedName.includes(search);
       const matchesEmail = (leader.leaderEmail || "").toLowerCase().includes(search);
       const matchesPhone = searchDigits.length >= 4 && 
         leader.leaderPhone?.replace(/\D/g, "").includes(searchDigits);
