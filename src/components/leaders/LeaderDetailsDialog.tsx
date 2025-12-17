@@ -305,21 +305,41 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      const verified = indicatedContacts?.filter(c => c.is_verified) || [];
-                      if (verified.length === 0) {
-                        toast.info("Nenhum contato verificado para exportar.");
+                      const verifiedContacts = indicatedContacts?.filter(c => c.is_verified) || [];
+                      const leaderSubordinates = subordinates || [];
+                      const totalVerified = verifiedContacts.length + leaderSubordinates.length;
+                      
+                      if (totalVerified === 0) {
+                        toast.info("Nenhum registro verificado para exportar.");
                         return;
                       }
-                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Data Cadastro', 'Data Verificação'];
-                      const rows = verified.map(c => [
+                      
+                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Data Cadastro', 'Data Verificação'];
+                      
+                      // Rows de contatos verificados
+                      const contactRows = verifiedContacts.map(c => [
                         c.nome,
                         formatPhone(c.telefone_norm),
                         c.email || '',
                         c.cidade?.nome || '',
+                        'Contato',
                         formatDate(c.created_at),
                         c.verified_at ? formatDate(c.verified_at) : ''
                       ]);
-                      const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+                      
+                      // Rows de líderes subordinados (verificados por natureza)
+                      const leaderRows = leaderSubordinates.map(l => [
+                        l.nome_completo,
+                        l.telefone ? formatPhone(l.telefone) : '',
+                        l.email || '',
+                        l.cidade?.nome || '',
+                        'Líder',
+                        formatDate(l.created_at),
+                        formatDate(l.created_at) // Data de criação como verificação
+                      ]);
+                      
+                      const allRows = [...contactRows, ...leaderRows];
+                      const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
                       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                       const url = URL.createObjectURL(blob);
                       const link = document.createElement('a');
@@ -327,12 +347,12 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       link.download = `${leader.nome_completo}_verificados.csv`;
                       link.click();
                       URL.revokeObjectURL(url);
-                      toast.success(`${verified.length} contatos verificados exportados.`);
+                      toast.success(`${totalVerified} registros exportados (${verifiedContacts.length} contatos + ${leaderSubordinates.length} líderes).`);
                     }}
-                    disabled={!indicatedContacts?.some(c => c.is_verified)}
+                    disabled={!(indicatedContacts?.some(c => c.is_verified) || (subordinates && subordinates.length > 0))}
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    Verificados ({indicatedContacts?.filter(c => c.is_verified).length || 0})
+                    Verificados ({(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.length || 0)})
                   </Button>
                 </div>
               </div>
