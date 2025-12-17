@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,8 @@ import {
   Building2,
   FileText,
   Loader2,
-  FileArchive
+  FileArchive,
+  Search
 } from "lucide-react";
 import {
   BarChart,
@@ -60,6 +61,14 @@ import {
   LineChart,
   Line
 } from "recharts";
+
+// Função para normalizar strings (remover acentos e lowercase)
+const normalizeString = (str: string): string => {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+};
 
 const Campaigns = () => {
   const [newCampaign, setNewCampaign] = useState({
@@ -85,6 +94,12 @@ const Campaigns = () => {
   } | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState<'single' | 'all' | 'batch' | null>(null);
   const [generatingLeaderId, setGeneratingLeaderId] = useState<string | null>(null);
+  
+  // Estados para busca e paginação na aba Líderes
+  const [leaderSearchTerm, setLeaderSearchTerm] = useState("");
+  const [leaderCurrentPage, setLeaderCurrentPage] = useState(1);
+  const leadersPerPage = 10;
+  
   const { toast } = useToast();
   
   const { data: events = [] } = useEvents();
@@ -190,22 +205,24 @@ const Campaigns = () => {
     refetchInterval: 15000, // Atualização automática a cada 15 segundos
   });
 
-  // Buscar líderes reais do banco
+  // Buscar líderes reais do banco - buscar TODOS (até 5000)
   const { data: leaderLinks = [] } = useQuery({
-    queryKey: ['leaders-with-links'],
+    queryKey: ['leaders-with-links-v2'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lideres')
-        .select('id, nome_completo, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
+        .select('id, nome_completo, email, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
         .eq('is_active', true)
         .not('affiliate_token', 'is', null)
-        .order('cadastros', { ascending: false });
+        .order('cadastros', { ascending: false })
+        .range(0, 4999);
       
       if (error) throw error;
       
       return (data || []).map(leader => ({
         id: leader.id,
         leaderName: leader.nome_completo,
+        leaderEmail: leader.email || '',
         leaderPhone: leader.telefone || '',
         affiliateToken: leader.affiliate_token!,
         cityName: leader.cidade && typeof leader.cidade === 'object' && 'nome' in leader.cidade 
@@ -216,9 +233,39 @@ const Campaigns = () => {
         lastActivity: leader.last_activity
       }));
     },
-    refetchOnWindowFocus: true,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
   });
+
+  // Filtrar líderes por busca (nome, email, telefone)
+  const filteredLeaderLinks = useMemo(() => {
+    if (!leaderSearchTerm.trim()) return leaderLinks;
+    
+    const search = normalizeString(leaderSearchTerm.trim());
+    const searchDigits = leaderSearchTerm.replace(/\D/g, "");
+    
+    return leaderLinks.filter((leader) => {
+      const matchesName = normalizeString(leader.leaderName || "").includes(search);
+      const matchesEmail = (leader.leaderEmail || "").toLowerCase().includes(search);
+      const matchesPhone = searchDigits.length >= 4 && 
+        leader.leaderPhone?.replace(/\D/g, "").includes(searchDigits);
+      
+      return matchesName || matchesEmail || matchesPhone;
+    });
+  }, [leaderLinks, leaderSearchTerm]);
+
+  // Paginação
+  const totalLeaderPages = Math.ceil(filteredLeaderLinks.length / leadersPerPage);
+  const paginatedLeaders = filteredLeaderLinks.slice(
+    (leaderCurrentPage - 1) * leadersPerPage,
+    leaderCurrentPage * leadersPerPage
+  );
+
+  // Resetar página ao mudar busca
+  useEffect(() => {
+    setLeaderCurrentPage(1);
+  }, [leaderSearchTerm]);
 
   const handleCreateCampaign = async () => {
     // Validar campos baseado no tipo de destino
@@ -746,8 +793,26 @@ const Campaigns = () => {
 
           {/* Links de Líderes */}
           <TabsContent value="leaders">
+            {/* Campo de Busca */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, email ou telefone..."
+                  value={leaderSearchTerm}
+                  onChange={(e) => setLeaderSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {filteredLeaderLinks.length} líderes encontrados
+                {leaderSearchTerm && ` para "${leaderSearchTerm}"`}
+                {" "}(Total: {leaderLinks.length})
+              </p>
+            </div>
+
             {/* Barra de ações para geração de PDFs */}
-            {leaderLinks.length > 0 && (
+            {filteredLeaderLinks.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 <Button
                   variant="outline"
@@ -759,7 +824,7 @@ const Campaigns = () => {
                   ) : (
                     <FileText className="h-4 w-4 mr-2" />
                   )}
-                  PDF Consolidado ({leaderLinks.length})
+                  PDF Consolidado ({filteredLeaderLinks.length})
                 </Button>
                 
                 <Button
@@ -778,14 +843,17 @@ const Campaigns = () => {
             )}
 
             <div className="grid gap-6">
-              {leaderLinks.length === 0 ? (
+              {paginatedLeaders.length === 0 ? (
                 <Card className="card-default">
-                  <CardContent className="p-6 text-center text-gray-500">
-                    Nenhum líder com token de afiliado encontrado.
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    {leaderSearchTerm 
+                      ? "Nenhum líder encontrado para esta busca."
+                      : "Nenhum líder com token de afiliado encontrado."
+                    }
                   </CardContent>
                 </Card>
               ) : (
-                leaderLinks.map((leader) => (
+                paginatedLeaders.map((leader) => (
                   <Card key={leader.id} className="card-default">
                     <CardContent className="p-6">
                       <div className="grid md:grid-cols-12 gap-4 items-center">
@@ -902,6 +970,38 @@ const Campaigns = () => {
                 ))
               )}
             </div>
+
+            {/* Paginação */}
+            {totalLeaderPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {(leaderCurrentPage - 1) * leadersPerPage + 1} a{" "}
+                  {Math.min(leaderCurrentPage * leadersPerPage, filteredLeaderLinks.length)} de{" "}
+                  {filteredLeaderLinks.length} líderes
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLeaderCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={leaderCurrentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm">
+                    Página {leaderCurrentPage} de {totalLeaderPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLeaderCurrentPage(p => Math.min(totalLeaderPages, p + 1))}
+                    disabled={leaderCurrentPage === totalLeaderPages}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Relatório de Origens */}
