@@ -793,8 +793,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-3xl font-bold text-primary">{indicatedContacts?.filter(c => c.is_verified).length || 0}</p>
-                    <p className="text-sm text-muted-foreground">Contatos Verificados</p>
+                    <p className="text-3xl font-bold text-primary">{(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.length || 0)}</p>
+                    <p className="text-sm text-muted-foreground">Verificados</p>
                   </CardContent>
                 </Card>
                 <Card>
