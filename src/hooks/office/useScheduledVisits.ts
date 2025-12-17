@@ -143,7 +143,7 @@ export function useCreateScheduledVisit() {
             nome: input.nome,
             telefone_norm: normalizedPhone,
             cidade_id: input.cidadeId,
-            source_type: input.leaderId ? "lider" : "gabinete",
+            source_type: input.leaderId ? "lider" : "visita",
             source_id: input.leaderId || null,
           })
           .select("id")

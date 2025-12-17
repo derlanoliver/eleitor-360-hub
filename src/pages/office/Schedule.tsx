@@ -101,14 +101,14 @@ export default function Schedule() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendário */}
-        <Card>
+        <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base">Calendário</CardTitle>
             <CardDescription>Selecione uma data para ver as visitas</CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
+          <CardContent className="px-6">
             {monthLoading ? (
-              <div className="flex items-center justify-center h-[350px]">
+              <div className="flex items-center justify-center h-[380px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
@@ -118,27 +118,27 @@ export default function Schedule() {
                 onSelect={(date) => date && setSelectedDate(date)}
                 onMonthChange={handleMonthChange}
                 locale={ptBR}
-                className="rounded-md pointer-events-auto"
+                className="w-full"
                 classNames={{
-                  months: "flex flex-col space-y-4",
-                  month: "space-y-4",
-                  caption: "flex justify-center pt-1 relative items-center",
-                  caption_label: "text-base font-semibold",
+                  months: "flex flex-col w-full",
+                  month: "w-full space-y-4",
+                  caption: "flex justify-center pt-1 relative items-center mb-4",
+                  caption_label: "text-lg font-semibold",
                   nav: "space-x-1 flex items-center",
-                  nav_button: "h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-accent rounded-md border border-input",
-                  nav_button_previous: "absolute left-1",
-                  nav_button_next: "absolute right-1",
+                  nav_button: "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 hover:bg-muted rounded-md transition-colors",
+                  nav_button_previous: "absolute left-0",
+                  nav_button_next: "absolute right-0",
                   table: "w-full border-collapse",
-                  head_row: "flex justify-between",
-                  head_cell: "text-muted-foreground rounded-md w-12 font-medium text-sm text-center",
-                  row: "flex w-full mt-2 justify-between",
-                  cell: "h-12 w-12 text-center text-sm p-0 relative rounded-md",
-                  day: "h-12 w-12 p-0 font-normal hover:bg-accent rounded-md transition-colors flex items-center justify-center",
+                  head_row: "flex w-full",
+                  head_cell: "text-muted-foreground flex-1 font-medium text-sm text-center py-2",
+                  row: "flex w-full mt-1",
+                  cell: "flex-1 text-center text-sm p-1 relative",
+                  day: "h-12 w-full p-0 font-normal hover:bg-muted rounded-lg transition-colors flex items-center justify-center cursor-pointer",
                   day_range_end: "day-range-end",
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground font-semibold",
-                  day_outside: "day-outside text-muted-foreground opacity-50",
-                  day_disabled: "text-muted-foreground opacity-50",
+                  day_today: "bg-muted font-semibold",
+                  day_outside: "text-muted-foreground opacity-40",
+                  day_disabled: "text-muted-foreground opacity-40",
                   day_hidden: "invisible",
                 }}
                 modifiers={{
@@ -149,9 +149,8 @@ export default function Schedule() {
                 }}
                 modifiersStyles={{
                   hasVisits: {
-                    fontWeight: "bold",
-                    backgroundColor: "hsl(var(--primary) / 0.15)",
-                    borderRadius: "8px",
+                    fontWeight: "600",
+                    backgroundColor: "hsl(var(--primary) / 0.08)",
                   },
                 }}
                 components={{
@@ -160,9 +159,9 @@ export default function Schedule() {
                     const count = datesWithVisits[dateKey];
                     return (
                       <div className="relative w-full h-full flex items-center justify-center">
-                        <span className="text-base">{date.getDate()}</span>
+                        <span>{date.getDate()}</span>
                         {count && (
-                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full" />
+                          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
                         )}
                       </div>
                     );
@@ -174,7 +173,7 @@ export default function Schedule() {
         </Card>
 
         {/* Lista de visitas do dia */}
-        <Card>
+        <Card className="min-h-[480px]">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-5 w-5" />
