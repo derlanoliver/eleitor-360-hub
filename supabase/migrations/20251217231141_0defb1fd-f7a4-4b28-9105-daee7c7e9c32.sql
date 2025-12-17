@@ -1,0 +1,1 @@
+ALTER TABLE office_visits ALTER COLUMN leader_id DROP NOT NULL;
