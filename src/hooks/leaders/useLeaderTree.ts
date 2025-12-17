@@ -135,7 +135,8 @@ export function useAllLeadersForSearch() {
         .from("lideres")
         .select("id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)")
         .eq("is_active", true)
-        .order("nome_completo");
+        .order("nome_completo")
+        .range(0, 4999);
 
       if (error) throw error;
       return data.map(l => ({
