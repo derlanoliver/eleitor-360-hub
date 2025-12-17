@@ -209,25 +209,41 @@ const Campaigns = () => {
   const { data: leaderLinks = [], isLoading: isLoadingLeaders, isError: isLeadersError, error: leadersError } = useQuery({
     queryKey: ['leaders-with-links-v3'],
     queryFn: async () => {
-      console.log('[DEBUG Query] Iniciando busca de líderes...');
+      console.log('[DEBUG Query] Iniciando busca de líderes com batching...');
       
-      const { data, error } = await supabase
-        .from('lideres')
-        .select('id, nome_completo, email, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
-        .eq('is_active', true)
-        .not('affiliate_token', 'is', null)
-        .order('cadastros', { ascending: false })
-        .range(0, 4999);
-      
-      console.log('[DEBUG Query] Resposta do Supabase:', { 
-        totalRetornado: data?.length, 
-        temErro: !!error, 
-        erro: error 
-      });
-      
-      if (error) throw error;
-      
-      const mapped = (data || []).map(leader => ({
+      const allLeaders: any[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+
+      // Loop para buscar todos os registros em chunks de 1000
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+          .from('lideres')
+          .select('id, nome_completo, email, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
+          .eq('is_active', true)
+          .not('affiliate_token', 'is', null)
+          .order('cadastros', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allLeaders.push(...data);
+          console.log(`[DEBUG Query] Página ${page + 1}: ${data.length} registros (total: ${allLeaders.length})`);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`[DEBUG Query] Total de líderes carregados: ${allLeaders.length}`);
+
+      return allLeaders.map(leader => ({
         id: leader.id,
         leaderName: leader.nome_completo,
         leaderEmail: leader.email || '',
@@ -240,9 +256,6 @@ const Campaigns = () => {
         registrations: leader.cadastros,
         lastActivity: leader.last_activity
       }));
-      
-      console.log('[DEBUG Query] Após mapeamento:', mapped.length);
-      return mapped;
     },
     staleTime: 0,
     refetchOnMount: 'always',
