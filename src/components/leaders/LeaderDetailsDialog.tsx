@@ -8,10 +8,11 @@ import {
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
-  Download, Crown, Star, ChevronDown, GitBranch
+  Download, Crown, Star, ChevronDown, GitBranch, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { OfficeLeader } from "@/types/office";
@@ -78,6 +79,7 @@ const visitStatusLabels: Record<string, string> = {
 
 export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogProps) {
   const [open, setOpen] = useState(false);
+  const [loadingReport, setLoadingReport] = useState(false);
   
   const { data: indicatedContacts, isLoading: loadingContacts } = useLeaderIndicatedContacts(open ? leader.id : undefined);
   const { data: subordinates, isLoading: loadingSubordinates } = useLeaderSubordinates(open ? leader.id : undefined);
@@ -833,9 +835,136 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
 
             {/* ABA ÁRVORE */}
             <TabsContent value="arvore" className="mt-0 space-y-4 pr-4">
-              <div className="flex items-center gap-2 mb-4">
-                <GitBranch className="h-5 w-5 text-muted-foreground" />
-                <h4 className="font-medium">Hierarquia de Liderança</h4>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="h-5 w-5 text-muted-foreground" />
+                  <h4 className="font-medium">Hierarquia de Liderança</h4>
+                </div>
+                
+                {/* Botão de Relatório de Pendentes */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loadingReport}
+                  onClick={async () => {
+                    setLoadingReport(true);
+                    try {
+                      // 1. Buscar toda a árvore de líderes subordinados
+                      const { data: treeData, error: treeError } = await supabase
+                        .rpc("get_leader_tree", { _leader_id: leader.id });
+                      
+                      if (treeError) throw treeError;
+                      
+                      const leaders = treeData || [];
+                      const leaderIds = leaders.map((l: any) => l.id);
+                      
+                      if (leaderIds.length === 0) {
+                        toast.info("Nenhum líder encontrado na árvore.");
+                        setLoadingReport(false);
+                        return;
+                      }
+
+                      // 2. Buscar contatos pendentes (não verificados) em batches
+                      const allPendingContacts: any[] = [];
+                      const pageSize = 1000;
+                      let page = 0;
+                      let hasMore = true;
+
+                      while (hasMore) {
+                        const from = page * pageSize;
+                        const to = from + pageSize - 1;
+
+                        const { data: contactsData, error: contactsError } = await supabase
+                          .from("office_contacts")
+                          .select(`
+                            id, nome, telefone_norm, email, source_id, created_at,
+                            cidade:office_cities(nome)
+                          `)
+                          .eq("source_type", "lider")
+                          .in("source_id", leaderIds)
+                          .eq("is_active", true)
+                          .eq("is_verified", false)
+                          .range(from, to);
+
+                        if (contactsError) throw contactsError;
+
+                        if (contactsData && contactsData.length > 0) {
+                          allPendingContacts.push(...contactsData);
+                          hasMore = contactsData.length === pageSize;
+                          page++;
+                        } else {
+                          hasMore = false;
+                        }
+                      }
+
+                      // 3. Criar mapa de líderes por ID para lookup
+                      const leaderMap = new Map(leaders.map((l: any) => [l.id, l]));
+
+                      // 4. Gerar CSV
+                      const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro'];
+                      
+                      // Linhas de líderes subordinados (excluindo o próprio líder selecionado)
+                      const leaderRows = leaders
+                        .filter((l: any) => l.id !== leader.id)
+                        .map((l: any) => {
+                          const parentLeader = l.parent_leader_id ? leaderMap.get(l.parent_leader_id) : null;
+                          return [
+                            l.is_coordinator ? 'Coordenador' : 'Líder',
+                            l.nome_completo,
+                            l.telefone || '',
+                            l.email || '',
+                            l.cidade_nome || '',
+                            l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
+                            parentLeader ? (parentLeader as any).nome_completo : '',
+                            l.created_at ? formatDate(l.created_at) : ''
+                          ];
+                        });
+
+                      // Linhas de contatos pendentes (não verificados)
+                      const contactRows = allPendingContacts.map((c: any) => {
+                        const indicatorLeader = leaderMap.get(c.source_id);
+                        return [
+                          'Contato Pendente',
+                          c.nome,
+                          c.telefone_norm || '',
+                          c.email || '',
+                          (c.cidade as any)?.nome || '',
+                          '-',
+                          indicatorLeader ? (indicatorLeader as any).nome_completo : '',
+                          formatDate(c.created_at)
+                        ];
+                      });
+
+                      const allRows = [...leaderRows, ...contactRows];
+
+                      if (allRows.length === 0) {
+                        toast.info("Nenhum líder subordinado ou contato pendente encontrado.");
+                        setLoadingReport(false);
+                        return;
+                      }
+
+                      // 5. Exportar CSV
+                      const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
+                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${leader.nome_completo}_arvore_pendentes.csv`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      
+                      toast.success(`Relatório exportado: ${leaderRows.length} líderes + ${contactRows.length} contatos pendentes`);
+                    } catch (error) {
+                      console.error('Erro ao gerar relatório:', error);
+                      toast.error("Erro ao gerar relatório.");
+                    } finally {
+                      setLoadingReport(false);
+                    }
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  {loadingReport ? "Gerando..." : "Relatório Pendentes"}
+                </Button>
               </div>
 
               {loadingHierarchy ? (
