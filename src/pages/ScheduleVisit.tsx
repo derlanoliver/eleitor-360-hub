@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, QrCode as QrCodeIcon, Download } from "lucide-react";
+import { Loader2, QrCode as QrCodeIcon, Download, Calendar as CalendarIcon } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { useTemas } from "@/hooks/useTemas";
 import QRCode from "qrcode";
@@ -34,6 +34,7 @@ export default function ScheduleVisit() {
   const [continuaProjeto, setContinuaProjeto] = useState<string>("");
   const [observacoes, setObservacoes] = useState("");
   const [temaId, setTemaId] = useState<string>("");
+  const [confirmaAgendamento, setConfirmaAgendamento] = useState(false);
 
   useEffect(() => {
     loadVisit();
@@ -56,7 +57,7 @@ export default function ScheduleVisit() {
         return;
       }
 
-      const visitData = data[0];
+      const visitData = data[0] as any;
       
       // Mapear para estrutura esperada pelo componente
       setVisit({
@@ -65,6 +66,8 @@ export default function ScheduleVisit() {
         status: visitData.status,
         contact_id: visitData.contact_id,
         qr_code: visitData.qr_code,
+        scheduled_date: visitData.scheduled_date || null,
+        scheduled_time: visitData.scheduled_time || null,
         contact: {
           nome: visitData.contact_nome,
           telefone_norm: visitData.contact_telefone,
@@ -98,6 +101,16 @@ export default function ScheduleVisit() {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar confirmação de agendamento se visita for agendada
+    if (visit?.scheduled_date && visit?.scheduled_time && !confirmaAgendamento) {
+      toast({
+        title: "Confirmação necessária",
+        description: "Por favor, confirme o dia e horário da visita",
         variant: "destructive",
       });
       return;
@@ -140,10 +153,15 @@ export default function ScheduleVisit() {
 
       if (contactError) throw contactError;
 
-      // 3. Update visit status
+      // 3. Update visit status and confirmed_at if scheduled
+      const visitUpdate: any = { status: "FORM_SUBMITTED" };
+      if (visit?.scheduled_date && visit?.scheduled_time) {
+        visitUpdate.confirmed_at = new Date().toISOString();
+      }
+
       const { error: visitError } = await supabase
         .from("office_visits")
-        .update({ status: "FORM_SUBMITTED" })
+        .update(visitUpdate)
         .eq("id", visitId);
 
       if (visitError) throw visitError;
@@ -304,6 +322,36 @@ export default function ScheduleVisit() {
                   className="bg-muted"
                 />
               </div>
+
+              {/* Seção de Confirmação de Data/Hora Agendados */}
+              {visit.scheduled_date && visit.scheduled_time && (
+                <div className="p-4 border border-primary/30 rounded-lg bg-primary/5 space-y-3">
+                  <div className="flex items-center gap-2 text-primary font-semibold">
+                    <CalendarIcon className="h-5 w-5" />
+                    Data e Horário Agendados
+                  </div>
+                  <div className="text-lg font-medium">
+                    {new Date(visit.scheduled_date + 'T12:00:00').toLocaleDateString('pt-BR', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })} às {visit.scheduled_time.substring(0, 5)}
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="confirmaAgendamento"
+                      checked={confirmaAgendamento}
+                      onChange={(e) => setConfirmaAgendamento(e.target.checked)}
+                      className="h-4 w-4 rounded border-primary text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="confirmaAgendamento" className="cursor-pointer font-normal">
+                      Confirmo o dia e horário acima *
+                    </Label>
+                  </div>
+                </div>
+              )}
 
               {/* Required fields */}
               <div className="grid md:grid-cols-2 gap-4">

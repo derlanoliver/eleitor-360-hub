@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOfficeVisits } from "@/hooks/office/useOfficeVisits";
-import { Loader2, Clock, Send, FileText, CheckCircle, CheckCircle2, XCircle, CalendarClock, Search } from "lucide-react";
+import { useScheduledVisitsToday } from "@/hooks/office/useScheduledVisits";
+import { Loader2, Clock, Send, FileText, CheckCircle, CheckCircle2, XCircle, CalendarClock, Search, CalendarDays } from "lucide-react";
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
@@ -12,6 +15,7 @@ import { CompleteMeetingDialog } from "@/components/office/CompleteMeetingDialog
 import { MeetingMinutesDialog } from "@/components/office/MeetingMinutesDialog";
 import { useVisitMeetingActions } from "@/hooks/office/useVisitMeetingActions";
 import { formatPhoneBR } from "@/services/office/officeService";
+import type { OfficeVisitStatus } from "@/types/office";
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +25,7 @@ import {
 
 export default function Queue() {
   const { data: visits, isLoading } = useOfficeVisits();
+  const { data: scheduledToday = [], isLoading: scheduledLoading } = useScheduledVisitsToday();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [rescheduleVisit, setRescheduleVisit] = useState<any>(null);
   const [completeMeetingVisit, setCompleteMeetingVisit] = useState<any>(null);
@@ -64,7 +69,7 @@ export default function Queue() {
   };
 
   // Filtrar apenas visitas ativas (excluir finalizadas)
-  const activeStatuses = ["REGISTERED", "LINK_SENT", "FORM_OPENED", "FORM_SUBMITTED", "CHECKED_IN", "RESCHEDULED"];
+  const activeStatuses = ["REGISTERED", "LINK_SENT", "FORM_OPENED", "FORM_SUBMITTED", "CHECKED_IN", "RESCHEDULED", "SCHEDULED"];
   const activeVisits = visits?.filter((v) => activeStatuses.includes(v.status)) || [];
   
   // Aplicar filtro de busca
@@ -84,6 +89,18 @@ export default function Queue() {
     });
   
   const checkedIn = filteredVisits.filter((v) => v.status === "CHECKED_IN");
+  
+  // Filtrar visitas agendadas para hoje
+  const scheduledTodayFiltered = scheduledToday.filter((visit) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase().trim();
+    const termNumbers = normalizeSearchPhone(term);
+    const matchProtocol = visit.protocolo?.toLowerCase().includes(term);
+    const matchName = visit.contact?.nome?.toLowerCase().includes(term);
+    const phoneNorm = visit.contact?.telefone_norm || "";
+    const matchPhone = termNumbers.length >= 3 && phoneNorm.includes(termNumbers);
+    return matchProtocol || matchName || matchPhone;
+  });
   
   const handleReschedule = (visitId: string, newDate: Date) => {
     rescheduleMeeting.mutate({ visitId, newDate });
@@ -114,6 +131,51 @@ export default function Queue() {
           />
         </div>
       </div>
+
+      {/* Tab de Agendadas Hoje - só aparece se houver visitas agendadas */}
+      {scheduledTodayFiltered.length > 0 && (
+        <Card className="mb-6 border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              Visitas Agendadas para Hoje
+              <Badge variant="secondary" className="ml-2">{scheduledTodayFiltered.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {scheduledTodayFiltered.map((visit) => (
+                <div 
+                  key={visit.id} 
+                  className="p-3 bg-background rounded-lg space-y-2 cursor-pointer hover:bg-muted/50 transition-colors border"
+                  onClick={() => setSelectedVisit(visit)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-semibold">
+                        {visit.scheduled_time?.substring(0, 5)}
+                      </span>
+                    </div>
+                    {visit.confirmed_at && (
+                      <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Confirmada
+                      </Badge>
+                    )}
+                  </div>
+                  <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                  <p className="font-medium text-sm">{visit.contact?.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+                  </p>
+                  <OfficeStatusBadge status={visit.status as OfficeVisitStatus} />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Aguardando preenchimento */}
