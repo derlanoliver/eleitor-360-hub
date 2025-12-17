@@ -206,9 +206,11 @@ const Campaigns = () => {
   });
 
   // Buscar líderes reais do banco - buscar TODOS (até 5000)
-  const { data: leaderLinks = [] } = useQuery({
+  const { data: leaderLinks = [], isLoading: isLoadingLeaders, isError: isLeadersError, error: leadersError } = useQuery({
     queryKey: ['leaders-with-links-v3'],
     queryFn: async () => {
+      console.log('[DEBUG Query] Iniciando busca de líderes...');
+      
       const { data, error } = await supabase
         .from('lideres')
         .select('id, nome_completo, email, telefone, affiliate_token, cidade:office_cities(nome), cadastros, last_activity')
@@ -217,9 +219,15 @@ const Campaigns = () => {
         .order('cadastros', { ascending: false })
         .range(0, 4999);
       
+      console.log('[DEBUG Query] Resposta do Supabase:', { 
+        totalRetornado: data?.length, 
+        temErro: !!error, 
+        erro: error 
+      });
+      
       if (error) throw error;
       
-      return (data || []).map(leader => ({
+      const mapped = (data || []).map(leader => ({
         id: leader.id,
         leaderName: leader.nome_completo,
         leaderEmail: leader.email || '',
@@ -232,6 +240,9 @@ const Campaigns = () => {
         registrations: leader.cadastros,
         lastActivity: leader.last_activity
       }));
+      
+      console.log('[DEBUG Query] Após mapeamento:', mapped.length);
+      return mapped;
     },
     staleTime: 0,
     refetchOnMount: 'always',
@@ -240,8 +251,12 @@ const Campaigns = () => {
 
   // Filtrar líderes por busca (nome, email, telefone)
   const filteredLeaderLinks = useMemo(() => {
-    console.log(`[DEBUG] Total líderes carregados: ${leaderLinks.length}`);
-    console.log(`[DEBUG] Termo de busca: "${leaderSearchTerm}"`);
+    console.log(`[DEBUG Filter] isLoading: ${isLoadingLeaders}, isError: ${isLeadersError}`);
+    if (isLeadersError) {
+      console.error('[DEBUG Filter] Erro na query:', leadersError);
+    }
+    console.log(`[DEBUG Filter] Total líderes carregados: ${leaderLinks.length}`);
+    console.log(`[DEBUG Filter] Termo de busca: "${leaderSearchTerm}"`);
     
     if (!leaderSearchTerm.trim()) return leaderLinks;
     
@@ -259,7 +274,7 @@ const Campaigns = () => {
       
       return matchesName || matchesEmail || matchesPhone;
     });
-  }, [leaderLinks, leaderSearchTerm]);
+  }, [leaderLinks, leaderSearchTerm, isLoadingLeaders, isLeadersError, leadersError]);
 
   // Paginação
   const totalLeaderPages = Math.ceil(filteredLeaderLinks.length / leadersPerPage);
