@@ -1133,7 +1133,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          leader_id: string
+          leader_id: string | null
           protocolo: string
           qr_code: string | null
           rescheduled_at: string | null
@@ -1158,7 +1158,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          leader_id: string
+          leader_id?: string | null
           protocolo: string
           qr_code?: string | null
           rescheduled_at?: string | null
@@ -1183,7 +1183,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          leader_id?: string
+          leader_id?: string | null
           protocolo?: string
           qr_code?: string | null
           rescheduled_at?: string | null
