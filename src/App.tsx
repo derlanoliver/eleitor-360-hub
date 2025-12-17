@@ -55,6 +55,7 @@ import Queue from "./pages/office/Queue";
 import History from "./pages/office/History";
 import OfficeSettings from "./pages/office/Settings";
 import VisitCheckin from "./pages/office/VisitCheckin";
+import Schedule from "./pages/office/Schedule";
 import ScheduleVisit from "./pages/ScheduleVisit";
 import AffiliateForm from "./pages/AffiliateForm";
 import Unsubscribe from "./pages/Unsubscribe";
@@ -337,6 +338,13 @@ const App = () => (
             } />
             
             {/* Office module routes - admin e atendente */}
+            <Route path="/office/schedule" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout>
+                  <Schedule />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
             <Route path="/office/new" element={
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>

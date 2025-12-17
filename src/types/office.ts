@@ -3,6 +3,7 @@
 // =====================================================
 
 export type OfficeVisitStatus =
+  | "SCHEDULED"
   | "REGISTERED"
   | "LINK_SENT"
   | "FORM_OPENED"

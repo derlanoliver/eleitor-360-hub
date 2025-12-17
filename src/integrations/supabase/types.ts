@@ -1128,6 +1128,7 @@ export type Database = {
           checked_in: boolean | null
           checked_in_at: string | null
           city_id: string
+          confirmed_at: string | null
           contact_id: string
           created_at: string
           created_by: string | null
@@ -1137,6 +1138,9 @@ export type Database = {
           qr_code: string | null
           rescheduled_at: string | null
           rescheduled_date: string | null
+          scheduled_by: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
           status: Database["public"]["Enums"]["office_visit_status"]
           token: string | null
           token_expires_at: string | null
@@ -1149,6 +1153,7 @@ export type Database = {
           checked_in?: boolean | null
           checked_in_at?: string | null
           city_id: string
+          confirmed_at?: string | null
           contact_id: string
           created_at?: string
           created_by?: string | null
@@ -1158,6 +1163,9 @@ export type Database = {
           qr_code?: string | null
           rescheduled_at?: string | null
           rescheduled_date?: string | null
+          scheduled_by?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -1170,6 +1178,7 @@ export type Database = {
           checked_in?: boolean | null
           checked_in_at?: string | null
           city_id?: string
+          confirmed_at?: string | null
           contact_id?: string
           created_at?: string
           created_by?: string | null
@@ -1179,6 +1188,9 @@ export type Database = {
           qr_code?: string | null
           rescheduled_at?: string | null
           rescheduled_date?: string | null
+          scheduled_by?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           status?: Database["public"]["Enums"]["office_visit_status"]
           token?: string | null
           token_expires_at?: string | null
@@ -2475,6 +2487,7 @@ export type Database = {
       office_city_status: "active" | "inactive"
       office_leader_status: "active" | "inactive"
       office_visit_status:
+        | "SCHEDULED"
         | "REGISTERED"
         | "LINK_SENT"
         | "FORM_OPENED"
@@ -2621,6 +2634,7 @@ export const Constants = {
       office_city_status: ["active", "inactive"],
       office_leader_status: ["active", "inactive"],
       office_visit_status: [
+        "SCHEDULED",
         "REGISTERED",
         "LINK_SENT",
         "FORM_OPENED",
