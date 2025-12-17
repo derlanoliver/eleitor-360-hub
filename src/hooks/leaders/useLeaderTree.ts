@@ -129,21 +129,27 @@ export interface LeaderSearchResult {
 
 export function useAllLeadersForSearch() {
   return useQuery({
-    queryKey: ["all-leaders-search"],
+    // v2 para invalidar o cache antigo (que tinha só 1000 registros)
+    queryKey: ["all-leaders-search-v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lideres")
-        .select("id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)")
+        .select(
+          "id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)"
+        )
         .eq("is_active", true)
         .order("nome_completo")
         .range(0, 4999);
 
       if (error) throw error;
-      return data.map(l => ({
+      return data.map((l) => ({
         ...l,
         cidade_nome: (l.cidade as any)?.nome || null,
       })) as LeaderSearchResult[];
     },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
   });
 }
 
