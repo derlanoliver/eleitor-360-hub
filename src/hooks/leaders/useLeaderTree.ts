@@ -129,25 +129,61 @@ export interface LeaderSearchResult {
 
 export function useAllLeadersForSearch() {
   return useQuery({
-    // v2 para invalidar o cache antigo (que tinha só 1000 registros)
-    queryKey: ["all-leaders-search-v2"],
+    // v6 para invalidar o cache antigo e usar batching
+    queryKey: ["all-leaders-search-v6"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lideres")
-        .select(
-          "id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)"
-        )
-        .eq("is_active", true)
-        .order("nome_completo")
-        .range(0, 4999);
+      const startTime = Date.now();
+      console.log('[DEBUG Leaders Search v6] ========================================');
+      console.log('[DEBUG Leaders Search v6] Iniciando busca com batching...');
+      console.log('[DEBUG Leaders Search v6] Timestamp:', new Date().toISOString());
+      
+      const allLeaders: any[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data.map((l) => ({
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        console.log(`[DEBUG Leaders Search v6] Buscando página ${page + 1} (registros ${from} a ${to})...`);
+
+        const { data, error } = await supabase
+          .from("lideres")
+          .select(
+            "id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)"
+          )
+          .eq("is_active", true)
+          .order("nome_completo")
+          .range(from, to);
+
+        if (error) {
+          console.error(`[DEBUG Leaders Search v6] ERRO na página ${page + 1}:`, error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          allLeaders.push(...data);
+          console.log(`[DEBUG Leaders Search v6] Página ${page + 1}: ${data.length} registros (total acumulado: ${allLeaders.length})`);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          console.log(`[DEBUG Leaders Search v6] Página ${page + 1}: 0 registros - finalizando`);
+          hasMore = false;
+        }
+      }
+
+      console.log(`[DEBUG Leaders Search v6] Total de líderes carregados: ${allLeaders.length}`);
+      console.log(`[DEBUG Leaders Search v6] Busca concluída em ${Date.now() - startTime}ms`);
+      console.log('[DEBUG Leaders Search v6] ========================================');
+
+      return allLeaders.map((l) => ({
         ...l,
         cidade_nome: (l.cidade as any)?.nome || null,
       })) as LeaderSearchResult[];
     },
     staleTime: 0,
+    gcTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: "always",
   });
