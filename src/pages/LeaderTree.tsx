@@ -56,15 +56,23 @@ export default function LeaderTree() {
     }
   }, [hierarchyPath, pendingLeaderSelection]);
 
+  // Normalize string: remove accents and convert to lowercase
+  const normalizeString = (str: string): string => {
+    return str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
   // Filter all leaders by search term
   const filteredLeaders = allLeaders?.filter((leader) => {
     if (!searchTerm.trim()) return false;
     
-    const search = searchTerm.toLowerCase().trim();
-    const searchDigits = search.replace(/\D/g, "");
+    const search = normalizeString(searchTerm.trim());
+    const searchDigits = searchTerm.replace(/\D/g, "");
     
-    const matchesName = leader.nome_completo?.toLowerCase().includes(search);
-    const matchesEmail = leader.email?.toLowerCase().includes(search);
+    const matchesName = normalizeString(leader.nome_completo || "").includes(search);
+    const matchesEmail = (leader.email || "").toLowerCase().includes(search);
     const matchesPhone = searchDigits.length >= 4 && 
       leader.telefone?.replace(/\D/g, "").includes(searchDigits);
     
@@ -79,11 +87,11 @@ export default function LeaderTree() {
   const filteredCoordinators = coordinators?.filter((coordinator) => {
     if (!searchTerm.trim()) return true;
     
-    const search = searchTerm.toLowerCase().trim();
-    const searchDigits = search.replace(/\D/g, "");
+    const search = normalizeString(searchTerm.trim());
+    const searchDigits = searchTerm.replace(/\D/g, "");
     
-    const matchesName = coordinator.nome_completo?.toLowerCase().includes(search);
-    const matchesEmail = coordinator.email?.toLowerCase().includes(search);
+    const matchesName = normalizeString(coordinator.nome_completo || "").includes(search);
+    const matchesEmail = (coordinator.email || "").toLowerCase().includes(search);
     const matchesPhone = searchDigits.length >= 4 && 
       coordinator.telefone?.replace(/\D/g, "").includes(searchDigits);
     
