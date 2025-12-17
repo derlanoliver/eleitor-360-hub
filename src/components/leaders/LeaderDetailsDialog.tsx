@@ -199,6 +199,150 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                 </Badge>
               </div>
 
+              {/* Botões de Exportação */}
+              <div className="flex flex-wrap gap-2">
+                {/* Botão Todos */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const allContacts = indicatedContacts || [];
+                    const allLeaders = subordinates || [];
+                    const totalRecords = allContacts.length + allLeaders.length;
+                    
+                    if (totalRecords === 0) {
+                      toast.info("Nenhum registro para exportar.");
+                      return;
+                    }
+                    
+                    const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Status', 'Data Cadastro'];
+                    
+                    const contactRows = allContacts.map(c => [
+                      c.nome,
+                      formatPhone(c.telefone_norm),
+                      c.email || '',
+                      c.cidade?.nome || '',
+                      'Contato',
+                      c.is_verified ? 'Verificado' : 'Pendente',
+                      formatDate(c.created_at)
+                    ]);
+                    
+                    const leaderRows = allLeaders.map(l => [
+                      l.nome_completo,
+                      l.telefone ? formatPhone(l.telefone) : '',
+                      l.email || '',
+                      l.cidade?.nome || '',
+                      'Líder',
+                      'Verificado',
+                      formatDate(l.created_at)
+                    ]);
+                    
+                    const allRows = [...contactRows, ...leaderRows];
+                    const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${leader.nome_completo}_todos.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`${totalRecords} registros exportados (${allContacts.length} contatos + ${allLeaders.length} líderes).`);
+                  }}
+                  disabled={!((indicatedContacts && indicatedContacts.length > 0) || (subordinates && subordinates.length > 0))}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Todos ({(indicatedContacts?.length || 0) + (subordinates?.length || 0)})
+                </Button>
+
+                {/* Botão Verificados */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const verifiedContacts = indicatedContacts?.filter(c => c.is_verified) || [];
+                    const leaderSubordinates = subordinates || [];
+                    const totalVerified = verifiedContacts.length + leaderSubordinates.length;
+                    
+                    if (totalVerified === 0) {
+                      toast.info("Nenhum registro verificado para exportar.");
+                      return;
+                    }
+                    
+                    const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Data Cadastro', 'Data Verificação'];
+                    
+                    const contactRows = verifiedContacts.map(c => [
+                      c.nome,
+                      formatPhone(c.telefone_norm),
+                      c.email || '',
+                      c.cidade?.nome || '',
+                      'Contato',
+                      formatDate(c.created_at),
+                      c.verified_at ? formatDate(c.verified_at) : ''
+                    ]);
+                    
+                    const leaderRows = leaderSubordinates.map(l => [
+                      l.nome_completo,
+                      l.telefone ? formatPhone(l.telefone) : '',
+                      l.email || '',
+                      l.cidade?.nome || '',
+                      'Líder',
+                      formatDate(l.created_at),
+                      formatDate(l.created_at)
+                    ]);
+                    
+                    const allRows = [...contactRows, ...leaderRows];
+                    const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${leader.nome_completo}_verificados.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`${totalVerified} registros exportados (${verifiedContacts.length} contatos + ${leaderSubordinates.length} líderes).`);
+                  }}
+                  disabled={!(indicatedContacts?.some(c => c.is_verified) || (subordinates && subordinates.length > 0))}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Verificados ({(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.length || 0)})
+                </Button>
+
+                {/* Botão Pendentes */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const pending = indicatedContacts?.filter(c => !c.is_verified) || [];
+                    if (pending.length === 0) {
+                      toast.info("Nenhum contato pendente para exportar.");
+                      return;
+                    }
+                    const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Data Cadastro'];
+                    const rows = pending.map(c => [
+                      c.nome,
+                      formatPhone(c.telefone_norm),
+                      c.email || '',
+                      c.cidade?.nome || '',
+                      'Contato',
+                      formatDate(c.created_at)
+                    ]);
+                    const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${leader.nome_completo}_pendentes.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`${pending.length} contatos pendentes exportados.`);
+                  }}
+                  disabled={!indicatedContacts?.some(c => !c.is_verified)}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Pendentes ({indicatedContacts?.filter(c => !c.is_verified).length || 0})
+                </Button>
+              </div>
+
               {/* Seção: Líderes Indicados (Subordinados) */}
               {(loadingSubordinates || (subordinates && subordinates.length > 0)) && (
                 <>
@@ -265,96 +409,9 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <Users className="h-4 w-4 text-blue-500" />
                   <h5 className="font-medium text-sm">Contatos Indicados</h5>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
-                    {indicatedContacts?.length || 0} contatos
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const pending = indicatedContacts?.filter(c => !c.is_verified) || [];
-                      if (pending.length === 0) {
-                        toast.info("Nenhum contato pendente para exportar.");
-                        return;
-                      }
-                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Data Cadastro'];
-                      const rows = pending.map(c => [
-                        c.nome,
-                        formatPhone(c.telefone_norm),
-                        c.email || '',
-                        c.cidade?.nome || '',
-                        formatDate(c.created_at)
-                      ]);
-                      const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
-                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = `${leader.nome_completo}_pendentes.csv`;
-                      link.click();
-                      URL.revokeObjectURL(url);
-                      toast.success(`${pending.length} contatos pendentes exportados.`);
-                    }}
-                    disabled={!indicatedContacts?.some(c => !c.is_verified)}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Pendentes ({indicatedContacts?.filter(c => !c.is_verified).length || 0})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const verifiedContacts = indicatedContacts?.filter(c => c.is_verified) || [];
-                      const leaderSubordinates = subordinates || [];
-                      const totalVerified = verifiedContacts.length + leaderSubordinates.length;
-                      
-                      if (totalVerified === 0) {
-                        toast.info("Nenhum registro verificado para exportar.");
-                        return;
-                      }
-                      
-                      const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Data Cadastro', 'Data Verificação'];
-                      
-                      // Rows de contatos verificados
-                      const contactRows = verifiedContacts.map(c => [
-                        c.nome,
-                        formatPhone(c.telefone_norm),
-                        c.email || '',
-                        c.cidade?.nome || '',
-                        'Contato',
-                        formatDate(c.created_at),
-                        c.verified_at ? formatDate(c.verified_at) : ''
-                      ]);
-                      
-                      // Rows de líderes subordinados (verificados por natureza)
-                      const leaderRows = leaderSubordinates.map(l => [
-                        l.nome_completo,
-                        l.telefone ? formatPhone(l.telefone) : '',
-                        l.email || '',
-                        l.cidade?.nome || '',
-                        'Líder',
-                        formatDate(l.created_at),
-                        formatDate(l.created_at) // Data de criação como verificação
-                      ]);
-                      
-                      const allRows = [...contactRows, ...leaderRows];
-                      const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
-                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = `${leader.nome_completo}_verificados.csv`;
-                      link.click();
-                      URL.revokeObjectURL(url);
-                      toast.success(`${totalVerified} registros exportados (${verifiedContacts.length} contatos + ${leaderSubordinates.length} líderes).`);
-                    }}
-                    disabled={!(indicatedContacts?.some(c => c.is_verified) || (subordinates && subordinates.length > 0))}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Verificados ({(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.length || 0)})
-                  </Button>
-                </div>
+                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
+                  {indicatedContacts?.length || 0} contatos
+                </Badge>
               </div>
               
               {loadingContacts ? (
