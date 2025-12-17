@@ -99,16 +99,16 @@ export default function Schedule() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendário */}
-        <Card className="lg:col-span-1">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Calendário</CardTitle>
             <CardDescription>Selecione uma data para ver as visitas</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex justify-center">
             {monthLoading ? (
-              <div className="flex items-center justify-center h-[300px]">
+              <div className="flex items-center justify-center h-[350px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
@@ -118,7 +118,29 @@ export default function Schedule() {
                 onSelect={(date) => date && setSelectedDate(date)}
                 onMonthChange={handleMonthChange}
                 locale={ptBR}
-                className="rounded-md"
+                className="rounded-md pointer-events-auto"
+                classNames={{
+                  months: "flex flex-col space-y-4",
+                  month: "space-y-4",
+                  caption: "flex justify-center pt-1 relative items-center",
+                  caption_label: "text-base font-semibold",
+                  nav: "space-x-1 flex items-center",
+                  nav_button: "h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-accent rounded-md border border-input",
+                  nav_button_previous: "absolute left-1",
+                  nav_button_next: "absolute right-1",
+                  table: "w-full border-collapse",
+                  head_row: "flex justify-between",
+                  head_cell: "text-muted-foreground rounded-md w-12 font-medium text-sm text-center",
+                  row: "flex w-full mt-2 justify-between",
+                  cell: "h-12 w-12 text-center text-sm p-0 relative rounded-md",
+                  day: "h-12 w-12 p-0 font-normal hover:bg-accent rounded-md transition-colors flex items-center justify-center",
+                  day_range_end: "day-range-end",
+                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                  day_today: "bg-accent text-accent-foreground font-semibold",
+                  day_outside: "day-outside text-muted-foreground opacity-50",
+                  day_disabled: "text-muted-foreground opacity-50",
+                  day_hidden: "invisible",
+                }}
                 modifiers={{
                   hasVisits: (date) => {
                     const dateKey = format(date, "yyyy-MM-dd");
@@ -128,8 +150,8 @@ export default function Schedule() {
                 modifiersStyles={{
                   hasVisits: {
                     fontWeight: "bold",
-                    backgroundColor: "hsl(var(--primary) / 0.1)",
-                    borderRadius: "50%",
+                    backgroundColor: "hsl(var(--primary) / 0.15)",
+                    borderRadius: "8px",
                   },
                 }}
                 components={{
@@ -138,9 +160,9 @@ export default function Schedule() {
                     const count = datesWithVisits[dateKey];
                     return (
                       <div className="relative w-full h-full flex items-center justify-center">
-                        {date.getDate()}
+                        <span className="text-base">{date.getDate()}</span>
                         {count && (
-                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full" />
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full" />
                         )}
                       </div>
                     );
@@ -152,7 +174,7 @@ export default function Schedule() {
         </Card>
 
         {/* Lista de visitas do dia */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-5 w-5" />
