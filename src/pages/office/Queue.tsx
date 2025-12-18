@@ -242,12 +242,12 @@ export default function Queue() {
           </CardContent>
         </Card>
         
-        {/* Form Enviado */}
+        {/* Form Preenchido */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
-              Form Enviado
+              Form Preenchido
             </CardTitle>
             <CardDescription>{submitted.length} visitas</CardDescription>
           </CardHeader>
@@ -268,7 +268,7 @@ export default function Queue() {
             ))}
             {submitted.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Nenhum form enviado
+                Nenhum form preenchido
               </p>
             )}
           </CardContent>
