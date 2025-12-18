@@ -961,8 +961,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       const leaderDirectSubordinates = subordinatesCount.get(leader.id) || 0;
                       const leaderTotalCadastros = (leader.cadastros || 0) + leaderDirectSubordinates;
 
-                      // Calcular o nível base para filtrar liderados diretos
-                      const baseLevel = leader.is_coordinator ? 0 : (leader.hierarchy_level || 1);
+                      // Calcular o nível base para filtrar liderados diretos (usar hierarchy_level real)
+                      const baseLevel = leader.hierarchy_level || 1;
                       const directSubordinateLevel = baseLevel + 1;
 
                       // Filtrar líderes para o relatório baseado na opção selecionada
