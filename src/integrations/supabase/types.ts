@@ -2347,6 +2347,8 @@ export type Database = {
           id: string
           protocolo: string
           qr_code: string
+          scheduled_date: string
+          scheduled_time: string
           status: string
         }[]
       }

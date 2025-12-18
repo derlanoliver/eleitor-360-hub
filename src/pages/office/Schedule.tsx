@@ -12,10 +12,47 @@ import { CreateScheduledVisitDialog } from "@/components/office/CreateScheduledV
 import { OfficeStatusBadge } from "@/components/office/OfficeStatusBadge";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { formatPhoneBR } from "@/services/office/officeService";
-import { Loader2, Plus, CalendarDays, Clock, CheckCircle2, AlertCircle, User } from "lucide-react";
+import { Loader2, Plus, CalendarDays, Clock, CheckCircle2, AlertCircle, User, FileText, Send } from "lucide-react";
 import type { OfficeVisitStatus } from "@/types/office";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Componente para mostrar o estágio da visita
+const VisitStageBadge = ({ status }: { status: string }) => {
+  if (status === "SCHEDULED" || status === "REGISTERED" || status === "LINK_SENT") {
+    return (
+      <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
+        <Clock className="h-3 w-3 mr-1" />
+        Aguardando Preenchimento
+      </Badge>
+    );
+  }
+  if (status === "FORM_OPENED") {
+    return (
+      <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-xs">
+        <Send className="h-3 w-3 mr-1" />
+        Form Aberto
+      </Badge>
+    );
+  }
+  if (status === "FORM_SUBMITTED" || status === "RESCHEDULED") {
+    return (
+      <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+        <FileText className="h-3 w-3 mr-1" />
+        Form Preenchido
+      </Badge>
+    );
+  }
+  if (status === "CHECKED_IN") {
+    return (
+      <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 text-xs">
+        <CheckCircle2 className="h-3 w-3 mr-1" />
+        Check-in Realizado
+      </Badge>
+    );
+  }
+  return null;
+};
 
 export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -224,7 +261,10 @@ export default function Schedule() {
                         </div>
                         <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
                       </div>
-                      <OfficeStatusBadge status={visit.status as OfficeVisitStatus} />
+                      <div className="flex flex-col items-end gap-1">
+                        <OfficeStatusBadge status={visit.status as OfficeVisitStatus} />
+                        <VisitStageBadge status={visit.status} />
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-4 text-sm">
