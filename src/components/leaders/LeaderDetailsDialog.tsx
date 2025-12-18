@@ -864,43 +864,53 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         return;
                       }
 
-                      // 2. Buscar contatos pendentes (não verificados) em batches
+                      // 2. Dividir leaderIds em chunks para evitar Bad Request (URL muito longa)
+                      const chunkSize = 200;
+                      const leaderIdChunks: string[][] = [];
+                      for (let i = 0; i < leaderIds.length; i += chunkSize) {
+                        leaderIdChunks.push(leaderIds.slice(i, i + chunkSize));
+                      }
+
+                      // 3. Buscar contatos pendentes (não verificados) de todos os chunks
                       const allPendingContacts: any[] = [];
                       const pageSize = 1000;
-                      let page = 0;
-                      let hasMore = true;
 
-                      while (hasMore) {
-                        const from = page * pageSize;
-                        const to = from + pageSize - 1;
+                      for (const chunk of leaderIdChunks) {
+                        let page = 0;
+                        let hasMore = true;
 
-                        const { data: contactsData, error: contactsError } = await supabase
-                          .from("office_contacts")
-                          .select(`
-                            id, nome, telefone_norm, email, source_id, created_at,
-                            cidade:office_cities(nome)
-                          `)
-                          .eq("source_type", "lider")
-                          .in("source_id", leaderIds)
-                          .eq("is_active", true)
-                          .eq("is_verified", false)
-                          .range(from, to);
+                        while (hasMore) {
+                          const from = page * pageSize;
+                          const to = from + pageSize - 1;
 
-                        if (contactsError) throw contactsError;
+                          const { data: contactsData, error: contactsError } = await supabase
+                            .from("office_contacts")
+                            .select(`
+                              id, nome, telefone_norm, email, source_id, created_at,
+                              cidade:office_cities(nome)
+                            `)
+                            .eq("source_type", "lider")
+                            .in("source_id", chunk)
+                            .eq("is_active", true)
+                            .eq("is_verified", false)
+                            .range(from, to);
 
-                        if (contactsData && contactsData.length > 0) {
-                          allPendingContacts.push(...contactsData);
-                          hasMore = contactsData.length === pageSize;
-                          page++;
-                        } else {
-                          hasMore = false;
+                          if (contactsError) throw contactsError;
+
+                          if (contactsData && contactsData.length > 0) {
+                            allPendingContacts.push(...contactsData);
+                            hasMore = contactsData.length === pageSize;
+                            page++;
+                          } else {
+                            hasMore = false;
+                          }
                         }
                       }
 
-                      // 3. Criar mapa de líderes por ID para lookup
+                      // 4. Criar mapa de líderes por ID para lookup
                       const leaderMap = new Map(leaders.map((l: any) => [l.id, l]));
 
-                      // 4. Criar mapa de subordinados diretos por líder (para contagem de cadastros)
+                      // 5. Criar mapa de subordinados diretos por líder (para contagem de cadastros)
                       const subordinatesCount = new Map<string, number>();
                       leaders.forEach((l: any) => {
                         if (l.parent_leader_id) {
@@ -909,7 +919,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         }
                       });
 
-                      // 5. Gerar CSV
+                      // 6. Gerar CSV
                       const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros'];
                       
                       // Função recursiva para ordenar hierarquicamente
@@ -977,7 +987,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         return;
                       }
 
-                      // 6. Criar cabeçalho do relatório com totais
+                      // 7. Criar cabeçalho do relatório com totais
                       const reportHeader = [
                         [`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`],
                         [`Gerado em: ${formatDateTime(new Date().toISOString())}`],
@@ -989,7 +999,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         ['']
                       ];
 
-                      // 7. Exportar CSV com cabeçalho
+                      // 8. Exportar CSV com cabeçalho
                       const csv = [...reportHeader.map(row => row.join(';')), headers.join(';'), ...allRows.map(row => row.join(';'))].join('\n');
                       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                       const url = URL.createObjectURL(blob);
