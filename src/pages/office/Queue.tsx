@@ -76,7 +76,7 @@ export default function Queue() {
   const filteredVisits = filterVisits(activeVisits);
   
   // Agrupar por status usando visitas filtradas
-  const registered = filteredVisits.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT");
+  const registered = filteredVisits.filter((v) => v.status === "REGISTERED" || v.status === "LINK_SENT" || v.status === "SCHEDULED");
   const opened = filteredVisits.filter((v) => v.status === "FORM_OPENED");
   
   // Form Enviado: reagendadas primeiro
@@ -194,7 +194,15 @@ export default function Queue() {
                 className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
                 onClick={() => setSelectedVisit(visit)}
               >
-                <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                <div className="flex items-center justify-between gap-2">
+                  <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                  {visit.status === "SCHEDULED" && visit.scheduled_time && (
+                    <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 text-xs">
+                      <CalendarDays className="h-3 w-3 mr-1" />
+                      {visit.scheduled_time.substring(0, 5)}
+                    </Badge>
+                  )}
+                </div>
                 <p className="font-medium text-sm">{visit.contact?.nome}</p>
                 <p className="text-xs text-muted-foreground">
                   {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
