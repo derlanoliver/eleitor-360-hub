@@ -903,23 +903,38 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       // 4. Gerar CSV
                       const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros'];
                       
-                      // Linhas de líderes subordinados (excluindo o próprio líder selecionado)
-                      const leaderRows = leaders
-                        .filter((l: any) => l.id !== leader.id)
-                        .map((l: any) => {
-                          const parentLeader = l.parent_leader_id ? leaderMap.get(l.parent_leader_id) : null;
-                          return [
-                            l.is_coordinator ? 'Coordenador' : 'Líder',
-                            l.nome_completo,
-                            l.telefone || '',
-                            l.email || '',
-                            l.cidade_nome || '',
-                            l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
-                            parentLeader ? (parentLeader as any).nome_completo : '',
-                            l.created_at ? formatDate(l.created_at) : '',
-                            String(l.cadastros || 0)
-                          ];
-                        });
+                      // Função recursiva para ordenar hierarquicamente
+                      const sortLeadersHierarchically = (allLeaders: any[], parentId: string): any[] => {
+                        const result: any[] = [];
+                        const children = allLeaders.filter((l: any) => l.parent_leader_id === parentId && l.id !== parentId);
+                        
+                        for (const child of children) {
+                          result.push(child);
+                          // Recursivamente adiciona os subordinados diretos
+                          result.push(...sortLeadersHierarchically(allLeaders, child.id));
+                        }
+                        
+                        return result;
+                      };
+
+                      // Ordenar líderes hierarquicamente começando pelo líder selecionado
+                      const sortedLeaders = sortLeadersHierarchically(leaders, leader.id);
+
+                      // Linhas de líderes subordinados (já ordenados hierarquicamente)
+                      const leaderRows = sortedLeaders.map((l: any) => {
+                        const parentLeader = l.parent_leader_id ? leaderMap.get(l.parent_leader_id) : null;
+                        return [
+                          l.is_coordinator ? 'Coordenador' : 'Líder',
+                          l.nome_completo,
+                          l.telefone || '',
+                          l.email || '',
+                          l.cidade_nome || '',
+                          l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
+                          parentLeader ? (parentLeader as any).nome_completo : '',
+                          l.created_at ? formatDate(l.created_at) : '',
+                          String(l.cadastros || 0)
+                        ];
+                      });
 
                       // Linhas de contatos pendentes (não verificados)
                       const contactRows = allPendingContacts.map((c: any) => {

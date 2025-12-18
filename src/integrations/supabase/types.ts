@@ -2268,11 +2268,13 @@ export type Database = {
         Returns: {
           cadastros: number
           cidade_id: string
+          created_at: string
           depth: number
           email: string
           hierarchy_level: number
           id: string
           is_active: boolean
+          is_coordinator: boolean
           nome_completo: string
           parent_leader_id: string
           pontuacao_total: number
