@@ -2268,6 +2268,7 @@ export type Database = {
         Returns: {
           cadastros: number
           cidade_id: string
+          cidade_nome: string
           created_at: string
           depth: number
           email: string
