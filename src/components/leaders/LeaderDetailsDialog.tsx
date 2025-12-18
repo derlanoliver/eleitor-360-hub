@@ -871,7 +871,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       
                       if (treeError) throw treeError;
                       
-                      const leaders = treeData || [];
+                      // Filtrar apenas líderes ativos (excluir desativados do relatório)
+                      const leaders = (treeData || []).filter((l: any) => l.is_active === true);
                       const leaderIds = leaders.map((l: any) => l.id);
                       
                       if (leaderIds.length === 0) {
