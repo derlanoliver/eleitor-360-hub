@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  getVisitForNotification,
-  sendMeetingCancelledNotification,
-  sendMeetingRescheduledNotification
-} from "@/services/office/whatsappNotificationService";
+  getVisitForSMSNotification,
+  sendMeetingCancelledSMS,
+  sendMeetingRescheduledSMS
+} from "@/services/office/smsNotificationService";
 
 export function useVisitMeetingActions() {
   const queryClient = useQueryClient();
@@ -41,12 +41,12 @@ export function useVisitMeetingActions() {
         .single();
       if (error) throw error;
       
-      // Enviar WhatsApp de cancelamento em background
-      getVisitForNotification(visitId).then(visit => {
+      // Enviar SMS de cancelamento em background
+      getVisitForSMSNotification(visitId).then(visit => {
         if (visit) {
-          sendMeetingCancelledNotification(visit).then(result => {
+          sendMeetingCancelledSMS(visit).then(result => {
             if (!result.success) {
-              console.warn("[WhatsApp] Falha ao enviar notificação de cancelamento:", result.error);
+              console.warn("[SMS] Falha ao enviar notificação de cancelamento:", result.error);
             }
           });
         }
@@ -80,12 +80,12 @@ export function useVisitMeetingActions() {
         .single();
       if (error) throw error;
       
-      // Enviar WhatsApp de reagendamento em background
-      getVisitForNotification(visitId).then(visit => {
+      // Enviar SMS de reagendamento em background
+      getVisitForSMSNotification(visitId).then(visit => {
         if (visit) {
-          sendMeetingRescheduledNotification(visit, newDate).then(result => {
+          sendMeetingRescheduledSMS(visit, newDate).then(result => {
             if (!result.success) {
-              console.warn("[WhatsApp] Falha ao enviar notificação de reagendamento:", result.error);
+              console.warn("[SMS] Falha ao enviar notificação de reagendamento:", result.error);
             }
           });
         }
