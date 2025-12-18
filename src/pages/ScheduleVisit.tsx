@@ -169,14 +169,14 @@ export default function ScheduleVisit() {
 
       if (visitError) throw visitError;
 
-      // 4. Reload visit data to get generated QR code
-      const { data: updatedVisit, error: reloadError } = await supabase
-        .from("office_visits")
-        .select("*, contact:office_contacts(*), city:office_cities(*)")
-        .eq("id", visitId)
-        .single();
+      // 4. Reload visit data to get generated QR code using RPC (bypasses RLS)
+      const { data: reloadedData, error: reloadError } = await supabase
+        .rpc("get_visit_for_public_form", { _visit_id: visitId });
 
       if (reloadError) throw reloadError;
+
+      const updatedVisit = reloadedData?.[0];
+      if (!updatedVisit) throw new Error("Visita não encontrada após submit");
 
       // 5. Generate QR Code image
       if (updatedVisit.qr_code) {
