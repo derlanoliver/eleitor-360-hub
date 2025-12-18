@@ -901,7 +901,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       const leaderMap = new Map(leaders.map((l: any) => [l.id, l]));
 
                       // 4. Gerar CSV
-                      const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro'];
+                      const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros'];
                       
                       // Linhas de líderes subordinados (excluindo o próprio líder selecionado)
                       const leaderRows = leaders
@@ -916,7 +916,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                             l.cidade_nome || '',
                             l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
                             parentLeader ? (parentLeader as any).nome_completo : '',
-                            l.created_at ? formatDate(l.created_at) : ''
+                            l.created_at ? formatDate(l.created_at) : '',
+                            String(l.cadastros || 0)
                           ];
                         });
 
@@ -931,7 +932,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           (c.cidade as any)?.nome || '',
                           '-',
                           indicatorLeader ? (indicatorLeader as any).nome_completo : '',
-                          formatDate(c.created_at)
+                          formatDate(c.created_at),
+                          '0'
                         ];
                       });
 
