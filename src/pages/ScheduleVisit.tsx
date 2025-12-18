@@ -79,7 +79,10 @@ export default function ScheduleVisit() {
       
       // Atualizar status para FORM_OPENED se ainda estiver em LINK_SENT, SCHEDULED ou REGISTERED
       if (["LINK_SENT", "SCHEDULED", "REGISTERED"].includes(visitData.status)) {
-        await supabase.rpc("update_visit_status_form_opened", { _visit_id: visitId });
+        const { error: updateError } = await supabase.rpc("update_visit_status_form_opened", { _visit_id: visitId });
+        if (updateError) {
+          console.error("Erro ao atualizar status para FORM_OPENED:", updateError);
+        }
       }
     } catch (error: any) {
       console.error("Error loading visit:", error);
