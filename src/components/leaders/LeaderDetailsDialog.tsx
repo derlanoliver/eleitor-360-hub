@@ -11,6 +11,8 @@ import {
   Download, Crown, Star, ChevronDown, GitBranch, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -80,6 +82,7 @@ const visitStatusLabels: Record<string, string> = {
 export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [includeAllLevels, setIncludeAllLevels] = useState(true);
   
   const { data: indicatedContacts, isLoading: loadingContacts } = useLeaderIndicatedContacts(open ? leader.id : undefined);
   const { data: subordinates, isLoading: loadingSubordinates } = useLeaderSubordinates(open ? leader.id : undefined);
@@ -841,7 +844,20 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <h4 className="font-medium">Hierarquia de Liderança</h4>
                 </div>
                 
-                {/* Botão de Relatório de Pendentes */}
+                <div className="flex items-center gap-3">
+                  {/* Checkbox para filtrar níveis no relatório */}
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="include-all-levels"
+                      checked={includeAllLevels}
+                      onCheckedChange={(checked) => setIncludeAllLevels(checked === true)}
+                    />
+                    <Label htmlFor="include-all-levels" className="text-sm text-muted-foreground cursor-pointer">
+                      Incluir todos os níveis
+                    </Label>
+                  </div>
+                  
+                  {/* Botão de Relatório de Pendentes */}
                 <Button
                   size="sm"
                   variant="outline"
@@ -939,14 +955,34 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       // Ordenar líderes hierarquicamente começando pelo líder selecionado
                       const sortedLeaders = sortLeadersHierarchically(leaders, leader.id);
 
-                      // Calcular totais para o cabeçalho do relatório
+                      // Calcular totais para o cabeçalho do relatório (sempre da árvore completa)
                       const totalLeadersInTree = sortedLeaders.length;
                       const totalContactsPending = allPendingContacts.length;
                       const leaderDirectSubordinates = subordinatesCount.get(leader.id) || 0;
                       const leaderTotalCadastros = (leader.cadastros || 0) + leaderDirectSubordinates;
 
-                      // Linhas de líderes subordinados (já ordenados hierarquicamente) com cadastros = contatos + subordinados
-                      const leaderRows = sortedLeaders.map((l: any) => {
+                      // Calcular o nível base para filtrar liderados diretos
+                      const baseLevel = leader.is_coordinator ? 0 : (leader.hierarchy_level || 1);
+                      const directSubordinateLevel = baseLevel + 1;
+
+                      // Filtrar líderes para o relatório baseado na opção selecionada
+                      const leadersForReport = includeAllLevels 
+                        ? sortedLeaders 
+                        : sortedLeaders.filter((l: any) => {
+                            // Incluir apenas liderados diretos (um nível abaixo)
+                            return l.hierarchy_level === directSubordinateLevel;
+                          });
+
+                      // IDs dos líderes que vão no relatório
+                      const leaderIdsForReport = leadersForReport.map((l: any) => l.id);
+
+                      // Filtrar contatos pendentes apenas dos líderes filtrados
+                      const contactsForReport = includeAllLevels 
+                        ? allPendingContacts 
+                        : allPendingContacts.filter((c: any) => leaderIdsForReport.includes(c.source_id));
+
+                      // Linhas de líderes (filtradas) com cadastros = contatos + subordinados
+                      const leaderRows = leadersForReport.map((l: any) => {
                         const parentLeader = l.parent_leader_id ? leaderMap.get(l.parent_leader_id) : null;
                         const directSubordinates = subordinatesCount.get(l.id) || 0;
                         const totalCadastros = (l.cadastros || 0) + directSubordinates;
@@ -963,8 +999,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         ];
                       });
 
-                      // Linhas de contatos pendentes (não verificados)
-                      const contactRows = allPendingContacts.map((c: any) => {
+                      // Linhas de contatos pendentes (filtradas)
+                      const contactRows = contactsForReport.map((c: any) => {
                         const indicatorLeader = leaderMap.get(c.source_id);
                         return [
                           'Contato Pendente',
@@ -987,15 +1023,20 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         return;
                       }
 
-                      // 7. Criar cabeçalho do relatório com totais
+                      // 7. Criar cabeçalho do relatório com totais e filtro aplicado
+                      const filterLabel = includeAllLevels ? 'Todos os níveis' : 'Apenas liderados diretos';
+                      const listingLabel = includeAllLevels ? 'COMPLETA' : 'LIDERADOS DIRETOS';
                       const reportHeader = [
                         [`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`],
                         [`Gerado em: ${formatDateTime(new Date().toISOString())}`],
+                        [`Filtro: ${filterLabel}`],
                         [''],
-                        ['RESUMO:'],
+                        ['RESUMO (ÁRVORE COMPLETA):'],
                         [`Total de Líderes na Árvore: ${totalLeadersInTree}`],
                         [`Total de Contatos Pendentes: ${totalContactsPending}`],
                         [`Cadastros do ${leader.is_coordinator ? 'Coordenador' : 'Líder'}: ${leaderTotalCadastros}`],
+                        [''],
+                        [`LISTAGEM (${listingLabel}): ${leaderRows.length} líderes + ${contactRows.length} contatos pendentes`],
                         ['']
                       ];
 
@@ -1017,10 +1058,11 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       setLoadingReport(false);
                     }
                   }}
-                >
-                  <FileText className="h-4 w-4 mr-1" />
-                  {loadingReport ? "Gerando..." : "Relatório Pendentes"}
-                </Button>
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    {loadingReport ? "Gerando..." : "Relatório Pendentes"}
+                  </Button>
+                </div>
               </div>
 
               {loadingHierarchy ? (
