@@ -1017,11 +1017,10 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
 
                       const allRows = [...leaderRows, ...contactRows];
 
-                      if (allRows.length === 0) {
-                        toast.info("Nenhum líder subordinado ou contato pendente encontrado.");
-                        setLoadingReport(false);
-                        return;
-                      }
+                      // Linha informativa se não houver dados na listagem
+                      const dataRows = allRows.length > 0 
+                        ? allRows 
+                        : [['', 'Nenhum líder subordinado ou contato pendente encontrado', '', '', '', '', '', '', '']];
 
                       // 7. Criar cabeçalho do relatório com totais e filtro aplicado
                       const filterLabel = includeAllLevels ? 'Todos os níveis' : 'Apenas liderados diretos';
@@ -1041,7 +1040,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       ];
 
                       // 8. Exportar CSV com cabeçalho
-                      const csv = [...reportHeader.map(row => row.join(';')), headers.join(';'), ...allRows.map(row => row.join(';'))].join('\n');
+                      const csv = [...reportHeader.map(row => row.join(';')), headers.join(';'), ...dataRows.map(row => row.join(';'))].join('\n');
                       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                       const url = URL.createObjectURL(blob);
                       const link = document.createElement('a');
