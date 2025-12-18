@@ -900,7 +900,16 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       // 3. Criar mapa de líderes por ID para lookup
                       const leaderMap = new Map(leaders.map((l: any) => [l.id, l]));
 
-                      // 4. Gerar CSV
+                      // 4. Criar mapa de subordinados diretos por líder (para contagem de cadastros)
+                      const subordinatesCount = new Map<string, number>();
+                      leaders.forEach((l: any) => {
+                        if (l.parent_leader_id) {
+                          const count = subordinatesCount.get(l.parent_leader_id) || 0;
+                          subordinatesCount.set(l.parent_leader_id, count + 1);
+                        }
+                      });
+
+                      // 5. Gerar CSV
                       const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros'];
                       
                       // Função recursiva para ordenar hierarquicamente
@@ -920,9 +929,17 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       // Ordenar líderes hierarquicamente começando pelo líder selecionado
                       const sortedLeaders = sortLeadersHierarchically(leaders, leader.id);
 
-                      // Linhas de líderes subordinados (já ordenados hierarquicamente)
+                      // Calcular totais para o cabeçalho do relatório
+                      const totalLeadersInTree = sortedLeaders.length;
+                      const totalContactsPending = allPendingContacts.length;
+                      const leaderDirectSubordinates = subordinatesCount.get(leader.id) || 0;
+                      const leaderTotalCadastros = (leader.cadastros || 0) + leaderDirectSubordinates;
+
+                      // Linhas de líderes subordinados (já ordenados hierarquicamente) com cadastros = contatos + subordinados
                       const leaderRows = sortedLeaders.map((l: any) => {
                         const parentLeader = l.parent_leader_id ? leaderMap.get(l.parent_leader_id) : null;
+                        const directSubordinates = subordinatesCount.get(l.id) || 0;
+                        const totalCadastros = (l.cadastros || 0) + directSubordinates;
                         return [
                           l.is_coordinator ? 'Coordenador' : 'Líder',
                           l.nome_completo,
@@ -932,7 +949,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
                           parentLeader ? (parentLeader as any).nome_completo : '',
                           l.created_at ? formatDate(l.created_at) : '',
-                          String(l.cadastros || 0)
+                          String(totalCadastros)
                         ];
                       });
 
@@ -960,8 +977,20 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         return;
                       }
 
-                      // 5. Exportar CSV
-                      const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
+                      // 6. Criar cabeçalho do relatório com totais
+                      const reportHeader = [
+                        [`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`],
+                        [`Gerado em: ${formatDateTime(new Date().toISOString())}`],
+                        [''],
+                        ['RESUMO:'],
+                        [`Total de Líderes na Árvore: ${totalLeadersInTree}`],
+                        [`Total de Contatos Pendentes: ${totalContactsPending}`],
+                        [`Cadastros do ${leader.is_coordinator ? 'Coordenador' : 'Líder'}: ${leaderTotalCadastros}`],
+                        ['']
+                      ];
+
+                      // 7. Exportar CSV com cabeçalho
+                      const csv = [...reportHeader.map(row => row.join(';')), headers.join(';'), ...allRows.map(row => row.join(';'))].join('\n');
                       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                       const url = URL.createObjectURL(blob);
                       const link = document.createElement('a');
