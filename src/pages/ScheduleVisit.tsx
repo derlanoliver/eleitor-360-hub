@@ -77,8 +77,8 @@ export default function ScheduleVisit() {
         },
       });
       
-      // Atualizar status para FORM_OPENED se ainda estiver em LINK_SENT
-      if (visitData.status === "LINK_SENT") {
+      // Atualizar status para FORM_OPENED se ainda estiver em LINK_SENT, SCHEDULED ou REGISTERED
+      if (["LINK_SENT", "SCHEDULED", "REGISTERED"].includes(visitData.status)) {
         await supabase.rpc("update_visit_status_form_opened", { _visit_id: visitId });
       }
     } catch (error: any) {
