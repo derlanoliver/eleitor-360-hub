@@ -10,10 +10,13 @@ import {
   XCircle,
   Clock,
   Send,
+  Eye,
+  AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -31,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { useSMSMessages, useSMSMetrics } from "@/hooks/useSMSMessages";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SMSDetailsDialog } from "./SMSDetailsDialog";
 
 function formatPhone(phone: string): string {
   if (!phone) return "";
@@ -86,6 +90,13 @@ export function SMSHistoryTab() {
   const [direction, setDirection] = useState("all");
   const [status, setStatus] = useState("all");
   const [period, setPeriod] = useState("all");
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const handleViewDetails = (message: any) => {
+    setSelectedMessage(message);
+    setDetailsOpen(true);
+  };
 
   const { data: messages, isLoading } = useSMSMessages({
     search,
@@ -235,6 +246,7 @@ export function SMSHistoryTab() {
                   <TableHead className="hidden md:table-cell">Mensagem</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden sm:table-cell">Data</TableHead>
+                  <TableHead className="w-20">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -263,12 +275,26 @@ export function SMSHistoryTab() {
                       </p>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={msg.status} />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={msg.status} />
+                        {msg.error_message && (
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                       {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm", {
                         locale: ptBR,
                       })}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewDetails(msg)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -282,6 +308,13 @@ export function SMSHistoryTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* SMS Details Dialog */}
+      <SMSDetailsDialog
+        message={selectedMessage}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </div>
   );
 }
