@@ -24,7 +24,6 @@ interface SendResult {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -34,69 +33,71 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[send-leader-affiliate-links] Iniciando processamento...");
+    // Parse optional limit from body
+    let limit = 50; // Default batch size
+    try {
+      const body = await req.json();
+      if (body?.limit) limit = Math.min(body.limit, 100);
+    } catch {
+      // No body or invalid JSON, use defaults
+    }
 
-    // Buscar líderes verificados com telefone e token de afiliado
+    console.log(`[send-leader-affiliate-links] Iniciando com limite: ${limit}`);
+
+    // Buscar líderes verificados HOJE que ainda não receberam SMS de link
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Buscar SMS já enviados com "link de indicacao" ou "cadastro confirmado"
+    const { data: existingSMS } = await supabase
+      .from("sms_messages")
+      .select("phone")
+      .or("message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%,message.ilike.%affiliate%");
+
+    const phonesWithSMS = new Set<string>();
+    if (existingSMS) {
+      existingSMS.forEach((sms) => {
+        const normalized = sms.phone.replace(/\D/g, "").slice(-8);
+        phonesWithSMS.add(normalized);
+      });
+    }
+
+    console.log(`[send-leader-affiliate-links] ${phonesWithSMS.size} telefones já receberam SMS`);
+
+    // Buscar líderes verificados hoje
     const { data: verifiedLeaders, error: leadersError } = await supabase
       .from("lideres")
       .select("id, nome_completo, telefone, email, affiliate_token")
       .eq("is_active", true)
       .eq("is_verified", true)
       .not("telefone", "is", null)
-      .not("affiliate_token", "is", null);
+      .not("affiliate_token", "is", null)
+      .gte("verified_at", `${today}T00:00:00`)
+      .order("verified_at", { ascending: false });
 
     if (leadersError) {
-      console.error("[send-leader-affiliate-links] Erro ao buscar líderes:", leadersError);
-      throw new Error(`Erro ao buscar líderes: ${leadersError.message}`);
+      console.error("[send-leader-affiliate-links] Erro:", leadersError);
+      throw new Error(leadersError.message);
     }
 
-    console.log(`[send-leader-affiliate-links] Total de líderes verificados: ${verifiedLeaders?.length || 0}`);
-
-    // Buscar SMS já enviados com "link de indicacao" ou "cadastro confirmado"
-    const { data: existingSMS, error: smsError } = await supabase
-      .from("sms_messages")
-      .select("phone, message")
-      .or("message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%,message.ilike.%affiliate%");
-
-    if (smsError) {
-      console.error("[send-leader-affiliate-links] Erro ao buscar SMS:", smsError);
-    }
-
-    // Criar set de telefones que já receberam SMS
-    const phonesWithSMS = new Set<string>();
-    if (existingSMS) {
-      existingSMS.forEach((sms) => {
-        // Normalizar telefone para últimos 8 dígitos
-        const normalizedPhone = sms.phone.replace(/\D/g, "").slice(-8);
-        phonesWithSMS.add(normalizedPhone);
-      });
-    }
-
-    console.log(`[send-leader-affiliate-links] Telefones que já receberam SMS: ${phonesWithSMS.size}`);
-
-    // Filtrar líderes que ainda não receberam
+    // Filtrar apenas os que não receberam SMS
     const pendingLeaders = (verifiedLeaders || []).filter((leader) => {
       if (!leader.telefone) return false;
-      const normalizedPhone = leader.telefone.replace(/\D/g, "").slice(-8);
-      return !phonesWithSMS.has(normalizedPhone);
-    }) as Leader[];
+      const normalized = leader.telefone.replace(/\D/g, "").slice(-8);
+      return !phonesWithSMS.has(normalized);
+    }).slice(0, limit) as Leader[];
 
-    console.log(`[send-leader-affiliate-links] Líderes pendentes para envio: ${pendingLeaders.length}`);
+    console.log(`[send-leader-affiliate-links] ${pendingLeaders.length} líderes pendentes (de ${verifiedLeaders?.length || 0} verificados hoje)`);
 
     if (pendingLeaders.length === 0) {
       return new Response(
         JSON.stringify({
           success: true,
-          message: "Nenhum líder pendente para envio",
+          message: "Nenhum líder pendente",
           total_pending: 0,
           sent: 0,
           failed: 0,
-          results: [],
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -105,7 +106,6 @@ serve(async (req) => {
     let sentCount = 0;
     let failedCount = 0;
 
-    // Processar cada líder
     for (const leader of pendingLeaders) {
       const result: SendResult = {
         leader_id: leader.id,
@@ -132,19 +132,18 @@ serve(async (req) => {
           });
 
           if (smsResponse.error) {
-            result.sms_error = smsResponse.error.message || "Erro desconhecido";
-            console.error(`[send-leader-affiliate-links] SMS erro para ${leader.nome_completo}:`, smsResponse.error);
+            result.sms_error = smsResponse.error.message || "Erro";
+            console.error(`[send-leader-affiliate-links] SMS erro:`, smsResponse.error);
           } else {
             result.sms_sent = true;
-            console.log(`[send-leader-affiliate-links] SMS enviado para ${leader.nome_completo}`);
+            console.log(`[send-leader-affiliate-links] SMS OK: ${leader.nome_completo}`);
           }
         } catch (smsErr) {
           result.sms_error = String(smsErr);
-          console.error(`[send-leader-affiliate-links] SMS exceção para ${leader.nome_completo}:`, smsErr);
         }
       }
 
-      // Enviar Email (se tiver)
+      // Enviar Email
       if (leader.email) {
         try {
           const emailResponse = await supabase.functions.invoke("send-email", {
@@ -160,19 +159,16 @@ serve(async (req) => {
           });
 
           if (emailResponse.error) {
-            result.email_error = emailResponse.error.message || "Erro desconhecido";
-            console.error(`[send-leader-affiliate-links] Email erro para ${leader.nome_completo}:`, emailResponse.error);
+            result.email_error = emailResponse.error.message || "Erro";
           } else {
             result.email_sent = true;
-            console.log(`[send-leader-affiliate-links] Email enviado para ${leader.nome_completo}`);
+            console.log(`[send-leader-affiliate-links] Email OK: ${leader.nome_completo}`);
           }
         } catch (emailErr) {
           result.email_error = String(emailErr);
-          console.error(`[send-leader-affiliate-links] Email exceção para ${leader.nome_completo}:`, emailErr);
         }
       }
 
-      // Contar sucesso/falha
       if (result.sms_sent || result.email_sent) {
         sentCount++;
       } else {
@@ -181,8 +177,8 @@ serve(async (req) => {
 
       results.push(result);
 
-      // Delay de 2 segundos entre envios para evitar rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Delay menor entre envios
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     console.log(`[send-leader-affiliate-links] Concluído. Enviados: ${sentCount}, Falhas: ${failedCount}`);
@@ -190,28 +186,19 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processamento concluído`,
+        message: `Processados ${pendingLeaders.length} líderes`,
         total_pending: pendingLeaders.length,
         sent: sentCount,
         failed: failedCount,
-        results,
+        results: results.slice(0, 10), // Retornar apenas primeiros 10 para não sobrecarregar
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("[send-leader-affiliate-links] Erro:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Erro desconhecido",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erro" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
