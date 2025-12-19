@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CitySelect } from "@/components/office/CitySelect";
 import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
-import { PhoneInput } from "@/components/office/PhoneInput";
+import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
 import { useCreateOfficeVisit } from "@/hooks/office/useOfficeVisits";
 import { useOfficeSettings } from "@/hooks/office/useOfficeSettings";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,14 @@ import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { generateVisitFormUrl } from "@/lib/urlHelper";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+
+interface SelectedContact {
+  id: string;
+  nome: string;
+  telefone_norm: string;
+  cidade_id: string | null;
+  cidade: { id: string; nome: string } | null;
+}
 
 export default function NewVisit() {
   const navigate = useNavigate();
@@ -26,9 +34,22 @@ export default function NewVisit() {
   const [leaderId, setLeaderId] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [visitCreated, setVisitCreated] = useState<any>(null);
+  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
   
   const { data: settings } = useOfficeSettings();
   const createVisit = useCreateOfficeVisit();
+  
+  const handlePhoneChange = (phone: string) => {
+    setWhatsapp(phone);
+  };
+  
+  const handleContactSelect = (contact: SelectedContact | null) => {
+    setSelectedContact(contact);
+    if (contact) {
+      setNome(contact.nome);
+      setCidadeId(contact.cidade_id || "");
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +88,7 @@ export default function NewVisit() {
     setLeaderId("");
     setQrCode(null);
     setVisitCreated(null);
+    setSelectedContact(null);
   };
   
   if (visitCreated) {
@@ -151,23 +173,26 @@ export default function NewVisit() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="whatsapp">WhatsApp *</Label>
+              <ContactPhoneAutocomplete
+                value={whatsapp}
+                onPhoneChange={handlePhoneChange}
+                onContactSelect={handleContactSelect}
+                required
+                disabled={createVisit.isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Digite o número para buscar contatos existentes
+              </p>
+            </div>
+            
+            <div className="space-y-2">
               <Label htmlFor="nome">Nome Completo *</Label>
               <Input
                 id="nome"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Digite o nome completo"
-                required
-                disabled={createVisit.isPending}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp *</Label>
-              <PhoneInput
-                id="whatsapp"
-                value={whatsapp}
-                onValueChange={setWhatsapp}
                 required
                 disabled={createVisit.isPending}
               />
