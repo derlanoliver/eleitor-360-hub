@@ -1,3 +1,17 @@
+/**
+ * LeaderRegistrationForm - Formulário de cadastro de líder via link de afiliado
+ * 
+ * IMPORTANTE: Este formulário envia SMS de VERIFICAÇÃO (verificacao-lider-sms)
+ * O link de indicação SÓ é enviado APÓS o líder confirmar o cadastro em /verificar-lider/:codigo
+ * 
+ * Fluxo correto:
+ * 1. Líder se cadastra via este formulário
+ * 2. Sistema envia SMS com link de VERIFICAÇÃO (verificacao-lider-sms)
+ * 3. Líder clica no link de verificação
+ * 4. Sistema marca como verificado e envia SMS com link de INDICAÇÃO (lider-cadastro-confirmado-sms)
+ * 
+ * @version 2.0.0 - Corrigido fluxo de verificação (19/12/2025)
+ */
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -19,6 +33,9 @@ import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import { getBaseUrl } from "@/lib/urlHelper";
 import logo from "@/assets/logo-rafael-prudente.png";
+
+// Constante para identificar versão do código (debug)
+const FORM_VERSION = "2.0.0-verificacao-fix";
 
 const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
@@ -165,17 +182,36 @@ export default function LeaderRegistrationForm() {
 
         const verificationLink = `${getBaseUrl()}/verificar-lider/${leaderResult.verification_code}`;
 
-        // Enviar SMS de VERIFICAÇÃO (não o link de afiliado ainda)
-        await supabase.functions.invoke("send-sms", {
+        // DEBUG: Identificar versão do código - CRÍTICO para debug
+        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] === INICIANDO ENVIO DE SMS DE VERIFICAÇÃO ===`);
+        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Dados:`, {
+          phone: telefone_norm,
+          templateSlug: "verificacao-lider-sms", // <-- DEVE SER ESTE TEMPLATE!
+          verificationLink,
+          leaderName: data.nome.trim(),
+          leaderId: leaderResult.leader_id,
+          timestamp: new Date().toISOString()
+        });
+
+        // IMPORTANTE: Enviar SMS de VERIFICAÇÃO - NÃO o link de afiliado!
+        // O template correto é "verificacao-lider-sms" que contém {{link_verificacao}}
+        // O template "lider-cadastro-confirmado-sms" SÓ deve ser usado após verificação
+        const smsResult = await supabase.functions.invoke("send-sms", {
           body: {
             phone: telefone_norm,
-            templateSlug: "verificacao-lider-sms",
+            templateSlug: "verificacao-lider-sms", // <-- TEMPLATE DE VERIFICAÇÃO
             variables: {
               nome: data.nome.trim(),
-              link_verificacao: verificationLink,
+              link_verificacao: verificationLink, // <-- VARIÁVEL DE VERIFICAÇÃO
             },
           },
         });
+        
+        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Resultado SMS:`, smsResult);
+        
+        if (smsResult.error) {
+          console.error(`[LeaderRegistrationForm v${FORM_VERSION}] ERRO ao enviar SMS:`, smsResult.error);
+        }
 
         // Atualizar verification_sent_at
         await supabase.rpc("update_leader_verification_sent", {
