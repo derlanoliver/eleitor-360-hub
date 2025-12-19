@@ -18,6 +18,7 @@ const STATUS_MAP: Record<string, string> = {
   "FILA": "queued",
   "ENVIADO": "sent",
   "ENTREGUE": "delivered",
+  "RECEBIDA": "delivered",
   "ERRO": "failed",
   "FALHA": "failed",
   "BLOQUEADO": "failed",
@@ -115,11 +116,15 @@ Deno.serve(async (req) => {
       updateData.error_message = errorDescription;
     }
 
+    // Log the message_id we're looking for
+    console.log(`[smsdev-webhook] Looking for message with message_id: ${messageId}`);
+
     // Update the SMS message record
-    const { error, count } = await supabase
+    const { data, error, count } = await supabase
       .from("sms_messages")
       .update(updateData)
-      .eq("message_id", messageId);
+      .eq("message_id", messageId)
+      .select("id, message_id, status");
 
     if (error) {
       console.error("[smsdev-webhook] Error updating message status:", error);
@@ -129,14 +134,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[smsdev-webhook] Message ${messageId} updated to ${mappedStatus} (matched: ${count})`);
+    console.log(`[smsdev-webhook] Update result:`, { data, count });
+    console.log(`[smsdev-webhook] Message ${messageId} updated to ${mappedStatus}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message_id: messageId,
         status: mappedStatus,
-        matched: count 
+        updated: data?.length || 0
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
