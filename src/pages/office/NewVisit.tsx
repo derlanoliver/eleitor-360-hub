@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CitySelect } from "@/components/office/CitySelect";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
 import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
 import { Calendar } from "@/components/ui/calendar";
@@ -250,11 +250,12 @@ export default function NewVisit() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="cidade">Cidade / RA *</Label>
-              <CitySelect
+              <Label htmlFor="cidade">Cidade/RA *</Label>
+              <RegionSelect
                 value={cidadeId}
                 onValueChange={setCidadeId}
                 disabled={createVisit.isPending}
+                placeholder="Selecione a cidade/RA"
               />
             </div>
             

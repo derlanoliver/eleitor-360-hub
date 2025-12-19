@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Users, CheckCircle2, ShieldCheck } from "lucide-react";
-import { CitySelect } from "@/components/office/CitySelect";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import type { OfficeLeader } from "@/types/office";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { useTemas } from "@/hooks/useTemas";
@@ -429,11 +429,11 @@ export default function AffiliateForm() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cidade">Cidade *</Label>
-                    <CitySelect
+                    <Label htmlFor="cidade">Cidade/RA *</Label>
+                    <RegionSelect
                       value={cidadeId}
                       onValueChange={setCidadeId}
-                      placeholder="Selecione sua cidade"
+                      placeholder="Selecione a cidade/RA"
                     />
                   </div>
                   <div className="space-y-2">

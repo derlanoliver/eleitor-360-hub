@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { useOfficeCitiesByType } from "@/hooks/office/useOfficeCities";
 import { usePublicFormSettings } from "@/hooks/usePublicFormSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 
@@ -41,7 +41,7 @@ type FormData = z.infer<typeof formSchema>;
 export default function PublicLeaderRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const { data: cities } = useOfficeCities();
+  const { data: cities } = useOfficeCitiesByType();
   const { data: settings } = usePublicFormSettings();
 
   const activeCities = cities?.filter((c) => c.status === "active") || [];
@@ -290,16 +290,12 @@ export default function PublicLeaderRegistration() {
                   name="cidade_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Região Administrativa *</FormLabel>
+                      <FormLabel>Cidade/RA *</FormLabel>
                       <FormControl>
-                        <ResponsiveSelect
+                        <RegionSelect
                           value={field.value}
                           onValueChange={field.onChange}
-                          placeholder="Selecione sua região"
-                          options={activeCities.map((city) => ({
-                            value: city.id,
-                            label: city.nome,
-                          }))}
+                          placeholder="Selecione a cidade/RA"
                         />
                       </FormControl>
                       <FormMessage />

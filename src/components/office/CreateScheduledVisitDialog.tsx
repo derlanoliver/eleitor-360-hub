@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
 import { useCreateScheduledVisit } from "@/hooks/office/useScheduledVisits";
 import { PhoneInput } from "@/components/office/PhoneInput";
@@ -38,7 +38,7 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
   const [time, setTime] = useState<string>("");
   const [sendingSms, setSendingSms] = useState(false);
 
-  const { data: cities = [] } = useOfficeCities();
+  
   const { data: leadersResult } = useOfficeLeaders();
   const leaders = leadersResult?.data || [];
   const createVisit = useCreateScheduledVisit();
@@ -137,19 +137,12 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
           </div>
 
           <div className="space-y-2">
-            <Label>Cidade *</Label>
-            <Select value={cidadeId} onValueChange={setCidadeId} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a cidade" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((city) => (
-                  <SelectItem key={city.id} value={city.id}>
-                    {city.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Cidade/RA *</Label>
+            <RegionSelect
+              value={cidadeId}
+              onValueChange={setCidadeId}
+              placeholder="Selecione a cidade/RA"
+            />
           </div>
 
           <div className="space-y-2">

@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CitySelect } from "@/components/office/CitySelect";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { Pencil, Loader2 } from "lucide-react";
 import { useUpdateLeader } from "@/hooks/leaders/useUpdateLeader";
 import { 
@@ -175,12 +175,12 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
               name="cidade_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Região Administrativa</FormLabel>
+                  <FormLabel>Cidade/RA</FormLabel>
                   <FormControl>
-                    <CitySelect
+                    <RegionSelect
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Selecione a região"
+                      placeholder="Selecione a cidade/RA"
                     />
                   </FormControl>
                   <FormMessage />

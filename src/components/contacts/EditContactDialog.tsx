@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { useRegions } from "@/hooks/useRegions";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
 import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
 import { usePromoteToLeader } from "@/hooks/contacts/usePromoteToLeader";
@@ -46,7 +46,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   );
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
-  const { data: regions = [] } = useRegions();
+  
   const { data: leadersResult } = useOfficeLeaders();
   const leaders = leadersResult?.data || [];
   const updateContact = useUpdateContact();
@@ -187,21 +187,14 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
             />
           </div>
 
-          {/* Região Administrativa */}
+          {/* Cidade/RA */}
           <div>
-            <Label>Região Administrativa</Label>
-            <Select value={cidadeId} onValueChange={setCidadeId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {regions.map((region) => (
-                  <SelectItem key={region.id} value={region.id}>
-                    {region.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Cidade/RA</Label>
+            <RegionSelect
+              value={cidadeId}
+              onValueChange={setCidadeId}
+              placeholder="Selecione a cidade/RA"
+            />
           </div>
 
           {/* Líder */}

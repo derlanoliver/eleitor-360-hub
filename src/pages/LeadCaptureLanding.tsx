@@ -7,7 +7,7 @@ import { Loader2, Download, CheckCircle, Shield, ExternalLink, Share2 } from "lu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import {
   Form,
   FormControl,
@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useLeadFunnelBySlug, useIncrementFunnelMetric } from "@/hooks/campaigns/useLeadFunnels";
-import { useOfficeCities } from "@/hooks/office/useOfficeCities";
+
 import { supabase } from "@/integrations/supabase/client";
 import { trackLead, pushToDataLayer, trackEvent } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
@@ -31,7 +31,7 @@ export default function LeadCaptureLanding() {
   const [hasTrackedView, setHasTrackedView] = useState(false);
   
   const { data: funnel, isLoading, error } = useLeadFunnelBySlug(slug);
-  const { data: cities } = useOfficeCities();
+  
   const incrementMetric = useIncrementFunnelMetric();
 
   // Get UTM params
@@ -572,22 +572,18 @@ export default function LeadCaptureLanding() {
               />
             )}
 
-            {funnel.campos_form.includes('cidade') && cities && (
+            {funnel.campos_form.includes('cidade') && (
               <FormField
                 control={form.control}
                 name="cidade_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cidade/Região Administrativa</FormLabel>
+                    <FormLabel>Cidade/RA</FormLabel>
                     <FormControl>
-                      <ResponsiveSelect
+                      <RegionSelect
                         value={field.value}
                         onValueChange={field.onChange}
-                        placeholder="Selecione sua cidade"
-                        options={cities.map((city) => ({
-                          value: city.id,
-                          label: city.nome,
-                        }))}
+                        placeholder="Selecione a cidade/RA"
                       />
                     </FormControl>
                     <FormMessage />
