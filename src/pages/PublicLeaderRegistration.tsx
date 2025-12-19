@@ -70,6 +70,13 @@ export default function PublicLeaderRegistration() {
       const normalizedPhone = normalizePhoneToE164(data.telefone);
       const dataNascimentoISO = parseDateBR(data.data_nascimento);
 
+      // Gerar código de verificação
+      const { data: verificationCode, error: codeError } = await supabase
+        .rpc('generate_leader_verification_code');
+      
+      if (codeError) throw codeError;
+
+      // Inserir líder com is_verified = false e verification_code
       const { error } = await supabase.from("lideres").insert({
         nome_completo: data.nome_completo.trim(),
         email: data.email.trim().toLowerCase(),
@@ -79,50 +86,50 @@ export default function PublicLeaderRegistration() {
         observacao: data.observacao.trim(),
         is_active: true,
         status: "active",
+        is_verified: false,
+        verification_code: verificationCode,
       });
 
       if (error) throw error;
 
-      // Get the created leader to obtain the affiliate_token and id
+      // Get the created leader to obtain the id
       const { data: createdLeader } = await supabase
         .from("lideres")
-        .select("id, affiliate_token")
-        .eq("email", data.email.trim().toLowerCase())
+        .select("id")
+        .eq("verification_code", verificationCode)
         .single();
 
       const leaderId = createdLeader?.id;
-      const affiliateToken = createdLeader?.affiliate_token;
 
-      // Send WhatsApp confirmation with QR code (lideranca-cadastro-link)
-      if (affiliateToken) {
+      // Enviar SMS de VERIFICAÇÃO (não o link de afiliado!)
+      if (leaderId && verificationCode) {
         try {
           const { getBaseUrl } = await import("@/lib/urlHelper");
-          const QRCode = (await import('qrcode')).default;
-          const linkCadastroAfiliado = `${getBaseUrl()}/cadastro/${affiliateToken}`;
-          const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
+          const linkVerificacao = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
 
-          await supabase.functions.invoke('send-whatsapp', {
+          await supabase.functions.invoke('send-sms', {
             body: {
               phone: normalizedPhone,
-              templateSlug: 'lideranca-cadastro-link',
+              templateSlug: 'verificacao-lider-sms',
               variables: {
                 nome: data.nome_completo,
-                link_cadastro_afiliado: linkCadastroAfiliado,
+                link_verificacao: linkVerificacao,
               },
-              imageUrl: qrCodeDataUrl,
               leaderId: leaderId,
             },
           });
-        } catch (whatsappError) {
-          console.error('Error sending WhatsApp confirmation:', whatsappError);
-          // Don't fail the submission if WhatsApp fails
+
+          // Atualizar verification_sent_at
+          await supabase.rpc('update_leader_verification_sent', { _leader_id: leaderId });
+        } catch (smsError) {
+          console.error('Error sending verification SMS:', smsError);
+          // Don't fail the submission if SMS fails
         }
       }
 
-      // Send welcome email (lideranca-boas-vindas)
-      if (affiliateToken) {
+      // Send informational email (opcional - não envia link de afiliado ainda)
+      if (leaderId && data.email) {
         try {
-          const { getBaseUrl } = await import("@/lib/urlHelper");
           await supabase.functions.invoke('send-email', {
             body: {
               to: data.email.trim().toLowerCase(),
@@ -130,14 +137,13 @@ export default function PublicLeaderRegistration() {
               templateSlug: 'lideranca-boas-vindas',
               variables: {
                 nome: data.nome_completo,
-                link_indicacao: `${getBaseUrl()}/cadastro/${affiliateToken}`,
+                mensagem: 'Seu cadastro foi recebido! Você receberá um SMS para confirmar seu telefone e ativar seu link de indicação.',
               },
               leaderId: leaderId,
             },
           });
         } catch (emailError) {
           console.error('Error sending welcome email:', emailError);
-          // Don't fail the submission if email fails
         }
       }
 
@@ -182,8 +188,11 @@ export default function PublicLeaderRegistration() {
               <h2 className="text-2xl font-bold text-foreground mb-2">
                 Cadastro Realizado!
               </h2>
-              <p className="text-muted-foreground">
-                Seu cadastro foi enviado com sucesso. Em breve entraremos em contato.
+              <p className="text-muted-foreground mb-4">
+                Enviamos um SMS para confirmar seu telefone.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Clique no link do SMS para ativar seu link de indicação e começar a cadastrar apoiadores.
               </p>
             </CardContent>
           </Card>
