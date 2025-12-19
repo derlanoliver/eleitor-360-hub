@@ -85,13 +85,19 @@ const Leaders = () => {
 
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
-  const { data: leaders, isLoading } = useQuery({
-    queryKey: ["leaders", selectedRegion === "all" ? undefined : selectedRegion, searchTerm],
+  const { data: leadersResult, isLoading } = useQuery({
+    queryKey: ["leaders", selectedRegion, searchTerm, statusFilter, sortBy, currentPage],
     queryFn: () => getLeaders({
       cidade_id: selectedRegion === "all" ? undefined : selectedRegion,
-      search: searchTerm || undefined
+      search: searchTerm || undefined,
+      page: currentPage,
+      pageSize: ITEMS_PER_PAGE,
+      sortBy
     })
   });
+
+  const leaders = leadersResult?.data || [];
+  const totalCount = leadersResult?.count || 0;
 
   // Buscar contagem de subordinados diretos para cada líder
   const leaderIds = leaders?.map(l => l.id) || [];
@@ -149,42 +155,12 @@ const Leaders = () => {
     }
   };
 
-  // Filtros
-  const filteredLeaders = (leaders || []).filter(leader => {
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "active" && leader.is_active) ||
-                         (statusFilter === "inactive" && !leader.is_active);
-    
-    return matchesStatus;
-  });
+  // Estatísticas (calculadas a partir dos dados da página atual)
+  const activeLeaders = leaders.filter(leader => leader.is_active).length;
+  const totalPoints = leaders.reduce((sum, l) => sum + l.pontuacao_total, 0);
 
-  // Ordenar líderes
-  const sortedLeaders = [...filteredLeaders].sort((a, b) => {
-    switch (sortBy) {
-      case "cadastros_desc":
-        return b.cadastros - a.cadastros;
-      case "cadastros_asc":
-        return a.cadastros - b.cadastros;
-      case "pontos_desc":
-        return b.pontuacao_total - a.pontuacao_total;
-      case "pontos_asc":
-        return a.pontuacao_total - b.pontuacao_total;
-      case "nome_asc":
-        return a.nome_completo.localeCompare(b.nome_completo);
-      default:
-        return 0;
-    }
-  });
-
-  const activeLeaders = leaders?.filter(leader => leader.is_active).length || 0;
-  const totalPoints = leaders?.reduce((sum, l) => sum + l.pontuacao_total, 0) || 0;
-
-  // Paginação
-  const totalPages = Math.ceil(sortedLeaders.length / ITEMS_PER_PAGE);
-  const paginatedLeaders = sortedLeaders.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Paginação do backend
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   // Reset page when filters change
   const handleFilterChange = (setter: (value: string) => void, value: string) => {
@@ -218,7 +194,7 @@ const Leaders = () => {
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <strong className="text-foreground">{leaders?.length || 0}</strong> líderes
+                <strong className="text-foreground">{totalCount}</strong> líderes
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -313,7 +289,7 @@ const Leaders = () => {
               <p className="text-muted-foreground">Carregando líderes...</p>
             </CardContent>
           </Card>
-        ) : sortedLeaders.length === 0 ? (
+        ) : leaders.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -326,7 +302,7 @@ const Leaders = () => {
             </CardContent>
           </Card>
         ) : (
-          paginatedLeaders.map((leader) => (
+          leaders.map((leader) => (
             <Card key={leader.id} className={getLeaderCardColorClass(leader.pontuacao_total, leaderLevels)}>
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -476,7 +452,7 @@ const Leaders = () => {
       {totalPages > 1 && (
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, sortedLeaders.length)} de {sortedLeaders.length} líderes
+            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} de {totalCount} líderes
           </p>
           <Pagination>
             <PaginationContent>

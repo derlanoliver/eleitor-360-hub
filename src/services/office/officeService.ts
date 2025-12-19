@@ -142,10 +142,26 @@ export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> 
   return data as OfficeLeader;
 }
 
-export async function getLeaders(filters?: { cidade_id?: string; search?: string }) {
+export interface GetLeadersResult {
+  data: OfficeLeader[];
+  count: number;
+}
+
+export async function getLeaders(filters?: { 
+  cidade_id?: string; 
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+}): Promise<GetLeadersResult> {
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 10;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   let query = supabase
     .from("lideres")
-    .select("*, cidade:office_cities(*)")
+    .select("*, cidade:office_cities(*)", { count: 'exact' })
     .eq("is_active", true);
   
   if (filters?.cidade_id) {
@@ -156,19 +172,39 @@ export async function getLeaders(filters?: { cidade_id?: string; search?: string
     const searchDigits = filters.search.replace(/\D/g, '');
     
     if (searchDigits.length >= 4) {
-      // Busca por nome ou telefone
       query = query.or(`nome_completo.ilike.%${filters.search}%,telefone.ilike.%${searchDigits}%`);
     } else {
       query = query.ilike("nome_completo", `%${filters.search}%`);
     }
   }
   
-  query = query.order("nome_completo");
+  // Ordenação no backend
+  switch (filters?.sortBy) {
+    case "cadastros_desc":
+      query = query.order("cadastros", { ascending: false });
+      break;
+    case "cadastros_asc":
+      query = query.order("cadastros", { ascending: true });
+      break;
+    case "pontos_desc":
+      query = query.order("pontuacao_total", { ascending: false });
+      break;
+    case "pontos_asc":
+      query = query.order("pontuacao_total", { ascending: true });
+      break;
+    case "nome_asc":
+    default:
+      query = query.order("nome_completo", { ascending: true });
+      break;
+  }
   
-  const { data, error } = await query;
+  // Aplicar paginação
+  query = query.range(from, to);
+  
+  const { data, error, count } = await query;
   
   if (error) throw error;
-  return data as OfficeLeader[];
+  return { data: data as OfficeLeader[], count: count || 0 };
 }
 
 export async function getLeadersByCity(cityId: string) {

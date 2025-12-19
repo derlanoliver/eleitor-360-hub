@@ -1,7 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { getLeaders, getLeadersByCity } from "@/services/office/officeService";
 
-export function useOfficeLeaders(filters?: { cidade_id?: string; search?: string }) {
+export function useOfficeLeaders(filters?: { 
+  cidade_id?: string; 
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+}) {
   return useQuery({
     queryKey: ["office_leaders", filters],
     queryFn: () => getLeaders(filters)
