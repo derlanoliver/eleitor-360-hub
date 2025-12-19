@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
@@ -454,16 +454,12 @@ export default function LeaderRegistrationForm() {
                   name="cidade_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Região do DF *</FormLabel>
+                      <FormLabel>Cidade/RA *</FormLabel>
                       <FormControl>
-                        <ResponsiveSelect
+                        <RegionSelect
                           value={field.value}
                           onValueChange={field.onChange}
-                          placeholder="Selecione sua região"
-                          options={cities.map((city) => ({
-                            value: city.id,
-                            label: city.nome,
-                          }))}
+                          placeholder="Selecione a cidade/RA"
                         />
                       </FormControl>
                       <FormMessage />

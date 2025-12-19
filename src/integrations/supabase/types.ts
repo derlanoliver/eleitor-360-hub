@@ -849,6 +849,7 @@ export type Database = {
           longitude: number | null
           nome: string
           status: Database["public"]["Enums"]["office_city_status"]
+          tipo: string
           updated_at: string
         }
         Insert: {
@@ -859,6 +860,7 @@ export type Database = {
           longitude?: number | null
           nome: string
           status?: Database["public"]["Enums"]["office_city_status"]
+          tipo?: string
           updated_at?: string
         }
         Update: {
@@ -869,6 +871,7 @@ export type Database = {
           longitude?: number | null
           nome?: string
           status?: Database["public"]["Enums"]["office_city_status"]
+          tipo?: string
           updated_at?: string
         }
         Relationships: []

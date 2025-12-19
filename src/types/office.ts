@@ -20,11 +20,14 @@ export type OfficeLeaderStatus = "active" | "inactive";
 // INTERFACES PRINCIPAIS
 // =====================================================
 
+export type OfficeCityType = 'DF' | 'ENTORNO';
+
 export interface OfficeCity {
   id: string;
   nome: string;
   codigo_ra: string;
   status: OfficeCityStatus;
+  tipo: OfficeCityType;
   latitude?: number;
   longitude?: number;
   created_at: string;

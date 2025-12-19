@@ -25,7 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CitySelect } from "@/components/office/CitySelect";
+import { RegionSelect } from "@/components/office/RegionSelect";
 import { Users, Loader2, CalendarIcon } from "lucide-react";
 import { useCreateLeader } from "@/hooks/office/useCreateLeader";
 import { format } from "date-fns";
@@ -149,12 +149,12 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
               name="cidade_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Região Administrativa (Opcional)</FormLabel>
+                  <FormLabel>Cidade/RA (Opcional)</FormLabel>
                   <FormControl>
-                    <CitySelect
+                    <RegionSelect
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Selecione a região"
+                      placeholder="Selecione a cidade/RA"
                     />
                   </FormControl>
                   <FormMessage />
