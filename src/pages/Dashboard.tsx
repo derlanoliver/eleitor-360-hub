@@ -190,7 +190,7 @@ const Dashboard = () => {
                             <span className="text-lg font-bold text-primary-600">{leader.points}</span>
                             <span className="text-xs text-muted-foreground ml-1">pts</span>
                             <span className="text-xs text-muted-foreground mx-1">•</span>
-                            <span className="text-xs text-muted-foreground">{leader.registrations} cad</span>
+                            <span className="text-xs text-muted-foreground">{leader.indicacoes} ind</span>
                           </div>
                           <LeaderLevelProgress points={leader.points} showLabel={false} className="mt-2" />
                           {leader.phone && (
@@ -245,7 +245,7 @@ const Dashboard = () => {
                             <span className="font-bold text-primary-600">{leader.points}</span>
                             <span className="text-xs text-muted-foreground ml-1">pts</span>
                             <span className="text-xs text-muted-foreground mx-1">•</span>
-                            <span className="text-xs text-muted-foreground">{leader.registrations} cad</span>
+                            <span className="text-xs text-muted-foreground">{leader.indicacoes} ind</span>
                           </div>
                           {leader.phone && (
                             <Button
