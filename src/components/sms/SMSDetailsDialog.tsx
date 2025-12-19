@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   AlertCircle,
@@ -6,9 +6,11 @@ import {
   ArrowUpRight,
   CheckCircle,
   Clock,
+  History,
   Phone,
   RefreshCw,
   Send,
+  Timer,
   User,
   XCircle,
 } from "lucide-react";
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useResendSMS } from "@/hooks/sms/useResendSMS";
+import type { RetryHistoryEntry } from "@/hooks/useSMSMessages";
 
 interface SMSMessage {
   id: string;
@@ -35,6 +38,10 @@ interface SMSMessage {
   sent_at?: string | null;
   delivered_at?: string | null;
   created_at: string;
+  retry_count?: number;
+  max_retries?: number;
+  next_retry_at?: string | null;
+  retry_history?: RetryHistoryEntry[];
   contact?: {
     id: string;
     nome: string;
@@ -175,6 +182,78 @@ export function SMSDetailsDialog({ message, open, onOpenChange }: SMSDetailsDial
                 {message.error_message}
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Retry Info */}
+          {message.status === "failed" && message.retry_count !== undefined && message.retry_count > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Tentativas de Reenvio
+                  </span>
+                  <Badge variant="outline">
+                    {message.retry_count}/{message.max_retries || 6}
+                  </Badge>
+                </div>
+
+                {message.next_retry_at && new Date(message.next_retry_at) > new Date() && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-2 rounded">
+                    <Timer className="h-4 w-4" />
+                    <span>
+                      Próxima tentativa {formatDistanceToNow(new Date(message.next_retry_at), { 
+                        addSuffix: true, 
+                        locale: ptBR 
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                {message.retry_count >= (message.max_retries || 6) && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      Máximo de tentativas atingido. Use o botão abaixo para reenviar manualmente.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Retry History */}
+          {message.retry_history && message.retry_history.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <History className="h-4 w-4" />
+                  Histórico de Tentativas
+                </div>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {message.retry_history.map((entry, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center justify-between text-xs bg-muted p-2 rounded"
+                    >
+                      <div className="flex items-center gap-2">
+                        {entry.status === "delivered" ? (
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <XCircle className="h-3 w-3 text-destructive" />
+                        )}
+                        <span>Tentativa {entry.attempt + 1}</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        {format(new Date(entry.timestamp), "dd/MM HH:mm", { locale: ptBR })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           <Separator />

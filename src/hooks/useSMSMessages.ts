@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface RetryHistoryEntry {
+  attempt: number;
+  timestamp: string;
+  status: string;
+  error?: string;
+  next_retry_at?: string;
+}
+
 export interface SMSMessage {
   id: string;
   message_id: string | null;
@@ -14,6 +22,11 @@ export interface SMSMessage {
   delivered_at: string | null;
   created_at: string;
   updated_at: string;
+  retry_count: number;
+  max_retries: number;
+  last_retry_at: string | null;
+  next_retry_at: string | null;
+  retry_history: RetryHistoryEntry[];
   contact?: {
     nome: string;
   } | null;
@@ -43,7 +56,7 @@ export function useSMSMessages(filters: SMSFilters = {}) {
         .from("sms_messages")
         .select(`
           *,
-          contact:office_contacts(nome)
+          contact:office_contacts(id, nome)
         `)
         .order("created_at", { ascending: false });
 
@@ -83,8 +96,14 @@ export function useSMSMessages(filters: SMSFilters = {}) {
 
       if (error) throw error;
 
-      // Apply search filter client-side
-      let filtered = data as SMSMessage[];
+      // Apply search filter client-side and transform data
+      let filtered = (data || []).map((msg) => ({
+        ...msg,
+        retry_history: Array.isArray(msg.retry_history) 
+          ? (msg.retry_history as unknown as RetryHistoryEntry[]) 
+          : [],
+      })) as SMSMessage[];
+      
       if (filters.search) {
         const search = filters.search.toLowerCase();
         filtered = filtered.filter(
