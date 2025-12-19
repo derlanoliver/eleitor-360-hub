@@ -85,8 +85,8 @@ const communicationItems: MenuItem[] = [
 ];
 
 const officeItems: MenuItem[] = [
-  { title: "Agenda", url: "/office/schedule", icon: CalendarDays, roles: ['super_admin'] },
   { title: "Nova Visita", url: "/office/new", icon: UserPlus, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Agenda", url: "/office/schedule", icon: CalendarDays, roles: ['super_admin'] },
   { title: "Fila do Dia", url: "/office/queue", icon: List, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Histórico", url: "/office/history", icon: HistoryIcon, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Configurações", url: "/office/settings", icon: Settings, roles: ['super_admin', 'admin'] },
