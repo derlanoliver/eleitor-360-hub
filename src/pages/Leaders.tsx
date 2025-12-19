@@ -79,6 +79,7 @@ const Leaders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [verificationFilter, setVerificationFilter] = useState("all");
   const [sortBy, setSortBy] = useState("cadastros_desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,13 +87,14 @@ const Leaders = () => {
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
   const { data: leadersResult, isLoading } = useQuery({
-    queryKey: ["leaders", selectedRegion, searchTerm, statusFilter, sortBy, currentPage],
+    queryKey: ["leaders", selectedRegion, searchTerm, statusFilter, verificationFilter, sortBy, currentPage],
     queryFn: () => getLeaders({
       cidade_id: selectedRegion === "all" ? undefined : selectedRegion,
       search: searchTerm || undefined,
       page: currentPage,
       pageSize: ITEMS_PER_PAGE,
-      sortBy
+      sortBy,
+      verificationFilter: verificationFilter as 'all' | 'verified' | 'not_verified'
     })
   });
 
@@ -266,6 +268,16 @@ const Leaders = () => {
               <SelectItem value="inactive">Inativos</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={verificationFilter} onValueChange={(v) => handleFilterChange(setVerificationFilter, v)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Verificação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="verified">✓ Verificados</SelectItem>
+              <SelectItem value="not_verified">✗ Não verificados</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={sortBy} onValueChange={(v) => handleFilterChange(setSortBy, v)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Ordenar" />
@@ -347,7 +359,7 @@ const Leaders = () => {
                         {leader.cidade?.nome || "Sem região"}
                       </p>
                       
-                      {/* Badges de Métricas + Status */}
+                      {/* Badges de Métricas + Status + Verificação */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
                           📊 {leader.cadastros + (subordinatesCounts?.[leader.id] || 0)} indicações
@@ -361,6 +373,16 @@ const Leaders = () => {
                         >
                           {leader.is_active ? '✓ Ativo' : 'Inativo'}
                         </Badge>
+                        {leader.is_verified ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-600 border-0">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Verificado
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
+                            Não verificado
+                          </Badge>
+                        )}
                       </div>
                       
                       {/* Contatos */}

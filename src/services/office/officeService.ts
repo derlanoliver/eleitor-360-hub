@@ -153,6 +153,7 @@ export async function getLeaders(filters?: {
   page?: number;
   pageSize?: number;
   sortBy?: string;
+  verificationFilter?: 'all' | 'verified' | 'not_verified';
 }): Promise<GetLeadersResult> {
   const page = filters?.page ?? 1;
   const pageSize = filters?.pageSize ?? 10;
@@ -166,6 +167,13 @@ export async function getLeaders(filters?: {
   
   if (filters?.cidade_id) {
     query = query.eq("cidade_id", filters.cidade_id);
+  }
+  
+  // Filtro de verificação
+  if (filters?.verificationFilter === 'verified') {
+    query = query.eq('is_verified', true);
+  } else if (filters?.verificationFilter === 'not_verified') {
+    query = query.eq('is_verified', false);
   }
   
   if (filters?.search) {
