@@ -156,7 +156,8 @@ const Leaders = () => {
   };
 
   // Estatísticas (calculadas a partir dos dados da página atual)
-  const activeLeaders = leaders.filter(leader => leader.is_active).length;
+  // totalCount já representa líderes ativos pois a query filtra is_active = true
+  const activeLeaders = totalCount;
   const totalPoints = leaders.reduce((sum, l) => sum + l.pontuacao_total, 0);
 
   // Paginação do backend
