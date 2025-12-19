@@ -14,10 +14,18 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard_stats"],
     queryFn: async (): Promise<DashboardStats> => {
-      // Total de cadastros
-      const { count: totalRegistrations } = await supabase
+      // Total de contatos
+      const { count: totalContacts } = await supabase
         .from("office_contacts")
         .select("*", { count: "exact", head: true });
+
+      // Total de líderes (todos, não só ativos)
+      const { count: totalLeaders } = await supabase
+        .from("lideres")
+        .select("*", { count: "exact", head: true });
+
+      // Total de cadastros = contatos + líderes
+      const totalRegistrations = (totalContacts || 0) + (totalLeaders || 0);
 
       // Cidades alcançadas (distintas)
       const { data: cities } = await supabase
