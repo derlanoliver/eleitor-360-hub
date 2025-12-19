@@ -1030,7 +1030,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       });
 
                       // 6. Gerar CSV
-                      const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros'];
+                      const headers = ['Tipo', 'Nome', 'Telefone', 'Email', 'Região', 'Nível', 'Líder Indicador', 'Data Cadastro', 'Cadastros', 'Status Verificação'];
                       
                       // Função recursiva para ordenar hierarquicamente
                       const sortLeadersHierarchically = (allLeaders: any[], parentId: string): any[] => {
@@ -1089,7 +1089,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           l.is_coordinator ? 'Coordenador' : `Nível ${(l.hierarchy_level || 1) - 1}`,
                           parentLeader ? (parentLeader as any).nome_completo : '',
                           l.created_at ? formatDate(l.created_at) : '',
-                          String(totalCadastros)
+                          String(totalCadastros),
+                          l.is_verified ? 'Verificado' : 'NÃO VERIFICADO'
                         ];
                       });
 
@@ -1105,16 +1106,20 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           '-',
                           indicatorLeader ? (indicatorLeader as any).nome_completo : '',
                           formatDate(c.created_at),
-                          '0'
+                          '0',
+                          'NÃO VERIFICADO'
                         ];
                       });
 
                       const allRows = [...leaderRows, ...contactRows];
 
+                      // Calcular líderes não verificados para o resumo
+                      const totalLeadersNotVerified = sortedLeaders.filter((l: any) => !l.is_verified).length;
+
                       // Linha informativa se não houver dados na listagem
                       const dataRows = allRows.length > 0 
                         ? allRows 
-                        : [['', 'Nenhum líder subordinado ou contato pendente encontrado', '', '', '', '', '', '', '']];
+                        : [['', 'Nenhum líder subordinado ou contato pendente encontrado', '', '', '', '', '', '', '', '']];
 
                       // 7. Criar cabeçalho do relatório com totais e filtro aplicado
                       const filterLabel = includeAllLevels ? 'Todos os níveis' : 'Apenas liderados diretos';
@@ -1126,6 +1131,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         [''],
                         ['RESUMO (ÁRVORE COMPLETA):'],
                         [`Total de Líderes na Árvore: ${totalLeadersInTree}`],
+                        [`Líderes NÃO Verificados: ${totalLeadersNotVerified}`],
                         [`Total de Contatos Pendentes: ${totalContactsPending}`],
                         [`Cadastros do ${leader.is_coordinator ? 'Coordenador' : 'Líder'}: ${leaderTotalCadastros}`],
                         [''],
