@@ -56,6 +56,8 @@ export interface OfficeLeader {
   verification_code?: string;
   verification_sent_at?: string;
   verified_at?: string;
+  verification_method?: string; // 'link' ou 'manual'
+  verified_by_user_id?: string;
   created_at: string;
   updated_at: string;
 }
