@@ -16,15 +16,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Buscar líderes promovidos HOJE (12/12/2025) que não receberam o SMS
+    // Buscar líderes VERIFICADOS que não receberam o SMS com link de indicação
     const { data: leaders, error: leadersError } = await supabase
       .from("lideres")
       .select("id, nome_completo, telefone, affiliate_token, created_at")
       .eq("is_active", true)
+      .eq("is_verified", true) // IMPORTANTE: Só envia para líderes verificados!
       .not("telefone", "is", null)
-      .not("affiliate_token", "is", null)
-      .gte("created_at", "2025-12-12T00:00:00Z")
-      .lt("created_at", "2025-12-13T00:00:00Z");
+      .not("affiliate_token", "is", null);
 
     if (leadersError) throw leadersError;
 
