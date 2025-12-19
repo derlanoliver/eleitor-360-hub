@@ -8,6 +8,8 @@ export interface LeaderSubordinate {
   email: string | null;
   cidade: { nome: string } | null;
   is_active: boolean;
+  is_verified: boolean | null;
+  verified_at: string | null;
   created_at: string;
   pontuacao_total: number;
   cadastros: number;
@@ -28,6 +30,8 @@ export function useLeaderSubordinates(leaderId: string | undefined) {
           telefone,
           email,
           is_active,
+          is_verified,
+          verified_at,
           created_at,
           pontuacao_total,
           cadastros,

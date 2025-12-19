@@ -331,7 +331,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       l.email || '',
                       l.cidade?.nome || '',
                       'Líder',
-                      'Verificado',
+                      l.is_verified ? 'Verificado' : 'Não Verificado',
                       formatDate(l.created_at)
                     ]);
                     
@@ -358,8 +358,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   variant="outline"
                   onClick={() => {
                     const verifiedContacts = indicatedContacts?.filter(c => c.is_verified) || [];
-                    const leaderSubordinates = subordinates || [];
-                    const totalVerified = verifiedContacts.length + leaderSubordinates.length;
+                    const verifiedLeaders = subordinates?.filter(l => l.is_verified) || [];
+                    const totalVerified = verifiedContacts.length + verifiedLeaders.length;
                     
                     if (totalVerified === 0) {
                       toast.info("Nenhum registro verificado para exportar.");
@@ -378,14 +378,14 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       c.verified_at ? formatDate(c.verified_at) : ''
                     ]);
                     
-                    const leaderRows = leaderSubordinates.map(l => [
+                    const leaderRows = verifiedLeaders.map(l => [
                       l.nome_completo,
                       l.telefone ? formatPhone(l.telefone) : '',
                       l.email || '',
                       l.cidade?.nome || '',
                       'Líder',
                       formatDate(l.created_at),
-                      formatDate(l.created_at)
+                      l.verified_at ? formatDate(l.verified_at) : ''
                     ]);
                     
                     const allRows = [...contactRows, ...leaderRows];
@@ -397,12 +397,12 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     link.download = `${leader.nome_completo}_verificados.csv`;
                     link.click();
                     URL.revokeObjectURL(url);
-                    toast.success(`${totalVerified} registros exportados (${verifiedContacts.length} contatos + ${leaderSubordinates.length} líderes).`);
+                    toast.success(`${totalVerified} registros exportados (${verifiedContacts.length} contatos + ${verifiedLeaders.length} líderes).`);
                   }}
-                  disabled={!(indicatedContacts?.some(c => c.is_verified) || (subordinates && subordinates.length > 0))}
+                  disabled={!(indicatedContacts?.some(c => c.is_verified) || subordinates?.some(l => l.is_verified))}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Verificados ({(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.length || 0)})
+                  Verificados ({(indicatedContacts?.filter(c => c.is_verified).length || 0) + (subordinates?.filter(l => l.is_verified).length || 0)})
                 </Button>
 
                 {/* Botão Pendentes */}
@@ -410,13 +410,18 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const pending = indicatedContacts?.filter(c => !c.is_verified) || [];
-                    if (pending.length === 0) {
-                      toast.info("Nenhum contato pendente para exportar.");
+                    const pendingContacts = indicatedContacts?.filter(c => !c.is_verified) || [];
+                    const pendingLeaders = subordinates?.filter(l => !l.is_verified) || [];
+                    const totalPending = pendingContacts.length + pendingLeaders.length;
+                    
+                    if (totalPending === 0) {
+                      toast.info("Nenhum registro pendente para exportar.");
                       return;
                     }
+                    
                     const headers = ['Nome', 'Telefone', 'Email', 'Região', 'Tipo', 'Data Cadastro'];
-                    const rows = pending.map(c => [
+                    
+                    const contactRows = pendingContacts.map(c => [
                       c.nome,
                       formatPhone(c.telefone_norm),
                       c.email || '',
@@ -424,7 +429,18 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                       'Contato',
                       formatDate(c.created_at)
                     ]);
-                    const csv = [headers, ...rows].map(row => row.join(';')).join('\n');
+                    
+                    const leaderRows = pendingLeaders.map(l => [
+                      l.nome_completo,
+                      l.telefone ? formatPhone(l.telefone) : '',
+                      l.email || '',
+                      l.cidade?.nome || '',
+                      'Líder',
+                      formatDate(l.created_at)
+                    ]);
+                    
+                    const allRows = [...contactRows, ...leaderRows];
+                    const csv = [headers, ...allRows].map(row => row.join(';')).join('\n');
                     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
@@ -432,12 +448,12 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     link.download = `${leader.nome_completo}_pendentes.csv`;
                     link.click();
                     URL.revokeObjectURL(url);
-                    toast.success(`${pending.length} contatos pendentes exportados.`);
+                    toast.success(`${totalPending} registros pendentes exportados (${pendingContacts.length} contatos + ${pendingLeaders.length} líderes).`);
                   }}
-                  disabled={!indicatedContacts?.some(c => !c.is_verified)}
+                  disabled={!(indicatedContacts?.some(c => !c.is_verified) || subordinates?.some(l => !l.is_verified))}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Pendentes ({indicatedContacts?.filter(c => !c.is_verified).length || 0})
+                  Pendentes ({(indicatedContacts?.filter(c => !c.is_verified).length || 0) + (subordinates?.filter(l => !l.is_verified).length || 0)})
                 </Button>
               </div>
 
@@ -483,6 +499,17 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
+                                {sub.is_verified ? (
+                                  <Badge variant="default" className="bg-green-500/10 text-green-600 border-0">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Verificado
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Não Verificado
+                                  </Badge>
+                                )}
                                 {sub.is_active ? (
                                   <Badge variant="default" className="bg-green-500/10 text-green-600 border-0">
                                     <CheckCircle className="h-3 w-3 mr-1" />
