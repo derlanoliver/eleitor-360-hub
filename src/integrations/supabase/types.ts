@@ -1574,9 +1574,14 @@ export type Database = {
           direction: string
           error_message: string | null
           id: string
+          last_retry_at: string | null
+          max_retries: number | null
           message: string
           message_id: string | null
+          next_retry_at: string | null
           phone: string
+          retry_count: number | null
+          retry_history: Json | null
           sent_at: string | null
           status: string
           updated_at: string
@@ -1588,9 +1593,14 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          last_retry_at?: string | null
+          max_retries?: number | null
           message: string
           message_id?: string | null
+          next_retry_at?: string | null
           phone: string
+          retry_count?: number | null
+          retry_history?: Json | null
           sent_at?: string | null
           status?: string
           updated_at?: string
@@ -1602,9 +1612,14 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          last_retry_at?: string | null
+          max_retries?: number | null
           message?: string
           message_id?: string | null
+          next_retry_at?: string | null
           phone?: string
+          retry_count?: number | null
+          retry_history?: Json | null
           sent_at?: string | null
           status?: string
           updated_at?: string
@@ -2193,6 +2208,10 @@ export type Database = {
       award_leader_points: {
         Args: { _leader_id: string; _points: number; _reason?: string }
         Returns: undefined
+      }
+      calculate_sms_next_retry: {
+        Args: { _retry_count: number }
+        Returns: string
       }
       checkin_event_by_qr: {
         Args: { _checked_in: boolean; _qr_code: string }

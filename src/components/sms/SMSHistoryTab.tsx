@@ -12,6 +12,7 @@ import {
   Send,
   Eye,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useSMSMessages, useSMSMetrics } from "@/hooks/useSMSMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SMSDetailsDialog } from "./SMSDetailsDialog";
@@ -277,7 +284,27 @@ export function SMSHistoryTab() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <StatusBadge status={msg.status} />
-                        {msg.error_message && (
+                        {msg.status === "failed" && msg.retry_count > 0 && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="gap-1 text-xs">
+                                  <RefreshCw className="h-3 w-3" />
+                                  {msg.retry_count}/{msg.max_retries || 6}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Tentativas de reenvio: {msg.retry_count} de {msg.max_retries || 6}</p>
+                                {msg.next_retry_at && new Date(msg.next_retry_at) > new Date() && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Próxima tentativa agendada
+                                  </p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {msg.error_message && !msg.retry_count && (
                           <AlertCircle className="h-4 w-4 text-destructive" />
                         )}
                       </div>

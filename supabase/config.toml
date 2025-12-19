@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.send-leader-affiliate-links]
 verify_jwt = false
+
+[functions.retry-failed-sms]
+verify_jwt = false
