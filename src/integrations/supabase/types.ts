@@ -723,6 +723,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_coordinator: boolean | null
+          is_verified: boolean | null
           join_date: string | null
           last_activity: string | null
           nome_completo: string
@@ -732,6 +733,9 @@ export type Database = {
           status: Database["public"]["Enums"]["office_leader_status"]
           telefone: string | null
           updated_at: string
+          verification_code: string | null
+          verification_sent_at: string | null
+          verified_at: string | null
         }
         Insert: {
           affiliate_token?: string | null
@@ -744,6 +748,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_coordinator?: boolean | null
+          is_verified?: boolean | null
           join_date?: string | null
           last_activity?: string | null
           nome_completo: string
@@ -753,6 +758,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
           updated_at?: string
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Update: {
           affiliate_token?: string | null
@@ -765,6 +773,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_coordinator?: boolean | null
+          is_verified?: boolean | null
           join_date?: string | null
           last_activity?: string | null
           nome_completo?: string
@@ -774,6 +783,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["office_leader_status"]
           telefone?: string | null
           updated_at?: string
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -2205,6 +2217,7 @@ export type Database = {
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
       generate_leader_affiliate_token: { Args: never; Returns: string }
+      generate_leader_verification_code: { Args: never; Returns: string }
       generate_office_protocol:
         | { Args: { _prefix?: string }; Returns: string }
         | { Args: { _prefix?: string; _tenant_id: string }; Returns: string }
@@ -2381,6 +2394,10 @@ export type Database = {
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      mark_leader_verified_manually: {
+        Args: { _leader_id: string }
+        Returns: boolean
+      }
       move_leader_branch: {
         Args: { _leader_id: string; _new_parent_id: string }
         Returns: Json
@@ -2408,6 +2425,7 @@ export type Database = {
           is_already_leader: boolean
           leader_id: string
           original_leader_name: string
+          verification_code: string
         }[]
       }
       remove_from_tree: { Args: { _leader_id: string }; Returns: boolean }
@@ -2421,6 +2439,10 @@ export type Database = {
       }
       update_contact_verification_sent: {
         Args: { _contact_id: string }
+        Returns: boolean
+      }
+      update_leader_verification_sent: {
+        Args: { _leader_id: string }
         Returns: boolean
       }
       update_visit_status_form_opened: {
@@ -2481,6 +2503,7 @@ export type Database = {
         Returns: boolean
       }
       verify_contact_by_code: { Args: { _code: string }; Returns: Json }
+      verify_leader_by_code: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       app_role:

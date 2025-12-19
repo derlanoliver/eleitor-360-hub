@@ -51,6 +51,11 @@ export interface OfficeLeader {
   is_coordinator?: boolean;
   hierarchy_level?: number; // 1=Coordinator, 2-4=Subordinate levels
   parent_leader_id?: string;
+  // Verification fields
+  is_verified?: boolean;
+  verification_code?: string;
+  verification_sent_at?: string;
+  verified_at?: string;
   created_at: string;
   updated_at: string;
 }

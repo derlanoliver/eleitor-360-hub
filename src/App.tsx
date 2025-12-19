@@ -65,6 +65,7 @@ import SurveyEditor from "./pages/SurveyEditor";
 import SurveyResults from "./pages/SurveyResults";
 import SurveyPublicForm from "./pages/SurveyPublicForm";
 import VerifyContact from "./pages/VerifyContact";
+import VerifyLeader from "./pages/VerifyLeader";
 import LeaderTree from "./pages/LeaderTree";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ const App = () => (
             <Route path="/descadastro" element={<Unsubscribe />} />
             <Route path="/pesquisa/:slug" element={<SurveyPublicForm />} />
             <Route path="/v/:codigo" element={<VerifyContact />} />
+            <Route path="/verificar-lider/:codigo" element={<VerifyLeader />} />
             
             {/* Public check-in route with PIN protection */}
             <Route path="/checkin/:qrCode" element={<EventCheckin />} />
