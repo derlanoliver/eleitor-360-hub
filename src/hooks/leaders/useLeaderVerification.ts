@@ -116,8 +116,12 @@ export function useMarkLeaderVerifiedManually() {
 
   return useMutation({
     mutationFn: async (leaderId: string) => {
+      // Buscar o usuário logado para registrar quem verificou
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase.rpc("mark_leader_verified_manually", {
         _leader_id: leaderId,
+        _verified_by: user?.id || null,
       });
 
       if (error) throw error;

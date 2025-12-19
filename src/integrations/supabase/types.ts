@@ -734,8 +734,10 @@ export type Database = {
           telefone: string | null
           updated_at: string
           verification_code: string | null
+          verification_method: string | null
           verification_sent_at: string | null
           verified_at: string | null
+          verified_by_user_id: string | null
         }
         Insert: {
           affiliate_token?: string | null
@@ -759,8 +761,10 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           verification_code?: string | null
+          verification_method?: string | null
           verification_sent_at?: string | null
           verified_at?: string | null
+          verified_by_user_id?: string | null
         }
         Update: {
           affiliate_token?: string | null
@@ -784,8 +788,10 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           verification_code?: string | null
+          verification_method?: string | null
           verification_sent_at?: string | null
           verified_at?: string | null
+          verified_by_user_id?: string | null
         }
         Relationships: [
           {
@@ -2395,10 +2401,12 @@ export type Database = {
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
-      mark_leader_verified_manually: {
-        Args: { _leader_id: string }
-        Returns: boolean
-      }
+      mark_leader_verified_manually:
+        | { Args: { _leader_id: string }; Returns: boolean }
+        | {
+            Args: { _leader_id: string; _verified_by?: string }
+            Returns: boolean
+          }
       move_leader_branch: {
         Args: { _leader_id: string; _new_parent_id: string }
         Returns: Json

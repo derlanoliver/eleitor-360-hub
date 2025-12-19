@@ -10,6 +10,7 @@ export interface LeaderSubordinate {
   is_active: boolean;
   is_verified: boolean | null;
   verified_at: string | null;
+  verification_method: string | null;
   created_at: string;
   pontuacao_total: number;
   cadastros: number;
@@ -32,6 +33,7 @@ export function useLeaderSubordinates(leaderId: string | undefined) {
           is_active,
           is_verified,
           verified_at,
+          verification_method,
           created_at,
           pontuacao_total,
           cadastros,
