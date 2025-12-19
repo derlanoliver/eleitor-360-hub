@@ -235,6 +235,10 @@ Deno.serve(async (req) => {
           .eq('telefone', telefone)
           .single();
 
+        // Gerar tokens para verificação
+        const verificationCode = crypto.randomUUID().substring(0, 8).toUpperCase();
+        const affiliateToken = crypto.randomUUID().split('-')[0];
+
         if (existingLeader) {
           // Atualizar líder existente (mantém cadastros e pontuação)
           const { error: updateError } = await supabaseClient
@@ -253,7 +257,7 @@ Deno.serve(async (req) => {
           if (updateError) throw updateError;
           result.updated++;
         } else {
-          // Inserir novo líder
+          // Inserir novo líder com is_verified=false e tokens gerados
           const { error: insertError } = await supabaseClient
             .from('lideres')
             .insert({
@@ -267,6 +271,9 @@ Deno.serve(async (req) => {
               status: 'active',
               cadastros: 0,
               pontuacao_total: 0,
+              is_verified: false, // Líder começa não verificado
+              verification_code: verificationCode, // Código para verificação
+              affiliate_token: affiliateToken, // Token para link de indicação (só funciona após verificar)
             });
 
           if (insertError) throw insertError;
