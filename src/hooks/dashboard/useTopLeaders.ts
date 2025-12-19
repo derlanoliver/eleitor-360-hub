@@ -6,7 +6,7 @@ export interface TopLeader {
   name: string;
   phone: string;
   points: number;
-  registrations: number;
+  indicacoes: number;
   region: string;
   position: number;
   active: boolean;
@@ -17,29 +17,17 @@ export function useTopLeaders() {
     queryKey: ["top_leaders"],
     queryFn: async (): Promise<TopLeader[]> => {
       const { data, error } = await supabase
-        .from("lideres")
-        .select(`
-          id, 
-          nome_completo, 
-          telefone, 
-          pontuacao_total,
-          cadastros, 
-          is_active,
-          cidade:office_cities(nome)
-        `)
-        .eq("is_active", true)
-        .order("pontuacao_total", { ascending: false })
-        .limit(10);
+        .rpc("get_top_leaders_with_indicacoes", { _limit: 10 });
 
       if (error) throw error;
 
-      return (data || []).map((leader: any, index) => ({
+      return (data || []).map((leader: any, index: number) => ({
         id: leader.id,
         name: leader.nome_completo,
         phone: leader.telefone || "",
         points: leader.pontuacao_total || 0,
-        registrations: leader.cadastros || 0,
-        region: leader.cidade?.nome || "Não informada",
+        indicacoes: leader.indicacoes || 0,
+        region: leader.cidade_nome || "Não informada",
         position: index + 1,
         active: leader.is_active,
       }));

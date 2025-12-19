@@ -2304,6 +2304,10 @@ export type Database = {
           telefone: string
         }[]
       }
+      get_leader_total_indicacoes: {
+        Args: { _leader_id: string }
+        Returns: number
+      }
       get_leader_tree: {
         Args: { _leader_id: string }
         Returns: {
@@ -2357,6 +2361,18 @@ export type Database = {
         Returns: {
           city_count: number
           city_name: string
+        }[]
+      }
+      get_top_leaders_with_indicacoes: {
+        Args: { _limit?: number }
+        Returns: {
+          cidade_nome: string
+          id: string
+          indicacoes: number
+          is_active: boolean
+          nome_completo: string
+          pontuacao_total: number
+          telefone: string
         }[]
       }
       get_user_context: {
