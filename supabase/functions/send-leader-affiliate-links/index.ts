@@ -14,15 +14,6 @@ interface Leader {
   affiliate_token: string;
 }
 
-interface SendResult {
-  leader_id: string;
-  nome: string;
-  sms_sent: boolean;
-  sms_error?: string;
-  email_sent: boolean;
-  email_error?: string;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,172 +24,210 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse optional limit from body
-    let limit = 50; // Default batch size
+    let leaderId: string | null = null;
+
     try {
       const body = await req.json();
-      if (body?.limit) limit = Math.min(body.limit, 100);
+      leaderId = body?.leader_id || null;
     } catch {
-      // No body or invalid JSON, use defaults
+      // No body provided
     }
 
-    console.log(`[send-leader-affiliate-links] Iniciando com limite: ${limit}`);
+    console.log(`[send-leader-affiliate-links] Mode: ${leaderId ? 'single leader: ' + leaderId : 'batch processing'}`);
 
-    // Buscar líderes verificados HOJE que ainda não receberam SMS de link
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Buscar SMS já enviados com "link de indicacao" ou "cadastro confirmado"
-    const { data: existingSMS } = await supabase
-      .from("sms_messages")
-      .select("phone")
-      .or("message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%,message.ilike.%affiliate%");
+    const baseUrl = "https://app.rafaelprudente.com";
 
-    const phonesWithSMS = new Set<string>();
-    if (existingSMS) {
-      existingSMS.forEach((sms) => {
-        const normalized = sms.phone.replace(/\D/g, "").slice(-8);
-        phonesWithSMS.add(normalized);
-      });
-    }
-
-    console.log(`[send-leader-affiliate-links] ${phonesWithSMS.size} telefones já receberam SMS`);
-
-    // Buscar líderes verificados hoje
-    const { data: verifiedLeaders, error: leadersError } = await supabase
-      .from("lideres")
-      .select("id, nome_completo, telefone, email, affiliate_token")
-      .eq("is_active", true)
-      .eq("is_verified", true)
-      .not("telefone", "is", null)
-      .not("affiliate_token", "is", null)
-      .gte("verified_at", `${today}T00:00:00`)
-      .order("verified_at", { ascending: false });
-
-    if (leadersError) {
-      console.error("[send-leader-affiliate-links] Erro:", leadersError);
-      throw new Error(leadersError.message);
-    }
-
-    // Filtrar apenas os que não receberam SMS
-    const pendingLeaders = (verifiedLeaders || []).filter((leader) => {
-      if (!leader.telefone) return false;
-      const normalized = leader.telefone.replace(/\D/g, "").slice(-8);
-      return !phonesWithSMS.has(normalized);
-    }).slice(0, limit) as Leader[];
-
-    console.log(`[send-leader-affiliate-links] ${pendingLeaders.length} líderes pendentes (de ${verifiedLeaders?.length || 0} verificados hoje)`);
-
-    if (pendingLeaders.length === 0) {
+    // If specific leader_id provided, process just that leader
+    if (leaderId) {
+      const result = await processLeader(supabase, leaderId, baseUrl);
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Nenhum líder pendente",
-          total_pending: 0,
-          sent: 0,
-          failed: 0,
-        }),
+        JSON.stringify({ success: true, result }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const baseUrl = "https://app.rafaelprudente.com";
-    const results: SendResult[] = [];
-    let sentCount = 0;
-    let failedCount = 0;
+    // Batch processing: find verified leaders from last 24 hours without SMS/Email sent
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
 
-    for (const leader of pendingLeaders) {
-      const result: SendResult = {
-        leader_id: leader.id,
-        nome: leader.nome_completo,
-        sms_sent: false,
-        email_sent: false,
-      };
+    const { data: recentLeaders, error: leadersError } = await supabase
+      .from("lideres")
+      .select("id, nome_completo, telefone, email, affiliate_token, verified_at")
+      .eq("is_active", true)
+      .eq("is_verified", true)
+      .not("affiliate_token", "is", null)
+      .gte("verified_at", yesterday.toISOString())
+      .order("verified_at", { ascending: false });
 
-      const affiliateLink = `${baseUrl}/cadastro/${leader.affiliate_token}`;
-      console.log(`[send-leader-affiliate-links] Processando: ${leader.nome_completo}`);
-
-      // Enviar SMS
-      if (leader.telefone) {
-        try {
-          const smsResponse = await supabase.functions.invoke("send-sms", {
-            body: {
-              phone: leader.telefone,
-              templateSlug: "lider-cadastro-confirmado-sms",
-              variables: {
-                nome: leader.nome_completo,
-                link_indicacao: affiliateLink,
-              },
-            },
-          });
-
-          if (smsResponse.error) {
-            result.sms_error = smsResponse.error.message || "Erro";
-            console.error(`[send-leader-affiliate-links] SMS erro:`, smsResponse.error);
-          } else {
-            result.sms_sent = true;
-            console.log(`[send-leader-affiliate-links] SMS OK: ${leader.nome_completo}`);
-          }
-        } catch (smsErr) {
-          result.sms_error = String(smsErr);
-        }
-      }
-
-      // Enviar Email
-      if (leader.email) {
-        try {
-          const emailResponse = await supabase.functions.invoke("send-email", {
-            body: {
-              to: leader.email,
-              toName: leader.nome_completo,
-              templateSlug: "lideranca-boas-vindas",
-              variables: {
-                nome: leader.nome_completo,
-                link_indicacao: affiliateLink,
-              },
-            },
-          });
-
-          if (emailResponse.error) {
-            result.email_error = emailResponse.error.message || "Erro";
-          } else {
-            result.email_sent = true;
-            console.log(`[send-leader-affiliate-links] Email OK: ${leader.nome_completo}`);
-          }
-        } catch (emailErr) {
-          result.email_error = String(emailErr);
-        }
-      }
-
-      if (result.sms_sent || result.email_sent) {
-        sentCount++;
-      } else {
-        failedCount++;
-      }
-
-      results.push(result);
-
-      // Delay menor entre envios
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    if (leadersError) {
+      console.error("[send-leader-affiliate-links] Error fetching leaders:", leadersError);
+      throw new Error(leadersError.message);
     }
 
-    console.log(`[send-leader-affiliate-links] Concluído. Enviados: ${sentCount}, Falhas: ${failedCount}`);
+    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders`);
+
+    if (!recentLeaders || recentLeaders.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No pending leaders", processed: 0 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const results = [];
+    let processedCount = 0;
+    let skippedCount = 0;
+
+    for (const leader of recentLeaders) {
+      if (!leader.telefone && !leader.email) {
+        console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: no contact info`);
+        skippedCount++;
+        continue;
+      }
+
+      // Check if SMS already sent for this leader
+      const phoneNormalized = leader.telefone?.replace(/\D/g, "").slice(-8) || "";
+      
+      const { data: existingSMS } = await supabase
+        .from("sms_messages")
+        .select("id")
+        .or(`message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%`)
+        .ilike("phone", `%${phoneNormalized}`)
+        .limit(1);
+
+      // Check if Email already sent for this leader
+      const { data: existingEmail } = await supabase
+        .from("email_logs")
+        .select("id")
+        .eq("leader_id", leader.id)
+        .limit(1);
+
+      const hasSMS = existingSMS && existingSMS.length > 0;
+      const hasEmail = existingEmail && existingEmail.length > 0;
+
+      if (hasSMS || hasEmail) {
+        console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has SMS=${hasSMS}, Email=${hasEmail}`);
+        skippedCount++;
+        continue;
+      }
+
+      const result = await processLeader(supabase, leader.id, baseUrl, leader);
+      results.push(result);
+      processedCount++;
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    console.log(`[send-leader-affiliate-links] Done. Processed: ${processedCount}, Skipped: ${skippedCount}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processados ${pendingLeaders.length} líderes`,
-        total_pending: pendingLeaders.length,
-        sent: sentCount,
-        failed: failedCount,
-        results: results.slice(0, 10), // Retornar apenas primeiros 10 para não sobrecarregar
+        processed: processedCount,
+        skipped: skippedCount,
+        total: recentLeaders.length,
+        results: results.slice(0, 5),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("[send-leader-affiliate-links] Erro:", error);
+    console.error("[send-leader-affiliate-links] Error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erro" }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
+async function processLeader(
+  supabase: any,
+  leaderId: string,
+  baseUrl: string,
+  leaderData?: Leader
+): Promise<{ leader_id: string; nome: string; sms_sent: boolean; email_sent: boolean; errors: string[] }> {
+  const errors: string[] = [];
+
+  let leader = leaderData;
+  if (!leader) {
+    const { data, error } = await supabase
+      .from("lideres")
+      .select("id, nome_completo, telefone, email, affiliate_token")
+      .eq("id", leaderId)
+      .single();
+
+    if (error || !data) {
+      console.error(`[processLeader] Failed to fetch leader ${leaderId}:`, error);
+      return { leader_id: leaderId, nome: "Unknown", sms_sent: false, email_sent: false, errors: ["Leader not found"] };
+    }
+    leader = data as Leader;
+  }
+
+  console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id})`);
+
+  const affiliateLink = `${baseUrl}/cadastro/${leader.affiliate_token}`;
+  let smsSent = false;
+  let emailSent = false;
+
+  // Send SMS
+  if (leader.telefone) {
+    try {
+      const smsResponse = await supabase.functions.invoke("send-sms", {
+        body: {
+          phone: leader.telefone,
+          templateSlug: "lider-cadastro-confirmado-sms",
+          variables: {
+            nome: leader.nome_completo,
+            link_indicacao: affiliateLink,
+          },
+        },
+      });
+
+      if (smsResponse.error) {
+        errors.push(`SMS: ${smsResponse.error.message || "Error"}`);
+        console.error(`[processLeader] SMS error for ${leader.nome_completo}:`, smsResponse.error);
+      } else {
+        smsSent = true;
+        console.log(`[processLeader] SMS sent to ${leader.nome_completo}`);
+      }
+    } catch (e) {
+      errors.push(`SMS exception: ${String(e)}`);
+      console.error(`[processLeader] SMS exception for ${leader.nome_completo}:`, e);
+    }
+  }
+
+  // Send Email
+  if (leader.email) {
+    try {
+      const emailResponse = await supabase.functions.invoke("send-email", {
+        body: {
+          to: leader.email,
+          toName: leader.nome_completo,
+          templateSlug: "lideranca-boas-vindas",
+          leaderId: leader.id,
+          variables: {
+            nome: leader.nome_completo,
+            link_indicacao: affiliateLink,
+          },
+        },
+      });
+
+      if (emailResponse.error) {
+        errors.push(`Email: ${emailResponse.error.message || "Error"}`);
+        console.error(`[processLeader] Email error for ${leader.nome_completo}:`, emailResponse.error);
+      } else {
+        emailSent = true;
+        console.log(`[processLeader] Email sent to ${leader.nome_completo}`);
+      }
+    } catch (e) {
+      errors.push(`Email exception: ${String(e)}`);
+      console.error(`[processLeader] Email exception for ${leader.nome_completo}:`, e);
+    }
+  }
+
+  return {
+    leader_id: leader.id,
+    nome: leader.nome_completo,
+    sms_sent: smsSent,
+    email_sent: emailSent,
+    errors,
+  };
+}
