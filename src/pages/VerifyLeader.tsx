@@ -16,6 +16,12 @@ interface VerificationResult {
   message?: string;
 }
 
+interface SendResults {
+  sms: boolean;
+  whatsapp: boolean;
+  email: boolean;
+}
+
 export default function VerifyLeader() {
   const { codigo } = useParams<{ codigo: string }>();
   const { data: organization } = useOrganization();
@@ -23,6 +29,7 @@ export default function VerifyLeader() {
   const [sendingLinks, setSendingLinks] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [linksSent, setLinksSent] = useState(false);
+  const [sendResults, setSendResults] = useState<SendResults>({ sms: false, whatsapp: false, email: false });
 
   useEffect(() => {
     async function verifyLeader() {
@@ -33,24 +40,27 @@ export default function VerifyLeader() {
       }
 
       try {
+        console.log("[VerifyLeader] Iniciando verificação com código:", codigo);
         const { data, error } = await supabase.rpc("verify_leader_by_code", {
           _code: codigo,
         });
 
         if (error) {
-          console.error("Verification error:", error);
+          console.error("[VerifyLeader] Erro na verificação RPC:", error);
           setResult({ success: false, error: "rpc_error", message: "Erro ao verificar cadastro." });
         } else {
           const verificationResult = data as unknown as VerificationResult;
+          console.log("[VerifyLeader] Resultado da verificação:", verificationResult);
           setResult(verificationResult);
 
           // Se verificado com sucesso (não era já verificado), enviar links de afiliado
           if (verificationResult.success && !verificationResult.already_verified && verificationResult.leader_id) {
+            console.log("[VerifyLeader] Líder verificado, enviando links de afiliado...");
             await sendAffiliateLinks(verificationResult.leader_id, verificationResult.affiliate_token || "");
           }
         }
       } catch (err) {
-        console.error("Error:", err);
+        console.error("[VerifyLeader] Erro inesperado:", err);
         setResult({ success: false, error: "unknown", message: "Erro inesperado." });
       } finally {
         setLoading(false);
@@ -61,11 +71,17 @@ export default function VerifyLeader() {
   }, [codigo]);
 
   async function sendAffiliateLinks(leaderId: string, affiliateToken: string) {
-    if (!affiliateToken) return;
+    if (!affiliateToken) {
+      console.warn("[VerifyLeader] Token de afiliado vazio, não enviando links");
+      return;
+    }
 
     setSendingLinks(true);
+    const results: SendResults = { sms: false, whatsapp: false, email: false };
+
     try {
       // Buscar dados do líder para enviar links
+      console.log("[VerifyLeader] Buscando dados do líder:", leaderId);
       const { data: leader, error: leaderError } = await supabase
         .from("lideres")
         .select("nome_completo, telefone, email")
@@ -73,53 +89,107 @@ export default function VerifyLeader() {
         .single();
 
       if (leaderError || !leader) {
-        console.error("Erro ao buscar líder:", leaderError);
+        console.error("[VerifyLeader] Erro ao buscar líder:", leaderError);
+        setSendingLinks(false);
         return;
       }
 
       const affiliateLink = `${getBaseUrl()}/cadastro/${affiliateToken}`;
+      console.log("[VerifyLeader] Dados do líder:", {
+        nome: leader.nome_completo,
+        telefone: leader.telefone ? "***" + leader.telefone.slice(-4) : "N/A",
+        email: leader.email ? leader.email.split("@")[0].slice(0, 3) + "***@" + leader.email.split("@")[1] : "N/A",
+        affiliateLink,
+      });
 
       // Gerar QR Code
-      const QRCode = (await import("qrcode")).default;
-      const qrCodeDataUrl = await QRCode.toDataURL(affiliateLink, { width: 300 });
-
-      // Enviar WhatsApp com QR code
+      let qrCodeDataUrl = "";
       try {
-        await supabase.functions.invoke("send-whatsapp", {
-          body: {
-            phone: leader.telefone,
-            templateSlug: "lideranca-cadastro-link",
-            variables: {
-              nome: leader.nome_completo,
-              link_cadastro_afiliado: affiliateLink,
-            },
-            imageUrl: qrCodeDataUrl,
-          },
-        });
-      } catch (e) {
-        console.error("Erro ao enviar WhatsApp:", e);
+        const QRCode = (await import("qrcode")).default;
+        qrCodeDataUrl = await QRCode.toDataURL(affiliateLink, { width: 300 });
+        console.log("[VerifyLeader] QR Code gerado com sucesso");
+      } catch (qrError) {
+        console.error("[VerifyLeader] Erro ao gerar QR Code:", qrError);
       }
 
-      // Enviar SMS com link
-      try {
-        await supabase.functions.invoke("send-sms", {
-          body: {
-            phone: leader.telefone,
-            templateSlug: "lider-cadastro-confirmado-sms",
-            variables: {
-              nome: leader.nome_completo,
-              link_indicacao: affiliateLink,
+      // ============================================
+      // 1. ENVIAR SMS (independente dos outros)
+      // ============================================
+      if (leader.telefone) {
+        try {
+          console.log("[VerifyLeader] Iniciando envio de SMS...");
+          const smsResponse = await supabase.functions.invoke("send-sms", {
+            body: {
+              phone: leader.telefone,
+              templateSlug: "lider-cadastro-confirmado-sms",
+              variables: {
+                nome: leader.nome_completo,
+                link_indicacao: affiliateLink,
+              },
             },
-          },
-        });
-      } catch (e) {
-        console.error("Erro ao enviar SMS:", e);
+          });
+
+          console.log("[VerifyLeader] Resposta SMS:", {
+            error: smsResponse.error,
+            data: smsResponse.data,
+          });
+
+          if (smsResponse.error) {
+            console.error("[VerifyLeader] Erro no SMS:", smsResponse.error);
+          } else {
+            results.sms = true;
+            console.log("[VerifyLeader] SMS enviado com sucesso!");
+          }
+        } catch (smsError) {
+          console.error("[VerifyLeader] Exceção ao enviar SMS:", smsError);
+        }
+      } else {
+        console.warn("[VerifyLeader] Líder sem telefone, SMS não enviado");
       }
 
-      // Enviar email de boas-vindas (se tiver email)
+      // ============================================
+      // 2. ENVIAR WHATSAPP (independente dos outros)
+      // ============================================
+      if (leader.telefone) {
+        try {
+          console.log("[VerifyLeader] Iniciando envio de WhatsApp...");
+          const waResponse = await supabase.functions.invoke("send-whatsapp", {
+            body: {
+              phone: leader.telefone,
+              templateSlug: "lideranca-cadastro-link",
+              variables: {
+                nome: leader.nome_completo,
+                link_cadastro_afiliado: affiliateLink,
+              },
+              imageUrl: qrCodeDataUrl,
+            },
+          });
+
+          console.log("[VerifyLeader] Resposta WhatsApp:", {
+            error: waResponse.error,
+            data: waResponse.data,
+          });
+
+          if (waResponse.error) {
+            console.error("[VerifyLeader] Erro no WhatsApp:", waResponse.error);
+          } else {
+            results.whatsapp = true;
+            console.log("[VerifyLeader] WhatsApp enviado com sucesso!");
+          }
+        } catch (waError) {
+          console.error("[VerifyLeader] Exceção ao enviar WhatsApp:", waError);
+        }
+      } else {
+        console.warn("[VerifyLeader] Líder sem telefone, WhatsApp não enviado");
+      }
+
+      // ============================================
+      // 3. ENVIAR EMAIL (independente dos outros)
+      // ============================================
       if (leader.email) {
         try {
-          await supabase.functions.invoke("send-email", {
+          console.log("[VerifyLeader] Iniciando envio de Email...");
+          const emailResponse = await supabase.functions.invoke("send-email", {
             body: {
               to: leader.email,
               toName: leader.nome_completo,
@@ -130,14 +200,42 @@ export default function VerifyLeader() {
               },
             },
           });
-        } catch (e) {
-          console.error("Erro ao enviar email:", e);
+
+          console.log("[VerifyLeader] Resposta Email:", {
+            error: emailResponse.error,
+            data: emailResponse.data,
+          });
+
+          if (emailResponse.error) {
+            console.error("[VerifyLeader] Erro no Email:", emailResponse.error);
+          } else {
+            results.email = true;
+            console.log("[VerifyLeader] Email enviado com sucesso!");
+          }
+        } catch (emailError) {
+          console.error("[VerifyLeader] Exceção ao enviar Email:", emailError);
         }
+      } else {
+        console.warn("[VerifyLeader] Líder sem email, Email não enviado");
       }
 
-      setLinksSent(true);
+      // Atualizar estados com resultados
+      setSendResults(results);
+      console.log("[VerifyLeader] Resultados finais de envio:", results);
+
+      // Considerar links enviados se pelo menos SMS ou Email funcionou
+      if (results.sms || results.email) {
+        setLinksSent(true);
+        console.log("[VerifyLeader] Links marcados como enviados (SMS ou Email funcionou)");
+      } else {
+        console.warn("[VerifyLeader] Nenhum canal de envio funcionou (SMS nem Email)");
+        // Mesmo se falhar, marcar como tentativa feita para não bloquear a UI
+        setLinksSent(true);
+      }
     } catch (err) {
-      console.error("Erro ao enviar links de afiliado:", err);
+      console.error("[VerifyLeader] Erro geral ao enviar links de afiliado:", err);
+      // Mesmo em caso de erro geral, não bloquear a UI
+      setLinksSent(true);
     } finally {
       setSendingLinks(false);
     }
@@ -208,8 +306,15 @@ export default function VerifyLeader() {
                           <span className="font-medium">Link de indicação enviado!</span>
                         </div>
                         <p className="text-sm text-green-600 mt-2">
-                          Enviamos seu link exclusivo via WhatsApp, SMS e Email.
-                          Use-o para convidar mais pessoas!
+                          {sendResults.sms || sendResults.email || sendResults.whatsapp
+                            ? `Enviamos seu link exclusivo via ${[
+                                sendResults.whatsapp && "WhatsApp",
+                                sendResults.sms && "SMS",
+                                sendResults.email && "Email",
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}. Use-o para convidar mais pessoas!`
+                            : "Processamos seu cadastro. Seu link de indicação estará disponível em breve."}
                         </p>
                       </div>
                     ) : null}
