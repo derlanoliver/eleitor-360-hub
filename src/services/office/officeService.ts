@@ -111,6 +111,12 @@ export async function getCityById(id: string) {
 // =====================================================
 
 export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> {
+  // Gerar código de verificação (6 caracteres alfanuméricos)
+  const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+  // Gerar affiliate_token (8 caracteres)
+  const affiliateToken = crypto.randomUUID().split('-')[0];
+  
   const { data, error } = await supabase
     .from('lideres')
     .insert({
@@ -122,6 +128,9 @@ export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> 
       status: 'active',
       cadastros: 0,
       pontuacao_total: 0,
+      is_verified: false,
+      verification_code: verificationCode,
+      affiliate_token: affiliateToken,
     })
     .select(`
       *,
