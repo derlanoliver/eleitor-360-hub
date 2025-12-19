@@ -47,7 +47,8 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
   const { data: regions = [] } = useRegions();
-  const { data: leaders = [] } = useOfficeLeaders();
+  const { data: leadersResult } = useOfficeLeaders();
+  const leaders = leadersResult?.data || [];
   const updateContact = useUpdateContact();
   const promoteToLeaderMutation = usePromoteToLeader();
   const { user } = useAuth();

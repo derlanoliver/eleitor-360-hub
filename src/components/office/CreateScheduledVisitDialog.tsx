@@ -39,7 +39,8 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
   const [sendingSms, setSendingSms] = useState(false);
 
   const { data: cities = [] } = useOfficeCities();
-  const { data: leaders = [] } = useOfficeLeaders();
+  const { data: leadersResult } = useOfficeLeaders();
+  const leaders = leadersResult?.data || [];
   const createVisit = useCreateScheduledVisit();
 
   const resetForm = () => {

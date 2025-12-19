@@ -26,17 +26,19 @@ export function LeaderAutocomplete({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   
-  const { data: leaders, isLoading, isError, refetch } = useOfficeLeaders({
+  const { data: leadersResult, isLoading, isError, refetch } = useOfficeLeaders({
     cidade_id: cityId,
     search: search || undefined
   });
   
+  const leaders = leadersResult?.data || [];
+  
   const selectedLeader = useMemo(
-    () => leaders?.find((leader) => leader.id === value),
+    () => leaders.find((leader) => leader.id === value),
     [leaders, value]
   );
   
-  const hasLeaders = leaders && leaders.length > 0;
+  const hasLeaders = leaders.length > 0;
   const isDisabled = disabled || (!cityId && !allowAllLeaders);
   
   return (
