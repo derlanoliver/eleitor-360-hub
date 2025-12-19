@@ -8,7 +8,8 @@ import {
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
-  Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert
+  Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert,
+  Link, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -211,6 +212,22 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <p className="text-sm text-green-600 dark:text-green-500 mt-2">
                     Este líder confirmou seu cadastro e já possui acesso ao link de indicação.
                   </p>
+                  
+                  {/* Método de verificação */}
+                  <div className="mt-3 flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
+                    {leader.verification_method === 'manual' ? (
+                      <>
+                        <UserCheck className="h-4 w-4" />
+                        <span>Verificado manualmente por um administrador</span>
+                      </>
+                    ) : (
+                      <>
+                        <Link className="h-4 w-4" />
+                        <span>Verificado automaticamente via link</span>
+                      </>
+                    )}
+                  </div>
+                  
                   {leader.verified_at && (
                     <p className="text-xs text-green-500 dark:text-green-600 mt-2">
                       Verificado em: {formatDateTime(leader.verified_at)}
