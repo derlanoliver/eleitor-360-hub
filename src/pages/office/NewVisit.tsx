@@ -7,14 +7,20 @@ import { Label } from "@/components/ui/label";
 import { CitySelect } from "@/components/office/CitySelect";
 import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
 import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
-import { useCreateOfficeVisit } from "@/hooks/office/useOfficeVisits";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCreateScheduledVisit } from "@/hooks/office/useScheduledVisits";
 import { useOfficeSettings } from "@/hooks/office/useOfficeSettings";
-import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, UserPlus, QrCode } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, UserPlus, QrCode, CalendarIcon, Clock } from "lucide-react";
 import { ProtocolBadge } from "@/components/office/ProtocolBadge";
 import { generateVisitFormUrl } from "@/lib/urlHelper";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface SelectedContact {
   id: string;
@@ -24,20 +30,26 @@ interface SelectedContact {
   cidade: { id: string; nome: string } | null;
 }
 
+const TIME_SLOTS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"
+];
+
 export default function NewVisit() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [cidadeId, setCidadeId] = useState("");
   const [leaderId, setLeaderId] = useState("");
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledTime, setScheduledTime] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [visitCreated, setVisitCreated] = useState<any>(null);
   const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
   
   const { data: settings } = useOfficeSettings();
-  const createVisit = useCreateOfficeVisit();
+  const createVisit = useCreateScheduledVisit();
   
   const handlePhoneChange = (phone: string) => {
     setWhatsapp(phone);
@@ -54,27 +66,56 @@ export default function NewVisit() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      toast.error("Usuário não encontrado");
-      return;
-    }
-    
-    if (!nome || !whatsapp || !cidadeId || !leaderId) {
+    if (!nome || !whatsapp || !cidadeId || !leaderId || !scheduledDate || !scheduledTime) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
     
     try {
+      const formattedDate = format(scheduledDate, "yyyy-MM-dd");
+      
       const visit = await createVisit.mutateAsync({
-        dto: { nome, whatsapp, cidade_id: cidadeId, leader_id: leaderId },
-        userId: user.id
+        nome,
+        telefone: whatsapp,
+        cidadeId,
+        leaderId,
+        scheduledDate: formattedDate,
+        scheduledTime,
       });
       
-      setVisitCreated(visit);
+      setVisitCreated({
+        ...visit,
+        scheduledDate,
+        scheduledTime,
+      });
       
       const link = generateVisitFormUrl(visit.id);
       const qr = await QRCode.toDataURL(link);
       setQrCode(qr);
+      
+      // Enviar SMS com data e hora agendada
+      const formattedDateBR = format(scheduledDate, "dd/MM/yyyy", { locale: ptBR });
+      const primeiroNome = nome.split(" ")[0];
+      
+      try {
+        await supabase.functions.invoke("send-sms", {
+          body: {
+            phone: whatsapp,
+            templateSlug: "visita-agendada-link-formulario",
+            variables: {
+              nome: primeiroNome,
+              data_agendada: formattedDateBR,
+              hora_agendada: scheduledTime,
+              link_formulario: link,
+              protocolo: visit.protocolo,
+            },
+          },
+        });
+        toast.success("SMS enviado com sucesso!");
+      } catch (smsError) {
+        console.error("Erro ao enviar SMS:", smsError);
+        // Não bloqueia o fluxo se o SMS falhar
+      }
       
     } catch (error) {
       console.error("Erro ao criar visita:", error);
@@ -86,6 +127,8 @@ export default function NewVisit() {
     setWhatsapp("");
     setCidadeId("");
     setLeaderId("");
+    setScheduledDate(undefined);
+    setScheduledTime("");
     setQrCode(null);
     setVisitCreated(null);
     setSelectedContact(null);
@@ -98,9 +141,9 @@ export default function NewVisit() {
       <div className="container mx-auto py-6 max-w-4xl">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl text-green-600">✓ Visita Registrada com Sucesso!</CardTitle>
+            <CardTitle className="text-2xl text-green-600">✓ Visita Agendada com Sucesso!</CardTitle>
             <CardDescription>
-              A visita foi registrada e o link foi gerado.
+              A visita foi agendada e o link do formulário foi enviado por SMS.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -114,6 +157,14 @@ export default function NewVisit() {
             <div>
               <Label>Visitante</Label>
               <p className="text-sm mt-1">{visitCreated.contact?.nome}</p>
+            </div>
+            
+            <div>
+              <Label>Agendamento</Label>
+              <p className="text-sm mt-1 flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                {format(visitCreated.scheduledDate, "dd/MM/yyyy", { locale: ptBR })} às {visitCreated.scheduledTime}
+              </p>
             </div>
             
             <div>
@@ -151,8 +202,8 @@ export default function NewVisit() {
                 <UserPlus className="mr-2 h-4 w-4" />
                 Nova Visita
               </Button>
-              <Button variant="outline" onClick={() => navigate("/office/queue")}>
-                Ver Fila do Dia
+              <Button variant="outline" onClick={() => navigate("/office/schedule")}>
+                Ver Agenda
               </Button>
             </div>
           </CardContent>
@@ -222,6 +273,57 @@ export default function NewVisit() {
               )}
             </div>
             
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data da Visita *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !scheduledDate && "text-muted-foreground"
+                      )}
+                      disabled={createVisit.isPending}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {scheduledDate ? format(scheduledDate, "dd/MM/yyyy") : "Selecione"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduledDate}
+                      onSelect={setScheduledDate}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      locale={ptBR}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Horário *</Label>
+                <Select 
+                  value={scheduledTime} 
+                  onValueChange={setScheduledTime}
+                  disabled={createVisit.isPending}
+                >
+                  <SelectTrigger>
+                    <Clock className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_SLOTS.map((slot) => (
+                      <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
             <Button
               type="submit"
               className="w-full"
@@ -230,12 +332,12 @@ export default function NewVisit() {
               {createVisit.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
+                  Agendando...
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Criar Visita
+                  Agendar Visita
                 </>
               )}
             </Button>
