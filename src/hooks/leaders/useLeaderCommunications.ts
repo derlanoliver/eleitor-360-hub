@@ -25,6 +25,14 @@ export interface LeaderEmailLog {
   created_at: string;
 }
 
+export interface RetryHistoryEntry {
+  attempt: number;
+  timestamp: string;
+  status: string;
+  error?: string;
+  delay_minutes?: number;
+}
+
 export interface LeaderSMSMessage {
   id: string;
   phone: string;
@@ -35,6 +43,11 @@ export interface LeaderSMSMessage {
   delivered_at: string | null;
   error_message: string | null;
   created_at: string;
+  retry_count: number | null;
+  last_retry_at: string | null;
+  next_retry_at: string | null;
+  max_retries: number | null;
+  retry_history: unknown;
 }
 
 export function useLeaderCommunications(leaderId: string | undefined, leaderPhone: string | undefined, leaderEmail: string | undefined) {

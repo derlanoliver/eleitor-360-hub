@@ -9,8 +9,9 @@ import {
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
   Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert,
-  Link, UserCheck
+  Link, UserCheck, RefreshCw, ChevronRight
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1426,6 +1427,126 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   )}
                 </div>
               )}
+
+              {/* Retentativas de SMS */}
+              {(() => {
+                const smsWithRetries = smsMessages.filter(sms => sms.retry_count && sms.retry_count > 0);
+                if (smsWithRetries.length === 0) return null;
+                
+                return (
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                        Retentativas de SMS
+                      </h4>
+                      <Badge variant="secondary">{smsWithRetries.length} SMS</Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {smsWithRetries.map((sms) => {
+                        const statusConfig = {
+                          pending: { label: "Pendente", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+                          sent: { label: "Enviado", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
+                          delivered: { label: "Entregue", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+                          failed: { label: "Falhou", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+                        };
+                        const config = statusConfig[sms.status as keyof typeof statusConfig] || statusConfig.pending;
+                        
+                        // Calcular tempo até próxima tentativa
+                        let nextRetryText = null;
+                        if (sms.next_retry_at && sms.status === 'failed') {
+                          const nextRetry = new Date(sms.next_retry_at);
+                          const now = new Date();
+                          const diffMs = nextRetry.getTime() - now.getTime();
+                          if (diffMs > 0) {
+                            const diffMin = Math.ceil(diffMs / 60000);
+                            nextRetryText = `Próxima tentativa em ${diffMin} min`;
+                          }
+                        }
+                        
+                        return (
+                          <Card key={sms.id}>
+                            <CardContent className="p-3">
+                              <Collapsible>
+                                <div className="space-y-2">
+                                  {/* Header com mensagem truncada */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{sms.message.substring(0, 60)}...</p>
+                                      <p className="text-xs text-muted-foreground">{formatDateTime(sms.created_at)}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Status e badge de tentativas */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge className={config.className} variant="secondary">
+                                      {sms.status === 'failed' ? <XCircle className="h-3 w-3 mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                                      {config.label}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      <RefreshCw className="h-3 w-3 mr-1" />
+                                      {sms.retry_count}/{sms.max_retries || 6} tentativas
+                                    </Badge>
+                                    {nextRetryText && (
+                                      <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {nextRetryText}
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Erro atual */}
+                                  {sms.error_message && (
+                                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                                      <AlertCircle className="h-3 w-3" />
+                                      {sms.error_message}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Botão para expandir histórico */}
+                                  {sms.retry_history && Array.isArray(sms.retry_history) && sms.retry_history.length > 0 && (
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="w-full justify-start p-0 h-auto text-xs text-muted-foreground hover:text-foreground">
+                                        <ChevronRight className="h-3 w-3 mr-1 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                                        Ver histórico de tentativas ({(sms.retry_history as unknown[]).length})
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  )}
+                                </div>
+                                
+                                {/* Histórico expansível */}
+                                <CollapsibleContent className="mt-2">
+                                  <div className="border-l-2 border-muted pl-3 space-y-2">
+                                    {(Array.isArray(sms.retry_history) ? sms.retry_history : []).map((entry: { attempt?: number; timestamp?: string; status?: string; error?: string }, idx: number) => (
+                                      <div key={idx} className="text-xs">
+                                        <div className="flex items-center gap-2">
+                                          {entry.status === 'success' || entry.status === 'delivered' ? (
+                                            <CheckCircle className="h-3 w-3 text-green-600" />
+                                          ) : (
+                                            <XCircle className="h-3 w-3 text-red-600" />
+                                          )}
+                                          <span className="font-medium">{entry.attempt}ª tentativa</span>
+                                          <span className="text-muted-foreground">
+                                            {format(new Date(entry.timestamp), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                                          </span>
+                                        </div>
+                                        {entry.error && (
+                                          <p className="text-red-600 dark:text-red-400 ml-5 mt-0.5">{entry.error}</p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </TabsContent>
           </ScrollArea>
         </Tabs>
