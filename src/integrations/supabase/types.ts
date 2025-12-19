@@ -2289,6 +2289,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_coordinator: boolean
+          is_verified: boolean
           nome_completo: string
           parent_leader_id: string
           pontuacao_total: number
