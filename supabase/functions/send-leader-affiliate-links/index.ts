@@ -46,9 +46,9 @@ serve(async (req) => {
       );
     }
 
-    // Batch processing: find verified leaders from last 24 hours without SMS/Email sent
-    const yesterday = new Date();
-    yesterday.setHours(yesterday.getHours() - 24);
+    // Batch processing: find verified leaders from last 7 days without SMS/Email sent
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data: recentLeaders, error: leadersError } = await supabase
       .from("lideres")
@@ -56,7 +56,7 @@ serve(async (req) => {
       .eq("is_active", true)
       .eq("is_verified", true)
       .not("affiliate_token", "is", null)
-      .gte("verified_at", yesterday.toISOString())
+      .gte("verified_at", sevenDaysAgo.toISOString())
       .order("verified_at", { ascending: false });
 
     if (leadersError) {
@@ -64,7 +64,7 @@ serve(async (req) => {
       throw new Error(leadersError.message);
     }
 
-    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders`);
+    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders (last 7 days)`);
 
     if (!recentLeaders || recentLeaders.length === 0) {
       return new Response(
@@ -84,33 +84,36 @@ serve(async (req) => {
         continue;
       }
 
-      // Check if SMS already sent for this leader
+      // Check if welcome SMS already sent for this leader (check by leader_id pattern in message or phone)
       const phoneNormalized = leader.telefone?.replace(/\D/g, "").slice(-8) || "";
       
       const { data: existingSMS } = await supabase
         .from("sms_messages")
         .select("id")
-        .or(`message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%`)
+        .or(`message.ilike.%link de indicacao%,message.ilike.%cadastro confirmado%,message.ilike.%indicar pessoas%`)
         .ilike("phone", `%${phoneNormalized}`)
         .limit(1);
 
-      // Check if Email already sent for this leader
+      // Check if welcome Email already sent for this leader (using leader_id directly)
       const { data: existingEmail } = await supabase
         .from("email_logs")
-        .select("id")
+        .select("id, subject")
         .eq("leader_id", leader.id)
+        .or(`subject.ilike.%boas-vindas%,subject.ilike.%confirmado%,subject.ilike.%cadastro%`)
         .limit(1);
 
       const hasSMS = existingSMS && existingSMS.length > 0;
       const hasEmail = existingEmail && existingEmail.length > 0;
 
-      if (hasSMS || hasEmail) {
-        console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has SMS=${hasSMS}, Email=${hasEmail}`);
+      // Skip only if BOTH were already sent (to ensure both channels are covered)
+      if (hasSMS && hasEmail) {
+        console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has SMS and Email`);
         skippedCount++;
         continue;
       }
 
-      const result = await processLeader(supabase, leader.id, baseUrl, leader);
+      // Process to send missing channels
+      const result = await processLeader(supabase, leader.id, baseUrl, leader, hasSMS ?? false, hasEmail ?? false);
       results.push(result);
       processedCount++;
 
@@ -142,7 +145,9 @@ async function processLeader(
   supabase: any,
   leaderId: string,
   baseUrl: string,
-  leaderData?: Leader
+  leaderData?: Leader,
+  skipSMS: boolean = false,
+  skipEmail: boolean = false
 ): Promise<{ leader_id: string; nome: string; sms_sent: boolean; email_sent: boolean; errors: string[] }> {
   const errors: string[] = [];
 
@@ -161,14 +166,14 @@ async function processLeader(
     leader = data as Leader;
   }
 
-  console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id})`);
+  console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id}) - skipSMS=${skipSMS}, skipEmail=${skipEmail}`);
 
   const affiliateLink = `${baseUrl}/cadastro/${leader.affiliate_token}`;
-  let smsSent = false;
-  let emailSent = false;
+  let smsSent = skipSMS; // Mark as "sent" if we're skipping
+  let emailSent = skipEmail; // Mark as "sent" if we're skipping
 
-  // Send SMS
-  if (leader.telefone) {
+  // Send SMS (only if not skipping)
+  if (!skipSMS && leader.telefone) {
     try {
       const smsResponse = await supabase.functions.invoke("send-sms", {
         body: {
@@ -192,10 +197,12 @@ async function processLeader(
       errors.push(`SMS exception: ${String(e)}`);
       console.error(`[processLeader] SMS exception for ${leader.nome_completo}:`, e);
     }
+  } else if (!leader.telefone) {
+    console.log(`[processLeader] No phone for ${leader.nome_completo}, skipping SMS`);
   }
 
-  // Send Email
-  if (leader.email) {
+  // Send Email (only if not skipping)
+  if (!skipEmail && leader.email) {
     try {
       const emailResponse = await supabase.functions.invoke("send-email", {
         body: {
@@ -221,6 +228,8 @@ async function processLeader(
       errors.push(`Email exception: ${String(e)}`);
       console.error(`[processLeader] Email exception for ${leader.nome_completo}:`, e);
     }
+  } else if (!leader.email) {
+    console.log(`[processLeader] No email for ${leader.nome_completo}, skipping Email`);
   }
 
   return {
