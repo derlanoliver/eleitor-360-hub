@@ -159,36 +159,27 @@ export default function LeaderRegistrationForm() {
       }
 
       // Novo líder criado com sucesso!
-      if (leaderResult?.leader_id && leaderResult?.affiliate_token) {
+      if (leaderResult?.leader_id && leaderResult?.verification_code) {
         setNewLeaderAffiliateToken(leaderResult.affiliate_token);
         setIsNewLeader(true);
 
-        const affiliateLink = `${getBaseUrl()}/cadastro/${leaderResult.affiliate_token}`;
+        const verificationLink = `${getBaseUrl()}/verificar-lider/${leaderResult.verification_code}`;
 
-        // Enviar SMS de boas-vindas com link de indicação
+        // Enviar SMS de VERIFICAÇÃO (não o link de afiliado ainda)
         await supabase.functions.invoke("send-sms", {
           body: {
             phone: telefone_norm,
-            templateSlug: "lider-cadastro-confirmado-sms",
+            templateSlug: "verificacao-lider-sms",
             variables: {
               nome: data.nome.trim(),
-              link_indicacao: affiliateLink,
+              link_verificacao: verificationLink,
             },
           },
         });
 
-        // Enviar Email de boas-vindas
-        await supabase.functions.invoke("send-email", {
-          body: {
-            to: data.email.trim().toLowerCase(),
-            toName: data.nome.trim(),
-            templateSlug: "lideranca-boas-vindas",
-            variables: {
-              nome: data.nome.trim(),
-              link_indicacao: affiliateLink,
-              lider_nome: leader.nome_completo,
-            },
-          },
+        // Atualizar verification_sent_at
+        await supabase.rpc("update_leader_verification_sent", {
+          _leader_id: leaderResult.leader_id,
         });
 
         // Tracking
@@ -199,7 +190,7 @@ export default function LeaderRegistrationForm() {
           new_leader_id: leaderResult.leader_id
         });
 
-        toast.success("Bem-vindo à nossa rede de lideranças!");
+        toast.success("Cadastro realizado! Verifique seu celular para confirmar.");
       }
 
       setIsSuccess(true);
@@ -273,17 +264,17 @@ export default function LeaderRegistrationForm() {
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Crown className="h-8 w-8 text-amber-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Bem-vindo(a) à Nossa Rede de Lideranças!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Cadastro Realizado!</h2>
                 <p className="text-muted-foreground mb-4">
-                  Você agora faz parte da nossa rede! Um <strong>link exclusivo de indicação</strong> foi 
-                  enviado para seu celular via SMS e para seu email.
+                  Enviamos um <strong>SMS de verificação</strong> para seu celular. 
+                  Clique no link para confirmar seu cadastro e receber seu link exclusivo de indicação.
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                  <p className="font-semibold mb-1">🎉 Parabéns!</p>
-                  <p>Use seu link para convidar mais pessoas e fortalecer nosso movimento!</p>
+                  <p className="font-semibold mb-1">📱 Verifique seu celular!</p>
+                  <p>O link de indicação será liberado após a confirmação.</p>
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
-                  Seu mentor: <strong>{leader.nome_completo}</strong>
+                  Indicado por: <strong>{leader.nome_completo}</strong>
                 </p>
               </>
             ) : isAlreadyLeader ? (

@@ -8,7 +8,7 @@ import {
   User, Users, Calendar, MessageSquare, Trophy, History, 
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
-  Download, Crown, Star, ChevronDown, GitBranch, FileText
+  Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,6 +35,7 @@ import {
   DEFAULT_LEVELS
 } from "@/hooks/leaders/useLeaderLevels";
 import { useLeaderHierarchyPath } from "@/hooks/leaders/useLeaderHierarchyPath";
+import { useResendLeaderVerificationSMS, useMarkLeaderVerifiedManually } from "@/hooks/leaders/useLeaderVerification";
 
 interface LeaderDetailsDialogProps {
   leader: OfficeLeader;
@@ -101,6 +102,10 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const { data: surveyData, isLoading: loadingSurveys } = useLeaderSurveyReferrals(open ? leader.id : undefined);
   const { data: hierarchyPath, isLoading: loadingHierarchy } = useLeaderHierarchyPath(open ? leader.id : undefined);
   
+  // Hooks de verificação
+  const resendVerificationMutation = useResendLeaderVerificationSMS();
+  const markVerifiedMutation = useMarkLeaderVerifiedManually();
+  
   // Buscar níveis e configurações dinâmicas do banco
   const { data: dynamicLevels } = useLeaderLevels();
   const { data: gamificationSettings } = useGamificationSettings();
@@ -127,8 +132,9 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="info" className="flex-1">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
+            <TabsTrigger value="verificacao" className="text-xs">Verificação</TabsTrigger>
             <TabsTrigger value="indicacoes" className="text-xs">Indicações</TabsTrigger>
             <TabsTrigger value="eventos" className="text-xs">Eventos</TabsTrigger>
             <TabsTrigger value="pesquisas" className="text-xs">Pesquisas</TabsTrigger>

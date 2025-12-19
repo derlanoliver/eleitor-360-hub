@@ -20,7 +20,13 @@ export function usePromoteToLeader() {
 
   return useMutation({
     mutationFn: async ({ contact, actionBy }: PromoteToLeaderParams) => {
-      // 1. Criar líder
+      // 1. Gerar código de verificação
+      const { data: verificationCode, error: codeError } = await supabase
+        .rpc("generate_leader_verification_code");
+
+      if (codeError) throw codeError;
+
+      // 2. Criar líder com is_verified = false
       const { data: leader, error: leaderError } = await supabase
         .from("lideres")
         .insert({
@@ -33,13 +39,15 @@ export function usePromoteToLeader() {
           status: "active",
           cadastros: 0,
           pontuacao_total: 0,
+          is_verified: false,
+          verification_code: verificationCode,
         })
         .select()
         .single();
 
       if (leaderError) throw leaderError;
 
-      // 2. Registrar no histórico
+      // 3. Registrar no histórico
       const { error: logError } = await supabase
         .from("contact_activity_log")
         .insert({
@@ -56,65 +64,46 @@ export function usePromoteToLeader() {
         console.error("Erro ao registrar histórico:", logError);
       }
 
-      // 3. Enviar WhatsApp de confirmação com QR code
+      // 4. Enviar SMS de VERIFICAÇÃO (não o link de afiliado ainda)
       try {
-        const QRCode = (await import('qrcode')).default;
-        const linkCadastroAfiliado = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
-        const qrCodeDataUrl = await QRCode.toDataURL(linkCadastroAfiliado, { width: 300 });
-        
-        await supabase.functions.invoke("send-whatsapp", {
-          body: {
-            phone: contact.telefone_norm,
-            templateSlug: "lideranca-cadastro-link",
-            variables: {
-              nome: contact.nome,
-              link_cadastro_afiliado: linkCadastroAfiliado,
-            },
-            imageUrl: qrCodeDataUrl,
-          },
-        });
-        
-        console.log("WhatsApp de confirmação enviado para líder promovido");
-      } catch (whatsappError) {
-        console.error("Erro ao enviar WhatsApp de confirmação:", whatsappError);
-      }
-
-      // 4. Enviar SMS de confirmação
-      try {
-        const linkIndicacaoSms = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
+        const verificationLink = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
         await supabase.functions.invoke("send-sms", {
           body: {
             phone: contact.telefone_norm,
-            templateSlug: "lider-cadastro-confirmado-sms",
+            templateSlug: "verificacao-lider-sms",
             variables: {
               nome: contact.nome,
-              link_indicacao: linkIndicacaoSms,
+              link_verificacao: verificationLink,
             },
           },
         });
-        console.log("SMS de confirmação enviado para líder promovido");
+
+        // Atualizar verification_sent_at
+        await supabase.rpc("update_leader_verification_sent", {
+          _leader_id: leader.id,
+        });
+
+        console.log("SMS de verificação enviado para novo líder");
       } catch (smsError) {
-        console.error("Erro ao enviar SMS de confirmação:", smsError);
+        console.error("Erro ao enviar SMS de verificação:", smsError);
       }
 
-      // 5. Enviar email de boas-vindas (se tiver email)
-      if (contact.email && leader.affiliate_token) {
+      // 5. Enviar email informativo (sem link de afiliado, apenas confirmando cadastro)
+      if (contact.email) {
         try {
-          const linkIndicacao = `${getBaseUrl()}/cadastro/${leader.affiliate_token}`;
           await supabase.functions.invoke("send-email", {
             body: {
               to: contact.email,
               toName: contact.nome,
-              templateSlug: "lideranca-boas-vindas",
+              templateSlug: "lideranca-aguardando-verificacao",
               variables: {
                 nome: contact.nome,
-                link_indicacao: linkIndicacao,
               },
             },
           });
-          console.log("Email de boas-vindas enviado para líder promovido");
+          console.log("Email de confirmação de cadastro enviado");
         } catch (emailError) {
-          console.error("Erro ao enviar email de boas-vindas:", emailError);
+          console.error("Erro ao enviar email:", emailError);
         }
       }
 
@@ -127,7 +116,7 @@ export function usePromoteToLeader() {
       queryClient.invalidateQueries({ queryKey: ["contact_activity_log"] });
       toast({
         title: "Contato promovido",
-        description: "O contato foi transformado em líder com sucesso.",
+        description: "O contato foi transformado em líder. SMS de verificação enviado.",
       });
     },
     onError: (error: any) => {
