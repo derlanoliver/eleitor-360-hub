@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.smsdev-webhook]
 verify_jwt = false
+
+[functions.send-leader-affiliate-links]
+verify_jwt = false
