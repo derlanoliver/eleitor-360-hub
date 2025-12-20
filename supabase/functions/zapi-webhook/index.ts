@@ -34,6 +34,18 @@ interface ZapiConnectionStatus {
   type?: string;
 }
 
+interface IntegrationSettings {
+  zapi_instance_id: string | null;
+  zapi_token: string | null;
+  zapi_enabled: boolean | null;
+  resend_api_key: string | null;
+  resend_enabled: boolean | null;
+  resend_from_email: string | null;
+  resend_from_name: string | null;
+  wa_auto_verificacao_enabled: boolean | null;
+  wa_auto_optout_enabled: boolean | null;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -193,6 +205,15 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
   console.log(`[zapi-webhook] Received message from ${phone}: ${message.substring(0, 50)}...`);
 
+  // Get integration settings to check category toggles
+  const { data: settings } = await supabase
+    .from("integrations_settings")
+    .select("zapi_instance_id, zapi_token, zapi_enabled, wa_auto_verificacao_enabled, wa_auto_optout_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name")
+    .limit(1)
+    .single();
+
+  const typedSettings = settings as IntegrationSettings | null;
+
   // Try to find associated contact by phone
   const normalizedPhone = normalizePhone(phone);
   const { data: contact } = await supabase
@@ -225,8 +246,12 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
         console.error("[zapi-webhook] Error processing opt-out:", optOutError);
       } else {
         console.log(`[zapi-webhook] Contact ${contact.id} opted out successfully`);
-        // Send confirmation message
-        await sendOptOutConfirmation(supabase, normalizedPhone, contact.nome);
+        // Send confirmation message only if opt-out category is enabled
+        if (typedSettings?.wa_auto_optout_enabled !== false) {
+          await sendOptOutConfirmation(supabase, normalizedPhone, contact.nome, typedSettings);
+        } else {
+          console.log("[zapi-webhook] wa_auto_optout_enabled=false, skipping opt-out confirmation");
+        }
       }
     } else if (contact && contact.is_active === false) {
       console.log("[zapi-webhook] Contact already opted out");
@@ -262,7 +287,12 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     
     if (!resubError) {
       console.log(`[zapi-webhook] Contact ${contact.id} re-subscribed successfully`);
-      await sendResubscribeConfirmation(supabase, normalizedPhone, contact.nome);
+      // Send confirmation only if opt-out category is enabled
+      if (typedSettings?.wa_auto_optout_enabled !== false) {
+        await sendResubscribeConfirmation(supabase, normalizedPhone, contact.nome, typedSettings);
+      } else {
+        console.log("[zapi-webhook] wa_auto_optout_enabled=false, skipping re-subscribe confirmation");
+      }
     }
     
     await supabase.from("whatsapp_messages").insert({
@@ -311,10 +341,14 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
         console.log(`[zapi-webhook] Contact ${contactToVerify.id} verified successfully`);
         
         // Send pending messages
-        await sendPendingMessages(supabase, contactToVerify);
+        await sendPendingMessages(supabase, contactToVerify, typedSettings);
         
-        // Send verification confirmation
-        await sendVerificationConfirmation(supabase, contactToVerify.telefone_norm, contactToVerify.nome);
+        // Send verification confirmation only if verificacao category is enabled
+        if (typedSettings?.wa_auto_verificacao_enabled !== false) {
+          await sendVerificationConfirmation(supabase, contactToVerify.telefone_norm, contactToVerify.nome, typedSettings);
+        } else {
+          console.log("[zapi-webhook] wa_auto_verificacao_enabled=false, skipping verification confirmation");
+        }
       }
     } else {
       console.log(`[zapi-webhook] No pending verification found for code: ${code}`);
@@ -342,7 +376,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendPendingMessages(supabase: any, contact: any) {
+async function sendPendingMessages(supabase: any, contact: any, settings: IntegrationSettings | null) {
   const pendingMessages = contact.pending_messages || [];
   
   if (pendingMessages.length === 0) {
@@ -352,12 +386,16 @@ async function sendPendingMessages(supabase: any, contact: any) {
   
   console.log(`[zapi-webhook] Sending ${pendingMessages.length} pending messages`);
   
-  // Get integration settings for Z-API
-  const { data: settings } = await supabase
-    .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name")
-    .limit(1)
-    .single();
+  // Use passed settings or fetch if not available
+  let typedSettings = settings;
+  if (!typedSettings) {
+    const { data: fetchedSettings } = await supabase
+      .from("integrations_settings")
+      .select("zapi_instance_id, zapi_token, zapi_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name")
+      .limit(1)
+      .single();
+    typedSettings = fetchedSettings as IntegrationSettings;
+  }
   
   for (const pending of pendingMessages) {
     try {
@@ -367,7 +405,7 @@ async function sendPendingMessages(supabase: any, contact: any) {
         const emailTemplateSlug = pending.template.replace("email:", "");
         console.log(`[zapi-webhook] Processing pending email: ${emailTemplateSlug}`);
         
-        if (!settings?.resend_enabled || !settings?.resend_api_key) {
+        if (!typedSettings?.resend_enabled || !typedSettings?.resend_api_key) {
           console.log("[zapi-webhook] Resend not configured, skipping email");
           continue;
         }
@@ -406,11 +444,11 @@ async function sendPendingMessages(supabase: any, contact: any) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${settings.resend_api_key}`,
+            Authorization: `Bearer ${typedSettings.resend_api_key}`,
           },
           body: JSON.stringify({
-            from: settings.resend_from_email 
-              ? `${settings.resend_from_name || 'Sistema'} <${settings.resend_from_email}>`
+            from: typedSettings.resend_from_email 
+              ? `${typedSettings.resend_from_name || 'Sistema'} <${typedSettings.resend_from_email}>`
               : "Sistema <onboarding@resend.dev>",
             to: [recipientEmail],
             subject: subject,
@@ -436,7 +474,7 @@ async function sendPendingMessages(supabase: any, contact: any) {
         
       } else {
         // Process WhatsApp message
-        if (!settings?.zapi_enabled || !settings?.zapi_instance_id || !settings?.zapi_token) {
+        if (!typedSettings?.zapi_enabled || !typedSettings?.zapi_instance_id || !typedSettings?.zapi_token) {
           console.log("[zapi-webhook] Z-API not configured, skipping WhatsApp message");
           continue;
         }
@@ -460,7 +498,7 @@ async function sendPendingMessages(supabase: any, contact: any) {
         }
         
         // Send via Z-API
-        const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+        const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
         const response = await fetch(zapiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -501,15 +539,19 @@ async function sendPendingMessages(supabase: any, contact: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendVerificationConfirmation(supabase: any, phone: string, nome: string) {
-  // Get integration settings
-  const { data: settings } = await supabase
-    .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled")
-    .limit(1)
-    .single();
+async function sendVerificationConfirmation(supabase: any, phone: string, nome: string, settings: IntegrationSettings | null) {
+  // Use passed settings or fetch if not available
+  let typedSettings = settings;
+  if (!typedSettings) {
+    const { data: fetchedSettings } = await supabase
+      .from("integrations_settings")
+      .select("zapi_instance_id, zapi_token, zapi_enabled")
+      .limit(1)
+      .single();
+    typedSettings = fetchedSettings as IntegrationSettings;
+  }
   
-  if (!settings?.zapi_enabled) {
+  if (!typedSettings?.zapi_enabled) {
     console.log("[zapi-webhook] Z-API not enabled, skipping confirmation");
     return;
   }
@@ -540,7 +582,7 @@ async function sendVerificationConfirmation(supabase: any, phone: string, nome: 
   
   // Send via Z-API
   try {
-    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
     const response = await fetch(zapiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -576,15 +618,19 @@ async function sendVerificationConfirmation(supabase: any, phone: string, nome: 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendOptOutConfirmation(supabase: any, phone: string, nome: string) {
-  // Get integration settings
-  const { data: settings } = await supabase
-    .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled")
-    .limit(1)
-    .single();
+async function sendOptOutConfirmation(supabase: any, phone: string, nome: string, settings: IntegrationSettings | null) {
+  // Use passed settings or fetch if not available
+  let typedSettings = settings;
+  if (!typedSettings) {
+    const { data: fetchedSettings } = await supabase
+      .from("integrations_settings")
+      .select("zapi_instance_id, zapi_token, zapi_enabled")
+      .limit(1)
+      .single();
+    typedSettings = fetchedSettings as IntegrationSettings;
+  }
   
-  if (!settings?.zapi_enabled) {
+  if (!typedSettings?.zapi_enabled) {
     console.log("[zapi-webhook] Z-API not enabled, skipping opt-out confirmation");
     return;
   }
@@ -600,7 +646,7 @@ async function sendOptOutConfirmation(supabase: any, phone: string, nome: string
   message = message.replace(/{{nome}}/g, nome);
   
   try {
-    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
     const response = await fetch(zapiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -636,19 +682,24 @@ async function sendOptOutConfirmation(supabase: any, phone: string, nome: string
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendResubscribeConfirmation(supabase: any, phone: string, nome: string) {
-  const { data: settings } = await supabase
-    .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled")
-    .limit(1)
-    .single();
+async function sendResubscribeConfirmation(supabase: any, phone: string, nome: string, settings: IntegrationSettings | null) {
+  // Use passed settings or fetch if not available
+  let typedSettings = settings;
+  if (!typedSettings) {
+    const { data: fetchedSettings } = await supabase
+      .from("integrations_settings")
+      .select("zapi_instance_id, zapi_token, zapi_enabled")
+      .limit(1)
+      .single();
+    typedSettings = fetchedSettings as IntegrationSettings;
+  }
   
-  if (!settings?.zapi_enabled) return;
+  if (!typedSettings?.zapi_enabled) return;
   
   const message = `Olá ${nome}! 🎉\n\nVocê voltou a receber nossas comunicações!\n\nSe precisar de algo, estamos à disposição.`;
   
   try {
-    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
     await fetch(zapiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
