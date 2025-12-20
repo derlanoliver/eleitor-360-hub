@@ -28,6 +28,8 @@ interface SelectedContact {
   telefone_norm: string;
   cidade_id: string | null;
   cidade: { id: string; nome: string } | null;
+  last_leader_id: string | null;
+  last_leader: { id: string; nome_completo: string } | null;
 }
 
 const TIME_SLOTS = [
@@ -60,6 +62,9 @@ export default function NewVisit() {
     if (contact) {
       setNome(contact.nome);
       setCidadeId(contact.cidade_id || "");
+      if (contact.last_leader_id) {
+        setLeaderId(contact.last_leader_id);
+      }
     }
   };
   

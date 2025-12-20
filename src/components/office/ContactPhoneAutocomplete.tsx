@@ -14,6 +14,11 @@ interface Contact {
     id: string;
     nome: string;
   } | null;
+  last_leader_id: string | null;
+  last_leader: {
+    id: string;
+    nome_completo: string;
+  } | null;
 }
 
 interface ContactPhoneAutocompleteProps {
