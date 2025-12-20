@@ -13,7 +13,8 @@ import {
   BarChart3,
   FileText,
   HelpCircle,
-  Trophy
+  Trophy,
+  MessageSquareText
 } from "lucide-react";
 
 type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
@@ -84,6 +85,14 @@ const Settings = () => {
       description: "Configure regras de pontuação e níveis de líderes",
       icon: Trophy,
       href: "/settings/gamification",
+      available: true,
+      roles: ['super_admin', 'admin'],
+    },
+    {
+      title: "Assistente Virtual WhatsApp",
+      description: "Configure o chatbot para atender líderes automaticamente",
+      icon: MessageSquareText,
+      href: "/settings/whatsapp-chatbot",
       available: true,
       roles: ['super_admin', 'admin'],
     },
