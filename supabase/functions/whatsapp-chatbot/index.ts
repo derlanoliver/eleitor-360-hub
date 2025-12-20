@@ -54,9 +54,29 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
   
   // Mostra estatísticas da árvore do líder
   minha_arvore: async (supabase, leader) => {
+    // Buscar estatísticas da árvore
     const { data, error } = await supabase.rpc("get_leader_tree_stats", {
       _leader_id: leader.id
     });
+    
+    // Buscar informações do líder atual incluindo parent_leader_id
+    const { data: leaderInfo } = await supabase
+      .from("lideres")
+      .select("parent_leader_id")
+      .eq("id", leader.id)
+      .single();
+    
+    // Buscar dados do líder superior se existir
+    let parentLeader = null;
+    if (leaderInfo?.parent_leader_id) {
+      const { data: parentData } = await supabase
+        .from("lideres")
+        .select("nome_completo, cadastros, pontuacao_total")
+        .eq("id", leaderInfo.parent_leader_id)
+        .eq("is_active", true)
+        .single();
+      parentLeader = parentData;
+    }
     
     if (error || !data || data.length === 0) {
       return `Olá ${leader.nome_completo.split(" ")[0]}! 🌳\n\nNão encontrei dados da sua rede. Se você é novo, comece indicando pessoas!`;
@@ -65,6 +85,14 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     const stats = data[0];
     let response = `Olá ${leader.nome_completo.split(" ")[0]}! 🌳\n\n`;
     response += `*Sua Rede de Lideranças*\n\n`;
+    
+    // Adicionar líder superior se existir
+    if (parentLeader) {
+      response += `👆 *Seu Líder Superior:*\n`;
+      response += `   ${parentLeader.nome_completo}\n`;
+      response += `   📋 ${parentLeader.cadastros} cadastros | ⭐ ${parentLeader.pontuacao_total} pts\n\n`;
+    }
+    
     response += `👥 Líderes na sua árvore: ${stats.total_leaders || 0}\n`;
     response += `📋 Total de cadastros: ${stats.total_cadastros || 0}\n`;
     response += `⭐ Pontuação total: ${stats.total_pontos || 0}\n`;
