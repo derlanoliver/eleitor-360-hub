@@ -364,10 +364,13 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
   // Check if sender is an active leader and call chatbot
   if (shouldCallChatbot) {
+    // Try with normalized phone (with +) and without + prefix
+    const phoneWithoutPlus = normalizedPhone.replace(/^\+/, "");
+    
     const { data: leader } = await supabase
       .from("lideres")
       .select("id, nome_completo")
-      .eq("telefone", normalizedPhone)
+      .or(`telefone.eq.${normalizedPhone},telefone.eq.${phoneWithoutPlus}`)
       .eq("is_active", true)
       .limit(1)
       .single();
