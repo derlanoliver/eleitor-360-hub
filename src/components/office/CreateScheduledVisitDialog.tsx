@@ -28,7 +28,10 @@ interface SelectedContact {
   id: string;
   nome: string;
   telefone_norm: string;
-  cidade?: { id: string; nome: string } | null;
+  cidade_id: string | null;
+  cidade: { id: string; nome: string } | null;
+  last_leader_id: string | null;
+  last_leader: { id: string; nome_completo: string } | null;
 }
 
 const TIME_SLOTS = [
@@ -48,7 +51,7 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
 
   const createVisit = useCreateScheduledVisit();
 
-  // Auto-preencher nome e cidade quando contato é selecionado
+  // Auto-preencher nome, cidade e líder quando contato é selecionado
   const handleContactSelect = (contact: SelectedContact | null) => {
     setSelectedContact(contact);
     if (contact) {
@@ -56,13 +59,18 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
       if (contact.cidade?.id) {
         setCidadeId(contact.cidade.id);
       }
+      if (contact.last_leader_id) {
+        setLeaderId(contact.last_leader_id);
+      }
     }
   };
 
-  // Limpar líder quando cidade muda
+  // Limpar líder quando cidade muda (somente se não foi preenchido pelo contato)
   useEffect(() => {
-    setLeaderId("");
-  }, [cidadeId]);
+    if (!selectedContact?.last_leader_id) {
+      setLeaderId("");
+    }
+  }, [cidadeId, selectedContact]);
 
   const resetForm = () => {
     setNome("");
@@ -139,6 +147,19 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="telefone">WhatsApp *</Label>
+            <ContactPhoneAutocomplete
+              value={telefone}
+              onPhoneChange={setTelefone}
+              onContactSelect={handleContactSelect}
+              disabled={createVisit.isPending || sendingSms}
+            />
+            <p className="text-xs text-muted-foreground">
+              Digite o número para buscar contatos existentes
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="nome">Nome Completo *</Label>
             <Input
               id="nome"
@@ -146,16 +167,6 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
               onChange={(e) => setNome(e.target.value)}
               placeholder="Nome do visitante"
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="telefone">WhatsApp *</Label>
-            <ContactPhoneAutocomplete
-              value={telefone}
-              onPhoneChange={setTelefone}
-              onContactSelect={handleContactSelect}
-              disabled={createVisit.isPending || sendingSms}
             />
           </div>
 
