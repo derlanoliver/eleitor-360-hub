@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RegionSelect } from "@/components/office/RegionSelect";
-import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
 import { useCreateScheduledVisit } from "@/hooks/office/useScheduledVisits";
-import { PhoneInput } from "@/components/office/PhoneInput";
+import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
+import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
 import { Loader2, CalendarIcon, Clock, Send } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,6 +24,13 @@ interface CreateScheduledVisitDialogProps {
   initialDate?: Date;
 }
 
+interface SelectedContact {
+  id: string;
+  nome: string;
+  telefone_norm: string;
+  cidade?: { id: string; nome: string } | null;
+}
+
 const TIME_SLOTS = [
   "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
   "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"
@@ -33,29 +40,44 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [cidadeId, setCidadeId] = useState("");
-  const [leaderId, setLeaderId] = useState<string | undefined>();
+  const [leaderId, setLeaderId] = useState<string>("");
   const [date, setDate] = useState<Date | undefined>(initialDate || addDays(new Date(), 1));
   const [time, setTime] = useState<string>("");
   const [sendingSms, setSendingSms] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
 
-  
-  const { data: leadersResult } = useOfficeLeaders();
-  const leaders = leadersResult?.data || [];
   const createVisit = useCreateScheduledVisit();
+
+  // Auto-preencher nome e cidade quando contato é selecionado
+  const handleContactSelect = (contact: SelectedContact | null) => {
+    setSelectedContact(contact);
+    if (contact) {
+      setNome(contact.nome);
+      if (contact.cidade?.id) {
+        setCidadeId(contact.cidade.id);
+      }
+    }
+  };
+
+  // Limpar líder quando cidade muda
+  useEffect(() => {
+    setLeaderId("");
+  }, [cidadeId]);
 
   const resetForm = () => {
     setNome("");
     setTelefone("");
     setCidadeId("");
-    setLeaderId(undefined);
+    setLeaderId("");
     setDate(initialDate || addDays(new Date(), 1));
     setTime("");
+    setSelectedContact(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!nome || !telefone || !cidadeId || !date || !time) {
+    if (!nome || !telefone || !cidadeId || !leaderId || !date || !time) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -65,7 +87,7 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
         nome,
         telefone,
         cidadeId,
-        leaderId,
+        leaderId: leaderId || undefined,
         scheduledDate: format(date, "yyyy-MM-dd"),
         scheduledTime: time,
       });
@@ -129,10 +151,11 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
 
           <div className="space-y-2">
             <Label htmlFor="telefone">WhatsApp *</Label>
-            <PhoneInput
+            <ContactPhoneAutocomplete
               value={telefone}
-              onValueChange={setTelefone}
-              placeholder="(61) 99999-9999"
+              onPhoneChange={setTelefone}
+              onContactSelect={handleContactSelect}
+              disabled={createVisit.isPending || sendingSms}
             />
           </div>
 
@@ -146,20 +169,14 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
           </div>
 
           <div className="space-y-2">
-            <Label>Líder (opcional)</Label>
-            <Select value={leaderId || "none"} onValueChange={(v) => setLeaderId(v === "none" ? undefined : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o líder" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem líder</SelectItem>
-                {leaders.map((leader) => (
-                  <SelectItem key={leader.id} value={leader.id}>
-                    {leader.nome_completo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Líder *</Label>
+            <LeaderAutocomplete
+              value={leaderId}
+              onValueChange={setLeaderId}
+              cityId={cidadeId}
+              disabled={createVisit.isPending || sendingSms || !cidadeId}
+              placeholder={!cidadeId ? "Selecione a cidade primeiro" : "Buscar líder..."}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
