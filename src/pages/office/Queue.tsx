@@ -111,6 +111,27 @@ export default function Queue() {
     scheduledTime.setHours(hours, minutes, 0, 0);
     return scheduledTime < now;
   };
+
+  // Verifica se a visita é de um dia anterior (atrasada por data)
+  const isVisitOverdueByDate = (visit: any) => {
+    // Primeiro verifica scheduled_date
+    if (visit.scheduled_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const visitDate = new Date(visit.scheduled_date);
+      visitDate.setHours(0, 0, 0, 0);
+      return visitDate < today;
+    }
+    // Fallback para rescheduled_date
+    if (visit.rescheduled_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const visitDate = new Date(visit.rescheduled_date);
+      visitDate.setHours(0, 0, 0, 0);
+      return visitDate < today;
+    }
+    return false;
+  };
   
   const handleReschedule = (visitId: string, newDate: Date) => {
     rescheduleMeeting.mutate({ visitId, newDate });
@@ -254,28 +275,84 @@ export default function Queue() {
             <CardDescription>{registered.length} visitas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {registered.map((visit) => (
-              <div 
-                key={visit.id} 
-                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => setSelectedVisit(visit)}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
-                  {visit.status === "SCHEDULED" && visit.scheduled_time && (
-                    <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 text-xs">
-                      <CalendarDays className="h-3 w-3 mr-1" />
-                      {visit.scheduled_time.substring(0, 5)}
-                    </Badge>
+            {registered.map((visit) => {
+              const overdueByDate = isVisitOverdueByDate(visit);
+              return (
+                <div 
+                  key={visit.id} 
+                  className={`p-3 bg-muted rounded-lg space-y-2 ${overdueByDate ? 'border border-destructive/50' : ''}`}
+                >
+                  <div 
+                    className="cursor-pointer hover:bg-muted/80 transition-colors"
+                    onClick={() => setSelectedVisit(visit)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                      <div className="flex items-center gap-1">
+                        {overdueByDate && (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Atrasada
+                          </Badge>
+                        )}
+                        {visit.status === "SCHEDULED" && visit.scheduled_time && !overdueByDate && (
+                          <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 text-xs">
+                            <CalendarDays className="h-3 w-3 mr-1" />
+                            {visit.scheduled_time.substring(0, 5)}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="font-medium text-sm mt-2">{visit.contact?.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+                    </p>
+                    <OfficeStatusBadge status={visit.status} className="mt-2" />
+                  </div>
+                  
+                  {/* Botões de ação para visitas atrasadas */}
+                  {overdueByDate && (
+                    <TooltipProvider>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRescheduleVisit(visit);
+                              }}
+                            >
+                              <CalendarClock className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reagendar</TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelMeeting.mutate(visit.id);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Cancelar</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   )}
                 </div>
-                <p className="font-medium text-sm">{visit.contact?.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
-                </p>
-                <OfficeStatusBadge status={visit.status} />
-              </div>
-            ))}
+              );
+            })}
             {registered.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Nenhuma visita aguardando
@@ -294,20 +371,76 @@ export default function Queue() {
             <CardDescription>{opened.length} visitas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {opened.map((visit) => (
-              <div 
-                key={visit.id} 
-                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => setSelectedVisit(visit)}
-              >
-                <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
-                <p className="font-medium text-sm">{visit.contact?.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
-                </p>
-                <OfficeStatusBadge status={visit.status} />
-              </div>
-            ))}
+            {opened.map((visit) => {
+              const overdueByDate = isVisitOverdueByDate(visit);
+              return (
+                <div 
+                  key={visit.id} 
+                  className={`p-3 bg-muted rounded-lg space-y-2 ${overdueByDate ? 'border border-destructive/50' : ''}`}
+                >
+                  <div 
+                    className="cursor-pointer hover:bg-muted/80 transition-colors"
+                    onClick={() => setSelectedVisit(visit)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                      {overdueByDate && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Atrasada
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="font-medium text-sm mt-2">{visit.contact?.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+                    </p>
+                    <OfficeStatusBadge status={visit.status} className="mt-2" />
+                  </div>
+                  
+                  {/* Botões de ação para visitas atrasadas */}
+                  {overdueByDate && (
+                    <TooltipProvider>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRescheduleVisit(visit);
+                              }}
+                            >
+                              <CalendarClock className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reagendar</TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelMeeting.mutate(visit.id);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Cancelar</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            })}
             {opened.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Nenhum form aberto
@@ -326,20 +459,76 @@ export default function Queue() {
             <CardDescription>{submitted.length} visitas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {submitted.map((visit) => (
-              <div 
-                key={visit.id} 
-                className="p-3 bg-muted rounded-lg space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => setSelectedVisit(visit)}
-              >
-                <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
-                <p className="font-medium text-sm">{visit.contact?.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
-                </p>
-                <OfficeStatusBadge status={visit.status} />
-              </div>
-            ))}
+            {submitted.map((visit) => {
+              const overdueByDate = isVisitOverdueByDate(visit);
+              return (
+                <div 
+                  key={visit.id} 
+                  className={`p-3 bg-muted rounded-lg space-y-2 ${overdueByDate ? 'border border-destructive/50' : ''}`}
+                >
+                  <div 
+                    className="cursor-pointer hover:bg-muted/80 transition-colors"
+                    onClick={() => setSelectedVisit(visit)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <ProtocolBadge protocolo={visit.protocolo} showCopy={false} />
+                      {overdueByDate && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Atrasada
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="font-medium text-sm mt-2">{visit.contact?.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {visit.contact?.telefone_norm && formatPhoneBR(visit.contact.telefone_norm)}
+                    </p>
+                    <OfficeStatusBadge status={visit.status} className="mt-2" />
+                  </div>
+                  
+                  {/* Botões de ação para visitas atrasadas */}
+                  {overdueByDate && (
+                    <TooltipProvider>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRescheduleVisit(visit);
+                              }}
+                            >
+                              <CalendarClock className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reagendar</TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelMeeting.mutate(visit.id);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Cancelar</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            })}
             {submitted.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Nenhum form preenchido
