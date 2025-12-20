@@ -48,6 +48,7 @@ import LeadCaptureLanding from "./pages/LeadCaptureLanding";
 import PublicLeaderRegistration from "./pages/PublicLeaderRegistration";
 import LeaderFormSettings from "./pages/settings/LeaderFormSettings";
 import Gamification from "./pages/settings/Gamification";
+import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -302,6 +303,13 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <Gamification />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/settings/whatsapp-chatbot" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <WhatsAppChatbot />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />

@@ -355,6 +355,47 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     }
   }
 
+  // Check if sender is an active leader and call chatbot (only for non-verification messages)
+  if (!codeMatch) {
+    const { data: leader } = await supabase
+      .from("lideres")
+      .select("id, nome_completo")
+      .eq("telefone", normalizedPhone)
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+
+    if (leader) {
+      console.log(`[zapi-webhook] Message from leader ${leader.nome_completo}, calling chatbot`);
+      
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      
+      try {
+        const chatbotResponse = await fetch(
+          `${supabaseUrl}/functions/v1/whatsapp-chatbot`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              phone: normalizedPhone,
+              message: message,
+              leaderId: leader.id,
+            }),
+          }
+        );
+        
+        const chatbotResult = await chatbotResponse.json();
+        console.log("[zapi-webhook] Chatbot response:", JSON.stringify(chatbotResult));
+      } catch (chatbotError) {
+        console.error("[zapi-webhook] Error calling chatbot:", chatbotError);
+      }
+    }
+  }
+
   // Insert received message
   const { error } = await supabase
     .from("whatsapp_messages")
