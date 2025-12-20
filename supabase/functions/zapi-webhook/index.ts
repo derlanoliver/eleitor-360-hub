@@ -310,6 +310,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
   // Check if message is a verification code (5 alphanumeric chars)
   const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5}$/);
+  let shouldCallChatbot = false;
   
   if (codeMatch) {
     const code = codeMatch[0];
@@ -351,12 +352,18 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
         }
       }
     } else {
-      console.log(`[zapi-webhook] No pending verification found for code: ${code}`);
+      console.log(`[zapi-webhook] No pending verification found for code: ${code}, checking if sender is a leader for chatbot`);
+      
+      // If no verification found, this might be a chatbot keyword like "AJUDA" - call chatbot
+      shouldCallChatbot = true;
     }
+  } else {
+    // Not a potential verification code, should check for chatbot
+    shouldCallChatbot = true;
   }
 
-  // Check if sender is an active leader and call chatbot (only for non-verification messages)
-  if (!codeMatch) {
+  // Check if sender is an active leader and call chatbot
+  if (shouldCallChatbot) {
     const { data: leader } = await supabase
       .from("lideres")
       .select("id, nome_completo")
