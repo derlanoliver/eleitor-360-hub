@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderAutocompleteProps {
   value?: string;
@@ -33,10 +35,39 @@ export function LeaderAutocomplete({
   
   const leaders = leadersResult?.data || [];
   
-  const selectedLeader = useMemo(
-    () => leaders.find((leader) => leader.id === value),
-    [leaders, value]
-  );
+  // Busca separada do líder selecionado quando não está na lista filtrada
+  const { data: selectedLeaderData } = useQuery({
+    queryKey: ["leader_by_id", value],
+    queryFn: async () => {
+      if (!value) return null;
+      const { data, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, cidade:office_cities(id, nome, codigo_ra)")
+        .eq("id", value)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!value,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+  });
+  
+  const selectedLeader = useMemo(() => {
+    // Primeiro tenta encontrar na lista filtrada
+    const fromList = leaders.find((leader) => leader.id === value);
+    if (fromList) return fromList;
+    
+    // Se não encontrou, usa os dados da busca separada
+    if (selectedLeaderData) {
+      return {
+        id: selectedLeaderData.id,
+        nome_completo: selectedLeaderData.nome_completo,
+        cidade: selectedLeaderData.cidade
+      };
+    }
+    
+    return undefined;
+  }, [leaders, value, selectedLeaderData]);
   
   const hasLeaders = leaders.length > 0;
   const isDisabled = disabled || (!cityId && !allowAllLeaders);
