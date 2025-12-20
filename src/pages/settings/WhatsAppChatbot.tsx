@@ -1,0 +1,593 @@
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Bot, 
+  MessageSquare, 
+  Settings, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  History,
+  Zap,
+  Brain,
+  FileText,
+  ArrowLeft
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  useChatbotConfig,
+  useUpdateChatbotConfig,
+  useChatbotKeywords,
+  useCreateChatbotKeyword,
+  useUpdateChatbotKeyword,
+  useDeleteChatbotKeyword,
+  useChatbotLogs,
+  ChatbotKeyword,
+  AVAILABLE_DYNAMIC_FUNCTIONS
+} from "@/hooks/useWhatsAppChatbot";
+
+const WhatsAppChatbot = () => {
+  const [activeTab, setActiveTab] = useState("config");
+  const [keywordDialogOpen, setKeywordDialogOpen] = useState(false);
+  const [editingKeyword, setEditingKeyword] = useState<ChatbotKeyword | null>(null);
+
+  // Form state for keyword
+  const [keywordForm, setKeywordForm] = useState({
+    keyword: "",
+    aliases: "",
+    description: "",
+    response_type: "dynamic" as "static" | "dynamic" | "ai",
+    static_response: "",
+    dynamic_function: "",
+    is_active: true,
+    priority: 0
+  });
+
+  // Queries
+  const { data: config, isLoading: loadingConfig } = useChatbotConfig();
+  const { data: keywords, isLoading: loadingKeywords } = useChatbotKeywords();
+  const { data: logs, isLoading: loadingLogs } = useChatbotLogs(100);
+
+  // Mutations
+  const updateConfig = useUpdateChatbotConfig();
+  const createKeyword = useCreateChatbotKeyword();
+  const updateKeyword = useUpdateChatbotKeyword();
+  const deleteKeyword = useDeleteChatbotKeyword();
+
+  const handleConfigChange = (field: string, value: any) => {
+    updateConfig.mutate({ [field]: value });
+  };
+
+  const openNewKeywordDialog = () => {
+    setEditingKeyword(null);
+    setKeywordForm({
+      keyword: "",
+      aliases: "",
+      description: "",
+      response_type: "dynamic",
+      static_response: "",
+      dynamic_function: "",
+      is_active: true,
+      priority: 0
+    });
+    setKeywordDialogOpen(true);
+  };
+
+  const openEditKeywordDialog = (kw: ChatbotKeyword) => {
+    setEditingKeyword(kw);
+    setKeywordForm({
+      keyword: kw.keyword,
+      aliases: (kw.aliases || []).join(", "),
+      description: kw.description || "",
+      response_type: kw.response_type,
+      static_response: kw.static_response || "",
+      dynamic_function: kw.dynamic_function || "",
+      is_active: kw.is_active,
+      priority: kw.priority
+    });
+    setKeywordDialogOpen(true);
+  };
+
+  const handleSaveKeyword = () => {
+    const aliases = keywordForm.aliases
+      .split(",")
+      .map(a => a.trim())
+      .filter(a => a.length > 0);
+
+    const data = {
+      keyword: keywordForm.keyword.toUpperCase(),
+      aliases,
+      description: keywordForm.description || null,
+      response_type: keywordForm.response_type,
+      static_response: keywordForm.response_type === "static" ? keywordForm.static_response : null,
+      dynamic_function: keywordForm.response_type === "dynamic" ? keywordForm.dynamic_function : null,
+      is_active: keywordForm.is_active,
+      priority: keywordForm.priority
+    };
+
+    if (editingKeyword) {
+      updateKeyword.mutate({ id: editingKeyword.id, ...data });
+    } else {
+      createKeyword.mutate(data);
+    }
+
+    setKeywordDialogOpen(false);
+  };
+
+  const handleDeleteKeyword = (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta palavra-chave?")) {
+      deleteKeyword.mutate(id);
+    }
+  };
+
+  const getResponseTypeBadge = (type: string) => {
+    switch (type) {
+      case "static":
+        return <Badge variant="secondary"><FileText className="w-3 h-3 mr-1" /> Estática</Badge>;
+      case "dynamic":
+        return <Badge variant="default"><Zap className="w-3 h-3 mr-1" /> Dinâmica</Badge>;
+      case "ai":
+        return <Badge className="bg-purple-500"><Brain className="w-3 h-3 mr-1" /> IA</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link to="/settings">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Bot className="h-6 w-6 text-primary" />
+            Assistente Virtual WhatsApp
+          </h1>
+          <p className="text-muted-foreground">
+            Configure o chatbot para atender automaticamente os líderes via WhatsApp
+          </p>
+        </div>
+      </div>
+
+      {/* Main Toggle */}
+      {loadingConfig ? (
+        <Skeleton className="h-20 w-full" />
+      ) : (
+        <Card className={config?.is_enabled ? "border-green-500 bg-green-50/50" : ""}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Ativar Assistente Virtual</h3>
+                <p className="text-muted-foreground text-sm">
+                  Quando ativado, o chatbot responderá automaticamente às mensagens de líderes cadastrados
+                </p>
+              </div>
+              <Switch
+                checked={config?.is_enabled || false}
+                onCheckedChange={(checked) => handleConfigChange("is_enabled", checked)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="config" className="gap-2">
+            <Settings className="h-4 w-4" /> Configurações
+          </TabsTrigger>
+          <TabsTrigger value="keywords" className="gap-2">
+            <MessageSquare className="h-4 w-4" /> Palavras-Chave
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-2">
+            <History className="h-4 w-4" /> Histórico
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Config Tab */}
+        <TabsContent value="config" className="space-y-4">
+          {loadingConfig ? (
+            <Skeleton className="h-96 w-full" />
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Comportamento</CardTitle>
+                  <CardDescription>Configure como o chatbot responde às mensagens</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Usar IA para perguntas não reconhecidas</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Quando a mensagem não corresponder a nenhuma palavra-chave, usar IA para responder
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config?.use_ai_for_unknown || false}
+                      onCheckedChange={(checked) => handleConfigChange("use_ai_for_unknown", checked)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Limite de mensagens por hora (por líder)</Label>
+                    <Input
+                      type="number"
+                      value={config?.max_messages_per_hour || 20}
+                      onChange={(e) => handleConfigChange("max_messages_per_hour", parseInt(e.target.value) || 20)}
+                      min={1}
+                      max={100}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Limita quantas mensagens cada líder pode enviar por hora para evitar spam
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mensagens Padrão</CardTitle>
+                  <CardDescription>Mensagens automáticas do chatbot</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Mensagem de boas-vindas</Label>
+                    <Textarea
+                      value={config?.welcome_message || ""}
+                      onChange={(e) => handleConfigChange("welcome_message", e.target.value)}
+                      placeholder="Olá! Sou o assistente virtual..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Mensagem de fallback (quando não entender)</Label>
+                    <Textarea
+                      value={config?.fallback_message || ""}
+                      onChange={(e) => handleConfigChange("fallback_message", e.target.value)}
+                      placeholder="Não entendi sua mensagem. Digite AJUDA..."
+                      rows={3}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Prompt do Sistema de IA</CardTitle>
+                  <CardDescription>Instruções para a IA quando responder perguntas abertas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    value={config?.ai_system_prompt || ""}
+                    onChange={(e) => handleConfigChange("ai_system_prompt", e.target.value)}
+                    placeholder="Você é um assistente virtual amigável..."
+                    rows={5}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* Keywords Tab */}
+        <TabsContent value="keywords" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Palavras-Chave</CardTitle>
+                <CardDescription>Configure comandos e respostas automáticas</CardDescription>
+              </div>
+              <Button onClick={openNewKeywordDialog}>
+                <Plus className="h-4 w-4 mr-2" /> Nova Palavra-Chave
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingKeywords ? (
+                <Skeleton className="h-64 w-full" />
+              ) : keywords && keywords.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Palavra-Chave</TableHead>
+                      <TableHead>Aliases</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {keywords.map((kw) => (
+                      <TableRow key={kw.id}>
+                        <TableCell className="font-mono font-semibold">{kw.keyword}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {(kw.aliases || []).join(", ") || "-"}
+                        </TableCell>
+                        <TableCell>{getResponseTypeBadge(kw.response_type)}</TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={kw.is_active}
+                            onCheckedChange={(checked) => 
+                              updateKeyword.mutate({ id: kw.id, is_active: checked })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditKeywordDialog(kw)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteKeyword(kw.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhuma palavra-chave configurada
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Logs Tab */}
+        <TabsContent value="logs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de Conversas</CardTitle>
+              <CardDescription>Últimas interações do chatbot com líderes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingLogs ? (
+                <Skeleton className="h-64 w-full" />
+              ) : logs && logs.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Líder</TableHead>
+                      <TableHead>Mensagem Recebida</TableHead>
+                      <TableHead>Comando</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Tempo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm">
+                          {format(new Date(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell>
+                          {log.leader?.nome_completo || log.phone}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate" title={log.message_in}>
+                          {log.message_in}
+                        </TableCell>
+                        <TableCell>
+                          {log.keyword_matched ? (
+                            <Badge variant="outline">{log.keyword_matched}</Badge>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {log.response_type ? getResponseTypeBadge(log.response_type) : "-"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {log.processing_time_ms ? `${log.processing_time_ms}ms` : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhuma conversa registrada ainda
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Keyword Dialog */}
+      <Dialog open={keywordDialogOpen} onOpenChange={setKeywordDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingKeyword ? "Editar Palavra-Chave" : "Nova Palavra-Chave"}
+            </DialogTitle>
+            <DialogDescription>
+              Configure um comando que o chatbot reconhecerá
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Palavra-Chave Principal *</Label>
+              <Input
+                value={keywordForm.keyword}
+                onChange={(e) => setKeywordForm({ ...keywordForm, keyword: e.target.value.toUpperCase() })}
+                placeholder="Ex: ARVORE"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Aliases (sinônimos, separados por vírgula)</Label>
+              <Input
+                value={keywordForm.aliases}
+                onChange={(e) => setKeywordForm({ ...keywordForm, aliases: e.target.value })}
+                placeholder="Ex: rede, equipe, time"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Input
+                value={keywordForm.description}
+                onChange={(e) => setKeywordForm({ ...keywordForm, description: e.target.value })}
+                placeholder="O que este comando faz?"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Resposta *</Label>
+              <Select
+                value={keywordForm.response_type}
+                onValueChange={(value: "static" | "dynamic" | "ai") => 
+                  setKeywordForm({ ...keywordForm, response_type: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" /> Dinâmica (função do sistema)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="static">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Estática (texto fixo)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="ai">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4" /> IA (resposta inteligente)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {keywordForm.response_type === "static" && (
+              <div className="space-y-2">
+                <Label>Resposta Estática *</Label>
+                <Textarea
+                  value={keywordForm.static_response}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, static_response: e.target.value })}
+                  placeholder="Texto que será enviado. Use {{nome}} para o nome do líder."
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Variáveis: {"{{nome}}"}, {"{{nome_completo}}"}, {"{{pontos}}"}, {"{{cadastros}}"}
+                </p>
+              </div>
+            )}
+
+            {keywordForm.response_type === "dynamic" && (
+              <div className="space-y-2">
+                <Label>Função Dinâmica *</Label>
+                <Select
+                  value={keywordForm.dynamic_function}
+                  onValueChange={(value) => setKeywordForm({ ...keywordForm, dynamic_function: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma função" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AVAILABLE_DYNAMIC_FUNCTIONS.map((fn) => (
+                      <SelectItem key={fn.value} value={fn.value}>
+                        <div>
+                          <div className="font-medium">{fn.label}</div>
+                          <div className="text-xs text-muted-foreground">{fn.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-2">
+                <Label>Prioridade</Label>
+                <Input
+                  type="number"
+                  value={keywordForm.priority}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, priority: parseInt(e.target.value) || 0 })}
+                  min={0}
+                  max={100}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <Switch
+                  checked={keywordForm.is_active}
+                  onCheckedChange={(checked) => setKeywordForm({ ...keywordForm, is_active: checked })}
+                />
+                <Label>Ativo</Label>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKeywordDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveKeyword}
+              disabled={!keywordForm.keyword || 
+                (keywordForm.response_type === "static" && !keywordForm.static_response) ||
+                (keywordForm.response_type === "dynamic" && !keywordForm.dynamic_function)
+              }
+            >
+              {editingKeyword ? "Salvar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default WhatsAppChatbot;
