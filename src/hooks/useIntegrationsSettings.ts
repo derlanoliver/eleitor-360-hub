@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface IntegrationsSettings {
   id: string;
@@ -174,6 +175,29 @@ export function useTestSmsdevConnection() {
         title: "Erro na conexão",
         description: error.message || "Verifique a API Key e tente novamente.",
         variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useTestSmsdevWebhook() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('test-smsdev-webhook');
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Webhook testado com sucesso!", {
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Erro ao testar webhook", {
+        description: error.message,
       });
     }
   });

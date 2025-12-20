@@ -7,12 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle } from "lucide-react";
-import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection } from "@/hooks/useIntegrationsSettings";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle, Radio } from "lucide-react";
+import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
 
 const WEBHOOK_URL = "https://eydqducvsddckhyatcux.supabase.co/functions/v1/greatpages-webhook";
+const SMSDEV_WEBHOOK_URL = "https://eydqducvsddckhyatcux.supabase.co/functions/v1/smsdev-webhook";
 
 const GreatPagesWebhookCard = () => {
   const [copied, setCopied] = useState(false);
@@ -139,6 +140,7 @@ const Integrations = () => {
   const testZapiConnection = useTestZapiConnection();
   const testResendConnection = useTestResendConnection();
   const testSmsdevConnection = useTestSmsdevConnection();
+  const testSmsdevWebhook = useTestSmsdevWebhook();
 
   // Z-API state
   const [zapiInstanceId, setZapiInstanceId] = useState("");
@@ -171,6 +173,22 @@ const Integrations = () => {
   const [smsdevApiKey, setSmsdevApiKey] = useState("");
   const [smsdevEnabled, setSmsdevEnabled] = useState(false);
   const [showSmsdevKey, setShowSmsdevKey] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+
+  const handleCopyWebhookUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(SMSDEV_WEBHOOK_URL);
+      setWebhookCopied(true);
+      toast.success("URL do webhook copiada!");
+      setTimeout(() => setWebhookCopied(false), 2000);
+    } catch {
+      toast.error("Erro ao copiar URL");
+    }
+  };
+
+  const handleTestWebhook = () => {
+    testSmsdevWebhook.mutate();
+  };
 
   useEffect(() => {
     if (settings) {
@@ -710,7 +728,40 @@ const Integrations = () => {
               </p>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            {/* Webhook Section */}
+            <div className="bg-muted/30 rounded-lg p-4 border border-border/50 space-y-3">
+              <div className="flex items-center gap-2">
+                <Radio className="h-4 w-4 text-amber-600" />
+                <h4 className="font-medium text-sm">Webhook de Status</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure esta URL no painel do SMSDEV para receber atualizações de status das mensagens automaticamente.
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  value={SMSDEV_WEBHOOK_URL} 
+                  readOnly 
+                  className="font-mono text-xs bg-background"
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={handleCopyWebhookUrl}
+                  className="shrink-0"
+                >
+                  {webhookCopied ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                <strong className="text-foreground">Polling automático:</strong> A cada 5 minutos, o sistema consulta automaticamente o status das mensagens como fallback.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={handleTestSmsdev}
@@ -720,6 +771,18 @@ const Integrations = () => {
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
                 Testar Conexão
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleTestWebhook}
+                disabled={!isSmsdevConfigured || testSmsdevWebhook.isPending}
+              >
+                {testSmsdevWebhook.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Radio className="h-4 w-4 mr-2" />
+                )}
+                Testar Webhook
               </Button>
               <Button
                 onClick={handleSaveSmsdev}
