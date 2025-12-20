@@ -232,6 +232,37 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     return response;
   },
 
+  // Lista subordinados não verificados
+  pendentes: async (supabase, leader) => {
+    // Buscar subordinados diretos não verificados
+    const { data: subordinadosDiretos, error } = await supabase
+      .from("lideres")
+      .select("nome_completo, telefone, created_at")
+      .eq("parent_leader_id", leader.id)
+      .eq("is_active", true)
+      .eq("is_verified", false)
+      .order("created_at", { ascending: false })
+      .limit(15);
+    
+    let response = `Olá ${leader.nome_completo.split(" ")[0]}! ⏳\n\n`;
+    response += `*Líderes Pendentes de Verificação*\n\n`;
+    
+    if (error || !subordinadosDiretos || subordinadosDiretos.length === 0) {
+      response += `✅ Parabéns! Todos os seus subordinados diretos já estão verificados.\n`;
+      response += `\nContinue expandindo sua rede! 🚀`;
+    } else {
+      response += `📋 Encontrei ${subordinadosDiretos.length} líder(es) aguardando verificação:\n\n`;
+      subordinadosDiretos.forEach((s: any, i: number) => {
+        const telefone = s.telefone ? s.telefone.slice(-4) : "----";
+        response += `${i + 1}. ${s.nome_completo}\n`;
+        response += `   📱 ***${telefone}\n`;
+      });
+      response += `\n💡 Entre em contato para que completem a verificação!`;
+    }
+    
+    return response;
+  },
+
   // Mostra lista de comandos
   ajuda: async (supabase, leader) => {
     let response = `Olá ${leader.nome_completo.split(" ")[0]}! 🤖\n\n`;
@@ -241,6 +272,7 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     response += `⭐ *PONTOS* - Ver sua pontuação\n`;
     response += `📊 *RANKING* - Ver sua posição\n`;
     response += `👥 *SUBORDINADOS* - Ver equipe direta\n`;
+    response += `⏳ *PENDENTES* - Ver subordinados não verificados\n`;
     response += `❓ *AJUDA* - Ver esta lista\n`;
     response += `\nOu digite sua pergunta e tentarei ajudar! 😊`;
     
