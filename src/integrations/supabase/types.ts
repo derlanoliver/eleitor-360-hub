@@ -2331,6 +2331,15 @@ export type Database = {
           telefone: string
         }[]
       }
+      get_leader_ranking_position: {
+        Args: { _leader_id: string }
+        Returns: {
+          percentile: number
+          pontuacao: number
+          ranking_position: number
+          total_leaders: number
+        }[]
+      }
       get_leader_total_indicacoes: {
         Args: { _leader_id: string }
         Returns: number
@@ -2353,6 +2362,17 @@ export type Database = {
           parent_leader_id: string
           pontuacao_total: number
           telefone: string
+        }[]
+      }
+      get_leader_tree_stats: {
+        Args: { _leader_id: string }
+        Returns: {
+          direct_subordinates: number
+          top_subordinate_cadastros: number
+          top_subordinate_name: string
+          total_cadastros: number
+          total_leaders: number
+          total_pontos: number
         }[]
       }
       get_public_form_settings: {

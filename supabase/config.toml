@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.reprocess-sms-status]
 verify_jwt = false
+
+[functions.whatsapp-chatbot]
+verify_jwt = false
