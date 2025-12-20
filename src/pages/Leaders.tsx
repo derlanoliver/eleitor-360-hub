@@ -283,8 +283,8 @@ const Leaders = () => {
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cadastros_desc">Maior Cadastros</SelectItem>
-              <SelectItem value="cadastros_asc">Menor Cadastros</SelectItem>
+                <SelectItem value="cadastros_desc">Maior Indicação</SelectItem>
+                <SelectItem value="cadastros_asc">Menor Indicação</SelectItem>
               <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
               <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
               <SelectItem value="nome_asc">Nome A-Z</SelectItem>
