@@ -28,8 +28,9 @@ export function LeaderAutocomplete({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   
+  // Remove city filter when searching to allow finding leaders from any city
   const { data: leadersResult, isLoading, isError, refetch } = useOfficeLeaders({
-    cidade_id: cityId,
+    cidade_id: search ? undefined : cityId,
     search: search || undefined
   });
   
