@@ -69,7 +69,22 @@ export function LeaderAutocomplete({
     return undefined;
   }, [leaders, value, selectedLeaderData]);
   
-  const hasLeaders = leaders.length > 0;
+  // Lista de líderes para exibir no dropdown - inclui o líder selecionado se não estiver na lista filtrada
+  const displayedLeaders = useMemo(() => {
+    if (selectedLeaderData && !leaders.find(l => l.id === selectedLeaderData.id)) {
+      return [
+        {
+          id: selectedLeaderData.id,
+          nome_completo: selectedLeaderData.nome_completo,
+          cidade: selectedLeaderData.cidade
+        },
+        ...leaders
+      ];
+    }
+    return leaders;
+  }, [leaders, selectedLeaderData]);
+  
+  const hasLeaders = displayedLeaders.length > 0;
   const isDisabled = disabled || (!cityId && !allowAllLeaders);
   
   return (
@@ -123,7 +138,7 @@ export function LeaderAutocomplete({
                 : "Nenhum líder encontrado"}
             </CommandEmpty>
             <CommandGroup>
-              {leaders?.map((leader) => (
+              {displayedLeaders?.map((leader) => (
                 <CommandItem
                   key={leader.id}
                   value={leader.id}

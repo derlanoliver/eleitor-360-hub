@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,17 @@ export default function NewVisit() {
       }
     }
   };
+  
+  // Limpar líder apenas quando cidade muda manualmente (não pelo contato)
+  const prevCidadeRef = useRef(cidadeId);
+  useEffect(() => {
+    if (prevCidadeRef.current !== cidadeId && prevCidadeRef.current !== "") {
+      if (!selectedContact?.last_leader_id) {
+        setLeaderId("");
+      }
+    }
+    prevCidadeRef.current = cidadeId;
+  }, [cidadeId, selectedContact]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

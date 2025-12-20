@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,11 +65,16 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
     }
   };
 
-  // Limpar líder quando cidade muda (somente se não foi preenchido pelo contato)
+  // Limpar líder apenas quando cidade muda manualmente (não pelo contato)
+  const prevCidadeRef = useRef(cidadeId);
   useEffect(() => {
-    if (!selectedContact?.last_leader_id) {
-      setLeaderId("");
+    // Só limpar se a cidade mudou E não veio do contato selecionado
+    if (prevCidadeRef.current !== cidadeId && prevCidadeRef.current !== "") {
+      if (!selectedContact?.last_leader_id) {
+        setLeaderId("");
+      }
     }
+    prevCidadeRef.current = cidadeId;
   }, [cidadeId, selectedContact]);
 
   const resetForm = () => {
