@@ -234,7 +234,14 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
 
   // Lista subordinados não verificados
   pendentes: async (supabase, leader) => {
-    // Buscar subordinados diretos não verificados
+    // 1. Buscar TOTAL de subordinados diretos (todos)
+    const { count: totalSubordinados } = await supabase
+      .from("lideres")
+      .select("id", { count: "exact", head: true })
+      .eq("parent_leader_id", leader.id)
+      .eq("is_active", true);
+    
+    // 2. Buscar subordinados NÃO verificados
     const { data: subordinadosDiretos, error } = await supabase
       .from("lideres")
       .select("nome_completo, telefone, created_at")
@@ -247,11 +254,19 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     let response = `Olá ${leader.nome_completo.split(" ")[0]}! ⏳\n\n`;
     response += `*Líderes Pendentes de Verificação*\n\n`;
     
-    if (error || !subordinadosDiretos || subordinadosDiretos.length === 0) {
-      response += `✅ Parabéns! Todos os seus subordinados diretos já estão verificados.\n`;
+    // Cenário 1: Não tem nenhum subordinado
+    if (!totalSubordinados || totalSubordinados === 0) {
+      response += `📭 Você ainda não tem subordinados na sua rede.\n`;
+      response += `\n💡 Comece a indicar líderes para expandir sua árvore! 🌱`;
+    }
+    // Cenário 2: Tem subordinados, mas todos verificados
+    else if (error || !subordinadosDiretos || subordinadosDiretos.length === 0) {
+      response += `✅ Parabéns! Todos os seus ${totalSubordinados} subordinado(s) direto(s) já estão verificados.\n`;
       response += `\nContinue expandindo sua rede! 🚀`;
-    } else {
-      response += `📋 Encontrei ${subordinadosDiretos.length} líder(es) aguardando verificação:\n\n`;
+    }
+    // Cenário 3: Tem subordinados pendentes
+    else {
+      response += `📋 Encontrei ${subordinadosDiretos.length} de ${totalSubordinados} líder(es) aguardando verificação:\n\n`;
       subordinadosDiretos.forEach((s: any, i: number) => {
         const telefone = s.telefone ? s.telefone.slice(-4) : "----";
         response += `${i + 1}. ${s.nome_completo}\n`;
