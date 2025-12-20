@@ -24,6 +24,7 @@ const STATUS_MAP: Record<string, string> = {
   "BLOQUEADO": "failed",
   "CANCELADO": "failed",
   "INVALIDO": "failed",
+  "OK": "sent", // Fallback quando situacao="OK" sem descricao
 };
 
 interface SMSDEVWebhookPayload {
@@ -78,7 +79,14 @@ Deno.serve(async (req) => {
     }
 
     // Extract status from multiple possible fields
-    const rawStatus = body.situacao || body.status || body.codigo || body.code;
+    // Quando situacao="OK", o status real está em descricao (ex: "RECEBIDA", "ERRO")
+    let rawStatus: string | undefined;
+    if (body.situacao === "OK" && body.descricao) {
+      rawStatus = body.descricao;
+      console.log(`[smsdev-webhook] situacao=OK, using descricao: ${rawStatus}`);
+    } else {
+      rawStatus = body.situacao || body.status || body.codigo || body.code;
+    }
     
     if (!rawStatus) {
       console.log("[smsdev-webhook] No status found in payload");

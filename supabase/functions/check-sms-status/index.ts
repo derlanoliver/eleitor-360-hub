@@ -21,6 +21,7 @@ const STATUS_MAP: Record<string, string> = {
   "BLOQUEADO": "failed",
   "CANCELADO": "failed",
   "INVALIDO": "failed",
+  "OK": "sent", // Fallback quando situacao="OK" sem descricao
 };
 
 interface SMSMessage {
@@ -123,7 +124,15 @@ Deno.serve(async (req) => {
         console.log(`[check-sms-status] Status response for ${msg.message_id}:`, JSON.stringify(statusData));
 
         // Extract status from response
-        const rawStatus = statusData.situacao || statusData.status || statusData.codigo;
+        // Quando situacao="OK", significa que a consulta foi bem-sucedida
+        // Neste caso, o status real está em descricao (ex: "RECEBIDA", "ERRO")
+        let rawStatus: string | undefined;
+        if (statusData.situacao === "OK" && statusData.descricao) {
+          rawStatus = statusData.descricao;
+          console.log(`[check-sms-status] situacao=OK, using descricao: ${rawStatus}`);
+        } else {
+          rawStatus = statusData.situacao || statusData.status || statusData.codigo || statusData.descricao;
+        }
         
         if (!rawStatus) {
           console.log(`[check-sms-status] No status in response for message ${msg.message_id}`);
