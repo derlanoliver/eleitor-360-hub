@@ -2128,6 +2128,131 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_chatbot_config: {
+        Row: {
+          ai_system_prompt: string | null
+          created_at: string
+          fallback_message: string | null
+          id: string
+          is_enabled: boolean
+          max_messages_per_hour: number
+          updated_at: string
+          use_ai_for_unknown: boolean
+          welcome_message: string | null
+        }
+        Insert: {
+          ai_system_prompt?: string | null
+          created_at?: string
+          fallback_message?: string | null
+          id?: string
+          is_enabled?: boolean
+          max_messages_per_hour?: number
+          updated_at?: string
+          use_ai_for_unknown?: boolean
+          welcome_message?: string | null
+        }
+        Update: {
+          ai_system_prompt?: string | null
+          created_at?: string
+          fallback_message?: string | null
+          id?: string
+          is_enabled?: boolean
+          max_messages_per_hour?: number
+          updated_at?: string
+          use_ai_for_unknown?: boolean
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_chatbot_keywords: {
+        Row: {
+          aliases: string[] | null
+          created_at: string
+          description: string | null
+          dynamic_function: string | null
+          id: string
+          is_active: boolean
+          keyword: string
+          priority: number
+          response_type: string
+          static_response: string | null
+          updated_at: string
+        }
+        Insert: {
+          aliases?: string[] | null
+          created_at?: string
+          description?: string | null
+          dynamic_function?: string | null
+          id?: string
+          is_active?: boolean
+          keyword: string
+          priority?: number
+          response_type?: string
+          static_response?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aliases?: string[] | null
+          created_at?: string
+          description?: string | null
+          dynamic_function?: string | null
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          priority?: number
+          response_type?: string
+          static_response?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_chatbot_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          keyword_matched: string | null
+          leader_id: string | null
+          message_in: string
+          message_out: string | null
+          phone: string
+          processing_time_ms: number | null
+          response_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          keyword_matched?: string | null
+          leader_id?: string | null
+          message_in: string
+          message_out?: string | null
+          phone: string
+          processing_time_ms?: number | null
+          response_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          keyword_matched?: string | null
+          leader_id?: string | null
+          message_in?: string
+          message_out?: string | null
+          phone?: string
+          processing_time_ms?: number | null
+          response_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_chatbot_logs_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           contact_id: string | null
