@@ -37,6 +37,7 @@ const PUBLIC_TEMPLATES = [
   'verificacao-codigo',
   'membro-cadastro-boas-vindas',
   'lideranca-cadastro-link',
+  'verificacao-sms-fallback',
 ];
 
 // Mapeamento de templates para colunas de configuração
@@ -63,6 +64,8 @@ const TEMPLATE_SETTINGS_MAP: Record<string, string> = {
   // Opt-out
   'descadastro-confirmado': 'wa_auto_optout_enabled',
   'recadastro-confirmado': 'wa_auto_optout_enabled',
+  // Fallback SMS -> WhatsApp
+  'verificacao-sms-fallback': 'wa_auto_sms_fallback_enabled',
 };
 
 interface IntegrationSettings {
@@ -78,6 +81,7 @@ interface IntegrationSettings {
   wa_auto_membro_enabled: boolean | null;
   wa_auto_visita_enabled: boolean | null;
   wa_auto_optout_enabled: boolean | null;
+  wa_auto_sms_fallback_enabled: boolean | null;
 }
 
 Deno.serve(async (req) => {

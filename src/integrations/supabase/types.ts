@@ -599,6 +599,7 @@ export type Database = {
           wa_auto_membro_enabled: boolean | null
           wa_auto_optout_enabled: boolean | null
           wa_auto_pesquisa_enabled: boolean | null
+          wa_auto_sms_fallback_enabled: boolean | null
           wa_auto_verificacao_enabled: boolean | null
           wa_auto_visita_enabled: boolean | null
           zapi_client_token: string | null
@@ -622,6 +623,7 @@ export type Database = {
           wa_auto_membro_enabled?: boolean | null
           wa_auto_optout_enabled?: boolean | null
           wa_auto_pesquisa_enabled?: boolean | null
+          wa_auto_sms_fallback_enabled?: boolean | null
           wa_auto_verificacao_enabled?: boolean | null
           wa_auto_visita_enabled?: boolean | null
           zapi_client_token?: string | null
@@ -645,6 +647,7 @@ export type Database = {
           wa_auto_membro_enabled?: boolean | null
           wa_auto_optout_enabled?: boolean | null
           wa_auto_pesquisa_enabled?: boolean | null
+          wa_auto_sms_fallback_enabled?: boolean | null
           wa_auto_verificacao_enabled?: boolean | null
           wa_auto_visita_enabled?: boolean | null
           zapi_client_token?: string | null

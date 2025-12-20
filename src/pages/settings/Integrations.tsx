@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban } from "lucide-react";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
@@ -158,6 +158,7 @@ const Integrations = () => {
   const [waAutoMembro, setWaAutoMembro] = useState(true);
   const [waAutoVisita, setWaAutoVisita] = useState(true);
   const [waAutoOptout, setWaAutoOptout] = useState(true);
+  const [waAutoSmsFallback, setWaAutoSmsFallback] = useState(false);
 
   // Resend state
   const [resendApiKey, setResendApiKey] = useState("");
@@ -192,6 +193,7 @@ const Integrations = () => {
       setWaAutoMembro(settings.wa_auto_membro_enabled ?? true);
       setWaAutoVisita(settings.wa_auto_visita_enabled ?? true);
       setWaAutoOptout(settings.wa_auto_optout_enabled ?? true);
+      setWaAutoSmsFallback(settings.wa_auto_sms_fallback_enabled ?? false);
     }
   }, [settings]);
 
@@ -209,6 +211,7 @@ const Integrations = () => {
       wa_auto_membro_enabled: waAutoMembro,
       wa_auto_visita_enabled: waAutoVisita,
       wa_auto_optout_enabled: waAutoOptout,
+      wa_auto_sms_fallback_enabled: waAutoSmsFallback,
     });
   };
 
@@ -253,7 +256,7 @@ const Integrations = () => {
 
   const enabledAutoMessagesCount = [
     waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
-    waAutoLideranca, waAutoMembro, waAutoVisita, waAutoOptout
+    waAutoLideranca, waAutoMembro, waAutoVisita, waAutoOptout, waAutoSmsFallback
   ].filter(Boolean).length;
 
   if (isLoading) {
@@ -398,7 +401,7 @@ const Integrations = () => {
                     <MessageSquare className="h-4 w-4" />
                     <span>Mensagens Automáticas</span>
                     <Badge variant="secondary" className="ml-2">
-                      {enabledAutoMessagesCount}/8 ativas
+                      {enabledAutoMessagesCount}/9 ativas
                     </Badge>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform ${autoMessagesOpen ? "rotate-180" : ""}`} />
@@ -472,6 +475,14 @@ const Integrations = () => {
                       description="Confirmação de SAIR/VOLTAR"
                       checked={waAutoOptout}
                       onCheckedChange={setWaAutoOptout}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<MessageCircle className="h-4 w-4 text-teal-600" />}
+                      label="Fallback SMS → WhatsApp"
+                      description="Envia verificação via WhatsApp após 6 falhas de SMS"
+                      checked={waAutoSmsFallback}
+                      onCheckedChange={setWaAutoSmsFallback}
                       disabled={!zapiEnabled}
                     />
                   </div>
