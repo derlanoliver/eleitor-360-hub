@@ -258,12 +258,13 @@ Deno.serve(async (req) => {
 
     // Normalize phone for lookup
     const normalizedPhone = normalizePhone(phone);
+    const phoneWithoutPlus = normalizedPhone.replace(/^\+/, "");
 
-    // Find leader by phone
+    // Find leader by phone (try with +, without +, and original)
     const { data: leader, error: leaderError } = await supabase
       .from("lideres")
       .select("id, nome_completo, telefone, email, cadastros, pontuacao_total, cidade_id, is_coordinator, hierarchy_level")
-      .or(`telefone.eq.${normalizedPhone},telefone.eq.${phone}`)
+      .or(`telefone.eq.${normalizedPhone},telefone.eq.${phoneWithoutPlus},telefone.eq.${phone}`)
       .eq("is_active", true)
       .limit(1)
       .single();
