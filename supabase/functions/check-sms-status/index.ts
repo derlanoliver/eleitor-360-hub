@@ -14,8 +14,10 @@ const STATUS_MAP: Record<string, string> = {
   "4": "failed",
   "FILA": "queued",
   "ENVIADO": "sent",
+  "ENVIADA": "sent",
   "ENTREGUE": "delivered",
   "RECEBIDA": "delivered",
+  "CLICADA": "delivered",
   "ERRO": "failed",
   "FALHA": "failed",
   "BLOQUEADO": "failed",
@@ -75,8 +77,8 @@ Deno.serve(async (req) => {
       .select("id, message_id, phone, status")
       .in("status", ["queued", "sent"])
       .not("message_id", "is", null)
-      .order("created_at", { ascending: true })
-      .limit(50);
+      .order("created_at", { ascending: false })
+      .limit(100);
 
     if (messagesError) {
       console.error("[check-sms-status] Error fetching pending messages:", messagesError);
@@ -186,7 +188,7 @@ Deno.serve(async (req) => {
         console.log(`[check-sms-status] Successfully updated message ${msg.message_id} to ${mappedStatus}`);
 
         // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
       } catch (msgError) {
         console.error(`[check-sms-status] Error processing message ${msg.message_id}:`, msgError);

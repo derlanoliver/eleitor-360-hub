@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.test-smsdev-webhook]
 verify_jwt = false
+
+[functions.reprocess-sms-status]
+verify_jwt = false

@@ -17,8 +17,10 @@ const STATUS_MAP: Record<string, string> = {
   // Text-based statuses
   "FILA": "queued",
   "ENVIADO": "sent",
+  "ENVIADA": "sent",
   "ENTREGUE": "delivered",
   "RECEBIDA": "delivered",
+  "CLICADA": "delivered",
   "ERRO": "failed",
   "FALHA": "failed",
   "BLOQUEADO": "failed",
