@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
     // Send response via Z-API
     const { data: integrationSettings } = await supabase
       .from("integrations_settings")
-      .select("zapi_instance_id, zapi_token, zapi_enabled")
+      .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled")
       .limit(1)
       .single();
 
@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
       await sendWhatsAppMessage(
         integrationSettings.zapi_instance_id,
         integrationSettings.zapi_token,
+        integrationSettings.zapi_client_token,
         normalizedPhone,
         responseMessage
       );
@@ -449,16 +450,27 @@ function normalizePhone(phone: string): string {
 async function sendWhatsAppMessage(
   instanceId: string,
   token: string,
+  clientToken: string | null,
   phone: string,
   message: string
 ): Promise<void> {
   const cleanPhone = phone.replace(/[^0-9]/g, "");
   const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
   
+  // Build headers dynamically
+  const headers: Record<string, string> = { 
+    "Content-Type": "application/json" 
+  };
+  
+  // Add Client-Token if available
+  if (clientToken) {
+    headers["Client-Token"] = clientToken;
+  }
+  
   try {
     const response = await fetch(zapiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         phone: cleanPhone,
         message: message
