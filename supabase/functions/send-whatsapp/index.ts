@@ -39,6 +39,47 @@ const PUBLIC_TEMPLATES = [
   'lideranca-cadastro-link',
 ];
 
+// Mapeamento de templates para colunas de configuração
+const TEMPLATE_SETTINGS_MAP: Record<string, string> = {
+  // Verificação de contatos
+  'verificacao-cadastro': 'wa_auto_verificacao_enabled',
+  'verificacao-codigo': 'wa_auto_verificacao_enabled',
+  'verificacao-confirmada': 'wa_auto_verificacao_enabled',
+  // Captação de leads
+  'captacao-boas-vindas': 'wa_auto_captacao_enabled',
+  // Pesquisas
+  'pesquisa-agradecimento': 'wa_auto_pesquisa_enabled',
+  // Eventos
+  'evento-inscricao-confirmada': 'wa_auto_evento_enabled',
+  // Liderança
+  'lideranca-cadastro-link': 'wa_auto_lideranca_enabled',
+  'lider-cadastro-confirmado': 'wa_auto_lideranca_enabled',
+  // Equipe/Membros
+  'membro-cadastro-boas-vindas': 'wa_auto_membro_enabled',
+  // Visitas
+  'visita-link-formulario': 'wa_auto_visita_enabled',
+  'reuniao-cancelada': 'wa_auto_visita_enabled',
+  'reuniao-reagendada': 'wa_auto_visita_enabled',
+  // Opt-out
+  'descadastro-confirmado': 'wa_auto_optout_enabled',
+  'recadastro-confirmado': 'wa_auto_optout_enabled',
+};
+
+interface IntegrationSettings {
+  zapi_instance_id: string | null;
+  zapi_token: string | null;
+  zapi_client_token: string | null;
+  zapi_enabled: boolean | null;
+  wa_auto_verificacao_enabled: boolean | null;
+  wa_auto_captacao_enabled: boolean | null;
+  wa_auto_pesquisa_enabled: boolean | null;
+  wa_auto_evento_enabled: boolean | null;
+  wa_auto_lideranca_enabled: boolean | null;
+  wa_auto_membro_enabled: boolean | null;
+  wa_auto_visita_enabled: boolean | null;
+  wa_auto_optout_enabled: boolean | null;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -106,10 +147,23 @@ Deno.serve(async (req) => {
     }
     // ============ END AUTHENTICATION CHECK ============
 
-    // Buscar credenciais do Z-API
+    // Buscar credenciais do Z-API e configurações de mensagens automáticas
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled")
+      .select(`
+        zapi_instance_id, 
+        zapi_token, 
+        zapi_client_token, 
+        zapi_enabled,
+        wa_auto_verificacao_enabled,
+        wa_auto_captacao_enabled,
+        wa_auto_pesquisa_enabled,
+        wa_auto_evento_enabled,
+        wa_auto_lideranca_enabled,
+        wa_auto_membro_enabled,
+        wa_auto_visita_enabled,
+        wa_auto_optout_enabled
+      `)
       .limit(1)
       .single();
 
@@ -121,7 +175,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!settings?.zapi_enabled) {
+    const typedSettings = settings as IntegrationSettings;
+
+    if (!typedSettings?.zapi_enabled) {
       console.log("[send-whatsapp] Z-API não está habilitado");
       return new Response(
         JSON.stringify({ success: false, error: "Z-API não está habilitado" }),
@@ -129,13 +185,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!settings.zapi_instance_id || !settings.zapi_token) {
+    if (!typedSettings.zapi_instance_id || !typedSettings.zapi_token) {
       console.log("[send-whatsapp] Credenciais Z-API não configuradas");
       return new Response(
         JSON.stringify({ success: false, error: "Credenciais Z-API não configuradas" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // ============ CHECK IF SPECIFIC MESSAGE CATEGORY IS ENABLED ============
+    if (templateSlug) {
+      const settingColumn = TEMPLATE_SETTINGS_MAP[templateSlug];
+      if (settingColumn) {
+        const isEnabled = typedSettings[settingColumn as keyof IntegrationSettings];
+        if (isEnabled === false) {
+          console.log(`[send-whatsapp] Mensagem automática '${templateSlug}' está desabilitada (${settingColumn}=false)`);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Mensagem automática '${templateSlug}' está desabilitada nas configurações`,
+              disabled: true,
+              category: settingColumn
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+    // ============ END CATEGORY CHECK ============
 
     if (!phone) {
       return new Response(
@@ -208,13 +285,13 @@ Deno.serve(async (req) => {
     }
 
     // Enviar para Z-API
-    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
     
     const zapiResponse = await fetch(zapiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(settings.zapi_client_token && { "Client-Token": settings.zapi_client_token }),
+        ...(typedSettings.zapi_client_token && { "Client-Token": typedSettings.zapi_client_token }),
       },
       body: JSON.stringify({
         phone: cleanPhone,
@@ -280,14 +357,14 @@ Deno.serve(async (req) => {
       // Aguardar 2 segundos antes de enviar a imagem
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const zapiImageUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-image`;
+      const zapiImageUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-image`;
       
       try {
         const imageResponse = await fetch(zapiImageUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(settings.zapi_client_token && { "Client-Token": settings.zapi_client_token }),
+            ...(typedSettings.zapi_client_token && { "Client-Token": typedSettings.zapi_client_token }),
           },
           body: JSON.stringify({
             phone: cleanPhone,

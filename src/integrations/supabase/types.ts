@@ -593,6 +593,14 @@ export type Database = {
           smsdev_api_key: string | null
           smsdev_enabled: boolean | null
           updated_at: string
+          wa_auto_captacao_enabled: boolean | null
+          wa_auto_evento_enabled: boolean | null
+          wa_auto_lideranca_enabled: boolean | null
+          wa_auto_membro_enabled: boolean | null
+          wa_auto_optout_enabled: boolean | null
+          wa_auto_pesquisa_enabled: boolean | null
+          wa_auto_verificacao_enabled: boolean | null
+          wa_auto_visita_enabled: boolean | null
           zapi_client_token: string | null
           zapi_enabled: boolean | null
           zapi_instance_id: string | null
@@ -608,6 +616,14 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          wa_auto_captacao_enabled?: boolean | null
+          wa_auto_evento_enabled?: boolean | null
+          wa_auto_lideranca_enabled?: boolean | null
+          wa_auto_membro_enabled?: boolean | null
+          wa_auto_optout_enabled?: boolean | null
+          wa_auto_pesquisa_enabled?: boolean | null
+          wa_auto_verificacao_enabled?: boolean | null
+          wa_auto_visita_enabled?: boolean | null
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null
@@ -623,6 +639,14 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          wa_auto_captacao_enabled?: boolean | null
+          wa_auto_evento_enabled?: boolean | null
+          wa_auto_lideranca_enabled?: boolean | null
+          wa_auto_membro_enabled?: boolean | null
+          wa_auto_optout_enabled?: boolean | null
+          wa_auto_pesquisa_enabled?: boolean | null
+          wa_auto_verificacao_enabled?: boolean | null
+          wa_auto_visita_enabled?: boolean | null
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null

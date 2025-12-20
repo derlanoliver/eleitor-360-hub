@@ -14,6 +14,15 @@ interface IntegrationsSettings {
   resend_enabled: boolean;
   smsdev_api_key: string | null;
   smsdev_enabled: boolean;
+  // Controles de mensagens automáticas de WhatsApp
+  wa_auto_verificacao_enabled: boolean;
+  wa_auto_captacao_enabled: boolean;
+  wa_auto_pesquisa_enabled: boolean;
+  wa_auto_evento_enabled: boolean;
+  wa_auto_lideranca_enabled: boolean;
+  wa_auto_membro_enabled: boolean;
+  wa_auto_visita_enabled: boolean;
+  wa_auto_optout_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +38,15 @@ interface UpdateIntegrationsDTO {
   resend_enabled?: boolean;
   smsdev_api_key?: string | null;
   smsdev_enabled?: boolean;
+  // Controles de mensagens automáticas de WhatsApp
+  wa_auto_verificacao_enabled?: boolean;
+  wa_auto_captacao_enabled?: boolean;
+  wa_auto_pesquisa_enabled?: boolean;
+  wa_auto_evento_enabled?: boolean;
+  wa_auto_lideranca_enabled?: boolean;
+  wa_auto_membro_enabled?: boolean;
+  wa_auto_visita_enabled?: boolean;
+  wa_auto_optout_enabled?: boolean;
 }
 
 export function useIntegrationsSettings() {

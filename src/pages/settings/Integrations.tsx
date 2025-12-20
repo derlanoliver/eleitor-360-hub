@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
@@ -49,7 +50,6 @@ const GreatPagesWebhookCard = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* URL do Webhook */}
         <div className="space-y-2">
           <Label>URL do Webhook</Label>
           <div className="flex gap-2">
@@ -73,7 +73,6 @@ const GreatPagesWebhookCard = () => {
           </div>
         </div>
 
-        {/* Instruções de configuração */}
         <div className="bg-muted/50 rounded-lg p-4 space-y-3">
           <h4 className="font-medium text-sm">Como configurar na GreatPages:</h4>
           <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
@@ -85,7 +84,6 @@ const GreatPagesWebhookCard = () => {
           </ol>
         </div>
 
-        {/* Campos aceitos */}
         <div className="space-y-2">
           <Label className="text-sm">Campos aceitos</Label>
           <div className="flex flex-wrap gap-2">
@@ -99,7 +97,6 @@ const GreatPagesWebhookCard = () => {
           </div>
         </div>
 
-        {/* Comportamento */}
         <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 border border-border/50">
           <p>
             <strong className="text-foreground">Comportamento:</strong> O webhook verifica automaticamente se o lead já é uma liderança cadastrada. 
@@ -111,6 +108,30 @@ const GreatPagesWebhookCard = () => {
     </Card>
   );
 };
+
+interface AutoMessageToggleProps {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+const AutoMessageToggle = ({ icon, label, description, checked, onCheckedChange, disabled }: AutoMessageToggleProps) => (
+  <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+    </div>
+    <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+  </div>
+);
 
 const Integrations = () => {
   const { data: settings, isLoading } = useIntegrationsSettings();
@@ -126,6 +147,17 @@ const Integrations = () => {
   const [zapiEnabled, setZapiEnabled] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [showClientToken, setShowClientToken] = useState(false);
+  const [autoMessagesOpen, setAutoMessagesOpen] = useState(false);
+
+  // Auto message toggles
+  const [waAutoVerificacao, setWaAutoVerificacao] = useState(true);
+  const [waAutoCaptacao, setWaAutoCaptacao] = useState(true);
+  const [waAutoPesquisa, setWaAutoPesquisa] = useState(true);
+  const [waAutoEvento, setWaAutoEvento] = useState(true);
+  const [waAutoLideranca, setWaAutoLideranca] = useState(true);
+  const [waAutoMembro, setWaAutoMembro] = useState(true);
+  const [waAutoVisita, setWaAutoVisita] = useState(true);
+  const [waAutoOptout, setWaAutoOptout] = useState(true);
 
   // Resend state
   const [resendApiKey, setResendApiKey] = useState("");
@@ -151,6 +183,15 @@ const Integrations = () => {
       setResendEnabled(settings.resend_enabled || false);
       setSmsdevApiKey(settings.smsdev_api_key || "");
       setSmsdevEnabled(settings.smsdev_enabled || false);
+      // Auto message toggles
+      setWaAutoVerificacao(settings.wa_auto_verificacao_enabled ?? true);
+      setWaAutoCaptacao(settings.wa_auto_captacao_enabled ?? true);
+      setWaAutoPesquisa(settings.wa_auto_pesquisa_enabled ?? true);
+      setWaAutoEvento(settings.wa_auto_evento_enabled ?? true);
+      setWaAutoLideranca(settings.wa_auto_lideranca_enabled ?? true);
+      setWaAutoMembro(settings.wa_auto_membro_enabled ?? true);
+      setWaAutoVisita(settings.wa_auto_visita_enabled ?? true);
+      setWaAutoOptout(settings.wa_auto_optout_enabled ?? true);
     }
   }, [settings]);
 
@@ -160,6 +201,14 @@ const Integrations = () => {
       zapi_token: zapiToken || null,
       zapi_client_token: zapiClientToken || null,
       zapi_enabled: zapiEnabled,
+      wa_auto_verificacao_enabled: waAutoVerificacao,
+      wa_auto_captacao_enabled: waAutoCaptacao,
+      wa_auto_pesquisa_enabled: waAutoPesquisa,
+      wa_auto_evento_enabled: waAutoEvento,
+      wa_auto_lideranca_enabled: waAutoLideranca,
+      wa_auto_membro_enabled: waAutoMembro,
+      wa_auto_visita_enabled: waAutoVisita,
+      wa_auto_optout_enabled: waAutoOptout,
     });
   };
 
@@ -201,6 +250,11 @@ const Integrations = () => {
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
+
+  const enabledAutoMessagesCount = [
+    waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
+    waAutoLideranca, waAutoMembro, waAutoVisita, waAutoOptout
+  ].filter(Boolean).length;
 
   if (isLoading) {
     return (
@@ -335,6 +389,95 @@ const Integrations = () => {
                 </p>
               </div>
             </div>
+
+            {/* Auto Messages Section */}
+            <Collapsible open={autoMessagesOpen} onOpenChange={setAutoMessagesOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between mt-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Mensagens Automáticas</span>
+                    <Badge variant="secondary" className="ml-2">
+                      {enabledAutoMessagesCount}/8 ativas
+                    </Badge>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${autoMessagesOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Controle quais categorias de mensagens automáticas serão enviadas pelo WhatsApp.
+                  </p>
+                  <div className="space-y-1">
+                    <AutoMessageToggle
+                      icon={<Shield className="h-4 w-4 text-blue-600" />}
+                      label="Verificação de Contatos"
+                      description="Código de verificação e confirmação de cadastro"
+                      checked={waAutoVerificacao}
+                      onCheckedChange={setWaAutoVerificacao}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<Target className="h-4 w-4 text-green-600" />}
+                      label="Captação de Leads"
+                      description="Boas-vindas para leads de landing pages"
+                      checked={waAutoCaptacao}
+                      onCheckedChange={setWaAutoCaptacao}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<ClipboardList className="h-4 w-4 text-purple-600" />}
+                      label="Pesquisas"
+                      description="Agradecimento após responder pesquisa"
+                      checked={waAutoPesquisa}
+                      onCheckedChange={setWaAutoPesquisa}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<CalendarCheck className="h-4 w-4 text-orange-600" />}
+                      label="Eventos"
+                      description="Confirmação de inscrição em eventos"
+                      checked={waAutoEvento}
+                      onCheckedChange={setWaAutoEvento}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<Users className="h-4 w-4 text-indigo-600" />}
+                      label="Lideranças"
+                      description="Link de afiliado para novas lideranças"
+                      checked={waAutoLideranca}
+                      onCheckedChange={setWaAutoLideranca}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<UserPlus className="h-4 w-4 text-cyan-600" />}
+                      label="Equipe"
+                      description="Boas-vindas para novos membros da equipe"
+                      checked={waAutoMembro}
+                      onCheckedChange={setWaAutoMembro}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<FileText className="h-4 w-4 text-amber-600" />}
+                      label="Visitas"
+                      description="Link do formulário de visita"
+                      checked={waAutoVisita}
+                      onCheckedChange={setWaAutoVisita}
+                      disabled={!zapiEnabled}
+                    />
+                    <AutoMessageToggle
+                      icon={<Ban className="h-4 w-4 text-red-600" />}
+                      label="Opt-out"
+                      description="Confirmação de SAIR/VOLTAR"
+                      checked={waAutoOptout}
+                      onCheckedChange={setWaAutoOptout}
+                      disabled={!zapiEnabled}
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="flex gap-3 pt-4">
               <Button
