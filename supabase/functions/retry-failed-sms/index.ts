@@ -34,17 +34,25 @@ function normalizePhone(phone: string): string {
 }
 
 // Extrair código de verificação de uma mensagem SMS
+// Códigos podem ser alfanuméricos (ex: 0DKZHK, SMVKPC) ou numéricos
 function extractVerificationCode(message: string): string | null {
-  // Buscar padrões como "código: 12345" ou "codigo 12345" ou apenas números de 5-6 dígitos
   const patterns = [
-    /c[oó]digo[:\s]*(\d{5,6})/i,
+    // Padrão 1: Extrair código do link de verificação de líder
+    /verificar-lider\/([A-Z0-9]{5,6})/i,
+    // Padrão 2: Extrair código do link de verificação de contato
+    /verificar-contato\/([A-Z0-9]{5,6})/i,
+    // Padrão 3: Código alfanumérico após "código:" ou "codigo"
+    /c[oó]digo[:\s]*([A-Z0-9]{5,6})/i,
+    // Padrão 4: Código alfanumérico isolado de 5-6 caracteres maiúsculos (apenas se for claramente um código)
+    /\b([A-Z0-9]{6})\b/,
+    // Padrão 5: Código numérico de 5-6 dígitos (fallback)
     /\b(\d{5,6})\b/
   ];
   
   for (const pattern of patterns) {
     const match = message.match(pattern);
     if (match && match[1]) {
-      return match[1];
+      return match[1].toUpperCase();
     }
   }
   return null;
@@ -59,11 +67,15 @@ async function findContactOrLeader(supabaseUrl: string, supabaseServiceKey: stri
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const normalizedPhone = normalizePhone(phone);
   
-  // Buscar em office_contacts
+  // Buscar em office_contacts pelo telefone normalizado
+  // Formato E.164: +5561999999999
+  const phoneWithPlus = normalizedPhone.startsWith('+') ? normalizedPhone : `+55${normalizedPhone}`;
+  const phoneWithout55 = normalizedPhone.replace(/^55/, '');
+  
   const { data: contactData } = await supabase
     .from('office_contacts')
     .select('id, nome')
-    .eq('telefone_norm', normalizedPhone)
+    .or(`telefone_norm.eq.${phoneWithPlus},telefone_norm.eq.+55${phoneWithout55}`)
     .eq('is_verified', false)
     .limit(1)
     .single();
@@ -73,22 +85,28 @@ async function findContactOrLeader(supabaseUrl: string, supabaseServiceKey: stri
     return { type: 'contact', id: contact.id, name: contact.nome };
   }
   
-  // Buscar em lideres
+  // Buscar em lideres pelo telefone - usar query direta com or para diferentes formatos
+  const phoneFormats = [
+    phoneWithPlus,                    // +5561999999999
+    `+55${phoneWithout55}`,           // +5561999999999 (redundante, mas seguro)
+    `55${phoneWithout55}`,            // 5561999999999
+    phoneWithout55,                   // 61999999999
+  ];
+  
+  // Construir query OR para buscar por qualquer formato de telefone
+  const orConditions = phoneFormats.map(p => `telefone.ilike.%${p.slice(-9)}`).join(',');
+  
   const { data: leaderData } = await supabase
     .from('lideres')
     .select('id, nome_completo, telefone')
     .eq('is_verified', false)
-    .limit(100);
+    .or(orConditions)
+    .limit(1)
+    .single();
   
-  if (leaderData && Array.isArray(leaderData)) {
-    for (const l of leaderData as Array<{ id: string; nome_completo: string; telefone: string | null }>) {
-      if (l.telefone) {
-        const leaderPhone = normalizePhone(l.telefone);
-        if (leaderPhone === normalizedPhone) {
-          return { type: 'leader', id: l.id, name: l.nome_completo };
-        }
-      }
-    }
+  if (leaderData) {
+    const leader = leaderData as { id: string; nome_completo: string; telefone: string | null };
+    return { type: 'leader', id: leader.id, name: leader.nome_completo };
   }
   
   return { type: null, id: null, name: null };
