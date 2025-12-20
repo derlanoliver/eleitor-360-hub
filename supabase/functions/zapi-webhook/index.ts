@@ -308,8 +308,8 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     return;
   }
 
-  // Check if message is a verification code (5 alphanumeric chars)
-  const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5}$/);
+  // Check if message is a verification code (5-6 alphanumeric chars)
+  const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5,6}$/);
   let shouldCallChatbot = false;
   
   if (codeMatch) {
@@ -352,10 +352,47 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
         }
       }
     } else {
-      console.log(`[zapi-webhook] No pending verification found for code: ${code}, checking if sender is a leader for chatbot`);
+      // Contact not found - try to find leader with this verification code
+      console.log(`[zapi-webhook] No contact found for code: ${code}, checking for leader...`);
       
-      // If no verification found, this might be a chatbot keyword like "AJUDA" - call chatbot
-      shouldCallChatbot = true;
+      const { data: leaderToVerify, error: leaderVerifyError } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, telefone, affiliate_token")
+        .eq("verification_code", code)
+        .eq("is_verified", false)
+        .single();
+      
+      if (leaderToVerify && !leaderVerifyError) {
+        console.log(`[zapi-webhook] Found leader to verify: ${leaderToVerify.id}`);
+        
+        // Mark leader as verified
+        const { error: updateError } = await supabase
+          .from("lideres")
+          .update({ 
+            is_verified: true, 
+            verified_at: new Date().toISOString(),
+            verification_method: 'whatsapp'
+          })
+          .eq("id", leaderToVerify.id);
+        
+        if (updateError) {
+          console.error("[zapi-webhook] Error updating leader verification status:", updateError);
+        } else {
+          console.log(`[zapi-webhook] Leader ${leaderToVerify.id} verified successfully via WhatsApp`);
+          
+          // Send verification confirmation to leader
+          if (typedSettings?.wa_auto_verificacao_enabled !== false) {
+            await sendLeaderVerificationConfirmation(supabase, normalizedPhone, leaderToVerify.nome_completo, leaderToVerify.affiliate_token, typedSettings);
+          } else {
+            console.log("[zapi-webhook] wa_auto_verificacao_enabled=false, skipping leader verification confirmation");
+          }
+        }
+      } else {
+        console.log(`[zapi-webhook] No pending verification found for code: ${code}, checking if sender is a leader for chatbot`);
+        
+        // If no verification found, this might be a chatbot keyword like "AJUDA" - call chatbot
+        shouldCallChatbot = true;
+      }
     }
   } else {
     // Not a potential verification code, should check for chatbot
@@ -665,6 +702,78 @@ async function sendVerificationConfirmation(supabase: any, phone: string, nome: 
     
   } catch (err) {
     console.error("[zapi-webhook] Error sending confirmation:", err);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendLeaderVerificationConfirmation(supabase: any, phone: string, nome: string, affiliateToken: string | null, settings: IntegrationSettings | null) {
+  // Use passed settings or fetch if not available
+  let typedSettings = settings;
+  if (!typedSettings) {
+    const { data: fetchedSettings } = await supabase
+      .from("integrations_settings")
+      .select("zapi_instance_id, zapi_token, zapi_enabled")
+      .limit(1)
+      .single();
+    typedSettings = fetchedSettings as IntegrationSettings;
+  }
+  
+  if (!typedSettings?.zapi_enabled) {
+    console.log("[zapi-webhook] Z-API not enabled, skipping leader verification confirmation");
+    return;
+  }
+  
+  // Get organization name
+  const { data: org } = await supabase
+    .from("organization")
+    .select("nome")
+    .limit(1)
+    .single();
+  
+  // Get confirmation template for leaders
+  const { data: template } = await supabase
+    .from("whatsapp_templates")
+    .select("mensagem")
+    .eq("slug", "lider-verificado")
+    .single();
+  
+  // Default message if template not found
+  let message = template?.mensagem || `Olá ${nome}! 🎉\n\nSeu cadastro como liderança foi *verificado com sucesso*!\n\nAgora você faz parte oficial da rede de apoio do ${org?.nome || "Deputado"}.\n\nDigite *AJUDA* para ver os comandos disponíveis.`;
+  
+  // Replace variables
+  message = message.replace(/{{nome}}/g, nome);
+  message = message.replace(/{{deputado_nome}}/g, org?.nome || "Deputado");
+  if (affiliateToken) {
+    message = message.replace(/{{link_afiliado}}/g, `https://app.rafaelprudente.com/i/${affiliateToken}`);
+  }
+  
+  // Send via Z-API
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
+    const response = await fetch(zapiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone.replace("+", ""),
+        message: message,
+      }),
+    });
+    
+    const result = await response.json();
+    console.log("[zapi-webhook] Sent leader verification confirmation:", result);
+    
+    // Record in whatsapp_messages
+    await supabase.from("whatsapp_messages").insert({
+      message_id: result.messageId || result.zapiMessageId,
+      phone: phone,
+      message: message,
+      direction: "outgoing",
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    });
+    
+  } catch (err) {
+    console.error("[zapi-webhook] Error sending leader verification confirmation:", err);
   }
 }
 
