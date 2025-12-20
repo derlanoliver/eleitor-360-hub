@@ -23,6 +23,7 @@ interface IntegrationsSettings {
   wa_auto_membro_enabled: boolean;
   wa_auto_visita_enabled: boolean;
   wa_auto_optout_enabled: boolean;
+  wa_auto_sms_fallback_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,7 @@ interface UpdateIntegrationsDTO {
   wa_auto_membro_enabled?: boolean;
   wa_auto_visita_enabled?: boolean;
   wa_auto_optout_enabled?: boolean;
+  wa_auto_sms_fallback_enabled?: boolean;
 }
 
 export function useIntegrationsSettings() {
