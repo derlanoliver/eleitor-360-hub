@@ -309,7 +309,16 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   }
 
   // Check if message is a verification code (5-6 alphanumeric chars)
-  const codeMatch = message.trim().toUpperCase().match(/^[A-Z0-9]{5,6}$/);
+  // Clean WhatsApp formatting characters: * (bold), _ (italic), ~ (strikethrough), ` (monospace)
+  const cleanMessage = message
+    .replace(/[*_~`]/g, '')  // Remove WhatsApp formatting characters
+    .trim()
+    .toUpperCase();
+  
+  console.log(`[zapi-webhook] Original message: "${message}"`);
+  console.log(`[zapi-webhook] Cleaned message: "${cleanMessage}"`);
+  
+  const codeMatch = cleanMessage.match(/^[A-Z0-9]{5,6}$/);
   let shouldCallChatbot = false;
   
   if (codeMatch) {
