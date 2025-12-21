@@ -65,50 +65,52 @@ async function findContactOrLeader(supabaseUrl: string, supabaseServiceKey: stri
   name: string | null;
 }> {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const normalizedPhone = normalizePhone(phone);
+  const cleanPhone = normalizePhone(phone);
   
-  // Buscar em office_contacts pelo telefone normalizado
-  // Formato E.164: +5561999999999
-  const phoneWithPlus = normalizedPhone.startsWith('+') ? normalizedPhone : `+55${normalizedPhone}`;
-  const phoneWithout55 = normalizedPhone.replace(/^55/, '');
+  // Variações do telefone para busca
+  const last9Digits = cleanPhone.slice(-9);
+  const last11Digits = cleanPhone.slice(-11);
   
-  const { data: contactData } = await supabase
+  console.log(`[retry-failed-sms] findContactOrLeader: phone=${phone}, cleanPhone=${cleanPhone}, last9=${last9Digits}`);
+  
+  // Buscar em office_contacts pelo telefone normalizado (formato E.164: +55XXXXXXXXXXX)
+  const { data: contactData, error: contactError } = await supabase
     .from('office_contacts')
-    .select('id, nome')
-    .or(`telefone_norm.eq.${phoneWithPlus},telefone_norm.eq.+55${phoneWithout55}`)
+    .select('id, nome, telefone_norm')
     .eq('is_verified', false)
+    .or(`telefone_norm.eq.+55${cleanPhone},telefone_norm.eq.+55${last11Digits},telefone_norm.ilike.%${last9Digits}`)
     .limit(1)
-    .single();
+    .maybeSingle();
   
-  if (contactData) {
-    const contact = contactData as { id: string; nome: string };
-    return { type: 'contact', id: contact.id, name: contact.nome };
+  if (contactError) {
+    console.error(`[retry-failed-sms] Error searching contacts:`, contactError);
   }
   
-  // Buscar em lideres pelo telefone - usar query direta com or para diferentes formatos
-  const phoneFormats = [
-    phoneWithPlus,                    // +5561999999999
-    `+55${phoneWithout55}`,           // +5561999999999 (redundante, mas seguro)
-    `55${phoneWithout55}`,            // 5561999999999
-    phoneWithout55,                   // 61999999999
-  ];
+  if (contactData) {
+    console.log(`[retry-failed-sms] Found unverified contact: ${contactData.nome} (${contactData.id})`);
+    return { type: 'contact', id: contactData.id, name: contactData.nome };
+  }
   
-  // Construir query OR para buscar por qualquer formato de telefone
-  const orConditions = phoneFormats.map(p => `telefone.ilike.%${p.slice(-9)}`).join(',');
-  
-  const { data: leaderData } = await supabase
+  // Buscar em lideres pelo telefone - múltiplos formatos
+  const { data: leaderData, error: leaderError } = await supabase
     .from('lideres')
     .select('id, nome_completo, telefone')
     .eq('is_verified', false)
-    .or(orConditions)
+    .eq('is_active', true)
+    .or(`telefone.ilike.%${last9Digits},telefone.eq.+55${cleanPhone},telefone.eq.55${cleanPhone},telefone.eq.${cleanPhone}`)
     .limit(1)
-    .single();
+    .maybeSingle();
   
-  if (leaderData) {
-    const leader = leaderData as { id: string; nome_completo: string; telefone: string | null };
-    return { type: 'leader', id: leader.id, name: leader.nome_completo };
+  if (leaderError) {
+    console.error(`[retry-failed-sms] Error searching leaders:`, leaderError);
   }
   
+  if (leaderData) {
+    console.log(`[retry-failed-sms] Found unverified leader: ${leaderData.nome_completo} (${leaderData.id})`);
+    return { type: 'leader', id: leaderData.id, name: leaderData.nome_completo };
+  }
+  
+  console.log(`[retry-failed-sms] No unverified contact/leader found for phone ${phone}`);
   return { type: null, id: null, name: null };
 }
 

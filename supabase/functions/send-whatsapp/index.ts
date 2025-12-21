@@ -166,7 +166,8 @@ Deno.serve(async (req) => {
         wa_auto_lideranca_enabled,
         wa_auto_membro_enabled,
         wa_auto_visita_enabled,
-        wa_auto_optout_enabled
+        wa_auto_optout_enabled,
+        wa_auto_sms_fallback_enabled
       `)
       .limit(1)
       .single();

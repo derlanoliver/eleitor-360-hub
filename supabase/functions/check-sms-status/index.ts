@@ -133,32 +133,36 @@ async function sendWhatsAppFallback(
   code: string,
   contactId: string | null
 ): Promise<{ success: boolean; error?: string }> {
-  console.log(`[check-sms-status] Sending WhatsApp fallback to ${phone} with code ${code}`);
+  console.log(`[check-sms-status] Sending WhatsApp fallback to ${phone} with code ${code}, name: ${name}`);
   
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZHFkdWN2c2RkY2toeWF0Y3V4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyMjg0MTYsImV4cCI6MjA3NDgwNDQxNn0.CFbMjvFsgQBevtV_B-fDTTNvvNRJ3Bwx_f4iOMXnfPA`,
       },
       body: JSON.stringify({
         phone,
-        template_slug: "verificacao-sms-fallback",
+        templateSlug: "verificacao-sms-fallback",
         variables: {
-          nome: name,
+          nome: name || "Amigo(a)",
           codigo: code,
         },
-        contact_id: contactId,
+        contactId: contactId,
       }),
     });
 
     const result = await response.json();
     console.log(`[check-sms-status] WhatsApp fallback response:`, JSON.stringify(result));
     
-    return { success: result.success === true };
+    if (!response.ok) {
+      console.error(`[check-sms-status] WhatsApp fallback HTTP error: ${response.status}`, result);
+      return { success: false, error: result.error || `HTTP ${response.status}` };
+    }
+    
+    return { success: result.success === true, error: result.error };
   } catch (error) {
-    console.error(`[check-sms-status] WhatsApp fallback error:`, error);
+    console.error(`[check-sms-status] WhatsApp fallback exception:`, error);
     return { success: false, error: (error as Error).message };
   }
 }
