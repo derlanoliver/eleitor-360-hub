@@ -94,12 +94,12 @@ serve(async (req) => {
         .ilike("phone", `%${phoneNormalized}`)
         .limit(1);
 
-      // Check if welcome Email already sent for this leader (using leader_id directly)
+      // Check if ANY email already sent/attempted for this leader (regardless of status or subject)
+      // This prevents duplicate emails - each leader should only receive ONE email attempt
       const { data: existingEmail } = await supabase
         .from("email_logs")
-        .select("id, subject")
+        .select("id")
         .eq("leader_id", leader.id)
-        .or(`subject.ilike.%boas-vindas%,subject.ilike.%confirmado%,subject.ilike.%cadastro%`)
         .limit(1);
 
       const hasSMS = existingSMS && existingSMS.length > 0;
