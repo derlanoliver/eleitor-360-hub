@@ -151,10 +151,34 @@ serve(async (req) => {
 
     console.log("[send-sms] Sending to SMSDEV...");
     
-    const smsResponse = await fetch(smsdevUrl);
-    const smsResult = await smsResponse.json();
+    // Wrap fetch in try/catch to handle connection errors/timeouts
+    let smsResponse;
+    let smsResult;
     
-    console.log("[send-sms] SMSDEV response:", smsResult);
+    try {
+      smsResponse = await fetch(smsdevUrl);
+      smsResult = await smsResponse.json();
+      console.log("[send-sms] SMSDEV response:", smsResult);
+    } catch (fetchError) {
+      console.error("[send-sms] Fetch error:", fetchError);
+      
+      // Update message to failed status due to connection error
+      await supabase
+        .from("sms_messages")
+        .update({
+          status: "failed",
+          error_message: "Erro de conexão com API SMSDEV: " + (fetchError instanceof Error ? fetchError.message : "Unknown error"),
+        })
+        .eq("id", messageRecord.id);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Erro de conexão com API SMSDEV",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Update message record based on response
     if (smsResult.situacao === "OK") {
