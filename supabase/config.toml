@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.whatsapp-chatbot]
 verify_jwt = false
+
+[functions.process-sms-fallback]
+verify_jwt = false
