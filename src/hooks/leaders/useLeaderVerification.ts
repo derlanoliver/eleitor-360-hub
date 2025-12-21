@@ -125,6 +125,20 @@ export function useMarkLeaderVerifiedManually() {
       });
 
       if (error) throw error;
+
+      // Após verificação bem-sucedida, chamar edge function para enviar links de afiliado
+      console.log("[useMarkLeaderVerifiedManually] Calling send-leader-affiliate-links for leader:", leaderId);
+      
+      const { error: sendError } = await supabase.functions.invoke("send-leader-affiliate-links", {
+        body: { leader_id: leaderId },
+      });
+
+      if (sendError) {
+        console.error("[useMarkLeaderVerifiedManually] Error sending affiliate links:", sendError);
+        // Não lançar erro aqui - a verificação foi bem-sucedida, apenas o envio falhou
+        // O usuário pode reenviar manualmente depois
+      }
+
       return data;
     },
     onSuccess: () => {
