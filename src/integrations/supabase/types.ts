@@ -2500,6 +2500,36 @@ export type Database = {
           total_pontos: number
         }[]
       }
+      get_leaders_by_birthday: {
+        Args: {
+          _cidade_id?: string
+          _page?: number
+          _page_size?: number
+          _search?: string
+          _verification_filter?: string
+        }
+        Returns: {
+          affiliate_token: string
+          cadastros: number
+          cidade_id: string
+          data_nascimento: string
+          days_until_birthday: number
+          email: string
+          hierarchy_level: number
+          id: string
+          is_active: boolean
+          is_coordinator: boolean
+          is_verified: boolean
+          nome_completo: string
+          observacao: string
+          parent_leader_id: string
+          pontuacao_total: number
+          telefone: string
+          total_count: number
+          verification_sent_at: string
+          verified_at: string
+        }[]
+      }
       get_public_form_settings: {
         Args: never
         Returns: {

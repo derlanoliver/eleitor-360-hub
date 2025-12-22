@@ -288,6 +288,7 @@ const Leaders = () => {
               <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
               <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
               <SelectItem value="nome_asc">Nome A-Z</SelectItem>
+              <SelectItem value="aniversario_proximo">🎂 Próximo Aniversário</SelectItem>
             </SelectContent>
           </Select>
         </div>
