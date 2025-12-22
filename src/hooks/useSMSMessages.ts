@@ -125,19 +125,26 @@ export function useSMSMetrics() {
   return useQuery({
     queryKey: ["sms-metrics"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sms_messages")
-        .select("status")
-        .eq("direction", "outgoing");
+      // Usar contagem exata do Supabase para evitar limite de 1000 linhas
+      const [totalResult, queuedResult, sentResult, deliveredResult, failedResult] = await Promise.all([
+        supabase.from("sms_messages").select("*", { count: "exact", head: true }).eq("direction", "outgoing"),
+        supabase.from("sms_messages").select("*", { count: "exact", head: true }).eq("direction", "outgoing").eq("status", "queued"),
+        supabase.from("sms_messages").select("*", { count: "exact", head: true }).eq("direction", "outgoing").eq("status", "sent"),
+        supabase.from("sms_messages").select("*", { count: "exact", head: true }).eq("direction", "outgoing").eq("status", "delivered"),
+        supabase.from("sms_messages").select("*", { count: "exact", head: true }).eq("direction", "outgoing").eq("status", "failed"),
+      ]);
 
-      if (error) throw error;
+      if (totalResult.error) throw totalResult.error;
+      if (queuedResult.error) throw queuedResult.error;
+      if (sentResult.error) throw sentResult.error;
+      if (deliveredResult.error) throw deliveredResult.error;
+      if (failedResult.error) throw failedResult.error;
 
-      const messages = data || [];
-      const total = messages.length;
-      const queued = messages.filter((m) => m.status === "queued").length;
-      const sent = messages.filter((m) => m.status === "sent").length;
-      const delivered = messages.filter((m) => m.status === "delivered").length;
-      const failed = messages.filter((m) => m.status === "failed").length;
+      const total = totalResult.count || 0;
+      const queued = queuedResult.count || 0;
+      const sent = sentResult.count || 0;
+      const delivered = deliveredResult.count || 0;
+      const failed = failedResult.count || 0;
 
       const successfulSends = queued + sent + delivered;
       const deliveryRate = total > 0 ? (successfulSends / total) * 100 : 0;
