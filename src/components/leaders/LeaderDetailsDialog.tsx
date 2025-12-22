@@ -784,7 +784,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA COMUNICAÇÕES */}
-            <TabsContent value="comunicacoes" className="mt-0 space-y-4 pr-4">
+            <TabsContent value="comunicacoes" className="mt-0 space-y-4 pr-4 overflow-hidden">
               {/* WhatsApp */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium flex items-center gap-2">
@@ -803,9 +803,9 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   {whatsappMessages.slice(0, 10).map((msg) => {
                     const statusInfo = whatsappStatusConfig[msg.status] || whatsappStatusConfig.pending;
                     return (
-                      <Card key={msg.id}>
+                      <Card key={msg.id} className="overflow-hidden">
                         <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 {msg.direction === 'outgoing' ? (
@@ -820,7 +820,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{msg.message}</p>
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(msg.created_at)}
                             </span>
                           </div>
@@ -847,9 +847,9 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   {smsMessages.slice(0, 10).map((sms) => {
                     const statusInfo = whatsappStatusConfig[sms.status] || whatsappStatusConfig.pending;
                     return (
-                      <Card key={sms.id}>
+                      <Card key={sms.id} className="overflow-hidden">
                         <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <Send className="h-3 w-3 text-purple-600" />
@@ -860,7 +860,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{sms.message}</p>
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(sms.created_at)}
                             </span>
                           </div>
@@ -885,14 +885,14 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               ) : (
                 <div className="space-y-2">
                   {emailLogs.slice(0, 10).map((email) => (
-                    <Card key={email.id}>
+                    <Card key={email.id} className="overflow-hidden">
                       <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{email.subject}</p>
-                            <p className="text-xs text-muted-foreground">{email.to_email}</p>
+                            <p className="font-medium text-sm truncate">{email.subject}</p>
+                            <p className="text-xs text-muted-foreground truncate">{email.to_email}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             <Badge 
                               variant="outline" 
                               className={email.status === 'sent' ? 'text-green-600' : email.status === 'failed' ? 'text-red-600' : ''}
