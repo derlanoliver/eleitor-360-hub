@@ -186,7 +186,40 @@ export async function getLeaders(filters?: {
     }
   }
   
-  // Ordenação no backend
+  // Caso especial: ordenação por próximo aniversário usa RPC
+  if (filters?.sortBy === "aniversario_proximo") {
+    const { data, error } = await supabase.rpc("get_leaders_by_birthday", {
+      _page: page,
+      _page_size: pageSize,
+      _cidade_id: filters?.cidade_id || null,
+      _search: filters?.search || null,
+      _verification_filter: filters?.verificationFilter || 'all'
+    });
+
+    if (error) throw error;
+
+    // O total_count está em cada linha, pegamos da primeira
+    const totalCount = data && data.length > 0 ? Number(data[0].total_count) : 0;
+
+    // Buscar os dados das cidades para cada líder
+    const leadersWithCities = await Promise.all(
+      (data || []).map(async (leader: any) => {
+        if (leader.cidade_id) {
+          const { data: cidade } = await supabase
+            .from("office_cities")
+            .select("*")
+            .eq("id", leader.cidade_id)
+            .single();
+          return { ...leader, cidade } as OfficeLeader;
+        }
+        return leader as OfficeLeader;
+      })
+    );
+
+    return { data: leadersWithCities, count: totalCount };
+  }
+
+  // Ordenação padrão no backend
   switch (filters?.sortBy) {
     case "cadastros_desc":
       query = query.order("cadastros", { ascending: false });
