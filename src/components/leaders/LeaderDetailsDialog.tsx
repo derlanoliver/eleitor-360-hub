@@ -124,7 +124,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col min-h-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <User className="h-5 w-5" />
@@ -133,8 +133,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="info" className="flex-1">
-          <TabsList className="grid w-full grid-cols-9">
+        <Tabs defaultValue="info" className="flex flex-col flex-1 min-h-0">
+          <TabsList className="w-full flex flex-wrap items-center justify-start gap-1 h-auto">
             <TabsTrigger value="info" className="text-xs">Info</TabsTrigger>
             <TabsTrigger value="verificacao" className="text-xs">Verificação</TabsTrigger>
             <TabsTrigger value="indicacoes" className="text-xs">Indicações</TabsTrigger>
@@ -146,7 +146,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="h-[calc(90vh-180px)] mt-4">
+          <ScrollArea className="flex-1 min-h-0 mt-4">
             {/* ABA INFO */}
             <TabsContent value="info" className="mt-0 space-y-4 pr-4">
               <div className="grid grid-cols-2 gap-4">
@@ -818,7 +818,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                                   {statusInfo.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground truncate">{msg.message}</p>
+                              <p className="text-sm text-muted-foreground truncate break-words">{msg.message}</p>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(msg.created_at)}
@@ -858,7 +858,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                                   {statusInfo.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground truncate">{sms.message}</p>
+                              <p className="text-sm text-muted-foreground truncate break-words">{sms.message}</p>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(sms.created_at)}
