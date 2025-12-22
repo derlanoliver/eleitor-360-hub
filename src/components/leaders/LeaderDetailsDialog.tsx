@@ -124,7 +124,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col min-h-0">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col min-h-0 overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <User className="h-5 w-5" />
@@ -146,7 +146,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 min-h-0 mt-4">
+          <ScrollArea className="flex-1 min-h-0 mt-4 [&>div]:!overflow-x-hidden">
             {/* ABA INFO */}
             <TabsContent value="info" className="mt-0 space-y-4 pr-4">
               <div className="grid grid-cols-2 gap-4">
@@ -784,7 +784,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             </TabsContent>
 
             {/* ABA COMUNICAÇÕES */}
-            <TabsContent value="comunicacoes" className="mt-0 space-y-4 pr-4 overflow-hidden">
+            <TabsContent value="comunicacoes" className="mt-0 space-y-4 pr-4 overflow-x-hidden max-w-full">
               {/* WhatsApp */}
               <div className="flex items-center justify-between">
                 <h4 className="font-medium flex items-center gap-2">
@@ -803,10 +803,10 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   {whatsappMessages.slice(0, 10).map((msg) => {
                     const statusInfo = whatsappStatusConfig[msg.status] || whatsappStatusConfig.pending;
                     return (
-                      <Card key={msg.id} className="overflow-hidden">
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
-                            <div className="flex-1 min-w-0">
+                      <Card key={msg.id} className="overflow-hidden w-full">
+                        <CardContent className="p-3 max-w-full">
+                          <div className="flex items-start justify-between gap-2 w-full">
+                            <div className="flex-1 min-w-0 overflow-hidden">
                               <div className="flex items-center gap-2 mb-1">
                                 {msg.direction === 'outgoing' ? (
                                   <Send className="h-3 w-3 text-blue-600" />
@@ -818,7 +818,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                                   {statusInfo.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground truncate break-words">{msg.message}</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{msg.message}</p>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(msg.created_at)}
@@ -847,10 +847,10 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   {smsMessages.slice(0, 10).map((sms) => {
                     const statusInfo = whatsappStatusConfig[sms.status] || whatsappStatusConfig.pending;
                     return (
-                      <Card key={sms.id} className="overflow-hidden">
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
-                            <div className="flex-1 min-w-0">
+                      <Card key={sms.id} className="overflow-hidden w-full">
+                        <CardContent className="p-3 max-w-full">
+                          <div className="flex items-start justify-between gap-2 w-full">
+                            <div className="flex-1 min-w-0 overflow-hidden">
                               <div className="flex items-center gap-2 mb-1">
                                 <Send className="h-3 w-3 text-purple-600" />
                                 <span className={`flex items-center gap-1 text-xs ${statusInfo.className}`}>
@@ -858,7 +858,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                                   {statusInfo.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground truncate break-words">{sms.message}</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{sms.message}</p>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                               {formatDateTime(sms.created_at)}
@@ -885,12 +885,12 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
               ) : (
                 <div className="space-y-2">
                   {emailLogs.slice(0, 10).map((email) => (
-                    <Card key={email.id} className="overflow-hidden">
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{email.subject}</p>
-                            <p className="text-xs text-muted-foreground truncate">{email.to_email}</p>
+                    <Card key={email.id} className="overflow-hidden w-full">
+                      <CardContent className="p-3 max-w-full">
+                        <div className="flex items-start justify-between gap-2 w-full">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="font-medium text-sm line-clamp-1">{email.subject}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{email.to_email}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge 
