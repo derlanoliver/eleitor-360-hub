@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -69,6 +69,23 @@ const getHierarchyBadge = (leader: OfficeLeader) => {
       3: "bg-purple-100 text-purple-700 border-purple-300",
     };
     return { label: `Nível ${level}`, className: colors[level] || "bg-muted text-muted-foreground" };
+  }
+  return null;
+};
+
+const getBirthdayBadge = (leader: OfficeLeader) => {
+  if (leader.days_until_birthday === undefined || leader.days_until_birthday === null) return null;
+  
+  const days = leader.days_until_birthday;
+  
+  if (days === 0) {
+    return { label: "🎂 Hoje!", className: "bg-pink-100 text-pink-700 border-pink-300 animate-pulse" };
+  } else if (days === 1) {
+    return { label: "🎂 Amanhã!", className: "bg-pink-100 text-pink-700 border-pink-300" };
+  } else if (days <= 7) {
+    return { label: `🎂 Em ${days} dias`, className: "bg-amber-100 text-amber-700 border-amber-300" };
+  } else if (days <= 30) {
+    return { label: `🎂 Em ${days} dias`, className: "bg-blue-50 text-blue-600 border-blue-200" };
   }
   return null;
 };
@@ -349,6 +366,16 @@ const Leaders = () => {
                             <Badge variant="outline" className={`text-xs ${hierarchyBadge.className}`}>
                               {leader.is_coordinator && <Crown className="h-3 w-3 mr-1" />}
                               {hierarchyBadge.label}
+                            </Badge>
+                          );
+                        })()}
+                        {/* Badge de Aniversário */}
+                        {(() => {
+                          const birthdayBadge = getBirthdayBadge(leader);
+                          if (!birthdayBadge) return null;
+                          return (
+                            <Badge variant="outline" className={`text-xs ${birthdayBadge.className}`}>
+                              {birthdayBadge.label}
                             </Badge>
                           );
                         })()}

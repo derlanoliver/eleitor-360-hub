@@ -61,6 +61,8 @@ export interface OfficeLeader {
   verified_at?: string;
   verification_method?: string; // 'link' ou 'manual'
   verified_by_user_id?: string;
+  // Birthday fields (from RPC)
+  days_until_birthday?: number;
   created_at: string;
   updated_at: string;
 }
