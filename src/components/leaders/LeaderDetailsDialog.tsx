@@ -55,12 +55,18 @@ const formatPhone = (phone: string) => {
   return phone;
 };
 
-const formatDate = (date: string) => {
-  return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
+const formatDate = (date: string | null | undefined) => {
+  if (!date) return "-";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "-";
+  return format(parsed, "dd/MM/yyyy", { locale: ptBR });
 };
 
-const formatDateTime = (date: string) => {
-  return format(new Date(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+const formatDateTime = (date: string | null | undefined) => {
+  if (!date) return "-";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "-";
+  return format(parsed, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 };
 
 const whatsappStatusConfig: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
