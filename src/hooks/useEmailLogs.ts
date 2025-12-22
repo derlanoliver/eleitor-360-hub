@@ -66,20 +66,25 @@ export function useEmailLogStats() {
   return useQuery({
     queryKey: ["email_log_stats"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("email_logs")
-        .select("status");
+      // Usar contagem exata do Supabase para evitar limite de 1000 linhas
+      const [totalResult, sentResult, pendingResult, failedResult] = await Promise.all([
+        supabase.from("email_logs").select("*", { count: "exact", head: true }),
+        supabase.from("email_logs").select("*", { count: "exact", head: true }).eq("status", "sent"),
+        supabase.from("email_logs").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("email_logs").select("*", { count: "exact", head: true }).eq("status", "failed"),
+      ]);
 
-      if (error) throw error;
+      if (totalResult.error) throw totalResult.error;
+      if (sentResult.error) throw sentResult.error;
+      if (pendingResult.error) throw pendingResult.error;
+      if (failedResult.error) throw failedResult.error;
 
-      const stats = {
-        total: data.length,
-        sent: data.filter(l => l.status === "sent").length,
-        pending: data.filter(l => l.status === "pending").length,
-        failed: data.filter(l => l.status === "failed").length,
+      return {
+        total: totalResult.count || 0,
+        sent: sentResult.count || 0,
+        pending: pendingResult.count || 0,
+        failed: failedResult.count || 0,
       };
-
-      return stats;
     },
   });
 }
