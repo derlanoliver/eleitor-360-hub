@@ -586,6 +586,9 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          passkit_api_key: string | null
+          passkit_api_secret: string | null
+          passkit_enabled: boolean | null
           resend_api_key: string | null
           resend_enabled: boolean | null
           resend_from_email: string | null
@@ -610,6 +613,9 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          passkit_api_key?: string | null
+          passkit_api_secret?: string | null
+          passkit_enabled?: boolean | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null
@@ -634,6 +640,9 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          passkit_api_key?: string | null
+          passkit_api_secret?: string | null
+          passkit_enabled?: boolean | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null

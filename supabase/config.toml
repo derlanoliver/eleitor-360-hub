@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.cleanup-pending-sms]
 verify_jwt = false
+
+[functions.create-leader-pass]
+verify_jwt = false
