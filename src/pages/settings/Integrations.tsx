@@ -179,6 +179,7 @@ const Integrations = () => {
   const [passkitApiToken, setPasskitApiToken] = useState("");
   const [passkitApiBaseUrl, setPasskitApiBaseUrl] = useState("https://api.pub1.passkit.io");
   const [passkitProgramId, setPasskitProgramId] = useState("");
+  const [passkitTierId, setPasskitTierId] = useState("");
   const [passkitEnabled, setPasskitEnabled] = useState(false);
   const [showPasskitToken, setShowPasskitToken] = useState(false);
 
@@ -213,6 +214,7 @@ const Integrations = () => {
       setPasskitApiToken(settings.passkit_api_token || "");
       setPasskitApiBaseUrl(settings.passkit_api_base_url || "https://api.pub1.passkit.io");
       setPasskitProgramId(settings.passkit_program_id || "");
+      setPasskitTierId(settings.passkit_tier_id || "");
       setPasskitEnabled(settings.passkit_enabled || false);
       // Auto message toggles
       setWaAutoVerificacao(settings.wa_auto_verificacao_enabled ?? true);
@@ -266,6 +268,7 @@ const Integrations = () => {
       passkit_api_token: passkitApiToken || null,
       passkit_api_base_url: passkitApiBaseUrl || "https://api.pub1.passkit.io",
       passkit_program_id: passkitProgramId || null,
+      passkit_tier_id: passkitTierId || null,
       passkit_enabled: passkitEnabled,
     });
   };
@@ -292,7 +295,7 @@ const Integrations = () => {
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
-  const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId;
+  const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId && !!passkitTierId;
 
   const enabledAutoMessagesCount = [
     waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
@@ -918,6 +921,19 @@ const Integrations = () => {
                 />
                 <p className="text-xs text-muted-foreground">
                   Encontre em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Programs → Seu Programa → Program ID
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="passkit-tier-id">Tier ID</Label>
+                <Input
+                  id="passkit-tier-id"
+                  placeholder="ID do tier/nível de membro"
+                  value={passkitTierId}
+                  onChange={(e) => setPasskitTierId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Encontre em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Programs → Seu Programa → Tiers → Tier ID
                 </p>
               </div>
             </div>

@@ -35,7 +35,7 @@ serve(async (req) => {
     // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("passkit_api_token, passkit_enabled, passkit_api_base_url, passkit_program_id")
+      .select("passkit_api_token, passkit_enabled, passkit_api_base_url, passkit_program_id, passkit_tier_id")
       .limit(1)
       .single();
 
@@ -50,17 +50,18 @@ serve(async (req) => {
     const passkitToken = (settings.passkit_api_token ?? "").trim();
     const passkitBaseUrl = (settings.passkit_api_base_url ?? "https://api.pub1.passkit.io").trim();
     const passkitProgramId = (settings.passkit_program_id ?? "").trim();
+    const passkitTierId = (settings.passkit_tier_id ?? "").trim();
 
-    if (!settings.passkit_enabled || !passkitToken || !passkitProgramId) {
+    if (!settings.passkit_enabled || !passkitToken || !passkitProgramId || !passkitTierId) {
       return new Response(
-        JSON.stringify({ success: false, error: "PassKit não está configurado completamente. Verifique Token e Program ID." }),
+        JSON.stringify({ success: false, error: "PassKit não está configurado completamente. Verifique Token, Program ID e Tier ID." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Debug seguro: não loga o token completo
+    // Debug seguro
     console.log(
-      `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} programId=${passkitProgramId} token length=${passkitToken.length}`
+      `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} programId=${passkitProgramId} tierId=${passkitTierId}`
     );
 
     // Buscar dados do líder
@@ -105,8 +106,9 @@ serve(async (req) => {
 
     // Criar o passe via PassKit API usando Bearer Token
     const passData = {
-      // Member pass data - incluindo programId obrigatório
+      // Member pass data - incluindo programId e tierId obrigatórios
       programId: passkitProgramId,
+      tierId: passkitTierId,
       externalId: leader.id,
       person: {
         displayName: leader.nome_completo,
