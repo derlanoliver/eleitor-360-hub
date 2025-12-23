@@ -10,6 +10,57 @@ interface LeaderPassRequest {
   leaderId: string;
 }
 
+type PassKitTier = {
+  id: string;
+  programId?: string;
+  name?: string;
+};
+
+async function passkitJson(
+  baseUrl: string,
+  token: string,
+  path: string,
+  body: unknown
+): Promise<{ ok: boolean; status: number; text: string; json: any }> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  return { ok: res.ok, status: res.status, text, json };
+}
+
+async function listMemberTiers(baseUrl: string, token: string, programId: string) {
+  return passkitJson(baseUrl, token, "/members/tiers/list", {
+    filters: {
+      limit: 100,
+      offset: 0,
+      orderBy: "created",
+      orderAsc: true,
+      filterGroups: [
+        {
+          condition: "AND",
+          fieldFilters: [
+            { filterField: "programId", filterOperator: "eq", filterValue: programId },
+          ],
+        },
+      ],
+    },
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -63,6 +114,45 @@ serve(async (req) => {
     console.log(
       `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} programId=${passkitProgramId} tierId=${passkitTierId}`
     );
+
+    // Validar se o Tier pertence ao Program (melhora diagnóstico quando o Tier ID está errado)
+    const tiersRes = await listMemberTiers(passkitBaseUrl, passkitToken, passkitProgramId);
+    if (!tiersRes.ok) {
+      console.error("[create-leader-pass] Falha ao listar tiers:", tiersRes.status, tiersRes.text);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Não foi possível validar o Tier no PassKit. Verifique Base URL e Token.",
+          details: tiersRes.text,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tiers: PassKitTier[] = Array.isArray(tiersRes.json)
+      ? tiersRes.json
+      : (tiersRes.json?.tiers ?? tiersRes.json?.data ?? []);
+
+    const tierExists = tiers.some((t) => t?.id === passkitTierId);
+    if (!tierExists) {
+      const available = tiers
+        .slice(0, 20)
+        .map((t) => ({ id: t.id, name: t.name ?? "" }));
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Tier ID inválido para este Program ID no PassKit. Copie o Tier ID exatamente do mesmo Program.",
+          details: {
+            programId: passkitProgramId,
+            tierId: passkitTierId,
+            availableTiers: available,
+          },
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Buscar dados do líder
     const { data: leader, error: leaderError } = await supabase
