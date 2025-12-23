@@ -43,9 +43,13 @@ async function passkitJson(
 }
 
 async function listMemberTiers(baseUrl: string, token: string, programId: string) {
+  // PassKit "membership protocol" listing normalmente espera programId dentro de "filters"
   return passkitJson(baseUrl, token, "/members/tiers/list", {
-    programId,
-    limit: 100,
+    filters: {
+      programId,
+      limit: 100,
+      offset: 0,
+    },
   });
 }
 
@@ -119,23 +123,24 @@ serve(async (req) => {
 
     const tiers: PassKitTier[] = Array.isArray(tiersRes.json)
       ? tiersRes.json
-      : (tiersRes.json?.tiers ?? tiersRes.json?.data ?? []);
+      : (
+          tiersRes.json?.tiers ??
+          tiersRes.json?.items ??
+          tiersRes.json?.data ??
+          tiersRes.json?.filters?.items ??
+          []
+        );
 
-    const tierExists = tiers.some((t) => t?.id === passkitTierId);
-    if (!tierExists) {
-      const available = tiers
-        .slice(0, 20)
-        .map((t) => ({ id: t.id, name: t.name ?? "" }));
-
+    if (!tiers.length) {
       return new Response(
         JSON.stringify({
           success: false,
           error:
-            "Tier ID inválido para este Program ID no PassKit. Copie o Tier ID exatamente do mesmo Program.",
+            "Nenhum Tier encontrado para este Program ID no PassKit (ou Program ID inválido).",
           details: {
             programId: passkitProgramId,
             tierId: passkitTierId,
-            availableTiers: available,
+            raw: tiersRes.json ?? tiersRes.text,
           },
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
