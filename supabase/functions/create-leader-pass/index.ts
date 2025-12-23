@@ -220,7 +220,7 @@ serve(async (req) => {
       );
     }
 
-    // Buscar dados do líder
+    // Buscar dados do líder com campos adicionais
     const { data: leader, error: leaderError } = await supabase
       .from("lideres")
       .select(`
@@ -231,7 +231,14 @@ serve(async (req) => {
         affiliate_token,
         pontuacao_total,
         cadastros,
-        cidade:cidade_id (nome)
+        data_nascimento,
+        join_date,
+        hierarchy_level,
+        is_coordinator,
+        is_verified,
+        verified_at,
+        cidade:cidade_id (nome),
+        parent_leader:parent_leader_id (nome_completo)
       `)
       .eq("id", leaderId)
       .single();
@@ -254,10 +261,30 @@ serve(async (req) => {
     const organizationName = org?.nome || "Gabinete";
     const logoUrl = org?.logo_url || "";
 
+    // Funções auxiliares
+    const formatDate = (dateStr: string | null): string => {
+      if (!dateStr) return "";
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("pt-BR");
+      } catch {
+        return "";
+      }
+    };
+
+    const getNivelNome = (level: number | null, isCoordinator: boolean | null): string => {
+      if (isCoordinator) return "Coordenador";
+      if (level === null || level === undefined) return "Líder";
+      if (level === 1) return "Líder Nível 1";
+      if (level === 2) return "Líder Nível 2";
+      if (level === 3) return "Líder Nível 3";
+      return `Líder Nível ${level}`;
+    };
+
     // Gerar URL do link de afiliado
-    const baseUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".lovable.app") || "";
+    const siteBaseUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".lovable.app") || "";
     const affiliateUrl = leader.affiliate_token 
-      ? `${baseUrl}/afiliado/${leader.affiliate_token}`
+      ? `${siteBaseUrl}/afiliado/${leader.affiliate_token}`
       : "";
 
     // Criar o passe via PassKit API usando Bearer Token
@@ -269,14 +296,35 @@ serve(async (req) => {
       person: {
         displayName: leader.nome_completo,
         emailAddress: leader.email || undefined,
+        mobileNumber: leader.telefone || undefined,
       },
-      // Custom fields for the pass
+      // Custom fields for the pass - dados completos do líder
       metaData: {
+        // Dados básicos
         leaderId: leader.id,
         affiliateToken: leader.affiliate_token || "",
+        affiliateUrl: affiliateUrl,
+        // Pontuação
         pontuacao: leader.pontuacao_total.toString(),
         cadastros: leader.cadastros.toString(),
+        // Localização
         cidade: (leader.cidade as any)?.nome || "",
+        // Contato
+        telefone: leader.telefone || "",
+        email: leader.email || "",
+        // Hierarquia
+        nivel: getNivelNome(leader.hierarchy_level, leader.is_coordinator),
+        nivelNumero: (leader.hierarchy_level ?? 0).toString(),
+        coordenador: leader.is_coordinator ? "Sim" : "Não",
+        liderSuperior: (leader.parent_leader as any)?.nome_completo || "",
+        // Datas
+        membroDesde: formatDate(leader.join_date),
+        dataNascimento: leader.data_nascimento || "",
+        // Verificação
+        verificado: leader.is_verified ? "Sim" : "Não",
+        verificadoEm: formatDate(leader.verified_at),
+        // Organização
+        organizacao: organizationName,
       },
       tierPoints: leader.pontuacao_total,
       secondaryPoints: leader.cadastros,
