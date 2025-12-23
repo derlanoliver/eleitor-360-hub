@@ -9,7 +9,7 @@ import {
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
   Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert,
-  Link, UserCheck, RefreshCw, ChevronRight
+  Link, UserCheck, RefreshCw, ChevronRight, Wallet, Loader2
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const [open, setOpen] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [includeAllLevels, setIncludeAllLevels] = useState(true);
+  const [generatingPass, setGeneratingPass] = useState(false);
   
   const { data: indicatedContacts, isLoading: loadingContacts } = useLeaderIndicatedContacts(open ? leader.id : undefined);
   const { data: subordinates, isLoading: loadingSubordinates } = useLeaderSubordinates(open ? leader.id : undefined);
@@ -206,6 +207,63 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   <p className="text-sm bg-muted p-3 rounded-md">{leader.observacao}</p>
                 </div>
               )}
+
+              {/* Seção Carteira Digital */}
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Wallet className="h-4 w-4" />
+                      Carteira Digital
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Gere um cartão digital para Apple Wallet ou Google Pay
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={generatingPass || !leader.affiliate_token}
+                    onClick={async () => {
+                      setGeneratingPass(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('create-leader-pass', {
+                          body: { leaderId: leader.id }
+                        });
+                        
+                        if (error || !data?.success) {
+                          toast.error(data?.error || "Erro ao gerar cartão digital");
+                          return;
+                        }
+                        
+                        if (data.data?.passUrl) {
+                          window.open(data.data.passUrl, '_blank');
+                          toast.success("Cartão digital gerado! Abrindo página de download...");
+                        } else {
+                          toast.success("Cartão digital criado com sucesso!");
+                        }
+                      } catch (err) {
+                        console.error("Erro ao gerar passe:", err);
+                        toast.error("Erro ao gerar cartão digital");
+                      } finally {
+                        setGeneratingPass(false);
+                      }
+                    }}
+                  >
+                    {generatingPass ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Wallet className="h-4 w-4 mr-2" />
+                    )}
+                    {generatingPass ? "Gerando..." : "Gerar Cartão"}
+                  </Button>
+                </div>
+                {!leader.affiliate_token && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    O líder precisa ter um token de afiliado para gerar o cartão digital.
+                  </p>
+                )}
+              </div>
             </TabsContent>
 
             {/* ABA VERIFICAÇÃO */}
