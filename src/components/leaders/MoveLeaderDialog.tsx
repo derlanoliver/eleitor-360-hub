@@ -82,8 +82,8 @@ export function MoveLeaderDialog({
       
       if (isSubordinateOfMoved) return;
       
-      // Only include if adding wouldn't exceed level 4
-      if (node.hierarchy_level && node.hierarchy_level < 4) {
+      // Only include if adding wouldn't exceed level 6
+      if (node.hierarchy_level && node.hierarchy_level < 6) {
         parents.push({
           id: node.id,
           name: node.nome_completo,
@@ -108,9 +108,9 @@ export function MoveLeaderDialog({
   // Check if move would exceed depth limit
   const wouldExceedLimit = useMemo(() => {
     if (!newLevel) return false;
-    // Current subtree depth = (4 - currentLevel) at most
-    const subtreeDepth = 4 - currentLevel;
-    return (newLevel + subtreeDepth) > 4;
+    // Current subtree depth = (6 - currentLevel) at most
+    const subtreeDepth = 6 - currentLevel;
+    return (newLevel + subtreeDepth) > 6;
   }, [newLevel, currentLevel]);
 
   const handleSelectCoordinator = (coordinatorId: string) => {
@@ -158,6 +158,8 @@ export function MoveLeaderDialog({
       case 2: return "Nível 2";
       case 3: return "Nível 3";
       case 4: return "Nível 4";
+      case 5: return "Nível 5";
+      case 6: return "Nível 6";
       default: return `Nível ${level}`;
     }
   };
@@ -251,8 +253,9 @@ export function MoveLeaderDialog({
                   className="space-y-2"
                 >
                   {possibleParents.map((parent) => {
-                    const wouldExceed = (parent.level + 1 + (4 - currentLevel)) > 4;
                     const isCurrentParent = parent.id === currentParentId;
+                    // Calculate with new limit of 6
+                    const wouldExceed = (parent.level + 1 + (6 - currentLevel)) > 6;
                     
                     return (
                       <div
@@ -298,7 +301,7 @@ export function MoveLeaderDialog({
                   <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      Este movimento excederia o limite de 4 níveis de hierarquia.
+                      Este movimento excederia o limite de 6 níveis de hierarquia.
                     </AlertDescription>
                   </Alert>
                 ) : (

@@ -57,6 +57,8 @@ export function AddSubordinateDialog({
       case 2: return "Líder Nível 1";
       case 3: return "Líder Nível 2";
       case 4: return "Líder Nível 3";
+      case 5: return "Líder Nível 4";
+      case 6: return "Líder Nível 5";
       default: return "Líder";
     }
   };
@@ -75,10 +77,10 @@ export function AddSubordinateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {parentLevel >= 4 ? (
+        {parentLevel >= 6 ? (
           <div className="py-8 text-center text-muted-foreground">
             <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Este nível já atingiu o limite máximo de hierarquia (4 níveis).</p>
+            <p>Este nível já atingiu o limite máximo de hierarquia (6 níveis).</p>
             <p className="text-sm mt-2">Não é possível adicionar mais subordinados diretos.</p>
           </div>
         ) : (

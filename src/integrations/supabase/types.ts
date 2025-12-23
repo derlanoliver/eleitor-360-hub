@@ -2392,6 +2392,18 @@ export type Database = {
           qr_code: string
         }[]
       }
+      create_leader_from_public_form: {
+        Args: {
+          p_cidade_id: string
+          p_data_nascimento?: string
+          p_email: string
+          p_nome_completo: string
+          p_observacao?: string
+          p_referring_leader_token?: string
+          p_telefone: string
+        }
+        Returns: string
+      }
       demote_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
@@ -2685,6 +2697,10 @@ export type Database = {
         Returns: Json
       }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      promote_leader_to_subordinate: {
+        Args: { _leader_id: string; _parent_id: string }
+        Returns: undefined
+      }
       promote_to_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       promote_to_coordinator_with_subordinates: {
         Args: { _leader_id: string }
