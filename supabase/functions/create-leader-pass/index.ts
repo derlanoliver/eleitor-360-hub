@@ -35,7 +35,7 @@ serve(async (req) => {
     // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("passkit_api_token, passkit_enabled, passkit_api_base_url")
+      .select("passkit_api_token, passkit_enabled, passkit_api_base_url, passkit_program_id")
       .limit(1)
       .single();
 
@@ -49,17 +49,18 @@ serve(async (req) => {
 
     const passkitToken = (settings.passkit_api_token ?? "").trim();
     const passkitBaseUrl = (settings.passkit_api_base_url ?? "https://api.pub1.passkit.io").trim();
+    const passkitProgramId = (settings.passkit_program_id ?? "").trim();
 
-    if (!settings.passkit_enabled || !passkitToken) {
+    if (!settings.passkit_enabled || !passkitToken || !passkitProgramId) {
       return new Response(
-        JSON.stringify({ success: false, error: "PassKit não está configurado ou habilitado" }),
+        JSON.stringify({ success: false, error: "PassKit não está configurado completamente. Verifique Token e Program ID." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Debug seguro: não loga o token completo
     console.log(
-      `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} token length=${passkitToken.length} prefix=${passkitToken.slice(0, 6)} suffix=${passkitToken.slice(-6)}`
+      `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} programId=${passkitProgramId} token length=${passkitToken.length}`
     );
 
     // Buscar dados do líder
@@ -104,7 +105,8 @@ serve(async (req) => {
 
     // Criar o passe via PassKit API usando Bearer Token
     const passData = {
-      // Member pass data
+      // Member pass data - incluindo programId obrigatório
+      programId: passkitProgramId,
       externalId: leader.id,
       person: {
         displayName: leader.nome_completo,
@@ -118,6 +120,8 @@ serve(async (req) => {
         cadastros: leader.cadastros.toString(),
         cidade: (leader.cidade as any)?.nome || "",
       },
+      tierPoints: leader.pontuacao_total,
+      secondaryPoints: leader.cadastros,
     };
 
     console.log("[create-leader-pass] Enviando para PassKit:", JSON.stringify(passData));
@@ -131,12 +135,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${passkitToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        ...passData,
-        // Incluir dados adicionais para exibição no passe
-        tierPoints: leader.pontuacao_total,
-        secondaryPoints: leader.cadastros,
-      }),
+      body: JSON.stringify(passData),
     });
 
     if (!passkitResponse.ok) {

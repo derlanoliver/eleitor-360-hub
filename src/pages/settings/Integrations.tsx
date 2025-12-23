@@ -178,6 +178,7 @@ const Integrations = () => {
   // PassKit state
   const [passkitApiToken, setPasskitApiToken] = useState("");
   const [passkitApiBaseUrl, setPasskitApiBaseUrl] = useState("https://api.pub1.passkit.io");
+  const [passkitProgramId, setPasskitProgramId] = useState("");
   const [passkitEnabled, setPasskitEnabled] = useState(false);
   const [showPasskitToken, setShowPasskitToken] = useState(false);
 
@@ -211,6 +212,7 @@ const Integrations = () => {
       // PassKit
       setPasskitApiToken(settings.passkit_api_token || "");
       setPasskitApiBaseUrl(settings.passkit_api_base_url || "https://api.pub1.passkit.io");
+      setPasskitProgramId(settings.passkit_program_id || "");
       setPasskitEnabled(settings.passkit_enabled || false);
       // Auto message toggles
       setWaAutoVerificacao(settings.wa_auto_verificacao_enabled ?? true);
@@ -263,6 +265,7 @@ const Integrations = () => {
     updateSettings.mutate({
       passkit_api_token: passkitApiToken || null,
       passkit_api_base_url: passkitApiBaseUrl || "https://api.pub1.passkit.io",
+      passkit_program_id: passkitProgramId || null,
       passkit_enabled: passkitEnabled,
     });
   };
@@ -289,7 +292,7 @@ const Integrations = () => {
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
-  const isPasskitConfigured = !!passkitApiToken;
+  const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId;
 
   const enabledAutoMessagesCount = [
     waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
@@ -902,6 +905,19 @@ const Integrations = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Obtenha em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Settings → API Keys → Long Lived Token
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="passkit-program-id">Program ID</Label>
+                <Input
+                  id="passkit-program-id"
+                  placeholder="ID do programa de membros"
+                  value={passkitProgramId}
+                  onChange={(e) => setPasskitProgramId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Encontre em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Programs → Seu Programa → Program ID
                 </p>
               </div>
             </div>
