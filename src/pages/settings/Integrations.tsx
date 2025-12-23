@@ -177,6 +177,7 @@ const Integrations = () => {
 
   // PassKit state
   const [passkitApiToken, setPasskitApiToken] = useState("");
+  const [passkitApiBaseUrl, setPasskitApiBaseUrl] = useState("https://api.pub1.passkit.io");
   const [passkitEnabled, setPasskitEnabled] = useState(false);
   const [showPasskitToken, setShowPasskitToken] = useState(false);
 
@@ -209,6 +210,7 @@ const Integrations = () => {
       setSmsdevEnabled(settings.smsdev_enabled || false);
       // PassKit
       setPasskitApiToken(settings.passkit_api_token || "");
+      setPasskitApiBaseUrl(settings.passkit_api_base_url || "https://api.pub1.passkit.io");
       setPasskitEnabled(settings.passkit_enabled || false);
       // Auto message toggles
       setWaAutoVerificacao(settings.wa_auto_verificacao_enabled ?? true);
@@ -260,6 +262,7 @@ const Integrations = () => {
   const handleSavePasskit = () => {
     updateSettings.mutate({
       passkit_api_token: passkitApiToken || null,
+      passkit_api_base_url: passkitApiBaseUrl || "https://api.pub1.passkit.io",
       passkit_enabled: passkitEnabled,
     });
   };
@@ -857,12 +860,28 @@ const Integrations = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="passkit-token">API Token (Bearer)</Label>
+                <Label htmlFor="passkit-base-url">Região da API</Label>
+                <select
+                  id="passkit-base-url"
+                  value={passkitApiBaseUrl}
+                  onChange={(e) => setPasskitApiBaseUrl(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="https://api.pub1.passkit.io">Região 1 (pub1) - Padrão</option>
+                  <option value="https://api.pub2.passkit.io">Região 2 (pub2)</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Selecione a região correspondente à sua conta PassKit
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="passkit-token">API Token (Long Lived Token)</Label>
                 <div className="relative">
                   <Input
                     id="passkit-token"
                     type={showPasskitToken ? "text" : "password"}
-                    placeholder="Seu Bearer Token do PassKit"
+                    placeholder="Seu Long Lived Token do PassKit"
                     value={passkitApiToken}
                     onChange={(e) => setPasskitApiToken(e.target.value)}
                     className="pr-10"
@@ -882,7 +901,7 @@ const Integrations = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Obtenha em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Settings → API Keys
+                  Obtenha em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Settings → API Keys → Long Lived Token
                 </p>
               </div>
             </div>
