@@ -126,11 +126,11 @@ serve(async (req) => {
 
     console.log("[create-leader-pass] Enviando para PassKit:", JSON.stringify(passData));
 
-    // Chamar a API do PassKit para criar/atualizar o membro
-    // Usando a API de Members (https://docs.passkit.io/protocols/member/)
-    console.log(`[create-leader-pass] Chamando ${passkitBaseUrl}/members/member`);
+    // Chamar a API do PassKit para criar o membro
+    // POST para criar novo, PUT para atualizar existente
+    console.log(`[create-leader-pass] Chamando POST ${passkitBaseUrl}/members/member`);
     const passkitResponse = await fetch(`${passkitBaseUrl}/members/member`, {
-      method: "PUT",
+      method: "POST",
       headers: {
         "Authorization": `Bearer ${passkitToken}`,
         "Content-Type": "application/json",
