@@ -160,15 +160,30 @@ serve(async (req) => {
       );
     }
 
-    const tiers: PassKitTier[] = Array.isArray(tiersRes.json)
-      ? tiersRes.json
-      : (
-          tiersRes.json?.tiers ??
-          tiersRes.json?.items ??
-          tiersRes.json?.data ??
-          tiersRes.json?.filters?.items ??
-          []
-        );
+    // Parseia resposta NDJSON (PassKit pode retornar múltiplos objetos JSON separados por newline)
+    let tiers: PassKitTier[] = [];
+    if (Array.isArray(tiersRes.json)) {
+      tiers = tiersRes.json;
+    } else if (tiersRes.json?.tiers || tiersRes.json?.items || tiersRes.json?.data || tiersRes.json?.filters?.items) {
+      tiers =
+        tiersRes.json?.tiers ??
+        tiersRes.json?.items ??
+        tiersRes.json?.data ??
+        tiersRes.json?.filters?.items ??
+        [];
+    } else if (typeof tiersRes.text === "string" && tiersRes.text.includes('{"result"')) {
+      // NDJSON: cada linha é {"result": {...}}
+      const lines = tiersRes.text.split("\n").filter((l) => l.trim().startsWith("{"));
+      tiers = lines.map((line) => {
+        try {
+          const parsed = JSON.parse(line);
+          const r = parsed.result ?? parsed;
+          return { id: r.id, name: r.name, programId: r.programId };
+        } catch {
+          return null;
+        }
+      }).filter(Boolean) as PassKitTier[];
+    }
 
     if (!tiers.length) {
       return new Response(
@@ -180,6 +195,25 @@ serve(async (req) => {
             programId: passkitProgramId,
             tierId: passkitTierId,
             raw: tiersRes.json ?? tiersRes.text,
+          },
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validar tierId
+    const tierExists = tiers.some((t) => t?.id === passkitTierId);
+    if (!tierExists) {
+      const available = tiers.slice(0, 20).map((t) => ({ id: t.id, name: t.name ?? "" }));
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Tier ID inválido. Use um dos IDs listados abaixo (copie o 'id', não o 'passTemplateId').",
+          details: {
+            programId: passkitProgramId,
+            tierId: passkitTierId,
+            availableTiers: available,
           },
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
