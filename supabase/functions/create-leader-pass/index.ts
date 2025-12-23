@@ -44,20 +44,8 @@ async function passkitJson(
 
 async function listMemberTiers(baseUrl: string, token: string, programId: string) {
   return passkitJson(baseUrl, token, "/members/tiers/list", {
-    filters: {
-      limit: 100,
-      offset: 0,
-      orderBy: "created",
-      orderAsc: true,
-      filterGroups: [
-        {
-          condition: "AND",
-          fieldFilters: [
-            { filterField: "programId", filterOperator: "eq", filterValue: programId },
-          ],
-        },
-      ],
-    },
+    programId,
+    limit: 100,
   });
 }
 
