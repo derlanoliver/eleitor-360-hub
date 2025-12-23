@@ -43,21 +43,33 @@ async function passkitJson(
 }
 
 async function listMemberTiers(baseUrl: string, token: string, programId: string) {
-  // PassKit pode aceitar formatos diferentes dependendo do cluster/versão.
-  // 1) tentativa simples (filters.programId)
-  const attempt1 = await passkitJson(baseUrl, token, "/members/tiers/list", {
+  // PassKit pode variar o formato do payload por cluster/versão.
+  // Tentamos 3 formatos, do mais simples ao mais verboso.
+
+  // A) raiz: programId (alguns clusters exigem isso)
+  const attemptA = await passkitJson(baseUrl, token, "/members/tiers/list", {
+    programId,
+    limit: 100,
+  });
+  if (attemptA.ok) return attemptA;
+
+  const msgA = (attemptA.json?.error?.message ?? attemptA.json?.message ?? attemptA.text ?? "").toString();
+
+  // B) filters.programId
+  const attemptB = await passkitJson(baseUrl, token, "/members/tiers/list", {
     filters: {
       programId,
       limit: 100,
       offset: 0,
     },
   });
+  if (attemptB.ok) return attemptB;
 
-  if (attempt1.ok) return attempt1;
+  const msgB = (attemptB.json?.error?.message ?? attemptB.json?.message ?? attemptB.text ?? "").toString();
 
-  const msg1 = (attempt1.json?.error?.message ?? attempt1.json?.message ?? attempt1.text ?? "").toString();
-  // 2) fallback: formato de filterGroups (documentação antiga)
-  if (msg1.toLowerCase().includes("please provide program id")) {
+  // C) filters.filterGroups (documentação antiga)
+  const needsProgramId = `${msgA} ${msgB}`.toLowerCase().includes("please provide program id");
+  if (needsProgramId) {
     return passkitJson(baseUrl, token, "/members/tiers/list", {
       filters: {
         limit: 100,
@@ -76,7 +88,8 @@ async function listMemberTiers(baseUrl: string, token: string, programId: string
     });
   }
 
-  return attempt1;
+  // Retorna o último erro relevante
+  return attemptB;
 }
 
 serve(async (req) => {
