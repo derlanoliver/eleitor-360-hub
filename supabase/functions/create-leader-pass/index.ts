@@ -35,7 +35,7 @@ serve(async (req) => {
     // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("passkit_api_token, passkit_enabled")
+      .select("passkit_api_token, passkit_enabled, passkit_api_base_url")
       .limit(1)
       .single();
 
@@ -48,6 +48,7 @@ serve(async (req) => {
     }
 
     const passkitToken = (settings.passkit_api_token ?? "").trim();
+    const passkitBaseUrl = (settings.passkit_api_base_url ?? "https://api.pub1.passkit.io").trim();
 
     if (!settings.passkit_enabled || !passkitToken) {
       return new Response(
@@ -58,7 +59,7 @@ serve(async (req) => {
 
     // Debug seguro: não loga o token completo
     console.log(
-      `[create-leader-pass] PassKit token length=${passkitToken.length} prefix=${passkitToken.slice(0, 6)} suffix=${passkitToken.slice(-6)}`
+      `[create-leader-pass] PassKit baseUrl=${passkitBaseUrl} token length=${passkitToken.length} prefix=${passkitToken.slice(0, 6)} suffix=${passkitToken.slice(-6)}`
     );
 
     // Buscar dados do líder
@@ -123,7 +124,8 @@ serve(async (req) => {
 
     // Chamar a API do PassKit para criar/atualizar o membro
     // Usando a API de Members (https://docs.passkit.io/protocols/member/)
-    const passkitResponse = await fetch("https://api.pub1.passkit.io/members/member", {
+    console.log(`[create-leader-pass] Chamando ${passkitBaseUrl}/members/member`);
+    const passkitResponse = await fetch(`${passkitBaseUrl}/members/member`, {
       method: "PUT",
       headers: {
         "Authorization": `Bearer ${passkitToken}`,
@@ -142,7 +144,8 @@ serve(async (req) => {
       console.error("[create-leader-pass] Erro PassKit:", passkitResponse.status, errorText);
       
       // Tentar com abordagem alternativa - criar passe genérico
-      const genericPassResponse = await fetch("https://api.pub1.passkit.io/coupon/singleUse/coupon", {
+      console.log(`[create-leader-pass] Tentando fallback: ${passkitBaseUrl}/coupon/singleUse/coupon`);
+      const genericPassResponse = await fetch(`${passkitBaseUrl}/coupon/singleUse/coupon`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${passkitToken}`,
