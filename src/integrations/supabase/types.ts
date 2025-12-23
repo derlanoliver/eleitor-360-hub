@@ -590,6 +590,7 @@ export type Database = {
           passkit_api_token: string | null
           passkit_enabled: boolean | null
           passkit_program_id: string | null
+          passkit_tier_id: string | null
           resend_api_key: string | null
           resend_enabled: boolean | null
           resend_from_email: string | null
@@ -618,6 +619,7 @@ export type Database = {
           passkit_api_token?: string | null
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
+          passkit_tier_id?: string | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null
@@ -646,6 +648,7 @@ export type Database = {
           passkit_api_token?: string | null
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
+          passkit_tier_id?: string | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null
