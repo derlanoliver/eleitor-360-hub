@@ -16,8 +16,7 @@ interface IntegrationsSettings {
   smsdev_api_key: string | null;
   smsdev_enabled: boolean;
   // PassKit
-  passkit_api_key: string | null;
-  passkit_api_secret: string | null;
+  passkit_api_token: string | null;
   passkit_enabled: boolean;
   // Controles de mensagens automáticas de WhatsApp
   wa_auto_verificacao_enabled: boolean;
@@ -45,8 +44,7 @@ interface UpdateIntegrationsDTO {
   smsdev_api_key?: string | null;
   smsdev_enabled?: boolean;
   // PassKit
-  passkit_api_key?: string | null;
-  passkit_api_secret?: string | null;
+  passkit_api_token?: string | null;
   passkit_enabled?: boolean;
   // Controles de mensagens automáticas de WhatsApp
   wa_auto_verificacao_enabled?: boolean;
