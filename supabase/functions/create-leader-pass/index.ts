@@ -47,12 +47,19 @@ serve(async (req) => {
       );
     }
 
-    if (!settings.passkit_enabled || !settings.passkit_api_token) {
+    const passkitToken = (settings.passkit_api_token ?? "").trim();
+
+    if (!settings.passkit_enabled || !passkitToken) {
       return new Response(
         JSON.stringify({ success: false, error: "PassKit não está configurado ou habilitado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Debug seguro: não loga o token completo
+    console.log(
+      `[create-leader-pass] PassKit token length=${passkitToken.length} prefix=${passkitToken.slice(0, 6)} suffix=${passkitToken.slice(-6)}`
+    );
 
     // Buscar dados do líder
     const { data: leader, error: leaderError } = await supabase
@@ -119,7 +126,7 @@ serve(async (req) => {
     const passkitResponse = await fetch("https://api.pub1.passkit.io/members/member", {
       method: "PUT",
       headers: {
-        "Authorization": `Bearer ${settings.passkit_api_token}`,
+        "Authorization": `Bearer ${passkitToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -138,7 +145,7 @@ serve(async (req) => {
       const genericPassResponse = await fetch("https://api.pub1.passkit.io/coupon/singleUse/coupon", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${settings.passkit_api_token}`,
+          "Authorization": `Bearer ${passkitToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
