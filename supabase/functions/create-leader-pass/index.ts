@@ -35,7 +35,7 @@ serve(async (req) => {
     // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("passkit_api_key, passkit_api_secret, passkit_enabled")
+      .select("passkit_api_token, passkit_enabled")
       .limit(1)
       .single();
 
@@ -47,7 +47,7 @@ serve(async (req) => {
       );
     }
 
-    if (!settings.passkit_enabled || !settings.passkit_api_key || !settings.passkit_api_secret) {
+    if (!settings.passkit_enabled || !settings.passkit_api_token) {
       return new Response(
         JSON.stringify({ success: false, error: "PassKit não está configurado ou habilitado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -94,12 +94,7 @@ serve(async (req) => {
       ? `${baseUrl}/afiliado/${leader.affiliate_token}`
       : "";
 
-    // Criar autenticação Base64 para PassKit
-    const authString = `${settings.passkit_api_key}:${settings.passkit_api_secret}`;
-    const authBase64 = btoa(authString);
-
-    // Criar o passe via PassKit API
-    // Primeiro, precisamos obter ou criar um template de membro
+    // Criar o passe via PassKit API usando Bearer Token
     const passData = {
       // Member pass data
       externalId: leader.id,
@@ -124,7 +119,7 @@ serve(async (req) => {
     const passkitResponse = await fetch("https://api.pub1.passkit.io/members/member", {
       method: "PUT",
       headers: {
-        "Authorization": `Basic ${authBase64}`,
+        "Authorization": `Bearer ${settings.passkit_api_token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -143,7 +138,7 @@ serve(async (req) => {
       const genericPassResponse = await fetch("https://api.pub1.passkit.io/coupon/singleUse/coupon", {
         method: "POST",
         headers: {
-          "Authorization": `Basic ${authBase64}`,
+          "Authorization": `Bearer ${settings.passkit_api_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

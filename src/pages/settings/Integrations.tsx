@@ -176,11 +176,9 @@ const Integrations = () => {
   const [webhookCopied, setWebhookCopied] = useState(false);
 
   // PassKit state
-  const [passkitApiKey, setPasskitApiKey] = useState("");
-  const [passkitApiSecret, setPasskitApiSecret] = useState("");
+  const [passkitApiToken, setPasskitApiToken] = useState("");
   const [passkitEnabled, setPasskitEnabled] = useState(false);
-  const [showPasskitKey, setShowPasskitKey] = useState(false);
-  const [showPasskitSecret, setShowPasskitSecret] = useState(false);
+  const [showPasskitToken, setShowPasskitToken] = useState(false);
 
   const handleCopyWebhookUrl = async () => {
     try {
@@ -210,8 +208,7 @@ const Integrations = () => {
       setSmsdevApiKey(settings.smsdev_api_key || "");
       setSmsdevEnabled(settings.smsdev_enabled || false);
       // PassKit
-      setPasskitApiKey(settings.passkit_api_key || "");
-      setPasskitApiSecret(settings.passkit_api_secret || "");
+      setPasskitApiToken(settings.passkit_api_token || "");
       setPasskitEnabled(settings.passkit_enabled || false);
       // Auto message toggles
       setWaAutoVerificacao(settings.wa_auto_verificacao_enabled ?? true);
@@ -262,8 +259,7 @@ const Integrations = () => {
 
   const handleSavePasskit = () => {
     updateSettings.mutate({
-      passkit_api_key: passkitApiKey || null,
-      passkit_api_secret: passkitApiSecret || null,
+      passkit_api_token: passkitApiToken || null,
       passkit_enabled: passkitEnabled,
     });
   };
@@ -290,7 +286,7 @@ const Integrations = () => {
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
-  const isPasskitConfigured = passkitApiKey && passkitApiSecret;
+  const isPasskitConfigured = !!passkitApiToken;
 
   const enabledAutoMessagesCount = [
     waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
@@ -861,14 +857,14 @@ const Integrations = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="passkit-key">API Key</Label>
+                <Label htmlFor="passkit-token">API Token (Bearer)</Label>
                 <div className="relative">
                   <Input
-                    id="passkit-key"
-                    type={showPasskitKey ? "text" : "password"}
-                    placeholder="Sua API Key do PassKit"
-                    value={passkitApiKey}
-                    onChange={(e) => setPasskitApiKey(e.target.value)}
+                    id="passkit-token"
+                    type={showPasskitToken ? "text" : "password"}
+                    placeholder="Seu Bearer Token do PassKit"
+                    value={passkitApiToken}
+                    onChange={(e) => setPasskitApiToken(e.target.value)}
                     className="pr-10"
                   />
                   <Button
@@ -876,36 +872,9 @@ const Integrations = () => {
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPasskitKey(!showPasskitKey)}
+                    onClick={() => setShowPasskitToken(!showPasskitToken)}
                   >
-                    {showPasskitKey ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="passkit-secret">API Secret</Label>
-                <div className="relative">
-                  <Input
-                    id="passkit-secret"
-                    type={showPasskitSecret ? "text" : "password"}
-                    placeholder="Seu API Secret do PassKit"
-                    value={passkitApiSecret}
-                    onChange={(e) => setPasskitApiSecret(e.target.value)}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPasskitSecret(!showPasskitSecret)}
-                  >
-                    {showPasskitSecret ? (
+                    {showPasskitToken ? (
                       <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <Eye className="h-4 w-4 text-muted-foreground" />
@@ -913,7 +882,7 @@ const Integrations = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Obtenha em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a>
+                  Obtenha em <a href="https://app.passkit.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">app.passkit.com</a> → Settings → API Keys
                 </p>
               </div>
             </div>
