@@ -43,14 +43,40 @@ async function passkitJson(
 }
 
 async function listMemberTiers(baseUrl: string, token: string, programId: string) {
-  // PassKit "membership protocol" listing normalmente espera programId dentro de "filters"
-  return passkitJson(baseUrl, token, "/members/tiers/list", {
+  // PassKit pode aceitar formatos diferentes dependendo do cluster/versão.
+  // 1) tentativa simples (filters.programId)
+  const attempt1 = await passkitJson(baseUrl, token, "/members/tiers/list", {
     filters: {
       programId,
       limit: 100,
       offset: 0,
     },
   });
+
+  if (attempt1.ok) return attempt1;
+
+  const msg1 = (attempt1.json?.error?.message ?? attempt1.json?.message ?? attempt1.text ?? "").toString();
+  // 2) fallback: formato de filterGroups (documentação antiga)
+  if (msg1.toLowerCase().includes("please provide program id")) {
+    return passkitJson(baseUrl, token, "/members/tiers/list", {
+      filters: {
+        limit: 100,
+        offset: 0,
+        orderBy: "created",
+        orderAsc: true,
+        filterGroups: [
+          {
+            condition: "AND",
+            fieldFilters: [
+              { filterField: "programId", filterOperator: "eq", filterValue: programId },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  return attempt1;
 }
 
 serve(async (req) => {
