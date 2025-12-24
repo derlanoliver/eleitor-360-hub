@@ -23,10 +23,10 @@ async function passkitRequest(
   method: string,
   path: string,
   apiToken: string,
+  baseUrl: string,
   body?: unknown
 ): Promise<{ data?: unknown; error?: string; status: number }> {
   try {
-    const baseUrl = "https://api.pub1.passkit.io";
     const url = `${baseUrl}${path}`;
     
     console.log(`PassKit ${method} request to: ${url}`);
@@ -110,7 +110,7 @@ serve(async (req) => {
     // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("passkit_enabled, passkit_api_token, passkit_program_id, passkit_tier_id")
+      .select("passkit_enabled, passkit_api_token, passkit_program_id, passkit_tier_id, passkit_api_base_url")
       .single();
 
     if (settingsError || !settings) {
@@ -134,6 +134,10 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Usar URL base configurada ou fallback para pub1
+    const passkitBaseUrl = settings.passkit_api_base_url || "https://api.pub1.passkit.io";
+    console.log(`Usando PassKit API URL: ${passkitBaseUrl}`);
 
     // Buscar líderes com campos de PassKit
     const { data: leaders, error: leadersError } = await supabase
@@ -178,6 +182,7 @@ serve(async (req) => {
             "POST",
             "/members/member/find",
             settings.passkit_api_token,
+            passkitBaseUrl,
             {
               programId: settings.passkit_program_id,
               externalId: leader.id
@@ -237,7 +242,8 @@ serve(async (req) => {
         const getCurrentMemberResult = await passkitRequest(
           "GET",
           `/members/member/${memberId}`,
-          settings.passkit_api_token
+          settings.passkit_api_token,
+          passkitBaseUrl
         );
 
         let existingMetaData: Record<string, unknown> = {};
@@ -280,6 +286,7 @@ serve(async (req) => {
           "PUT",
           "/members/member",
           settings.passkit_api_token,
+          passkitBaseUrl,
           updateData
         );
 
