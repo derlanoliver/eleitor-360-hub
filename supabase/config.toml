@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.create-leader-pass]
 verify_jwt = false
+
+[functions.send-pass-notification]
+verify_jwt = false
