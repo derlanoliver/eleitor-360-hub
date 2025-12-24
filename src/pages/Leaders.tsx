@@ -586,15 +586,6 @@ const Leaders = () => {
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDownloadQRCode(leader)}
-                      title="Baixar QR Code"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
                     <EditLeaderDialog leader={leader}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar">
                         <Pencil className="h-4 w-4" />
