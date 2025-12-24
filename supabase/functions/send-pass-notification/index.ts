@@ -349,28 +349,40 @@ serve(async (req) => {
 
         console.log(`Points atuais: ${currentPoints}, SecondaryPoints: ${currentSecondaryPoints}`);
 
-        // Atualizar backFields com a mensagem
+        // IMPORTANTE: Para disparar push notification no Apple Wallet:
+        // 1. O campo precisa ter changeMessage com %@ no TEMPLATE do PassKit
+        // 2. O valor do campo PRECISA mudar a cada atualização
+        // 
+        // Usamos o campo "lastNotification" com timestamp único para garantir que sempre muda
+        const timestamp = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const notificationValue = `${trimmedMessage} • ${timestamp}`;
+        
+        console.log(`[Push Trigger] Campo lastNotification será: "${notificationValue}"`);
+
+        // Atualizar backFields com a mensagem (campo que dispara a notificação)
         const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem" && f.key !== "lastNotification");
         updatedBackFields.push({
           key: "lastNotification",
           label: "📢 Última Notificação",
-          value: trimmedMessage
+          value: notificationValue
         });
 
-        // Payload para PUT (mesmo padrão do create-leader-pass)
+        // Contagem de notificações enviadas
         const nextNotificationCount = (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1;
+        
+        // Payload para PUT - NÃO incrementamos secondaryPoints para não afetar gamificação
+        // O push é disparado pela mudança no campo lastNotification (que deve ter changeMessage no template)
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
           tierId: settings.passkit_tier_id,
-          // Incrementar secondaryPoints para disparar push notification
+          // Manter pontos inalterados - gamificação não deve ser afetada por notificações
           points: currentPoints,
-          secondaryPoints: currentSecondaryPoints + 1,
+          secondaryPoints: currentSecondaryPoints,
           metaData: {
             ...existingMetaData,
             lastMessage: trimmedMessage,
             lastMessageDate: now,
-            // PassKit espera string em alguns campos do metaData
             notificationCount: String(nextNotificationCount),
           },
           passOverrides: {
@@ -396,14 +408,14 @@ serve(async (req) => {
             success: false,
             leaderId: leader.id,
             leaderName: leader.nome_completo,
-            error: updateResult.error
+            error: `PUT falhou: ${updateResult.error}`
           });
           continue;
         }
 
-        console.log(`PUT funcionou para ${leader.nome_completo}`);
-
-        console.log(`✅ Notificação enviada com sucesso para ${leader.nome_completo}`);
+        console.log(`PUT funcionou para ${leader.nome_completo} (status: ${updateResult.status})`);
+        console.log(`✅ Membro atualizado no PassKit. Push depende de changeMessage no template.`);
+        console.log(`   Campo atualizado: lastNotification = "${notificationValue}"`);
         results.push({
           success: true,
           leaderId: leader.id,
