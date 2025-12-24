@@ -308,10 +308,10 @@ serve(async (req) => {
       return { nome: "Diamante", icone: "💎" };
     };
 
-    // Gerar URL do link de afiliado
-    const siteBaseUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".lovable.app") || "";
+    // Gerar URL do link de afiliado - usando URL base principal do sistema
+    const siteBaseUrl = "https://app.rafaelprudente.com";
     const affiliateUrl = leader.affiliate_token 
-      ? `${siteBaseUrl}/afiliado/${leader.affiliate_token}`
+      ? `${siteBaseUrl}/affiliate/${leader.affiliate_token}`
       : "";
 
     // Dados para exibição no cartão
