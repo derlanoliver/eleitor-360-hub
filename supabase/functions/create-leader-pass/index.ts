@@ -287,6 +287,13 @@ serve(async (req) => {
       ? `${siteBaseUrl}/afiliado/${leader.affiliate_token}`
       : "";
 
+    // Dados para exibição no cartão
+    const nivelLabel = getNivelNome(leader.hierarchy_level, leader.is_coordinator);
+    const cidadeNome = (leader.cidade as any)?.nome || "N/A";
+    const membroDesde = formatDate(leader.join_date) || "N/A";
+    const liderSuperior = (leader.parent_leader as any)?.nome_completo || "Nenhum";
+    const verificadoStatus = leader.is_verified ? `Sim (${formatDate(leader.verified_at)})` : "Não";
+
     // Criar o passe via PassKit API usando Bearer Token
     const passData = {
       // Member pass data - incluindo programId e tierId obrigatórios
@@ -298,32 +305,55 @@ serve(async (req) => {
         emailAddress: leader.email || undefined,
         mobileNumber: leader.telefone || undefined,
       },
-      // Custom fields for the pass - dados completos do líder
+      // Campos nativos do PassKit para exibição automática no cartão
+      passOverrides: {
+        // Header: aparece no topo ao lado do logo
+        headerFields: [
+          { key: "nivel", label: "Nível", value: nivelLabel }
+        ],
+        // Primary: nome em destaque no centro
+        primaryFields: [
+          { key: "nome", label: "Líder", value: leader.nome_completo }
+        ],
+        // Secondary: informações principais abaixo do nome
+        secondaryFields: [
+          { key: "pontos", label: "Pontos", value: leader.pontuacao_total.toString() },
+          { key: "cadastros", label: "Cadastros", value: leader.cadastros.toString() }
+        ],
+        // Auxiliary: informações complementares
+        auxiliaryFields: [
+          { key: "cidade", label: "Cidade", value: cidadeNome },
+          { key: "membro_desde", label: "Desde", value: membroDesde }
+        ],
+        // Back: verso do cartão com detalhes completos
+        backFields: [
+          { key: "telefone", label: "Telefone", value: leader.telefone || "Não informado" },
+          { key: "email", label: "E-mail", value: leader.email || "Não informado" },
+          { key: "superior", label: "Líder Superior", value: liderSuperior },
+          { key: "verificado", label: "Verificado", value: verificadoStatus },
+          { key: "coordenador", label: "Coordenador", value: leader.is_coordinator ? "Sim" : "Não" },
+          { key: "afiliado", label: "Link de Afiliado", value: affiliateUrl || "N/A" },
+          { key: "organizacao", label: "Organização", value: organizationName }
+        ]
+      },
+      // Backup em metaData para integrações e histórico
       metaData: {
-        // Dados básicos
         leaderId: leader.id,
         affiliateToken: leader.affiliate_token || "",
         affiliateUrl: affiliateUrl,
-        // Pontuação
         pontuacao: leader.pontuacao_total.toString(),
         cadastros: leader.cadastros.toString(),
-        // Localização
-        cidade: (leader.cidade as any)?.nome || "",
-        // Contato
+        cidade: cidadeNome,
         telefone: leader.telefone || "",
         email: leader.email || "",
-        // Hierarquia
-        nivel: getNivelNome(leader.hierarchy_level, leader.is_coordinator),
+        nivel: nivelLabel,
         nivelNumero: (leader.hierarchy_level ?? 0).toString(),
         coordenador: leader.is_coordinator ? "Sim" : "Não",
-        liderSuperior: (leader.parent_leader as any)?.nome_completo || "",
-        // Datas
-        membroDesde: formatDate(leader.join_date),
+        liderSuperior: liderSuperior,
+        membroDesde: membroDesde,
         dataNascimento: leader.data_nascimento || "",
-        // Verificação
         verificado: leader.is_verified ? "Sim" : "Não",
         verificadoEm: formatDate(leader.verified_at),
-        // Organização
         organizacao: organizationName,
       },
       tierPoints: leader.pontuacao_total,
