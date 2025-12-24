@@ -244,67 +244,48 @@ serve(async (req) => {
           continue;
         }
 
-        // Buscar dados atuais do membro no PassKit para preservar campos existentes
-        console.log(`Buscando dados atuais do membro ${memberId} para preservar campos...`);
+        // Buscar dados atuais do membro no PassKit usando externalId (mais confiável)
+        // O endpoint /members/member/external/{programId}/{externalId} é o mais estável
+        console.log(`Buscando membro pelo externalId (leader.id): ${leader.id}`);
         let getCurrentMemberResult = await passkitRequest(
           "GET",
-          `/members/member/${memberId}`,
+          `/members/member/external/${settings.passkit_program_id}/${leader.id}`,
           settings.passkit_api_token,
           passkitBaseUrl
         );
 
-        // Se o membro não foi encontrado (404), tentar buscar pelo externalId
-        // Isso pode acontecer se o cartão foi deletado e recriado
-        if (getCurrentMemberResult.status === 404) {
-          console.log(`Membro ${memberId} não encontrado (404), tentando buscar pelo externalId: ${leader.id}`);
+        // Se encontrou, extrair o memberId real e atualizar no banco se necessário
+        if (getCurrentMemberResult.status === 200 && getCurrentMemberResult.data) {
+          const foundMember = getCurrentMemberResult.data as Record<string, unknown>;
+          const realMemberId = foundMember.id as string;
           
-          const findResult = await passkitRequest(
-            "POST",
-            "/members/member/find",
-            settings.passkit_api_token,
-            passkitBaseUrl,
-            {
-              programId: settings.passkit_program_id,
-              externalId: leader.id
-            }
-          );
-
-          if (findResult.status === 404 || !findResult.data) {
-            console.log(`Líder ${leader.nome_completo} não tem cartão válido no PassKit`);
-            // Limpar o passkit_member_id inválido
-            await supabase
-              .from("lideres")
-              .update({ passkit_member_id: null, passkit_pass_installed: false })
-              .eq("id", leader.id);
-              
-            results.push({
-              success: false,
-              leaderId: leader.id,
-              leaderName: leader.nome_completo,
-              error: "Líder não possui cartão válido no PassKit"
-            });
-            continue;
-          }
-
-          if (findResult.data) {
-            const foundMember = findResult.data as Record<string, unknown>;
-            memberId = foundMember.id as string;
-            console.log(`Novo memberId encontrado: ${memberId}, atualizando no banco...`);
+          if (realMemberId && realMemberId !== memberId) {
+            console.log(`MemberId atualizado: ${memberId} -> ${realMemberId}`);
+            memberId = realMemberId;
             
-            // Atualizar o passkit_member_id no banco
+            // Atualizar o passkit_member_id no banco (sem alterar passkit_pass_installed)
             await supabase
               .from("lideres")
               .update({ passkit_member_id: memberId })
               .eq("id", leader.id);
-
-            // Buscar novamente os dados com o novo ID
-            getCurrentMemberResult = await passkitRequest(
-              "GET",
-              `/members/member/${memberId}`,
-              settings.passkit_api_token,
-              passkitBaseUrl
-            );
           }
+        } else if (getCurrentMemberResult.status === 404) {
+          console.log(`Membro não encontrado pelo externalId ${leader.id} (404)`);
+          
+          // NÃO alterar passkit_pass_installed - a fonte da verdade é o webhook
+          // Apenas limpar o passkit_member_id inválido
+          await supabase
+            .from("lideres")
+            .update({ passkit_member_id: null })
+            .eq("id", leader.id);
+            
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: "Membro não encontrado no PassKit. O cartão pode ter sido desinstalado."
+          });
+          continue;
         }
 
         if (getCurrentMemberResult.error || !getCurrentMemberResult.data) {
