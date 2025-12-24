@@ -19,10 +19,10 @@ interface PassKitWebhookPayload {
       displayName?: string;
     };
     metadata?: {
-      firstInstalledAt?: string;
-      lastInstalledAt?: string;
-      firstUninstalledAt?: string;
-      lastUninstalledAt?: string;
+      firstInstalledAt?: TimestampLike;
+      lastInstalledAt?: TimestampLike;
+      firstUninstalledAt?: TimestampLike;
+      lastUninstalledAt?: TimestampLike;
       installCount?: number;
       installDeviceAttributes?: {
         platform?: string;
@@ -31,6 +31,33 @@ interface PassKitWebhookPayload {
     };
     recordData?: Record<string, string>;
   };
+}
+
+type TimestampLike =
+  | string
+  | {
+      seconds: number;
+      nanos?: number;
+    };
+
+function toIsoTimestamp(value: TimestampLike | undefined, fallbackIso?: string) {
+  const fallback = fallbackIso ?? new Date().toISOString();
+
+  if (!value) return fallback;
+
+  if (typeof value === "string") {
+    // If PassKit already sends ISO-like string
+    return value;
+  }
+
+  const seconds = typeof value.seconds === "number" ? value.seconds : undefined;
+  const nanos = typeof value.nanos === "number" ? value.nanos : 0;
+
+  if (!seconds) return fallback;
+
+  const ms = seconds * 1000 + Math.floor(nanos / 1e6);
+  const iso = new Date(ms).toISOString();
+  return iso;
 }
 
 Deno.serve(async (req) => {
@@ -146,8 +173,10 @@ async function processEvent(
   // Processar baseado no status de instalação (mais confiável que o tipo de evento)
   if (universalStatus === "PASS_INSTALLED") {
     console.log("Cartão INSTALADO na wallet");
-    const installedAt = metadata?.firstInstalledAt || metadata?.lastInstalledAt || new Date().toISOString();
-    
+    const installedAt = toIsoTimestamp(metadata?.firstInstalledAt || metadata?.lastInstalledAt);
+    console.log("InstalledAt (raw):", JSON.stringify(metadata?.firstInstalledAt || metadata?.lastInstalledAt));
+    console.log("InstalledAt (iso):", installedAt);
+
     const { error } = await supabase
       .from("lideres")
       .update({
@@ -168,8 +197,10 @@ async function processEvent(
 
   if (universalStatus === "PASS_UNINSTALLED") {
     console.log("Cartão DESINSTALADO da wallet");
-    const uninstalledAt = metadata?.lastUninstalledAt || new Date().toISOString();
-    
+    const uninstalledAt = toIsoTimestamp(metadata?.lastUninstalledAt || metadata?.firstUninstalledAt);
+    console.log("UninstalledAt (raw):", JSON.stringify(metadata?.lastUninstalledAt || metadata?.firstUninstalledAt));
+    console.log("UninstalledAt (iso):", uninstalledAt);
+
     const { error } = await supabase
       .from("lideres")
       .update({
