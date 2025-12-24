@@ -350,28 +350,19 @@ serve(async (req) => {
         console.log(`Points atuais: ${currentPoints}, SecondaryPoints: ${currentSecondaryPoints}`);
 
         // IMPORTANTE: Para disparar push notification no Apple Wallet:
-        // 1. O campo precisa ter changeMessage com %@ no TEMPLATE do PassKit
-        // 2. O valor do campo PRECISA mudar a cada atualização
-        // 
-        // Usamos o campo "lastNotification" com timestamp único para garantir que sempre muda
+        // O campo configurado no PassKit é "meta.notification" com changeMessage "%@"
+        // Isso significa que metaData.notification é o campo que dispara o push
+        // O valor PRECISA mudar a cada atualização para o PassKit reconhecer
         const timestamp = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         const notificationValue = `${trimmedMessage} • ${timestamp}`;
         
-        console.log(`[Push Trigger] Campo lastNotification será: "${notificationValue}"`);
-
-        // Atualizar backFields com a mensagem (campo que dispara a notificação)
-        const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem" && f.key !== "lastNotification");
-        updatedBackFields.push({
-          key: "lastNotification",
-          label: "📢 Última Notificação",
-          value: notificationValue
-        });
+        console.log(`[Push Trigger] Campo meta.notification será: "${notificationValue}"`);
 
         // Contagem de notificações enviadas
         const nextNotificationCount = (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1;
         
-        // Payload para PUT - NÃO incrementamos secondaryPoints para não afetar gamificação
-        // O push é disparado pela mudança no campo lastNotification (que deve ter changeMessage no template)
+        // Payload para PUT
+        // O push é disparado pela mudança em metaData.notification (campo meta.notification no template)
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
@@ -381,14 +372,12 @@ serve(async (req) => {
           secondaryPoints: currentSecondaryPoints,
           metaData: {
             ...existingMetaData,
+            notification: notificationValue,  // ESTE campo dispara o push (meta.notification no template)
             lastMessage: trimmedMessage,
             lastMessageDate: now,
             notificationCount: String(nextNotificationCount),
           },
-          passOverrides: {
-            ...existingPassOverrides,
-            backFields: updatedBackFields
-          }
+          passOverrides: existingPassOverrides  // Mantém os passOverrides existentes sem modificar backFields
         };
 
         console.log(`Atualizando membro via PUT /members/member...`);
@@ -414,8 +403,7 @@ serve(async (req) => {
         }
 
         console.log(`PUT funcionou para ${leader.nome_completo} (status: ${updateResult.status})`);
-        console.log(`✅ Membro atualizado no PassKit. Push depende de changeMessage no template.`);
-        console.log(`   Campo atualizado: lastNotification = "${notificationValue}"`);
+        console.log(`✅ Push notification disparado via meta.notification = "${notificationValue}"`);
         results.push({
           success: true,
           leaderId: leader.id,
