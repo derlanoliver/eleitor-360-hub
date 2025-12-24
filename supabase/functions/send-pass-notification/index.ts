@@ -135,10 +135,10 @@ serve(async (req) => {
       );
     }
 
-    // Buscar líderes
+    // Buscar líderes com campos de PassKit
     const { data: leaders, error: leadersError } = await supabase
       .from("lideres")
-      .select("id, nome_completo, telefone, email, pontuacao_total")
+      .select("id, nome_completo, telefone, email, pontuacao_total, passkit_member_id, passkit_pass_installed")
       .in("id", idsToProcess)
       .eq("is_active", true);
 
@@ -165,50 +165,91 @@ serve(async (req) => {
       try {
         console.log(`Processando líder: ${leader.nome_completo} (${leader.id})`);
 
-        // Buscar membro existente no PassKit usando POST /members/member/find
-        console.log(`Buscando membro com externalId: ${leader.id}`);
-        
-        const getMemberResult = await passkitRequest(
-          "POST",
-          "/members/member/find",
-          settings.passkit_api_token,
-          {
-            programId: settings.passkit_program_id,
-            externalId: leader.id
+        let memberId = leader.passkit_member_id;
+
+        // Se temos o passkit_member_id salvo, usar diretamente
+        if (memberId) {
+          console.log(`Usando passkit_member_id local: ${memberId}`);
+        } else {
+          // Buscar membro no PassKit pelo externalId
+          console.log(`passkit_member_id não encontrado, buscando no PassKit com externalId: ${leader.id}`);
+          
+          const getMemberResult = await passkitRequest(
+            "POST",
+            "/members/member/find",
+            settings.passkit_api_token,
+            {
+              programId: settings.passkit_program_id,
+              externalId: leader.id
+            }
+          );
+
+          console.log(`Resposta da busca:`, JSON.stringify(getMemberResult));
+
+          if (getMemberResult.status === 404 || !getMemberResult.data) {
+            console.log(`Líder ${leader.nome_completo} não tem cartão no PassKit (status: ${getMemberResult.status})`);
+            results.push({
+              success: false,
+              leaderId: leader.id,
+              leaderName: leader.nome_completo,
+              error: "Líder não possui cartão no PassKit"
+            });
+            continue;
           }
+
+          if (getMemberResult.error) {
+            console.error(`Erro ao buscar membro ${leader.id}:`, getMemberResult.error);
+            results.push({
+              success: false,
+              leaderId: leader.id,
+              leaderName: leader.nome_completo,
+              error: getMemberResult.error
+            });
+            continue;
+          }
+
+          const existingMember = getMemberResult.data as Record<string, unknown>;
+          memberId = existingMember.id as string;
+          console.log(`Membro encontrado no PassKit: ${memberId}`);
+
+          // Salvar o passkit_member_id para futuras consultas
+          if (memberId) {
+            console.log(`Salvando passkit_member_id: ${memberId}`);
+            await supabase
+              .from("lideres")
+              .update({ passkit_member_id: memberId })
+              .eq("id", leader.id);
+          }
+        }
+
+        if (!memberId) {
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: "Não foi possível obter o ID do membro no PassKit"
+          });
+          continue;
+        }
+
+        // Buscar dados atuais do membro no PassKit para preservar campos existentes
+        console.log(`Buscando dados atuais do membro ${memberId} para preservar campos...`);
+        const getCurrentMemberResult = await passkitRequest(
+          "GET",
+          `/members/member/${memberId}`,
+          settings.passkit_api_token
         );
 
-        console.log(`Resposta da busca:`, JSON.stringify(getMemberResult));
+        let existingMetaData: Record<string, unknown> = {};
+        let existingPassOverrides: Record<string, unknown> = {};
+        let existingBackFields: Array<Record<string, string>> = [];
 
-        if (getMemberResult.status === 404 || !getMemberResult.data) {
-          console.log(`Líder ${leader.nome_completo} não tem cartão instalado (status: ${getMemberResult.status})`);
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: "Líder não possui cartão instalado"
-          });
-          continue;
+        if (getCurrentMemberResult.data) {
+          const currentMember = getCurrentMemberResult.data as Record<string, unknown>;
+          existingMetaData = (currentMember.metaData as Record<string, unknown>) || {};
+          existingPassOverrides = (currentMember.passOverrides as Record<string, unknown>) || {};
+          existingBackFields = (existingPassOverrides.backFields as Array<Record<string, string>>) || [];
         }
-
-        if (getMemberResult.error) {
-          console.error(`Erro ao buscar membro ${leader.id}:`, getMemberResult.error);
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: getMemberResult.error
-          });
-          continue;
-        }
-
-        const existingMember = getMemberResult.data as Record<string, unknown>;
-        console.log(`Membro encontrado:`, existingMember.id);
-
-        // Preparar dados de atualização
-        const existingMetaData = (existingMember.metaData as Record<string, unknown>) || {};
-        const existingPassOverrides = (existingMember.passOverrides as Record<string, unknown>) || {};
-        const existingBackFields = (existingPassOverrides.backFields as Array<Record<string, string>>) || [];
 
         // Atualizar ou adicionar campo de mensagem nos backFields
         const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem");
@@ -219,9 +260,9 @@ serve(async (req) => {
         });
 
         const updateData = {
-          id: existingMember.id,
+          id: memberId,
           programId: settings.passkit_program_id,
-          tierId: settings.passkit_tier_id || existingMember.tierId,
+          tierId: settings.passkit_tier_id,
           metaData: {
             ...existingMetaData,
             lastMessage: trimmedMessage,

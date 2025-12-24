@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell, Smartphone } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -425,7 +425,7 @@ const Leaders = () => {
                         {leader.cidade?.nome || "Sem região"}
                       </p>
                       
-                      {/* Badges de Métricas + Status + Verificação */}
+                      {/* Badges de Métricas + Status + Verificação + Cartão */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
                           📊 {leader.cadastros + (subordinatesCounts?.[leader.id] || 0)} indicações
@@ -449,6 +449,18 @@ const Leaders = () => {
                             Não verificado
                           </Badge>
                         )}
+                        {/* Badge de Cartão Digital */}
+                        {leader.passkit_pass_installed ? (
+                          <Badge className="bg-violet-500/10 text-violet-600 border-0">
+                            <Smartphone className="h-3 w-3 mr-1" />
+                            Cartão instalado
+                          </Badge>
+                        ) : leader.passkit_member_id ? (
+                          <Badge variant="outline" className="text-gray-500 border-gray-300">
+                            <Smartphone className="h-3 w-3 mr-1" />
+                            Cartão não instalado
+                          </Badge>
+                        ) : null}
                       </div>
                       
                       {/* Contatos */}

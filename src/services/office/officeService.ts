@@ -162,7 +162,7 @@ export async function getLeaders(filters?: {
 
   let query = supabase
     .from("lideres")
-    .select("*, cidade:office_cities(*)", { count: 'exact' })
+    .select("*, cidade:office_cities(*), passkit_member_id, passkit_pass_installed, passkit_installed_at", { count: 'exact' })
     .eq("is_active", true);
   
   if (filters?.cidade_id) {

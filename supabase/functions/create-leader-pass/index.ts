@@ -479,6 +479,20 @@ serve(async (req) => {
       if (existingMember?.id) {
         console.log("[create-leader-pass] Membro existente encontrado:", existingMember.id);
 
+        // Salvar o passkit_member_id no líder (caso não esteja salvo)
+        console.log(`[create-leader-pass] Salvando passkit_member_id: ${existingMember.id}`);
+        const { error: saveMemberIdError } = await supabase
+          .from("lideres")
+          .update({
+            passkit_member_id: existingMember.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", leaderId);
+
+        if (saveMemberIdError) {
+          console.error("[create-leader-pass] Erro ao salvar passkit_member_id:", saveMemberIdError);
+        }
+
         // Tentar atualizar o membro com PUT
         const updateData = {
           ...passData,
@@ -557,6 +571,24 @@ serve(async (req) => {
 
     const result = await passkitResponse.json();
     console.log("[create-leader-pass] Passe criado com sucesso:", result);
+
+    // Salvar o passkit_member_id no líder
+    if (result.id) {
+      console.log(`[create-leader-pass] Salvando passkit_member_id: ${result.id}`);
+      const { error: updateError } = await supabase
+        .from("lideres")
+        .update({
+          passkit_member_id: result.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", leaderId);
+
+      if (updateError) {
+        console.error("[create-leader-pass] Erro ao salvar passkit_member_id:", updateError);
+      } else {
+        console.log("[create-leader-pass] passkit_member_id salvo com sucesso");
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
