@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +19,9 @@ import { ImportLeadersDialog } from "@/components/leaders/ImportLeadersDialog";
 import { LeaderRegistrationQRDialog } from "@/components/leaders/LeaderRegistrationQRDialog";
 import { LeaderDetailsDialog } from "@/components/leaders/LeaderDetailsDialog";
 import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
+import { SendPassNotificationDialog } from "@/components/leaders/SendPassNotificationDialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
 
@@ -121,6 +123,33 @@ const Leaders = () => {
   // Buscar contagem de subordinados diretos para cada líder
   const leaderIds = leaders?.map(l => l.id) || [];
   const { data: subordinatesCounts } = useLeadersSubordinatesCounts(leaderIds);
+
+  // Buscar contagem de líderes verificados para notificações em massa
+  const { data: verifiedLeadersCount } = useQuery({
+    queryKey: ["verified_leaders_count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("lideres")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("is_verified", true);
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Função para buscar todos os IDs de líderes verificados
+  const fetchAllVerifiedLeaderIds = useCallback(async (): Promise<string[]> => {
+    const { data, error } = await supabase
+      .from("lideres")
+      .select("id")
+      .eq("is_active", true)
+      .eq("is_verified", true);
+    
+    if (error) throw error;
+    return data?.map(l => l.id) || [];
+  }, []);
 
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone?.replace(/\D/g, '');
@@ -233,6 +262,15 @@ const Leaders = () => {
                 Ver Ranking
               </Link>
             </Button>
+            <SendPassNotificationDialog
+              allVerifiedCount={verifiedLeadersCount || 0}
+              onSendToAll={fetchAllVerifiedLeaderIds}
+            >
+              <Button variant="outline">
+                <Bell className="h-4 w-4 mr-2" />
+                Notificação Push
+              </Button>
+            </SendPassNotificationDialog>
             <ImportLeadersDialog />
             <LeaderRegistrationQRDialog>
               <Button variant="outline">
@@ -448,6 +486,16 @@ const Leaders = () => {
                         <Eye className="h-4 w-4" />
                       </Button>
                     </LeaderDetailsDialog>
+                    <SendPassNotificationDialog leader={leader}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Enviar notificação push"
+                      >
+                        <Bell className="h-4 w-4" />
+                      </Button>
+                    </SendPassNotificationDialog>
                     <Button 
                       variant="ghost" 
                       size="icon"
