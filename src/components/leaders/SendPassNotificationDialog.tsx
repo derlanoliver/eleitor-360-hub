@@ -95,10 +95,16 @@ export function SendPassNotificationDialog({
 
       if (data?.summary) {
         const { success, failed } = data.summary;
+
         if (failed === 0) {
           toast.success(`Notificação enviada para ${success} líder(es)!`);
         } else if (success === 0) {
-          toast.error(`Falha ao enviar para todos os ${failed} líder(es). Verifique se possuem cartão instalado.`);
+          const firstError = data?.results?.find((r: any) => !r?.success)?.error;
+          toast.error(
+            firstError
+              ? `Falha ao enviar (${failed}). Motivo: ${firstError}`
+              : `Falha ao enviar para todos os ${failed} líder(es).`
+          );
         } else {
           toast.warning(`Enviado para ${success} líder(es). ${failed} falha(s).`);
         }
