@@ -333,9 +333,8 @@ serve(async (req) => {
     console.log("[create-leader-pass] Enviando para PassKit:", JSON.stringify(passData));
 
     // Chamar a API do PassKit para criar o membro
-    // POST para criar novo, PUT para atualizar existente
     console.log(`[create-leader-pass] Chamando POST ${passkitBaseUrl}/members/member`);
-    const passkitResponse = await fetch(`${passkitBaseUrl}/members/member`, {
+    let passkitResponse = await fetch(`${passkitBaseUrl}/members/member`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${passkitToken}`,
@@ -344,55 +343,101 @@ serve(async (req) => {
       body: JSON.stringify(passData),
     });
 
+    // Se o membro já existe (409), tentar atualizar com PUT
+    if (passkitResponse.status === 409) {
+      console.log("[create-leader-pass] Membro já existe, tentando atualizar...");
+      
+      // Primeiro buscar o membro existente para obter o ID interno
+      const getMemberUrl = `${passkitBaseUrl}/members/member/external/${passkitProgramId}/${leader.id}`;
+      console.log(`[create-leader-pass] Buscando membro existente: ${getMemberUrl}`);
+      
+      const getMemberResponse = await fetch(getMemberUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${passkitToken}`,
+        },
+      });
+
+      if (getMemberResponse.ok) {
+        const existingMember = await getMemberResponse.json();
+        console.log("[create-leader-pass] Membro encontrado:", existingMember);
+        
+        // Atualizar o membro com PUT
+        const updateData = {
+          ...passData,
+          id: existingMember.id, // ID interno do PassKit
+        };
+        
+        console.log(`[create-leader-pass] Atualizando membro: PUT ${passkitBaseUrl}/members/member`);
+        const updateResponse = await fetch(`${passkitBaseUrl}/members/member`, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${passkitToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updateData),
+        });
+
+        if (updateResponse.ok) {
+          const updateResult = await updateResponse.json();
+          console.log("[create-leader-pass] Membro atualizado com sucesso:", updateResult);
+          
+          // Retornar o passe existente atualizado
+          const passUrl = existingMember.passOverrides?.passUrl || 
+                         existingMember.urls?.landingPage ||
+                         `https://pub2.pskt.io/${existingMember.id}`;
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: {
+                passId: existingMember.id,
+                passUrl: passUrl,
+                message: "Passe atualizado com sucesso",
+                updated: true
+              }
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          const updateError = await updateResponse.text();
+          console.error("[create-leader-pass] Erro ao atualizar:", updateResponse.status, updateError);
+        }
+      }
+      
+      // Se conseguimos encontrar o membro mas não atualizar, pelo menos retornar o passe existente
+      if (getMemberResponse.ok) {
+        const existingMember = await getMemberResponse.json();
+        const passUrl = existingMember.passOverrides?.passUrl || 
+                       existingMember.urls?.landingPage ||
+                       `https://pub2.pskt.io/${existingMember.id}`;
+        
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            data: {
+              passId: existingMember.id,
+              passUrl: passUrl,
+              message: "Passe já existente recuperado",
+              existing: true
+            }
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (!passkitResponse.ok) {
       const errorText = await passkitResponse.text();
       console.error("[create-leader-pass] Erro PassKit:", passkitResponse.status, errorText);
       
-      // Tentar com abordagem alternativa - criar passe genérico
-      console.log(`[create-leader-pass] Tentando fallback: ${passkitBaseUrl}/coupon/singleUse/coupon`);
-      const genericPassResponse = await fetch(`${passkitBaseUrl}/coupon/singleUse/coupon`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${passkitToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          externalId: leader.id,
-          sku: `leader-${leader.id}`,
-          person: {
-            displayName: leader.nome_completo,
-            emailAddress: leader.email || undefined,
-          },
-        }),
-      });
-
-      if (!genericPassResponse.ok) {
-        const genericError = await genericPassResponse.text();
-        console.error("[create-leader-pass] Erro PassKit (generic):", genericPassResponse.status, genericError);
-        
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Erro ao criar passe no PassKit. Verifique suas credenciais e configurações.",
-            details: errorText
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const genericResult = await genericPassResponse.json();
-      console.log("[create-leader-pass] Passe genérico criado:", genericResult);
-
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          data: {
-            passId: genericResult.id,
-            passUrl: genericResult.url || genericResult.passUrl,
-            message: "Passe criado com sucesso"
-          }
+          success: false, 
+          error: "Erro ao criar passe no PassKit. Verifique suas credenciais e configurações.",
+          details: errorText
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
