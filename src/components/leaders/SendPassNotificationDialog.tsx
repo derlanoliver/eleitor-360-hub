@@ -214,7 +214,7 @@ export function SendPassNotificationDialog({
               <p className="font-medium">Requisitos para push notification:</p>
               <ul className="list-disc list-inside space-y-0.5">
                 <li>Líder precisa ter o cartão instalado no Apple Wallet</li>
-                <li>O campo <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">lastNotification</code> deve ter <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">changeMessage</code> com <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">%@</code> no template do PassKit</li>
+                <li>O campo <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">meta.notification</code> deve ter <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">changeMessage</code> com <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">%@</code> no template</li>
               </ul>
             </div>
           </div>
