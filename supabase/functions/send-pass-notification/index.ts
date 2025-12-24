@@ -352,18 +352,20 @@ serve(async (req) => {
         // IMPORTANTE: Para disparar push notification no Apple Wallet:
         // O campo configurado no PassKit é "meta.notification" com changeMessage "%@"
         // Isso significa que metaData.notification é o campo que dispara o push
-        // O valor PRECISA mudar a cada atualização para o PassKit reconhecer
-        // Usamos zero-width space (\u200B) + timestamp invisível para garantir unicidade sem aparecer na notificação
-        const uniqueId = Date.now();
-        const notificationValue = `${trimmedMessage}\u200B${uniqueId}`;
+        // A mensagem PURA vai no campo notification (sem timestamps visíveis)
+        // Usamos um campo SEPARADO (notificationTime) para garantir que metaData sempre mude
+        const notificationValue = trimmedMessage;
+        const notificationTimestamp = Date.now();
         
-        console.log(`[Push Trigger] Campo meta.notification será: "${trimmedMessage}" (com ID invisível: ${uniqueId})`);
+        console.log(`[Push Trigger] Campo meta.notification será: "${notificationValue}"`);
+        console.log(`[Push Trigger] Campo notificationTime para unicidade: ${notificationTimestamp}`);
 
         // Contagem de notificações enviadas
         const nextNotificationCount = (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1;
         
         // Payload para PUT
         // O push é disparado pela mudança em metaData.notification (campo meta.notification no template)
+        // O campo notificationTime garante que metaData sempre mude, forçando atualização do pass
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
@@ -373,7 +375,8 @@ serve(async (req) => {
           secondaryPoints: currentSecondaryPoints,
           metaData: {
             ...existingMetaData,
-            notification: notificationValue,  // ESTE campo dispara o push (meta.notification no template)
+            notification: notificationValue,  // ESTE campo dispara o push (meta.notification no template) - mensagem pura
+            notificationTime: String(notificationTimestamp),  // Campo separado para garantir unicidade
             lastMessage: trimmedMessage,
             lastMessageDate: now,
             notificationCount: String(nextNotificationCount),
