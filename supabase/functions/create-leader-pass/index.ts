@@ -343,14 +343,16 @@ serve(async (req) => {
       body: JSON.stringify(passData),
     });
 
-    // Se o membro já existe (409), tentar atualizar com PUT
+    // Se o membro já existe (409), recuperar e/ou atualizar em vez de falhar
     if (passkitResponse.status === 409) {
-      console.log("[create-leader-pass] Membro já existe, tentando atualizar...");
-      
-      // Primeiro buscar o membro existente para obter o ID interno
+      console.log("[create-leader-pass] Membro já existe, recuperando registro...");
+
+      let existingMember: any | null = null;
+
+      // 1) Tentar endpoint direto por externalId
       const getMemberUrl = `${passkitBaseUrl}/members/member/external/${passkitProgramId}/${leader.id}`;
-      console.log(`[create-leader-pass] Buscando membro existente: ${getMemberUrl}`);
-      
+      console.log(`[create-leader-pass] Buscando membro existente (GET): ${getMemberUrl}`);
+
       const getMemberResponse = await fetch(getMemberUrl, {
         method: "GET",
         headers: {
@@ -358,16 +360,67 @@ serve(async (req) => {
         },
       });
 
+      console.log(
+        `[create-leader-pass] GET existing member status=${getMemberResponse.status}`
+      );
+
       if (getMemberResponse.ok) {
-        const existingMember = await getMemberResponse.json();
-        console.log("[create-leader-pass] Membro encontrado:", existingMember);
-        
-        // Atualizar o membro com PUT
+        existingMember = await getMemberResponse.json();
+      } else {
+        // 2) Fallback: listar membros e filtrar por memberId/externalId
+        const listUrl = `${passkitBaseUrl}/members/member/list/${passkitProgramId}`;
+        console.log(`[create-leader-pass] Fallback list (POST): ${listUrl}`);
+
+        const listResponse = await fetch(listUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${passkitToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filters: {
+              filterGroups: [
+                {
+                  condition: "AND",
+                  fieldFilters: [
+                    {
+                      filterField: "memberId",
+                      filterValue: leader.id,
+                      filterOperator: "eq",
+                    },
+                  ],
+                },
+              ],
+            },
+            page: 0,
+            pageSize: 10,
+          }),
+        });
+
+        console.log(
+          `[create-leader-pass] POST list status=${listResponse.status}`
+        );
+
+        if (listResponse.ok) {
+          const listJson = await listResponse.json();
+          const results =
+            listJson?.results || listJson?.result || listJson?.data || listJson?.members || [];
+          existingMember = Array.isArray(results) ? results[0] : results;
+        } else {
+          const listErr = await listResponse.text();
+          console.error("[create-leader-pass] Falha list fallback:", listResponse.status, listErr);
+        }
+      }
+
+      if (existingMember?.id) {
+        console.log("[create-leader-pass] Membro existente encontrado:", existingMember.id);
+
+        // Tentar atualizar o membro com PUT
         const updateData = {
           ...passData,
-          id: existingMember.id, // ID interno do PassKit
+          id: existingMember.id,
         };
-        
+
         console.log(`[create-leader-pass] Atualizando membro: PUT ${passkitBaseUrl}/members/member`);
         const updateResponse = await fetch(`${passkitBaseUrl}/members/member`, {
           method: "PUT",
@@ -378,53 +431,50 @@ serve(async (req) => {
           body: JSON.stringify(updateData),
         });
 
-        if (updateResponse.ok) {
-          const updateResult = await updateResponse.json();
-          console.log("[create-leader-pass] Membro atualizado com sucesso:", updateResult);
-          
-          // Retornar o passe existente atualizado
-          const passUrl = existingMember.passOverrides?.passUrl || 
-                         existingMember.urls?.landingPage ||
-                         `https://pub2.pskt.io/${existingMember.id}`;
-          
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              data: {
-                passId: existingMember.id,
-                passUrl: passUrl,
-                message: "Passe atualizado com sucesso",
-                updated: true
-              }
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        } else {
+        console.log(
+          `[create-leader-pass] PUT update status=${updateResponse.status}`
+        );
+
+        if (!updateResponse.ok) {
           const updateError = await updateResponse.text();
           console.error("[create-leader-pass] Erro ao atualizar:", updateResponse.status, updateError);
         }
-      }
-      
-      // Se conseguimos encontrar o membro mas não atualizar, pelo menos retornar o passe existente
-      if (getMemberResponse.ok) {
-        const existingMember = await getMemberResponse.json();
-        const passUrl = existingMember.passOverrides?.passUrl || 
-                       existingMember.urls?.landingPage ||
-                       `https://pub2.pskt.io/${existingMember.id}`;
-        
+
+        const passUrl =
+          existingMember?.passOverrides?.passUrl ||
+          existingMember?.urls?.landingPage ||
+          existingMember?.url ||
+          existingMember?.passUrl ||
+          `https://pub2.pskt.io/${existingMember.id}`;
+
         return new Response(
-          JSON.stringify({ 
-            success: true, 
+          JSON.stringify({
+            success: true,
             data: {
               passId: existingMember.id,
-              passUrl: passUrl,
-              message: "Passe já existente recuperado",
-              existing: true
-            }
+              passUrl,
+              message: updateResponse.ok
+                ? "Passe atualizado com sucesso"
+                : "Passe já existe (não foi possível atualizar, mas foi recuperado)",
+              existing: true,
+              updated: Boolean(updateResponse.ok),
+            },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Se não conseguimos recuperar o membro existente, retornar um erro mais claro
+      const originalErrorText = await passkitResponse.text();
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Passe já existe no PassKit, mas não consegui recuperar o registro para atualizar. Verifique permissões/endpoint.",
+          details: originalErrorText,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (!passkitResponse.ok) {
