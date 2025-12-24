@@ -165,15 +165,23 @@ serve(async (req) => {
       try {
         console.log(`Processando líder: ${leader.nome_completo} (${leader.id})`);
 
-        // Buscar membro existente no PassKit pelo externalId
+        // Buscar membro existente no PassKit usando POST /members/member/find
+        console.log(`Buscando membro com externalId: ${leader.id}`);
+        
         const getMemberResult = await passkitRequest(
-          "GET",
-          `/members/member/${settings.passkit_program_id}/${leader.id}`,
-          settings.passkit_api_token
+          "POST",
+          "/members/member/find",
+          settings.passkit_api_token,
+          {
+            programId: settings.passkit_program_id,
+            externalId: leader.id
+          }
         );
 
-        if (getMemberResult.status === 404) {
-          console.log(`Líder ${leader.nome_completo} não tem cartão instalado`);
+        console.log(`Resposta da busca:`, JSON.stringify(getMemberResult));
+
+        if (getMemberResult.status === 404 || !getMemberResult.data) {
+          console.log(`Líder ${leader.nome_completo} não tem cartão instalado (status: ${getMemberResult.status})`);
           results.push({
             success: false,
             leaderId: leader.id,
