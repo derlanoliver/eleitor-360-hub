@@ -19,6 +19,18 @@ interface PassKitResponse {
   error?: string;
 }
 
+interface PassKitMember {
+  id: string;
+  externalId?: string;
+  programId?: string;
+  tierId?: string;
+  points?: number | string;
+  secondaryPoints?: number | string;
+  metaData?: Record<string, unknown>;
+  passOverrides?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 async function passkitRequest(
   method: string,
   path: string,
@@ -42,7 +54,6 @@ async function passkitRequest(
       },
     };
     
-    // PATCH, PUT e POST podem ter body
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       options.body = JSON.stringify(body);
     }
@@ -50,7 +61,6 @@ async function passkitRequest(
     const response = await fetch(url, options);
     const status = response.status;
     
-    // Log headers for debugging
     console.log(`Response status: ${status}`);
     
     let data: unknown = null;
@@ -76,8 +86,133 @@ async function passkitRequest(
   }
 }
 
+/**
+ * Resolve o membro no PassKit usando múltiplas estratégias:
+ * 1) GET /members/member/{id} (se temos passkit_member_id local)
+ * 2) GET /members/member/external/{programId}/{externalId}
+ * 3) POST /members/member/list/{programId} com filtro por memberId/externalId
+ */
+async function resolveMember(
+  leaderId: string,
+  localMemberId: string | null,
+  programId: string,
+  apiToken: string,
+  baseUrl: string
+): Promise<{ member: PassKitMember | null; error?: string }> {
+  
+  // Estratégia 1: Tentar GET direto pelo passkit_member_id local
+  if (localMemberId) {
+    console.log(`[resolveMember] Tentativa 1: GET /members/member/${localMemberId}`);
+    const directResult = await passkitRequest(
+      "GET",
+      `/members/member/${localMemberId}`,
+      apiToken,
+      baseUrl
+    );
+    
+    if (directResult.status === 200 && directResult.data) {
+      console.log(`[resolveMember] Encontrado via GET direto por ID`);
+      return { member: directResult.data as PassKitMember };
+    }
+    console.log(`[resolveMember] GET direto retornou status ${directResult.status}`);
+  }
+  
+  // Estratégia 2: GET /members/member/external/{programId}/{externalId}
+  console.log(`[resolveMember] Tentativa 2: GET /members/member/external/${programId}/${leaderId}`);
+  const externalResult = await passkitRequest(
+    "GET",
+    `/members/member/external/${programId}/${leaderId}`,
+    apiToken,
+    baseUrl
+  );
+  
+  if (externalResult.status === 200 && externalResult.data) {
+    console.log(`[resolveMember] Encontrado via GET external`);
+    return { member: externalResult.data as PassKitMember };
+  }
+  console.log(`[resolveMember] GET external retornou status ${externalResult.status}`);
+  
+  // Estratégia 3: POST /members/member/list/{programId} com filtros
+  console.log(`[resolveMember] Tentativa 3: POST /members/member/list/${programId} (filtro por memberId)`);
+  const listResult = await passkitRequest(
+    "POST",
+    `/members/member/list/${programId}`,
+    apiToken,
+    baseUrl,
+    {
+      filters: {
+        filterGroups: [
+          {
+            condition: "AND",
+            fieldFilters: [
+              {
+                filterField: "memberId",
+                filterValue: leaderId,
+                filterOperator: "eq",
+              },
+            ],
+          },
+        ],
+      },
+      page: 0,
+      pageSize: 10,
+    }
+  );
+  
+  if (listResult.status === 200 && listResult.data) {
+    const listData = listResult.data as Record<string, unknown>;
+    const results = listData?.results || listData?.result || listData?.data || listData?.members;
+    const memberFromList = Array.isArray(results) ? results[0] : results;
+    
+    if (memberFromList?.id) {
+      console.log(`[resolveMember] Encontrado via list por memberId: ${memberFromList.id}`);
+      return { member: memberFromList as PassKitMember };
+    }
+  }
+  
+  // Estratégia 3b: tentar filtrar por externalId
+  console.log(`[resolveMember] Tentativa 3b: POST /members/member/list/${programId} (filtro por externalId)`);
+  const listByExternalResult = await passkitRequest(
+    "POST",
+    `/members/member/list/${programId}`,
+    apiToken,
+    baseUrl,
+    {
+      filters: {
+        filterGroups: [
+          {
+            condition: "AND",
+            fieldFilters: [
+              {
+                filterField: "externalId",
+                filterValue: leaderId,
+                filterOperator: "eq",
+              },
+            ],
+          },
+        ],
+      },
+      page: 0,
+      pageSize: 10,
+    }
+  );
+  
+  if (listByExternalResult.status === 200 && listByExternalResult.data) {
+    const listData = listByExternalResult.data as Record<string, unknown>;
+    const results = listData?.results || listData?.result || listData?.data || listData?.members;
+    const memberFromList = Array.isArray(results) ? results[0] : results;
+    
+    if (memberFromList?.id) {
+      console.log(`[resolveMember] Encontrado via list por externalId: ${memberFromList.id}`);
+      return { member: memberFromList as PassKitMember };
+    }
+  }
+  
+  console.log(`[resolveMember] Membro não encontrado por nenhuma estratégia`);
+  return { member: null, error: "Membro não encontrado no PassKit após todas as tentativas" };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -89,7 +224,6 @@ serve(async (req) => {
 
     const { leaderId, leaderIds, message }: NotificationRequest = await req.json();
 
-    // Validar input
     if (!message || message.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Mensagem é obrigatória" }),
@@ -99,7 +233,6 @@ serve(async (req) => {
 
     const trimmedMessage = message.trim().substring(0, 150);
     
-    // Determinar IDs a processar
     let idsToProcess: string[] = [];
     if (leaderId) {
       idsToProcess = [leaderId];
@@ -114,7 +247,6 @@ serve(async (req) => {
 
     console.log(`Enviando notificação para ${idsToProcess.length} líder(es)`);
 
-    // Buscar configurações do PassKit
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
       .select("passkit_enabled, passkit_api_token, passkit_program_id, passkit_tier_id, passkit_api_base_url")
@@ -135,21 +267,19 @@ serve(async (req) => {
       );
     }
 
-    if (!settings.passkit_api_token || !settings.passkit_program_id) {
+    if (!settings.passkit_api_token || !settings.passkit_program_id || !settings.passkit_tier_id) {
       return new Response(
-        JSON.stringify({ error: "Configurações do PassKit incompletas" }),
+        JSON.stringify({ error: "Configurações do PassKit incompletas (token, program_id ou tier_id)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Usar URL base configurada ou fallback para pub1
     const passkitBaseUrl = settings.passkit_api_base_url || "https://api.pub1.passkit.io";
     console.log(`Usando PassKit API URL: ${passkitBaseUrl}`);
 
-    // Buscar líderes com campos de PassKit
     const { data: leaders, error: leadersError } = await supabase
       .from("lideres")
-      .select("id, nome_completo, telefone, email, pontuacao_total, passkit_member_id, passkit_pass_installed")
+      .select("id, nome_completo, telefone, email, pontuacao_total, cadastros, passkit_member_id, passkit_pass_installed")
       .in("id", idsToProcess)
       .eq("is_active", true);
 
@@ -171,147 +301,55 @@ serve(async (req) => {
     const results: PassKitResponse[] = [];
     const now = new Date().toISOString();
 
-    // Processar cada líder
     for (const leader of leaders) {
       try {
-        console.log(`Processando líder: ${leader.nome_completo} (${leader.id})`);
+        console.log(`\n========== Processando: ${leader.nome_completo} (${leader.id}) ==========`);
 
-        let memberId = leader.passkit_member_id;
-
-        // Se temos o passkit_member_id salvo, usar diretamente
-        if (memberId) {
-          console.log(`Usando passkit_member_id local: ${memberId}`);
-        } else {
-          // Buscar membro no PassKit pelo externalId
-          console.log(`passkit_member_id não encontrado, buscando no PassKit com externalId: ${leader.id}`);
-          
-          const getMemberResult = await passkitRequest(
-            "POST",
-            "/members/member/find",
-            settings.passkit_api_token,
-            passkitBaseUrl,
-            {
-              programId: settings.passkit_program_id,
-              externalId: leader.id
-            }
-          );
-
-          console.log(`Resposta da busca:`, JSON.stringify(getMemberResult));
-
-          if (getMemberResult.status === 404 || !getMemberResult.data) {
-            console.log(`Líder ${leader.nome_completo} não tem cartão no PassKit (status: ${getMemberResult.status})`);
-            results.push({
-              success: false,
-              leaderId: leader.id,
-              leaderName: leader.nome_completo,
-              error: "Líder não possui cartão no PassKit"
-            });
-            continue;
-          }
-
-          if (getMemberResult.error) {
-            console.error(`Erro ao buscar membro ${leader.id}:`, getMemberResult.error);
-            results.push({
-              success: false,
-              leaderId: leader.id,
-              leaderName: leader.nome_completo,
-              error: getMemberResult.error
-            });
-            continue;
-          }
-
-          const existingMember = getMemberResult.data as Record<string, unknown>;
-          memberId = existingMember.id as string;
-          console.log(`Membro encontrado no PassKit: ${memberId}`);
-
-          // Salvar o passkit_member_id para futuras consultas
-          if (memberId) {
-            console.log(`Salvando passkit_member_id: ${memberId}`);
-            await supabase
-              .from("lideres")
-              .update({ passkit_member_id: memberId })
-              .eq("id", leader.id);
-          }
-        }
-
-        if (!memberId) {
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: "Não foi possível obter o ID do membro no PassKit"
-          });
-          continue;
-        }
-
-        // Buscar dados atuais do membro no PassKit usando externalId (mais confiável)
-        // O endpoint /members/member/external/{programId}/{externalId} é o mais estável
-        console.log(`Buscando membro pelo externalId (leader.id): ${leader.id}`);
-        let getCurrentMemberResult = await passkitRequest(
-          "GET",
-          `/members/member/external/${settings.passkit_program_id}/${leader.id}`,
-          settings.passkit_api_token,
+        // Usar a função robusta de resolução de membro
+        const { member, error: resolveError } = await resolveMember(
+          leader.id,
+          leader.passkit_member_id,
+          settings.passkit_program_id!,
+          settings.passkit_api_token!,
           passkitBaseUrl
         );
 
-        // Se encontrou, extrair o memberId real e atualizar no banco se necessário
-        if (getCurrentMemberResult.status === 200 && getCurrentMemberResult.data) {
-          const foundMember = getCurrentMemberResult.data as Record<string, unknown>;
-          const realMemberId = foundMember.id as string;
-          
-          if (realMemberId && realMemberId !== memberId) {
-            console.log(`MemberId atualizado: ${memberId} -> ${realMemberId}`);
-            memberId = realMemberId;
-            
-            // Atualizar o passkit_member_id no banco (sem alterar passkit_pass_installed)
-            await supabase
-              .from("lideres")
-              .update({ passkit_member_id: memberId })
-              .eq("id", leader.id);
-          }
-        } else if (getCurrentMemberResult.status === 404) {
-          console.log(`Membro não encontrado pelo externalId ${leader.id} (404)`);
-          
-          // NÃO alterar passkit_pass_installed - a fonte da verdade é o webhook
-          // Apenas limpar o passkit_member_id inválido
+        if (!member || !member.id) {
+          console.log(`Membro não encontrado para ${leader.nome_completo}: ${resolveError}`);
+          // NÃO alterar passkit_pass_installed - webhook é a fonte da verdade
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: resolveError || "Membro não encontrado no PassKit"
+          });
+          continue;
+        }
+
+        const memberId = member.id;
+        console.log(`Membro resolvido: ${memberId}`);
+
+        // Atualizar passkit_member_id no banco se diferente
+        if (memberId !== leader.passkit_member_id) {
+          console.log(`Atualizando passkit_member_id no banco: ${leader.passkit_member_id} -> ${memberId}`);
           await supabase
             .from("lideres")
-            .update({ passkit_member_id: null })
+            .update({ passkit_member_id: memberId })
             .eq("id", leader.id);
-            
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: "Membro não encontrado no PassKit. O cartão pode ter sido desinstalado."
-          });
-          continue;
         }
 
-        if (getCurrentMemberResult.error || !getCurrentMemberResult.data) {
-          console.error(`Erro ao buscar dados do membro ${memberId}:`, getCurrentMemberResult.error);
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: `Erro ao buscar membro: ${getCurrentMemberResult.error}`
-          });
-          continue;
-        }
-
-        const currentMember = getCurrentMemberResult.data as Record<string, unknown>;
-        console.log(`Dados atuais do membro:`, JSON.stringify(currentMember, null, 2));
-        
-        // Extrair dados existentes
-        const existingMetaData = (currentMember.metaData as Record<string, unknown>) || {};
-        const existingPassOverrides = (currentMember.passOverrides as Record<string, unknown>) || {};
+        // Preparar dados para atualização
+        const existingMetaData = (member.metaData as Record<string, unknown>) || {};
+        const existingPassOverrides = (member.passOverrides as Record<string, unknown>) || {};
         const existingBackFields = (existingPassOverrides.backFields as Array<Record<string, string>>) || [];
         
-        // Pegar pontos atuais para incrementar (isso dispara o push se o campo tiver changeMessage)
-        const currentPoints = (currentMember.points as number) || (leader.pontuacao_total || 0);
-        const currentSecondaryPoints = (currentMember.secondaryPoints as number) || 0;
+        // Parse points corretamente (PassKit retorna como string às vezes)
+        const currentPoints = parseFloat(String(member.points || leader.pontuacao_total || 0)) || 0;
+        const currentSecondaryPoints = parseFloat(String(member.secondaryPoints || leader.cadastros || 0)) || 0;
 
-        // Atualizar ou adicionar campo de mensagem nos backFields
+        console.log(`Points atuais: ${currentPoints}, SecondaryPoints: ${currentSecondaryPoints}`);
+
+        // Atualizar backFields com a mensagem
         const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem" && f.key !== "lastNotification");
         updatedBackFields.push({
           key: "lastNotification",
@@ -319,21 +357,19 @@ serve(async (req) => {
           value: trimmedMessage
         });
 
-        // Payload para atualização via PATCH - usar o ID na URL
-        // Incrementar secondaryPoints ou points para disparar push notification
-        // O campo com changeMessage configurado no template será notificado
+        // Payload para PUT (mesmo padrão do create-leader-pass)
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
           tierId: settings.passkit_tier_id,
-          // Incrementar pontos para tentar disparar push (se changeMessage estiver configurado)
+          // Incrementar secondaryPoints para disparar push notification
           points: currentPoints,
-          secondaryPoints: currentSecondaryPoints + 1, // Incrementa para disparar notificação
+          secondaryPoints: currentSecondaryPoints + 1,
           metaData: {
             ...existingMetaData,
             lastMessage: trimmedMessage,
             lastMessageDate: now,
-            notificationCount: ((existingMetaData.notificationCount as number) || 0) + 1,
+            notificationCount: (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1,
           },
           passOverrides: {
             ...existingPassOverrides,
@@ -341,45 +377,47 @@ serve(async (req) => {
           }
         };
 
-        console.log(`Atualizando membro ${memberId} via PATCH...`);
+        console.log(`Atualizando membro via PUT /members/member...`);
         
-        // Usar PATCH com o ID do membro na URL
+        // Usar PUT como método principal (igual ao create-leader-pass)
         const updateResult = await passkitRequest(
-          "PATCH",
-          `/members/member/${memberId}`,
-          settings.passkit_api_token,
+          "PUT",
+          "/members/member",
+          settings.passkit_api_token!,
           passkitBaseUrl,
           updateData
         );
 
         if (updateResult.error) {
-          console.error(`Erro ao atualizar membro ${leader.id} via PATCH:`, updateResult.error);
+          console.error(`PUT falhou:`, updateResult.error);
           
-          // Tentar com PUT como fallback
-          console.log(`Tentando com PUT /members/member como fallback...`);
-          const putResult = await passkitRequest(
-            "PUT",
-            "/members/member",
-            settings.passkit_api_token,
+          // Fallback para PATCH
+          console.log(`Tentando PATCH /members/member/${memberId} como fallback...`);
+          const patchResult = await passkitRequest(
+            "PATCH",
+            `/members/member/${memberId}`,
+            settings.passkit_api_token!,
             passkitBaseUrl,
             updateData
           );
           
-          if (putResult.error) {
-            console.error(`PUT também falhou:`, putResult.error);
+          if (patchResult.error) {
+            console.error(`PATCH também falhou:`, patchResult.error);
             results.push({
               success: false,
               leaderId: leader.id,
               leaderName: leader.nome_completo,
-              error: `PATCH: ${updateResult.error}, PUT: ${putResult.error}`
+              error: `PUT: ${updateResult.error}, PATCH: ${patchResult.error}`
             });
             continue;
           }
           
+          console.log(`PATCH funcionou para ${leader.nome_completo}`);
+        } else {
           console.log(`PUT funcionou para ${leader.nome_completo}`);
         }
 
-        console.log(`Notificação enviada com sucesso para ${leader.nome_completo}`);
+        console.log(`✅ Notificação enviada com sucesso para ${leader.nome_completo}`);
         results.push({
           success: true,
           leaderId: leader.id,
@@ -397,11 +435,10 @@ serve(async (req) => {
       }
     }
 
-    // Resumo
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
 
-    console.log(`Processamento concluído: ${successCount} sucesso, ${failCount} falha`);
+    console.log(`\n========== Resumo: ${successCount} sucesso, ${failCount} falha ==========`);
 
     return new Response(
       JSON.stringify({
