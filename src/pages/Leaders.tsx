@@ -1,14 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell, Smartphone } from "lucide-react";
+import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell, Smartphone, RefreshCw } from "lucide-react";
 import QRCode from 'qrcode';
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { useLeaderLevels, getLeaderCardColorClass } from "@/hooks/leaders/useLeaderLevels";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
+import { format } from "date-fns";
 
 const getInitials = (name: string) => {
   return name
@@ -102,6 +103,10 @@ const Leaders = () => {
   const [sortBy, setSortBy] = useState("cadastros_desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const queryClient = useQueryClient();
 
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
@@ -119,6 +124,31 @@ const Leaders = () => {
 
   const leaders = leadersResult?.data || [];
   const totalCount = leadersResult?.count || 0;
+
+  // Realtime subscription para atualizar automaticamente quando líder mudar (ex: cartão instalado/desinstalado)
+  useEffect(() => {
+    const channel = supabase
+      .channel('leaders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'lideres'
+        },
+        (payload) => {
+          console.log('Líder atualizado via realtime:', payload);
+          // Invalida a query para refetch automático
+          queryClient.invalidateQueries({ queryKey: ["leaders"] });
+          setLastUpdated(new Date());
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Buscar contagem de subordinados diretos para cada líder
   const leaderIds = leaders?.map(l => l.id) || [];
@@ -138,6 +168,14 @@ const Leaders = () => {
       return count || 0;
     }
   });
+
+  // Função de refresh manual
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["leaders"] });
+    setLastUpdated(new Date());
+    setIsRefreshing(false);
+  };
 
   // Função para buscar todos os IDs de líderes verificados
   const fetchAllVerifiedLeaderIds = useCallback(async (): Promise<string[]> => {
@@ -346,6 +384,22 @@ const Leaders = () => {
               <SelectItem value="aniversario_proximo">🎂 Próximo Aniversário</SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Botão de Refresh + Timestamp */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              Atualizado: {format(lastUpdated, "HH:mm:ss")}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              title="Atualizar lista"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </div>
 
