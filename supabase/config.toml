@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.send-pass-notification]
 verify_jwt = false
+
+[functions.passkit-webhook]
+verify_jwt = false

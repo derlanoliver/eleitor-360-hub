@@ -61,6 +61,11 @@ export interface OfficeLeader {
   verified_at?: string;
   verification_method?: string; // 'link' ou 'manual'
   verified_by_user_id?: string;
+  // PassKit fields
+  passkit_member_id?: string;
+  passkit_pass_installed?: boolean;
+  passkit_installed_at?: string;
+  passkit_uninstalled_at?: string;
   // Birthday fields (from RPC)
   days_until_birthday?: number;
   created_at: string;
