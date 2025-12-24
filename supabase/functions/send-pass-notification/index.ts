@@ -30,6 +30,9 @@ async function passkitRequest(
     const url = `${baseUrl}${path}`;
     
     console.log(`PassKit ${method} request to: ${url}`);
+    if (body) {
+      console.log(`Request payload:`, JSON.stringify(body, null, 2));
+    }
     
     const options: RequestInit = {
       method,
@@ -39,12 +42,16 @@ async function passkitRequest(
       },
     };
     
-    if (body && (method === "POST" || method === "PUT")) {
+    // PATCH, PUT e POST podem ter body
+    if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       options.body = JSON.stringify(body);
     }
     
     const response = await fetch(url, options);
     const status = response.status;
+    
+    // Log headers for debugging
+    console.log(`Response status: ${status}`);
     
     let data: unknown = null;
     const text = await response.text();
@@ -246,33 +253,52 @@ serve(async (req) => {
           passkitBaseUrl
         );
 
-        let existingMetaData: Record<string, unknown> = {};
-        let existingPassOverrides: Record<string, unknown> = {};
-        let existingBackFields: Array<Record<string, string>> = [];
-
-        if (getCurrentMemberResult.data) {
-          const currentMember = getCurrentMemberResult.data as Record<string, unknown>;
-          existingMetaData = (currentMember.metaData as Record<string, unknown>) || {};
-          existingPassOverrides = (currentMember.passOverrides as Record<string, unknown>) || {};
-          existingBackFields = (existingPassOverrides.backFields as Array<Record<string, string>>) || [];
+        if (getCurrentMemberResult.error || !getCurrentMemberResult.data) {
+          console.error(`Erro ao buscar dados do membro ${memberId}:`, getCurrentMemberResult.error);
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: `Erro ao buscar membro: ${getCurrentMemberResult.error}`
+          });
+          continue;
         }
 
+        const currentMember = getCurrentMemberResult.data as Record<string, unknown>;
+        console.log(`Dados atuais do membro:`, JSON.stringify(currentMember, null, 2));
+        
+        // Extrair dados existentes
+        const existingMetaData = (currentMember.metaData as Record<string, unknown>) || {};
+        const existingPassOverrides = (currentMember.passOverrides as Record<string, unknown>) || {};
+        const existingBackFields = (existingPassOverrides.backFields as Array<Record<string, string>>) || [];
+        
+        // Pegar pontos atuais para incrementar (isso dispara o push se o campo tiver changeMessage)
+        const currentPoints = (currentMember.points as number) || (leader.pontuacao_total || 0);
+        const currentSecondaryPoints = (currentMember.secondaryPoints as number) || 0;
+
         // Atualizar ou adicionar campo de mensagem nos backFields
-        const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem");
+        const updatedBackFields = existingBackFields.filter(f => f.key !== "mensagem" && f.key !== "lastNotification");
         updatedBackFields.push({
-          key: "mensagem",
+          key: "lastNotification",
           label: "📢 Última Notificação",
           value: trimmedMessage
         });
 
+        // Payload para atualização via PATCH - usar o ID na URL
+        // Incrementar secondaryPoints ou points para disparar push notification
+        // O campo com changeMessage configurado no template será notificado
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
           tierId: settings.passkit_tier_id,
+          // Incrementar pontos para tentar disparar push (se changeMessage estiver configurado)
+          points: currentPoints,
+          secondaryPoints: currentSecondaryPoints + 1, // Incrementa para disparar notificação
           metaData: {
             ...existingMetaData,
             lastMessage: trimmedMessage,
             lastMessageDate: now,
+            notificationCount: ((existingMetaData.notificationCount as number) || 0) + 1,
           },
           passOverrides: {
             ...existingPassOverrides,
@@ -280,25 +306,42 @@ serve(async (req) => {
           }
         };
 
-        console.log(`Atualizando membro com notificação...`);
+        console.log(`Atualizando membro ${memberId} via PATCH...`);
         
+        // Usar PATCH com o ID do membro na URL
         const updateResult = await passkitRequest(
-          "PUT",
-          "/members/member",
+          "PATCH",
+          `/members/member/${memberId}`,
           settings.passkit_api_token,
           passkitBaseUrl,
           updateData
         );
 
         if (updateResult.error) {
-          console.error(`Erro ao atualizar membro ${leader.id}:`, updateResult.error);
-          results.push({
-            success: false,
-            leaderId: leader.id,
-            leaderName: leader.nome_completo,
-            error: updateResult.error
-          });
-          continue;
+          console.error(`Erro ao atualizar membro ${leader.id} via PATCH:`, updateResult.error);
+          
+          // Tentar com PUT como fallback
+          console.log(`Tentando com PUT /members/member como fallback...`);
+          const putResult = await passkitRequest(
+            "PUT",
+            "/members/member",
+            settings.passkit_api_token,
+            passkitBaseUrl,
+            updateData
+          );
+          
+          if (putResult.error) {
+            console.error(`PUT também falhou:`, putResult.error);
+            results.push({
+              success: false,
+              leaderId: leader.id,
+              leaderName: leader.nome_completo,
+              error: `PATCH: ${updateResult.error}, PUT: ${putResult.error}`
+            });
+            continue;
+          }
+          
+          console.log(`PUT funcionou para ${leader.nome_completo}`);
         }
 
         console.log(`Notificação enviada com sucesso para ${leader.nome_completo}`);
