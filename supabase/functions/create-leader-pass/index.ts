@@ -129,6 +129,15 @@ serve(async (req) => {
       );
     }
 
+    // Buscar configurações de gamificação para níveis
+    const { data: officeSettings } = await supabase
+      .from("office_settings")
+      .select("nivel_bronze_min, nivel_bronze_max, nivel_prata_min, nivel_prata_max, nivel_ouro_min, nivel_ouro_max, nivel_diamante_min")
+      .limit(1)
+      .single();
+
+    console.log("[create-leader-pass] Configurações de gamificação:", officeSettings);
+
     const passkitToken = (settings.passkit_api_token ?? "").trim();
     const passkitBaseUrl = (settings.passkit_api_base_url ?? "https://api.pub1.passkit.io").trim();
     const passkitProgramId = (settings.passkit_program_id ?? "").trim();
@@ -272,13 +281,31 @@ serve(async (req) => {
       }
     };
 
-    const getNivelNome = (level: number | null, isCoordinator: boolean | null): string => {
+    const getNivelHierarquico = (level: number | null, isCoordinator: boolean | null): string => {
       if (isCoordinator) return "Coordenador";
       if (level === null || level === undefined) return "Líder";
       if (level === 1) return "Líder Nível 1";
       if (level === 2) return "Líder Nível 2";
       if (level === 3) return "Líder Nível 3";
       return `Líder Nível ${level}`;
+    };
+
+    // Função para determinar nível de gamificação baseado na pontuação
+    interface NivelGamificacao {
+      nome: string;
+      icone: string;
+    }
+
+    const getNivelGamificacao = (pontos: number): NivelGamificacao => {
+      // Valores padrão caso não haja configuração
+      const bronzeMax = officeSettings?.nivel_bronze_max ?? 10;
+      const prataMax = officeSettings?.nivel_prata_max ?? 30;
+      const ouroMax = officeSettings?.nivel_ouro_max ?? 50;
+      
+      if (pontos <= bronzeMax) return { nome: "Bronze", icone: "🥉" };
+      if (pontos <= prataMax) return { nome: "Prata", icone: "🥈" };
+      if (pontos <= ouroMax) return { nome: "Ouro", icone: "🥇" };
+      return { nome: "Diamante", icone: "💎" };
     };
 
     // Gerar URL do link de afiliado
@@ -288,11 +315,14 @@ serve(async (req) => {
       : "";
 
     // Dados para exibição no cartão
-    const nivelLabel = getNivelNome(leader.hierarchy_level, leader.is_coordinator);
+    const nivelGamificacao = getNivelGamificacao(leader.pontuacao_total);
+    const nivelHierarquico = getNivelHierarquico(leader.hierarchy_level, leader.is_coordinator);
     const cidadeNome = (leader.cidade as any)?.nome || "N/A";
     const membroDesde = formatDate(leader.join_date) || "N/A";
     const liderSuperior = (leader.parent_leader as any)?.nome_completo || "Nenhum";
     const verificadoStatus = leader.is_verified ? `Sim (${formatDate(leader.verified_at)})` : "Não";
+
+    console.log(`[create-leader-pass] Nível gamificação: ${nivelGamificacao.icone} ${nivelGamificacao.nome} (${leader.pontuacao_total} pontos)`);
 
     // Criar o passe via PassKit API usando Bearer Token
     const passData = {
@@ -307,9 +337,9 @@ serve(async (req) => {
       },
       // Campos nativos do PassKit para exibição automática no cartão
       passOverrides: {
-        // Header: aparece no topo ao lado do logo
+        // Header: aparece no topo ao lado do logo - agora com nível de gamificação
         headerFields: [
-          { key: "nivel", label: "Nível", value: nivelLabel }
+          { key: "nivel", label: "Nível", value: `${nivelGamificacao.icone} ${nivelGamificacao.nome}` }
         ],
         // Primary: nome em destaque no centro
         primaryFields: [
@@ -346,7 +376,11 @@ serve(async (req) => {
         cidade: cidadeNome,
         telefone: leader.telefone || "",
         email: leader.email || "",
-        nivel: nivelLabel,
+        // Nível de gamificação (baseado em pontos)
+        nivelGamificacao: nivelGamificacao.nome,
+        nivelGamificacaoIcone: nivelGamificacao.icone,
+        // Nível hierárquico (baseado na árvore de lideranças)
+        nivelHierarquico: nivelHierarquico,
         nivelNumero: (leader.hierarchy_level ?? 0).toString(),
         coordenador: leader.is_coordinator ? "Sim" : "Não",
         liderSuperior: liderSuperior,
