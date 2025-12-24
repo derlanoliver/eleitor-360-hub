@@ -207,12 +207,16 @@ export function SendPassNotificationDialog({
             </div>
           </div>
 
-          {/* Aviso */}
+          {/* Aviso importante sobre o template */}
           <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              Apenas líderes que instalaram o cartão digital receberão a notificação push no celular.
-            </p>
+            <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
+              <p className="font-medium">Requisitos para push notification:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>Líder precisa ter o cartão instalado no Apple Wallet</li>
+                <li>O campo <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">lastNotification</code> deve ter <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">changeMessage</code> com <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">%@</code> no template do PassKit</li>
+              </ul>
+            </div>
           </div>
         </div>
 
