@@ -4,9 +4,37 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Users, Search, Trophy, Pencil, Phone, Loader2, MapPin, Copy, CheckCircle, Download, QrCode, Mail, Star, Eye, Crown, Cake, Bell, Smartphone, RefreshCw } from "lucide-react";
-import QRCode from 'qrcode';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+import {
+  Users,
+  Search,
+  Trophy,
+  Pencil,
+  Phone,
+  Loader2,
+  MapPin,
+  Copy,
+  CheckCircle,
+  Download,
+  QrCode,
+  Mail,
+  Star,
+  Eye,
+  Crown,
+  Cake,
+  Bell,
+  Smartphone,
+  RefreshCw,
+} from "lucide-react";
+import QRCode from "qrcode";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getLeaders } from "@/services/office/officeService";
@@ -28,29 +56,29 @@ import { format } from "date-fns";
 
 const getInitials = (name: string) => {
   return name
-    .split(' ')
-    .map(n => n[0])
+    .split(" ")
+    .map((n) => n[0])
     .filter(Boolean)
-    .join('')
+    .join("")
     .substring(0, 2)
     .toUpperCase();
 };
 
 const getAvatarGradient = (name: string) => {
   const colors = [
-    'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700',
-    'bg-gradient-to-br from-green-100 to-green-200 text-green-700',
-    'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700',
-    'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700',
-    'bg-gradient-to-br from-rose-100 to-rose-200 text-rose-700',
-    'bg-gradient-to-br from-cyan-100 to-cyan-200 text-cyan-700',
+    "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700",
+    "bg-gradient-to-br from-green-100 to-green-200 text-green-700",
+    "bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700",
+    "bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700",
+    "bg-gradient-to-br from-rose-100 to-rose-200 text-rose-700",
+    "bg-gradient-to-br from-cyan-100 to-cyan-200 text-cyan-700",
   ];
   const index = name.charCodeAt(0) % colors.length;
   return colors[index];
 };
 
 const formatPhone = (phone: string) => {
-  const cleaned = phone.replace(/\D/g, '');
+  const cleaned = phone.replace(/\D/g, "");
   if (cleaned.length === 13) {
     return `(${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9)}`;
   }
@@ -78,9 +106,9 @@ const getHierarchyBadge = (leader: OfficeLeader) => {
 
 const getBirthdayBadge = (leader: OfficeLeader) => {
   if (leader.days_until_birthday === undefined || leader.days_until_birthday === null) return null;
-  
+
   const days = leader.days_until_birthday;
-  
+
   if (days === 0) {
     return { label: "🎂 Hoje!", className: "bg-pink-100 text-pink-700 border-pink-300 animate-pulse" };
   } else if (days === 1) {
@@ -105,21 +133,22 @@ const Leaders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   const queryClient = useQueryClient();
 
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
   const { data: leadersResult, isLoading } = useQuery({
     queryKey: ["leaders", selectedRegion, searchTerm, statusFilter, verificationFilter, sortBy, currentPage],
-    queryFn: () => getLeaders({
-      cidade_id: selectedRegion === "all" ? undefined : selectedRegion,
-      search: searchTerm || undefined,
-      page: currentPage,
-      pageSize: ITEMS_PER_PAGE,
-      sortBy,
-      verificationFilter: verificationFilter as 'all' | 'verified' | 'not_verified'
-    })
+    queryFn: () =>
+      getLeaders({
+        cidade_id: selectedRegion === "all" ? undefined : selectedRegion,
+        search: searchTerm || undefined,
+        page: currentPage,
+        pageSize: ITEMS_PER_PAGE,
+        sortBy,
+        verificationFilter: verificationFilter as "all" | "verified" | "not_verified",
+      }),
   });
 
   const leaders = leadersResult?.data || [];
@@ -128,20 +157,20 @@ const Leaders = () => {
   // Realtime subscription para atualizar automaticamente quando líder mudar (ex: cartão instalado/desinstalado)
   useEffect(() => {
     const channel = supabase
-      .channel('leaders-realtime')
+      .channel("leaders-realtime")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'lideres'
+          event: "UPDATE",
+          schema: "public",
+          table: "lideres",
         },
         (payload) => {
-          console.log('Líder atualizado via realtime:', payload);
+          console.log("Líder atualizado via realtime:", payload);
           // Invalida a query para refetch automático
           queryClient.invalidateQueries({ queryKey: ["leaders"] });
           setLastUpdated(new Date());
-        }
+        },
       )
       .subscribe();
 
@@ -151,7 +180,7 @@ const Leaders = () => {
   }, [queryClient]);
 
   // Buscar contagem de subordinados diretos para cada líder
-  const leaderIds = leaders?.map(l => l.id) || [];
+  const leaderIds = leaders?.map((l) => l.id) || [];
   const { data: subordinatesCounts } = useLeadersSubordinatesCounts(leaderIds);
 
   // Buscar contagem de líderes verificados para notificações em massa
@@ -163,10 +192,10 @@ const Leaders = () => {
         .select("*", { count: "exact", head: true })
         .eq("is_active", true)
         .eq("is_verified", true);
-      
+
       if (error) throw error;
       return count || 0;
-    }
+    },
   });
 
   // Função de refresh manual
@@ -179,21 +208,17 @@ const Leaders = () => {
 
   // Função para buscar todos os IDs de líderes verificados
   const fetchAllVerifiedLeaderIds = useCallback(async (): Promise<string[]> => {
-    const { data, error } = await supabase
-      .from("lideres")
-      .select("id")
-      .eq("is_active", true)
-      .eq("is_verified", true);
-    
+    const { data, error } = await supabase.from("lideres").select("id").eq("is_active", true).eq("is_verified", true);
+
     if (error) throw error;
-    return data?.map(l => l.id) || [];
+    return data?.map((l) => l.id) || [];
   }, []);
 
   const handleWhatsAppClick = (phone: string) => {
-    const normalizedPhone = phone?.replace(/\D/g, '');
+    const normalizedPhone = phone?.replace(/\D/g, "");
     if (normalizedPhone) {
       const whatsappUrl = `https://wa.me/${normalizedPhone}`;
-      window.open(whatsappUrl, '_blank');
+      window.open(whatsappUrl, "_blank");
     }
   };
 
@@ -217,19 +242,19 @@ const Leaders = () => {
 
     try {
       const affiliateLink = generateAffiliateUrl(leader.affiliate_token);
-      
+
       const qrDataURL = await QRCode.toDataURL(affiliateLink, {
         width: 1024,
         margin: 4,
         color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
       });
 
-      const fileName = `qr-lider-${leader.nome_completo.toLowerCase().replace(/\s+/g, '-')}-${leader.affiliate_token.substring(0, 8)}.png`;
-      
-      const link = document.createElement('a');
+      const fileName = `qr-lider-${leader.nome_completo.toLowerCase().replace(/\s+/g, "-")}-${leader.affiliate_token.substring(0, 8)}.png`;
+
+      const link = document.createElement("a");
       link.download = fileName;
       link.href = qrDataURL;
       link.click();
@@ -256,16 +281,16 @@ const Leaders = () => {
   };
 
   const getPageNumbers = () => {
-    const pages: (number | 'ellipsis')[] = [];
+    const pages: (number | "ellipsis")[] = [];
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      if (currentPage > 3) pages.push('ellipsis');
+      if (currentPage > 3) pages.push("ellipsis");
       for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
         pages.push(i);
       }
-      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      if (currentPage < totalPages - 2) pages.push("ellipsis");
       pages.push(totalPages);
     }
     return pages;
@@ -344,7 +369,7 @@ const Leaders = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as regiões</SelectItem>
-              {cities?.map(city => (
+              {cities?.map((city) => (
                 <SelectItem key={city.id} value={city.id}>
                   {city.nome}
                 </SelectItem>
@@ -376,15 +401,15 @@ const Leaders = () => {
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="cadastros_desc">Maior Indicação</SelectItem>
-                <SelectItem value="cadastros_asc">Menor Indicação</SelectItem>
+              <SelectItem value="cadastros_desc">Maior Indicação</SelectItem>
+              <SelectItem value="cadastros_asc">Menor Indicação</SelectItem>
               <SelectItem value="pontos_desc">Maior Pontuação</SelectItem>
               <SelectItem value="pontos_asc">Menor Pontuação</SelectItem>
               <SelectItem value="nome_asc">Nome A-Z</SelectItem>
               <SelectItem value="aniversario_proximo">🎂 Próximo Aniversário</SelectItem>
             </SelectContent>
           </Select>
-          
+
           {/* Botão de Refresh + Timestamp */}
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -397,7 +422,7 @@ const Leaders = () => {
               disabled={isRefreshing}
               title="Atualizar lista"
             >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
@@ -416,12 +441,8 @@ const Leaders = () => {
           <Card>
             <CardContent className="p-8 text-center">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Nenhum líder encontrado
-              </h3>
-              <p className="text-muted-foreground">
-                Tente ajustar os filtros ou adicionar novos líderes.
-              </p>
+              <h3 className="text-lg font-medium text-foreground mb-2">Nenhum líder encontrado</h3>
+              <p className="text-muted-foreground">Tente ajustar os filtros ou adicionar novos líderes.</p>
             </CardContent>
           </Card>
         ) : (
@@ -433,7 +454,9 @@ const Leaders = () => {
                   <div className="flex items-start gap-4 flex-1 min-w-0">
                     {/* Avatar com Iniciais + Coroa para Coordenador */}
                     <div className="relative flex-shrink-0">
-                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm ${getAvatarGradient(leader.nome_completo)}`}>
+                      <div
+                        className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm ${getAvatarGradient(leader.nome_completo)}`}
+                      >
                         {getInitials(leader.nome_completo)}
                       </div>
                       {leader.is_coordinator && (
@@ -442,14 +465,12 @@ const Leaders = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Informações */}
                     <div className="flex-1 min-w-0">
                       {/* Nome + Badge Nível + Badge Hierarquia */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-lg text-foreground truncate">
-                          {leader.nome_completo}
-                        </h3>
+                        <h3 className="font-semibold text-lg text-foreground truncate">{leader.nome_completo}</h3>
                         <LeaderLevelBadge points={leader.pontuacao_total} size="sm" levels={leaderLevels} />
                         {(() => {
                           const hierarchyBadge = getHierarchyBadge(leader);
@@ -472,13 +493,13 @@ const Leaders = () => {
                           );
                         })()}
                       </div>
-                      
+
                       {/* Região */}
                       <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                         <MapPin className="h-3.5 w-3.5" />
                         {leader.cidade?.nome || "Sem região"}
                       </p>
-                      
+
                       {/* Badges de Métricas + Status + Verificação + Cartão */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
@@ -487,11 +508,11 @@ const Leaders = () => {
                         <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
                           ⭐ {leader.pontuacao_total} pontos
                         </Badge>
-                        <Badge 
+                        <Badge
                           variant={leader.is_active ? "default" : "secondary"}
                           className={leader.is_active ? "bg-green-500/10 text-green-600 border-0" : ""}
                         >
-                          {leader.is_active ? '✓ Ativo' : 'Inativo'}
+                          {leader.is_active ? "✓ Ativo" : "Inativo"}
                         </Badge>
                         {leader.is_verified ? (
                           <Badge className="bg-emerald-500/10 text-emerald-600 border-0">
@@ -516,7 +537,7 @@ const Leaders = () => {
                           </Badge>
                         ) : null}
                       </div>
-                      
+
                       {/* Contatos */}
                       <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
                         {leader.telefone && (
@@ -532,38 +553,28 @@ const Leaders = () => {
                           </span>
                         )}
                       </div>
-                      
+
                       {/* Barra de Progresso do Nível */}
                       <div className="mt-3 max-w-md">
                         <LeaderLevelProgress points={leader.pontuacao_total} levels={leaderLevels} />
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Coluna de Ações - Vertical */}
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     <LeaderDetailsDialog leader={leader}>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Ver detalhes"
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver detalhes">
                         <Eye className="h-4 w-4" />
                       </Button>
                     </LeaderDetailsDialog>
                     <SendPassNotificationDialog leader={leader}>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Enviar notificação push"
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Enviar notificação push">
                         <Bell className="h-4 w-4" />
                       </Button>
                     </SendPassNotificationDialog>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => handleCopyAffiliateLink(leader)}
@@ -575,8 +586,8 @@ const Leaders = () => {
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => handleDownloadQRCode(leader)}
@@ -584,24 +595,8 @@ const Leaders = () => {
                     >
                       <Download className="h-4 w-4" />
                     </Button>
-                    {leader.telefone && (
-                      //<Button 
-                     //   variant="ghost" 
-                     //   size="icon"
-                      //  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                     //   onClick={() => handleWhatsAppClick(leader.telefone!)}
-                      //  title="WhatsApp"
-                     // >
-                     //   <Phone className="h-4 w-4" />
-                     // </Button>
-                    )}
                     <EditLeaderDialog leader={leader}>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Editar"
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </EditLeaderDialog>
@@ -617,19 +612,20 @@ const Leaders = () => {
       {totalPages > 1 && (
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} de {totalCount} líderes
+            Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} de{" "}
+            {totalCount} líderes
           </p>
           <Pagination>
             <PaginationContent>
               <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                <PaginationPrevious
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                 />
               </PaginationItem>
               {getPageNumbers().map((page, index) => (
                 <PaginationItem key={index}>
-                  {page === 'ellipsis' ? (
+                  {page === "ellipsis" ? (
                     <PaginationEllipsis />
                   ) : (
                     <PaginationLink
@@ -643,8 +639,8 @@ const Leaders = () => {
                 </PaginationItem>
               ))}
               <PaginationItem>
-                <PaginationNext 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                <PaginationNext
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                 />
               </PaginationItem>
