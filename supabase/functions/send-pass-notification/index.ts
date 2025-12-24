@@ -353,10 +353,11 @@ serve(async (req) => {
         // O campo configurado no PassKit é "meta.notification" com changeMessage "%@"
         // Isso significa que metaData.notification é o campo que dispara o push
         // O valor PRECISA mudar a cada atualização para o PassKit reconhecer
-        const timestamp = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        const notificationValue = `${trimmedMessage} • ${timestamp}`;
+        // Usamos zero-width space (\u200B) + timestamp invisível para garantir unicidade sem aparecer na notificação
+        const uniqueId = Date.now();
+        const notificationValue = `${trimmedMessage}\u200B${uniqueId}`;
         
-        console.log(`[Push Trigger] Campo meta.notification será: "${notificationValue}"`);
+        console.log(`[Push Trigger] Campo meta.notification será: "${trimmedMessage}" (com ID invisível: ${uniqueId})`);
 
         // Contagem de notificações enviadas
         const nextNotificationCount = (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1;
