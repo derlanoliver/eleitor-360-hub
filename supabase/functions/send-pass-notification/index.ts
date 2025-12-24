@@ -358,6 +358,7 @@ serve(async (req) => {
         });
 
         // Payload para PUT (mesmo padrão do create-leader-pass)
+        const nextNotificationCount = (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1;
         const updateData = {
           id: memberId,
           programId: settings.passkit_program_id,
@@ -369,7 +370,8 @@ serve(async (req) => {
             ...existingMetaData,
             lastMessage: trimmedMessage,
             lastMessageDate: now,
-            notificationCount: (parseFloat(String(existingMetaData.notificationCount || 0)) || 0) + 1,
+            // PassKit espera string em alguns campos do metaData
+            notificationCount: String(nextNotificationCount),
           },
           passOverrides: {
             ...existingPassOverrides,
@@ -390,32 +392,16 @@ serve(async (req) => {
 
         if (updateResult.error) {
           console.error(`PUT falhou:`, updateResult.error);
-          
-          // Fallback para PATCH
-          console.log(`Tentando PATCH /members/member/${memberId} como fallback...`);
-          const patchResult = await passkitRequest(
-            "PATCH",
-            `/members/member/${memberId}`,
-            settings.passkit_api_token!,
-            passkitBaseUrl,
-            updateData
-          );
-          
-          if (patchResult.error) {
-            console.error(`PATCH também falhou:`, patchResult.error);
-            results.push({
-              success: false,
-              leaderId: leader.id,
-              leaderName: leader.nome_completo,
-              error: `PUT: ${updateResult.error}, PATCH: ${patchResult.error}`
-            });
-            continue;
-          }
-          
-          console.log(`PATCH funcionou para ${leader.nome_completo}`);
-        } else {
-          console.log(`PUT funcionou para ${leader.nome_completo}`);
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: updateResult.error
+          });
+          continue;
         }
+
+        console.log(`PUT funcionou para ${leader.nome_completo}`);
 
         console.log(`✅ Notificação enviada com sucesso para ${leader.nome_completo}`);
         results.push({
