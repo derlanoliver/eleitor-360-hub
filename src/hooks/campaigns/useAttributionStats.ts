@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface SourceBreakdown {
   source: string;
-  sourceType: "leader" | "event" | "campaign" | "manual" | "visit" | "funnel" | "webhook";
+  sourceType: "leader" | "event" | "campaign" | "manual" | "visit" | "funnel" | "webhook" | "leader_registration";
   count: number;
   percentage: number;
   details?: string;
@@ -33,7 +33,9 @@ export interface MonthlyTrend {
 
 export interface AttributionStats {
   summary: {
-    totalContacts: number;
+    totalContacts: number;      // Apenas contatos
+    totalLeaders: number;       // Apenas líderes
+    grandTotal: number;         // Contatos + Líderes
     fromLeaders: number;
     fromEvents: number;
     fromCampaigns: number;
@@ -60,6 +62,8 @@ export function useAttributionStats() {
       // 1. Buscar totais gerais
       let summary = {
         totalContacts: 0,
+        totalLeaders: 0,
+        grandTotal: 0,
         fromLeaders: 0,
         fromEvents: 0,
         fromCampaigns: 0,
@@ -76,6 +80,7 @@ export function useAttributionStats() {
       // Buscar dados manualmente
       const [
         { count: totalContacts },
+        { count: totalLeadersRegistered },
         { count: fromLeaders },
         { count: fromEvents },
         { count: fromManual },
@@ -88,6 +93,7 @@ export function useAttributionStats() {
         { count: activeCampaigns },
       ] = await Promise.all([
         supabase.from("office_contacts").select("*", { count: "exact", head: true }),
+        supabase.from("lideres").select("*", { count: "exact", head: true }),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "lider"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "evento"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).or("source_type.eq.manual,source_type.is.null"),
@@ -106,8 +112,13 @@ export function useAttributionStats() {
         .select("*", { count: "exact", head: true })
         .not("utm_campaign", "is", null);
 
+      const contactsCount = totalContacts || 0;
+      const leadersCount = totalLeadersRegistered || 0;
+
       summary = {
-        totalContacts: totalContacts || 0,
+        totalContacts: contactsCount,
+        totalLeaders: leadersCount,
+        grandTotal: contactsCount + leadersCount,
         fromLeaders: fromLeaders || 0,
         fromEvents: fromEvents || 0,
         fromCampaigns: fromCampaigns || 0,
@@ -123,7 +134,18 @@ export function useAttributionStats() {
 
       // 2. Buscar breakdown por fonte
       const sourceBreakdown: SourceBreakdown[] = [];
-      const total = summary.totalContacts || 1;
+      const total = summary.grandTotal || 1;
+
+      // Adicionar líderes cadastrados
+      if (summary.totalLeaders > 0) {
+        sourceBreakdown.push({
+          source: "Cadastro de Lideranças",
+          sourceType: "leader_registration",
+          count: summary.totalLeaders,
+          percentage: Math.round((summary.totalLeaders / total) * 100),
+          details: "Lideranças cadastradas via formulário ou importação",
+        });
+      }
 
       if (summary.fromLeaders > 0) {
         sourceBreakdown.push({
@@ -274,21 +296,35 @@ export function useAttributionStats() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
-      // 5. Buscar tendência mensal (últimos 6 meses)
+      // 5. Buscar tendência mensal (últimos 6 meses) - incluindo contatos E líderes
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
       sixMonthsAgo.setDate(1);
 
-      const { data: monthlyData } = await supabase
-        .from("office_contacts")
-        .select("created_at")
-        .gte("created_at", sixMonthsAgo.toISOString());
+      const [{ data: monthlyContactsData }, { data: monthlyLeadersData }] = await Promise.all([
+        supabase
+          .from("office_contacts")
+          .select("created_at")
+          .gte("created_at", sixMonthsAgo.toISOString()),
+        supabase
+          .from("lideres")
+          .select("created_at")
+          .gte("created_at", sixMonthsAgo.toISOString()),
+      ]);
 
       const monthlyCount: Record<string, number> = {};
       const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-      (monthlyData || []).forEach((contact) => {
+      // Contar contatos
+      (monthlyContactsData || []).forEach((contact) => {
         const date = new Date(contact.created_at);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        monthlyCount[key] = (monthlyCount[key] || 0) + 1;
+      });
+
+      // Contar líderes também
+      (monthlyLeadersData || []).forEach((leader) => {
+        const date = new Date(leader.created_at);
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         monthlyCount[key] = (monthlyCount[key] || 0) + 1;
       });

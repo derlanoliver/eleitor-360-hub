@@ -1250,6 +1250,7 @@ const AttributionReport = () => {
   const getSourceIcon = (sourceType: string) => {
     switch (sourceType) {
       case 'leader': return <UserCheck className="h-4 w-4" />;
+      case 'leader_registration': return <Users className="h-4 w-4" />;
       case 'event': return <Calendar className="h-4 w-4" />;
       case 'campaign': return <Megaphone className="h-4 w-4" />;
       case 'manual': return <FileSpreadsheet className="h-4 w-4" />;
@@ -1285,8 +1286,11 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Users className="h-5 w-5 text-primary-600" />
             </div>
-            <p className="text-2xl font-bold text-primary-600">{stats.summary.totalContacts.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Contatos</p>
+            <p className="text-2xl font-bold text-primary-600">{stats.summary.grandTotal.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Cadastros</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              ({stats.summary.totalContacts.toLocaleString()} contatos + {stats.summary.totalLeaders.toLocaleString()} líderes)
+            </p>
             {stats.growthPercentage !== 0 && (
               <p className={`text-xs flex items-center justify-center mt-1 ${stats.growthPercentage > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {stats.growthPercentage > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
