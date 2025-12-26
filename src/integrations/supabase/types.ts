@@ -2493,18 +2493,30 @@ export type Database = {
           qr_code: string
         }[]
       }
-      create_leader_from_public_form: {
-        Args: {
-          p_cidade_id: string
-          p_data_nascimento?: string
-          p_email: string
-          p_nome_completo: string
-          p_observacao?: string
-          p_referring_leader_token?: string
-          p_telefone: string
-        }
-        Returns: string
-      }
+      create_leader_from_public_form:
+        | {
+            Args: {
+              p_cidade_id: string
+              p_data_nascimento?: string
+              p_email: string
+              p_nome_completo: string
+              p_observacao?: string
+              p_referring_leader_token?: string
+              p_telefone: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_cidade_id: string
+              p_data_nascimento?: string
+              p_email: string
+              p_nome_completo: string
+              p_parent_leader_id?: string
+              p_telefone: string
+            }
+            Returns: Json
+          }
       demote_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
@@ -2555,6 +2567,29 @@ export type Database = {
         Args: { _email: string; _phone: string }
         Returns: string
       }
+      get_leader_by_token_v2: {
+        Args: { _token: string }
+        Returns: {
+          can_register_subordinates: boolean
+          cidade_id: string
+          cidade_nome: string
+          hierarchy_level: number
+          id: string
+          nome_completo: string
+        }[]
+      }
+      get_leader_by_token_v3: {
+        Args: { _token: string }
+        Returns: {
+          can_register_subordinates: boolean
+          cidade_id: string
+          cidade_nome: string
+          hierarchy_level: number
+          id: string
+          is_verified: boolean
+          nome_completo: string
+        }[]
+      }
       get_leader_hierarchy_path: {
         Args: { _leader_id: string }
         Returns: {
@@ -2569,6 +2604,7 @@ export type Database = {
           telefone: string
         }[]
       }
+      get_leader_max_depth: { Args: never; Returns: number }
       get_leader_ranking_position: {
         Args: { _leader_id: string }
         Returns: {
@@ -2795,7 +2831,7 @@ export type Database = {
           }
       move_leader_branch: {
         Args: { _leader_id: string; _new_parent_id: string }
-        Returns: Json
+        Returns: boolean
       }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
       promote_leader_to_subordinate: {
@@ -2807,26 +2843,38 @@ export type Database = {
         Args: { _leader_id: string }
         Returns: Json
       }
-      register_leader_from_affiliate: {
-        Args: {
-          p_cidade_id: string
-          p_data_nascimento: string
-          p_email: string
-          p_endereco: string
-          p_nome: string
-          p_referring_leader_id: string
-          p_telefone_norm: string
-        }
-        Returns: {
-          affiliate_token: string
-          already_referred_by_other_leader: boolean
-          hierarchy_level_exceeded: boolean
-          is_already_leader: boolean
-          leader_id: string
-          original_leader_name: string
-          verification_code: string
-        }[]
-      }
+      register_leader_from_affiliate:
+        | {
+            Args: {
+              p_cidade_id: string
+              p_data_nascimento: string
+              p_email: string
+              p_endereco: string
+              p_nome: string
+              p_referring_leader_id: string
+              p_telefone_norm: string
+            }
+            Returns: {
+              affiliate_token: string
+              already_referred_by_other_leader: boolean
+              hierarchy_level_exceeded: boolean
+              is_already_leader: boolean
+              leader_id: string
+              original_leader_name: string
+              verification_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_affiliate_token: string
+              p_cidade_id: string
+              p_data_nascimento?: string
+              p_email: string
+              p_nome_completo: string
+              p_telefone: string
+            }
+            Returns: Json
+          }
       remove_from_tree: { Args: { _leader_id: string }; Returns: boolean }
       set_parent_leader: {
         Args: { _leader_id: string; _parent_id: string }
