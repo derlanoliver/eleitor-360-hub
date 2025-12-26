@@ -336,6 +336,7 @@ Deno.serve(async (req) => {
     // Critérios:
     // - VERIFICAÇÃO: status = 'failed', retry_count >= 6, contém código de verificação
     // - LINK INDICAÇÃO: status = 'failed', retry_count >= 3, contém link de indicação
+    // Buscar mensagens falhadas (excluir as que já estão em processamento ou já tiveram fallback)
     const { data: failedMessages, error: fetchError } = await supabase
       .from("sms_messages")
       .select("id, phone, message, contact_id, retry_count, status, created_at")
@@ -382,10 +383,40 @@ Deno.serve(async (req) => {
       details: [] as { id: string; phone: string; type: string; result: string }[],
     };
 
-    // 3. Processar cada mensagem
+    // 3. Processar cada mensagem com lock otimista
     for (const msg of failedMessages as SMSMessage[]) {
+      console.log(`\n[process-sms-fallback] Attempting to lock message ${msg.id}`);
+      
+      // LOCK OTIMISTA: Tentar atualizar status para 'processing_fallback'
+      // Se outra instância já pegou esta mensagem, o update não afetará nenhuma linha
+      const { data: lockResult, error: lockError } = await supabase
+        .from("sms_messages")
+        .update({ 
+          status: "processing_fallback",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", msg.id)
+        .eq("status", "failed") // Só atualiza se ainda estiver 'failed'
+        .select("id");
+      
+      if (lockError) {
+        console.error(`[process-sms-fallback] Lock error for ${msg.id}:`, lockError);
+        results.skipped++;
+        results.details.push({ id: msg.id, phone: msg.phone, type: 'unknown', result: 'lock_error' });
+        continue;
+      }
+      
+      if (!lockResult || lockResult.length === 0) {
+        console.log(`[process-sms-fallback] ⚡ Message ${msg.id} already being processed by another instance, skipping`);
+        results.skipped++;
+        results.details.push({ id: msg.id, phone: msg.phone, type: 'unknown', result: 'already_locked' });
+        continue;
+      }
+      
+      console.log(`[process-sms-fallback] ✓ Lock acquired for message ${msg.id}`);
+      
       results.processed++;
-      console.log(`\n[process-sms-fallback] Processing message ${msg.id} (${results.processed}/${failedMessages.length})`);
+      console.log(`[process-sms-fallback] Processing message ${msg.id} (${results.processed}/${failedMessages.length})`);
       console.log(`[process-sms-fallback] Phone: ${msg.phone}, retry_count: ${msg.retry_count}`);
       console.log(`[process-sms-fallback] Message: ${msg.message.substring(0, 100)}...`);
       
@@ -506,8 +537,22 @@ Deno.serve(async (req) => {
         results.details.push({ id: msg.id, phone: msg.phone, type: messageType || 'unknown', result: 'fallback_sent' });
         console.log(`[process-sms-fallback] ✓ WhatsApp fallback sent for ${msg.id}`);
       } else {
+        // WhatsApp falhou - voltar status para 'failed' para permitir reprocessamento futuro
+        const { error: revertError } = await supabase
+          .from("sms_messages")
+          .update({
+            status: "failed",
+            error_message: `WhatsApp fallback failed: ${whatsappResult.error}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", msg.id);
+        
+        if (revertError) {
+          console.error(`[process-sms-fallback] Error reverting status for ${msg.id}:`, revertError);
+        }
+        
         results.details.push({ id: msg.id, phone: msg.phone, type: messageType || 'unknown', result: `failed: ${whatsappResult.error}` });
-        console.log(`[process-sms-fallback] ✗ WhatsApp fallback failed for ${msg.id}: ${whatsappResult.error}`);
+        console.log(`[process-sms-fallback] ✗ WhatsApp fallback failed for ${msg.id}: ${whatsappResult.error}, status reverted to 'failed'`);
       }
       
       // Delay entre mensagens para evitar rate limiting
