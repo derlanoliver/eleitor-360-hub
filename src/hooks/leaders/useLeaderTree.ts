@@ -351,21 +351,20 @@ export function useMoveLeaderBranch() {
 
       if (error) throw error;
       
-      const result = data as { success: boolean; error?: string; moved_count?: number; message?: string };
-      
-      if (!result.success) {
-        throw new Error(result.error || "Erro ao mover líder");
+      // A função agora retorna boolean
+      if (!data) {
+        throw new Error("Erro ao mover líder");
       }
       
-      return result;
+      return { success: true };
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leader-tree"] });
       queryClient.invalidateQueries({ queryKey: ["coordinators"] });
       queryClient.invalidateQueries({ queryKey: ["coordinator-stats"] });
       toast({
         title: "Líder movido",
-        description: data.message || "O líder foi movido para a nova árvore com sucesso.",
+        description: "O líder foi movido para a nova árvore com sucesso.",
       });
     },
     onError: (error: Error) => {
