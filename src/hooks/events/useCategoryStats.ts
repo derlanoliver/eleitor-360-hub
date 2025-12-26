@@ -17,7 +17,7 @@ export function useCategoryStats() {
     queryFn: async (): Promise<CategoryStat[]> => {
       // Buscar eventos e temas em paralelo
       const [eventsResult, temasResult] = await Promise.all([
-        supabase.from("events").select("*").order("category"),
+        supabase.from("events").select("*").order("created_at", { ascending: false }),
         supabase.from("temas").select("id, tema"),
       ]);
 
