@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface SourceBreakdown {
   source: string;
-  sourceType: "leader" | "event" | "campaign" | "manual" | "visit" | "funnel";
+  sourceType: "leader" | "event" | "campaign" | "manual" | "visit" | "funnel" | "webhook";
   count: number;
   percentage: number;
   details?: string;
@@ -13,10 +13,10 @@ export interface LeaderAttribution {
   id: string;
   name: string;
   city: string | null;
-  totalCadastros: number;
-  contactsFromLink: number;
-  eventRegistrations: number;
-  officeVisits: number;
+  contactsReferred: number;    // Contatos indicados via link
+  eventRegistrations: number;  // Inscrições em eventos
+  officeVisits: number;        // Visitas ao gabinete
+  totalInfluence: number;      // Soma total de captações
 }
 
 export interface CityDistribution {
@@ -40,6 +40,7 @@ export interface AttributionStats {
     fromManual: number;
     fromCaptacao: number;
     fromVisita: number;
+    fromWebhook: number;
     totalEventRegistrations: number;
     totalOfficeVisits: number;
     activeLeaders: number;
@@ -65,6 +66,7 @@ export function useAttributionStats() {
         fromManual: 0,
         fromCaptacao: 0,
         fromVisita: 0,
+        fromWebhook: 0,
         totalEventRegistrations: 0,
         totalOfficeVisits: 0,
         activeLeaders: 0,
@@ -79,6 +81,7 @@ export function useAttributionStats() {
         { count: fromManual },
         { count: fromCaptacao },
         { count: fromVisita },
+        { count: fromWebhook },
         { count: totalEventRegistrations },
         { count: totalOfficeVisits },
         { count: activeLeaders },
@@ -90,6 +93,7 @@ export function useAttributionStats() {
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).or("source_type.eq.manual,source_type.is.null"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "captacao"),
         supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "visita"),
+        supabase.from("office_contacts").select("*", { count: "exact", head: true }).eq("source_type", "webhook"),
         supabase.from("event_registrations").select("*", { count: "exact", head: true }),
         supabase.from("office_visits").select("*", { count: "exact", head: true }),
         supabase.from("lideres").select("*", { count: "exact", head: true }).eq("is_active", true),
@@ -110,6 +114,7 @@ export function useAttributionStats() {
         fromManual: fromManual || 0,
         fromCaptacao: fromCaptacao || 0,
         fromVisita: fromVisita || 0,
+        fromWebhook: fromWebhook || 0,
         totalEventRegistrations: totalEventRegistrations || 0,
         totalOfficeVisits: totalOfficeVisits || 0,
         activeLeaders: activeLeaders || 0,
@@ -126,7 +131,7 @@ export function useAttributionStats() {
           sourceType: "leader",
           count: summary.fromLeaders,
           percentage: Math.round((summary.fromLeaders / total) * 100),
-          details: "Cadastros via link de indicação",
+          details: "Cadastros via link de indicação de líderes",
         });
       }
 
@@ -136,7 +141,17 @@ export function useAttributionStats() {
           sourceType: "event",
           count: summary.fromEvents,
           percentage: Math.round((summary.fromEvents / total) * 100),
-          details: "Inscrições em eventos",
+          details: "Contatos vindos de inscrições em eventos",
+        });
+      }
+
+      if (summary.fromWebhook > 0) {
+        sourceBreakdown.push({
+          source: "Integrações Externas",
+          sourceType: "webhook",
+          count: summary.fromWebhook,
+          percentage: Math.round((summary.fromWebhook / total) * 100),
+          details: "Cadastros via GreatPages e outras integrações",
         });
       }
 
@@ -146,7 +161,7 @@ export function useAttributionStats() {
           sourceType: "campaign",
           count: summary.fromCampaigns,
           percentage: Math.round((summary.fromCampaigns / total) * 100),
-          details: "Cadastros rastreados via UTM",
+          details: "Cadastros rastreados via parâmetros UTM",
         });
       }
 
@@ -183,23 +198,21 @@ export function useAttributionStats() {
       // Ordenar por quantidade
       sourceBreakdown.sort((a, b) => b.count - a.count);
 
-      // 3. Buscar top líderes
+      // 3. Buscar top líderes com contagens REAIS
+      // Primeiro buscar líderes ativos
       const { data: leadersData } = await supabase
         .from("lideres")
         .select(`
           id,
           nome_completo,
-          cadastros,
           cidade:office_cities(nome)
         `)
-        .eq("is_active", true)
-        .gt("cadastros", 0)
-        .order("cadastros", { ascending: false })
-        .limit(10);
+        .eq("is_active", true);
 
-      const topLeaders: LeaderAttribution[] = await Promise.all(
+      // Para cada líder, buscar contagens reais
+      const leadersWithCounts = await Promise.all(
         (leadersData || []).map(async (leader) => {
-          const [{ count: contactsFromLink }, { count: eventRegistrations }, { count: officeVisits }] =
+          const [{ count: contactsReferred }, { count: eventRegistrations }, { count: officeVisits }] =
             await Promise.all([
               supabase
                 .from("office_contacts")
@@ -216,19 +229,27 @@ export function useAttributionStats() {
                 .eq("leader_id", leader.id),
             ]);
 
+          const totalInfluence = (contactsReferred || 0) + (eventRegistrations || 0) + (officeVisits || 0);
+
           return {
             id: leader.id,
             name: leader.nome_completo,
             city: leader.cidade && typeof leader.cidade === "object" && "nome" in leader.cidade
               ? (leader.cidade as { nome: string }).nome
               : null,
-            totalCadastros: leader.cadastros,
-            contactsFromLink: contactsFromLink || 0,
+            contactsReferred: contactsReferred || 0,
             eventRegistrations: eventRegistrations || 0,
             officeVisits: officeVisits || 0,
+            totalInfluence,
           };
         })
       );
+
+      // Filtrar líderes com pelo menos 1 captação e ordenar por total
+      const topLeaders: LeaderAttribution[] = leadersWithCounts
+        .filter(leader => leader.totalInfluence > 0)
+        .sort((a, b) => b.totalInfluence - a.totalInfluence)
+        .slice(0, 10);
 
       // 4. Buscar distribuição por cidade
       const { data: citiesData } = await supabase

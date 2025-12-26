@@ -45,7 +45,8 @@ import {
   FileText,
   Loader2,
   FileArchive,
-  Search
+  Search,
+  Link as LinkIcon
 } from "lucide-react";
 import {
   BarChart,
@@ -1254,6 +1255,7 @@ const AttributionReport = () => {
       case 'manual': return <FileSpreadsheet className="h-4 w-4" />;
       case 'visit': return <Building2 className="h-4 w-4" />;
       case 'funnel': return <Target className="h-4 w-4" />;
+      case 'webhook': return <LinkIcon className="h-4 w-4" />;
       default: return <Users className="h-4 w-4" />;
     }
   };
@@ -1456,12 +1458,15 @@ const AttributionReport = () => {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Top Líderes */}
+        {/* Top Líderes por Captação */}
         <Card className="card-default">
           <CardHeader>
             <CardTitle className="flex items-center text-base">
               <UserCheck className="h-5 w-5 text-primary-600 mr-2" />
-              Top Líderes por Indicações
+              Top Líderes por Captação
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                (Contatos + Eventos + Visitas)
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1485,16 +1490,21 @@ const AttributionReport = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-primary">{leader.totalCadastros}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {leader.contactsFromLink > 0 && (
-                          <Badge variant="outline" className="text-xs py-0">
-                            {leader.contactsFromLink} links
+                      <p className="font-bold text-primary text-lg">{leader.totalInfluence}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap justify-end">
+                        {leader.contactsReferred > 0 && (
+                          <Badge variant="outline" className="text-xs py-0 px-1.5">
+                            👥 {leader.contactsReferred} contatos
                           </Badge>
                         )}
                         {leader.eventRegistrations > 0 && (
-                          <Badge variant="outline" className="text-xs py-0">
-                            {leader.eventRegistrations} eventos
+                          <Badge variant="outline" className="text-xs py-0 px-1.5">
+                            🎫 {leader.eventRegistrations} eventos
+                          </Badge>
+                        )}
+                        {leader.officeVisits > 0 && (
+                          <Badge variant="outline" className="text-xs py-0 px-1.5">
+                            🏢 {leader.officeVisits} visitas
                           </Badge>
                         )}
                       </div>
@@ -1504,7 +1514,7 @@ const AttributionReport = () => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                Nenhum líder com indicações registradas
+                Nenhum líder com captações registradas
               </div>
             )}
           </CardContent>
