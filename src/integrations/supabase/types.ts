@@ -430,6 +430,56 @@ export type Database = {
         }
         Relationships: []
       }
+      event_photo_links: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email_recipients_count: number | null
+          email_sent: boolean | null
+          event_id: string
+          id: string
+          photo_url: string
+          sent_at: string | null
+          short_code: string | null
+          sms_recipients_count: number | null
+          sms_sent: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email_recipients_count?: number | null
+          email_sent?: boolean | null
+          event_id: string
+          id?: string
+          photo_url: string
+          sent_at?: string | null
+          short_code?: string | null
+          sms_recipients_count?: number | null
+          sms_sent?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email_recipients_count?: number | null
+          email_sent?: boolean | null
+          event_id?: string
+          id?: string
+          photo_url?: string
+          sent_at?: string | null
+          short_code?: string | null
+          sms_recipients_count?: number | null
+          sms_sent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_photo_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           checked_in: boolean | null
@@ -1622,6 +1672,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      short_urls: {
+        Row: {
+          clicks: number | null
+          code: string
+          created_at: string | null
+          id: string
+          original_url: string
+        }
+        Insert: {
+          clicks?: number | null
+          code: string
+          created_at?: string | null
+          id?: string
+          original_url: string
+        }
+        Update: {
+          clicks?: number | null
+          code?: string
+          created_at?: string | null
+          id?: string
+          original_url?: string
+        }
+        Relationships: []
       }
       sms_messages: {
         Row: {

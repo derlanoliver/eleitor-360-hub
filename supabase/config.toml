@@ -101,3 +101,9 @@ verify_jwt = false
 
 [functions.passkit-webhook]
 verify_jwt = false
+
+[functions.shorten-url]
+verify_jwt = false
+
+[functions.send-event-photos]
+verify_jwt = false

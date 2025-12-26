@@ -39,7 +39,8 @@ import {
   FileText,
   Activity,
   PieChart as PieChartIcon,
-  Repeat
+  Repeat,
+  Camera
 } from "lucide-react";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateEvent } from "@/hooks/events/useCreateEvent";
@@ -60,6 +61,7 @@ import { ptBR } from "date-fns/locale";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import EventQRCode from "@/components/EventQRCode";
 import { EventAffiliateDialog } from "@/components/events/EventAffiliateDialog";
+import { SendEventPhotosDialog } from "@/components/events/SendEventPhotosDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
@@ -95,6 +97,7 @@ const Events = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [qrCodeEvent, setQrCodeEvent] = useState<any>(null);
   const [affiliateDialogEvent, setAffiliateDialogEvent] = useState<any>(null);
+  const [photosDialogEvent, setPhotosDialogEvent] = useState<any>(null);
   const [newEvent, setNewEvent] = useState({
     name: "",
     slug: "",
@@ -805,6 +808,16 @@ const Events = () => {
                                 <FileText className="h-4 w-4 mr-2" />
                                 Lista de Inscritos
                               </Button>
+                              {(event.status === "active" || event.status === "completed") && (event.checkedin_count || 0) > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPhotosDialogEvent(event)}
+                                >
+                                  <Camera className="h-4 w-4 mr-2" />
+                                  Enviar Fotos
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1058,6 +1071,13 @@ const Events = () => {
             onOpenChange={(open) => !open && setAffiliateDialogEvent(null)}
           />
         )}
+
+        {/* Send Photos Dialog */}
+        <SendEventPhotosDialog
+          open={!!photosDialogEvent}
+          onOpenChange={(open) => !open && setPhotosDialogEvent(null)}
+          event={photosDialogEvent}
+        />
       </div>
     </div>
   );

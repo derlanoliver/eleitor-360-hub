@@ -68,6 +68,7 @@ import SurveyPublicForm from "./pages/SurveyPublicForm";
 import VerifyContact from "./pages/VerifyContact";
 import VerifyLeader from "./pages/VerifyLeader";
 import LeaderTree from "./pages/LeaderTree";
+import ShortUrlRedirect from "./pages/ShortUrlRedirect";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,7 @@ const App = () => (
             <Route path="/pesquisa/:slug" element={<SurveyPublicForm />} />
             <Route path="/v/:codigo" element={<VerifyContact />} />
             <Route path="/verificar-lider/:codigo" element={<VerifyLeader />} />
+            <Route path="/s/:code" element={<ShortUrlRedirect />} />
             
             {/* Public check-in route with PIN protection */}
             <Route path="/checkin/:qrCode" element={<EventCheckin />} />
