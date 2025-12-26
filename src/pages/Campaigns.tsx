@@ -84,6 +84,15 @@ const Campaigns = () => {
     utmCampaign: ""
   });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<{
+    id: string;
+    name: string;
+    description: string;
+    utmSource: string;
+    utmMedium: string;
+    utmCampaign: string;
+  } | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<{ utmCampaign: string; name: string } | null>(null);
   const [referralsDialogOpen, setReferralsDialogOpen] = useState(false);
@@ -373,6 +382,50 @@ const Campaigns = () => {
       toast({
         title: "Erro",
         description: "Não foi possível criar a campanha.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateCampaign = async () => {
+    if (!editingCampaign) return;
+
+    if (!editingCampaign.name || !editingCampaign.utmSource || !editingCampaign.utmCampaign) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Nome, fonte e campanha UTM são obrigatórios.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({
+          nome: editingCampaign.name,
+          descricao: editingCampaign.description,
+          utm_source: editingCampaign.utmSource,
+          utm_medium: editingCampaign.utmMedium || null,
+          utm_campaign: editingCampaign.utmCampaign
+        })
+        .eq('id', editingCampaign.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Campanha atualizada!",
+        description: "As alterações foram salvas com sucesso."
+      });
+
+      setIsEditDialogOpen(false);
+      setEditingCampaign(null);
+      refetch();
+    } catch (error) {
+      console.error('Erro ao atualizar campanha:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a campanha.",
         variant: "destructive"
       });
     }
@@ -824,7 +877,21 @@ const Campaigns = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                setEditingCampaign({
+                                  id: campaign.id,
+                                  name: campaign.name,
+                                  description: campaign.description,
+                                  utmSource: campaign.utmSource,
+                                  utmMedium: campaign.utmMedium,
+                                  utmCampaign: campaign.utmCampaign
+                                });
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1072,6 +1139,102 @@ const Campaigns = () => {
           onOpenChange={setReferralsDialogOpen}
           leader={selectedLeader}
         />
+
+        {/* Modal de Edição de Campanha */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Editar Campanha</DialogTitle>
+            </DialogHeader>
+            {editingCampaign && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editName">Nome da Campanha *</Label>
+                  <Input
+                    id="editName"
+                    value={editingCampaign.name}
+                    onChange={(e) => setEditingCampaign({ ...editingCampaign, name: e.target.value })}
+                    placeholder="Nome da campanha"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="editUtmSource">UTM Source *</Label>
+                  <Select 
+                    value={editingCampaign.utmSource} 
+                    onValueChange={(value) => setEditingCampaign({ ...editingCampaign, utmSource: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a fonte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="facebook">Facebook</SelectItem>
+                      <SelectItem value="instagram">Instagram</SelectItem>
+                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                      <SelectItem value="google">Google</SelectItem>
+                      <SelectItem value="youtube">YouTube</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="offline">Offline</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editUtmMedium">UTM Medium</Label>
+                    <Select 
+                      value={editingCampaign.utmMedium} 
+                      onValueChange={(value) => setEditingCampaign({ ...editingCampaign, utmMedium: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o meio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="social">Social</SelectItem>
+                        <SelectItem value="stories">Stories</SelectItem>
+                        <SelectItem value="post">Post</SelectItem>
+                        <SelectItem value="ad">Anúncio</SelectItem>
+                        <SelectItem value="email">E-mail</SelectItem>
+                        <SelectItem value="sms">SMS</SelectItem>
+                        <SelectItem value="print">Material Impresso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="editUtmCampaign">UTM Campaign *</Label>
+                    <Input
+                      id="editUtmCampaign"
+                      value={editingCampaign.utmCampaign}
+                      onChange={(e) => setEditingCampaign({ ...editingCampaign, utmCampaign: e.target.value })}
+                      placeholder="Ex: educacao_jan24"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="editDescription">Descrição</Label>
+                  <Textarea
+                    id="editDescription"
+                    value={editingCampaign.description}
+                    onChange={(e) => setEditingCampaign({ ...editingCampaign, description: e.target.value })}
+                    placeholder="Descreva o objetivo desta campanha..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleUpdateCampaign}>
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
