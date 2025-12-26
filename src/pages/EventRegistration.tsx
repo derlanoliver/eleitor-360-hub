@@ -21,7 +21,7 @@ import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { sendVerificationMessage, sendVerificationSMS, addPendingMessage } from "@/hooks/contacts/useContactVerification";
 import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
-
+import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 export default function EventRegistration() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -451,6 +451,21 @@ export default function EventRegistration() {
               {qrCodeUrl && (
                 <img src={qrCodeUrl} alt="QR Code" className="mx-auto border-4 border-border rounded-lg" />
               )}
+            </div>
+
+            {/* Botão Adicionar ao Calendário */}
+            <div className="flex justify-center">
+              <AddToCalendarButton 
+                event={{
+                  name: event.name,
+                  date: event.date,
+                  time: event.time,
+                  location: event.location,
+                  address: event.address || undefined,
+                  description: event.description || undefined,
+                  slug: event.slug,
+                }}
+              />
             </div>
             
             {/* Aviso importante sobre o QR Code */}
