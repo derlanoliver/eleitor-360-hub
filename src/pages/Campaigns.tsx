@@ -1286,11 +1286,13 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Users className="h-5 w-5 text-primary-600" />
             </div>
-            <p className="text-2xl font-bold text-primary-600">{stats.summary.grandTotal.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary-600">{(stats.summary.grandTotal ?? stats.summary.totalContacts ?? 0).toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Total Cadastros</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              ({stats.summary.totalContacts.toLocaleString()} contatos + {stats.summary.totalLeaders.toLocaleString()} líderes)
-            </p>
+            {(stats.summary.totalLeaders ?? 0) > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                ({(stats.summary.totalContacts ?? 0).toLocaleString()} contatos + {(stats.summary.totalLeaders ?? 0).toLocaleString()} líderes)
+              </p>
+            )}
             {stats.growthPercentage !== 0 && (
               <p className={`text-xs flex items-center justify-center mt-1 ${stats.growthPercentage > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {stats.growthPercentage > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
