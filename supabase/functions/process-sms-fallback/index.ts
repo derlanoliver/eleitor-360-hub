@@ -262,7 +262,7 @@ async function sendAffiliateLinkWhatsApp(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone,
-        templateSlug: 'lider-cadastro-confirmado',
+        templateSlug: 'link-indicacao-sms-fallback',
         variables: {
           nome: name || 'Líder',
           link_indicacao: affiliateLink,

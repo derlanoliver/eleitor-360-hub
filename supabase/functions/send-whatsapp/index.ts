@@ -38,6 +38,7 @@ const PUBLIC_TEMPLATES = [
   'membro-cadastro-boas-vindas',
   'lideranca-cadastro-link',
   'verificacao-sms-fallback',
+  'link-indicacao-sms-fallback',
 ];
 
 // Mapeamento de templates para colunas de configuração
@@ -66,6 +67,7 @@ const TEMPLATE_SETTINGS_MAP: Record<string, string> = {
   'recadastro-confirmado': 'wa_auto_optout_enabled',
   // Fallback SMS -> WhatsApp
   'verificacao-sms-fallback': 'wa_auto_sms_fallback_enabled',
+  'link-indicacao-sms-fallback': 'wa_auto_sms_fallback_enabled',
 };
 
 interface IntegrationSettings {
