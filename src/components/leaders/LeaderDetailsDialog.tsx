@@ -153,7 +153,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
             <TabsTrigger value="historico" className="text-xs">Histórico</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 min-h-0 mt-4 overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-y-auto [&>div]:!overflow-x-hidden">
+          <ScrollArea className="flex-1 min-h-0 mt-4 h-[calc(90vh-140px)] overflow-hidden [&_[data-radix-scroll-area-viewport]]:!overflow-y-auto [&_[data-radix-scroll-area-viewport]]:!overflow-x-hidden">
             {/* ABA INFO */}
             <TabsContent value="info" className="mt-0 space-y-4 pr-4">
               <div className="grid grid-cols-2 gap-4">
