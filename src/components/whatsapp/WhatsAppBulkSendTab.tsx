@@ -391,7 +391,14 @@ export function WhatsAppBulkSendTab() {
       return activeTemplates.filter((t) => VERIFICATION_TEMPLATES.includes(t.slug));
     }
 
-    if (recipientType === "leaders" || recipientType === "single_leader") {
+    // Para líder único: incluir templates de líderes + verificação
+    if (recipientType === "single_leader") {
+      return activeTemplates.filter((t) => 
+        CONVITE_TEMPLATES_LEADERS.includes(t.slug) || VERIFICATION_TEMPLATES.includes(t.slug)
+      );
+    }
+
+    if (recipientType === "leaders") {
       return activeTemplates.filter((t) => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
     }
 
