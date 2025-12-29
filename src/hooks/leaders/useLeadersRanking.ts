@@ -12,6 +12,18 @@ interface LeaderRankingData {
   lastActivity: string | null;
 }
 
+interface UseLeadersRankingOptions {
+  region?: string;
+  period?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+interface LeadersRankingResult {
+  data: LeaderRankingData[];
+  totalCount: number;
+}
+
 const getDateFilter = (period: string) => {
   const now = new Date();
   switch(period) {
@@ -45,13 +57,28 @@ const calculateTrend = (lastActivity: string | null, points: number): "up" | "do
   return "stable";
 };
 
-export function useLeadersRanking(filters?: { region?: string; period?: string }) {
+export function useLeadersRanking(options?: UseLeadersRankingOptions) {
+  const { region, period, page = 1, pageSize = 20 } = options || {};
+  const offset = (page - 1) * pageSize;
+
   return useQuery({
-    queryKey: ['leaders_ranking', filters],
-    queryFn: async () => {
-      // Usar a nova RPC que calcula indicações
+    queryKey: ['leaders_ranking', region, period, page, pageSize],
+    queryFn: async (): Promise<LeadersRankingResult> => {
+      // Buscar contagem total
+      const { data: totalCount, error: countError } = await supabase
+        .rpc("get_leaders_ranking_count", {
+          p_region: region && region !== 'all' ? region : null
+        });
+      
+      if (countError) throw countError;
+
+      // Buscar dados paginados
       const { data, error } = await supabase
-        .rpc("get_leaders_ranking_with_indicacoes");
+        .rpc("get_leaders_ranking_paginated", {
+          p_limit: pageSize,
+          p_offset: offset,
+          p_region: region && region !== 'all' ? region : null
+        });
       
       if (error) throw error;
 
@@ -75,9 +102,9 @@ export function useLeadersRanking(filters?: { region?: string; period?: string }
         lastActivity: leader.last_activity
       }));
 
-      // Aplicar filtro de período se houver
-      if (filters?.period && filters.period !== 'all' && filters.period !== 'current') {
-        const dateFrom = getDateFilter(filters.period);
+      // Aplicar filtro de período no cliente (pois depende de last_activity)
+      if (period && period !== 'all' && period !== 'current') {
+        const dateFrom = getDateFilter(period);
         if (dateFrom) {
           rankings = rankings.filter(r => 
             r.lastActivity && new Date(r.lastActivity) >= new Date(dateFrom)
@@ -85,12 +112,10 @@ export function useLeadersRanking(filters?: { region?: string; period?: string }
         }
       }
 
-      // Aplicar filtro de região se houver
-      if (filters?.region && filters.region !== 'all') {
-        rankings = rankings.filter(r => r.region === filters.region);
-      }
-
-      return rankings;
+      return {
+        data: rankings,
+        totalCount: totalCount || 0
+      };
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
     refetchOnWindowFocus: false

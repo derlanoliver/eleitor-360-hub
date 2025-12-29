@@ -35,10 +35,16 @@ const LeadersRanking = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Buscar dados reais do banco
-  const { data: rankingData = [], isLoading } = useLeadersRanking({ 
+  const { data: rankingResult, isLoading } = useLeadersRanking({ 
     region: selectedRegion,
-    period: selectedPeriod 
+    period: selectedPeriod,
+    page: currentPage,
+    pageSize: ITEMS_PER_PAGE
   });
+
+  const rankingData = rankingResult?.data || [];
+  const totalCount = rankingResult?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const { data: allRegions = [] } = useRegions();
   const regions = allRegions.map(r => r.nome).sort();
@@ -93,11 +99,9 @@ const LeadersRanking = () => {
     }
   };
 
-  // Paginação
+  // A paginação agora é feita no servidor
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedRanking = rankingData.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(rankingData.length / ITEMS_PER_PAGE);
+  const paginatedRanking = rankingData;
 
   // Reset página ao mudar filtros
   const handleFilterChange = (callback: () => void) => {
@@ -172,7 +176,7 @@ const LeadersRanking = () => {
 
               <div className="sm:ml-auto w-full sm:w-auto">
                 <Badge className="badge-brand w-full sm:w-auto justify-center">
-                  {rankingData.length} líderes no ranking
+                  {totalCount.toLocaleString('pt-BR')} líderes no ranking
                 </Badge>
               </div>
             </div>
