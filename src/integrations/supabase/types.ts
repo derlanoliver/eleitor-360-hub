@@ -2712,6 +2712,23 @@ export type Database = {
               verified_at: string
             }[]
           }
+      get_leaders_ranking_count: {
+        Args: { p_region?: string }
+        Returns: number
+      }
+      get_leaders_ranking_paginated: {
+        Args: { p_limit?: number; p_offset?: number; p_region?: string }
+        Returns: {
+          cidade_nome: string
+          id: string
+          indicacoes: number
+          is_active: boolean
+          last_activity: string
+          nome_completo: string
+          pontuacao_total: number
+          telefone: string
+        }[]
+      }
       get_leaders_ranking_with_indicacoes: {
         Args: never
         Returns: {
