@@ -238,13 +238,14 @@ export default function Team() {
                     <TableHead>Nível</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Cadastro</TableHead>
+                    <TableHead>Último Acesso</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMembers?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <p className="text-muted-foreground">
                           Nenhum membro encontrado
                         </p>
@@ -303,6 +304,17 @@ export default function Team() {
                               "dd/MM/yyyy",
                               { locale: ptBR }
                             )}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {member.last_login
+                              ? format(
+                                  new Date(member.last_login),
+                                  "dd/MM/yyyy 'às' HH:mm",
+                                  { locale: ptBR }
+                                )
+                              : "Nunca acessou"}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">

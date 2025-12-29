@@ -9,6 +9,7 @@ export interface TeamMember {
   created_at: string;
   is_active: boolean;
   role: string | null;
+  last_login: string | null;
 }
 
 export function useTeamMembers() {
@@ -23,10 +24,10 @@ export function useTeamMembers() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch users for is_active status
+      // Fetch users for is_active status and last_login
       const { data: users, error: usersError } = await supabase
         .from("users")
-        .select("id, is_active");
+        .select("id, is_active, last_login");
 
       if (usersError) throw usersError;
 
@@ -50,6 +51,7 @@ export function useTeamMembers() {
           created_at: profile.created_at,
           is_active: user?.is_active ?? true,
           role: userRole?.role || null,
+          last_login: user?.last_login || null,
         };
       });
 
