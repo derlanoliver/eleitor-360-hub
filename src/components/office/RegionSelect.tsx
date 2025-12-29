@@ -7,8 +7,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useOfficeCitiesByType } from "@/hooks/office/useOfficeCities";
-import { Loader2, MapPin } from "lucide-react";
+import { Loader2, MapPin, ChevronDown, Check, ArrowLeft } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface RegionSelectProps {
   value?: string;
@@ -34,6 +44,9 @@ export function RegionSelect({
   const { dfCities, entornoCities, isLoading, data: allCities } = useOfficeCitiesByType();
   const [showEntornoSelect, setShowEntornoSelect] = useState(false);
   const [selectedEntornoId, setSelectedEntornoId] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showEntornoDrawer, setShowEntornoDrawer] = useState(false);
+  const isMobile = useIsMobile();
 
   // Determinar se o valor atual é do Entorno
   useEffect(() => {
@@ -60,11 +73,18 @@ export function RegionSelect({
     );
   }
 
+  // Get selected city name for display
+  const getSelectedCityName = () => {
+    if (!value) return null;
+    const city = allCities?.find(c => c.id === value);
+    if (!city) return null;
+    return city.tipo === 'ENTORNO' ? city.nome : `${city.nome} (${city.codigo_ra})`;
+  };
+
   const handleMainSelectChange = (selectedValue: string) => {
     if (selectedValue === ENTORNO_OPTION_VALUE) {
       setShowEntornoSelect(true);
       setSelectedEntornoId("");
-      // Não chama onValueChange ainda - esperando seleção do Entorno
     } else {
       setShowEntornoSelect(false);
       setSelectedEntornoId("");
@@ -77,14 +97,128 @@ export function RegionSelect({
     onValueChange(entornoId);
   };
 
+  // Mobile handlers
+  const handleMobileCitySelect = (cityId: string) => {
+    setShowEntornoSelect(false);
+    setSelectedEntornoId("");
+    onValueChange(cityId);
+    setDrawerOpen(false);
+  };
+
+  const handleMobileEntornoClick = () => {
+    setShowEntornoDrawer(true);
+  };
+
+  const handleMobileEntornoSelect = (cityId: string) => {
+    setShowEntornoSelect(true);
+    setSelectedEntornoId(cityId);
+    onValueChange(cityId);
+    setShowEntornoDrawer(false);
+    setDrawerOpen(false);
+  };
+
+  const handleBackFromEntorno = () => {
+    setShowEntornoDrawer(false);
+  };
+
   // Determinar o valor a ser exibido no select principal
   const mainSelectValue = showEntornoSelect ? ENTORNO_OPTION_VALUE : value;
 
+  // Mobile: Use Drawer
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {showLabel && <Label>{label}{required && " *"}</Label>}
+        
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerTrigger asChild>
+            <Button 
+              variant="outline" 
+              className="w-full justify-between font-normal"
+              disabled={disabled}
+            >
+              <span className={!value ? "text-muted-foreground" : ""}>
+                {getSelectedCityName() || placeholder}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </DrawerTrigger>
+          <DrawerContent>
+            <DrawerHeader className="border-b">
+              <DrawerTitle>Selecione sua Cidade/RA</DrawerTitle>
+            </DrawerHeader>
+            <ScrollArea className="h-[60vh]">
+              <div className="p-2 space-y-1">
+                {dfCities.map((city) => (
+                  <div
+                    key={city.id}
+                    onClick={() => handleMobileCitySelect(city.id)}
+                    className="flex items-center justify-between px-4 py-3 rounded-md cursor-pointer hover:bg-accent active:bg-accent"
+                  >
+                    <span>{city.nome} ({city.codigo_ra})</span>
+                    {value === city.id && <Check className="h-4 w-4 text-primary" />}
+                  </div>
+                ))}
+                
+                {entornoCities.length > 0 && (
+                  <>
+                    <div className="my-2 border-t" />
+                    <div
+                      onClick={handleMobileEntornoClick}
+                      className="flex items-center gap-2 px-4 py-3 rounded-md cursor-pointer hover:bg-accent active:bg-accent"
+                    >
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>Moro no Entorno</span>
+                      {showEntornoSelect && <Check className="h-4 w-4 text-primary ml-auto" />}
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Drawer secundário para cidades do Entorno */}
+        <Drawer open={showEntornoDrawer} onOpenChange={setShowEntornoDrawer}>
+          <DrawerContent>
+            <DrawerHeader className="border-b">
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={handleBackFromEntorno}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <DrawerTitle>Qual cidade do Entorno?</DrawerTitle>
+              </div>
+            </DrawerHeader>
+            <ScrollArea className="h-[50vh]">
+              <div className="p-2 space-y-1">
+                {entornoCities.map((city) => (
+                  <div
+                    key={city.id}
+                    onClick={() => handleMobileEntornoSelect(city.id)}
+                    className="flex items-center justify-between px-4 py-3 rounded-md cursor-pointer hover:bg-accent active:bg-accent"
+                  >
+                    <span>{city.nome}</span>
+                    {selectedEntornoId === city.id && <Check className="h-4 w-4 text-primary" />}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    );
+  }
+
+  // Desktop: Keep original Select behavior
   return (
     <div className="space-y-3">
       {showLabel && <Label>{label}{required && " *"}</Label>}
       
-      {/* Select principal - RAs do DF + opção "Moro no Entorno" */}
       <Select 
         value={mainSelectValue || ""} 
         onValueChange={handleMainSelectChange} 
@@ -114,7 +248,6 @@ export function RegionSelect({
         </SelectContent>
       </Select>
 
-      {/* Select secundário - Cidades do Entorno */}
       {showEntornoSelect && entornoCities.length > 0 && (
         <div className="space-y-2">
           {showLabel && <Label className="text-sm text-muted-foreground">Qual cidade do Entorno?{required && " *"}</Label>}
