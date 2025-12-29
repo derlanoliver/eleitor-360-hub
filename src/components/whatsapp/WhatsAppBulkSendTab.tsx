@@ -39,7 +39,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl } from "@/lib/urlHelper";
 
-type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader";
+type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader" | "unverified_contacts";
 
 // Templates que precisam de evento destino
 const EVENT_INVITE_TEMPLATES = ["evento-convite", "lideranca-evento-link"];
@@ -49,6 +49,8 @@ const FUNNEL_INVITE_TEMPLATES = ["captacao-convite"];
 const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
 // Templates de links de afiliado (apenas para líderes, sem necessidade de destino)
 const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
+// Templates de verificação (para contatos não verificados)
+const VERIFICATION_TEMPLATES = ["verificacao-cadastro"];
 
 // Templates de convite permitidos por tipo de destinatário
 const CONVITE_TEMPLATES_LEADERS = [
@@ -140,6 +142,7 @@ export function WhatsAppBulkSendTab() {
   const isFunnelInviteTemplate = selectedTemplateData && FUNNEL_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
   const isSurveyInviteTemplate = selectedTemplateData && SURVEY_INVITE_TEMPLATES.includes(selectedTemplateData.slug);
   const isLeaderAffiliateLinkTemplate = selectedTemplateData && LEADER_AFFILIATE_LINK_TEMPLATES.includes(selectedTemplateData.slug);
+  const isVerificationTemplate = selectedTemplateData && VERIFICATION_TEMPLATES.includes(selectedTemplateData.slug);
 
   // Fetch events
   const { data: events } = useQuery({
@@ -343,11 +346,34 @@ export function WhatsAppBulkSendTab() {
         return { count: filteredData.length, recipients: filteredData };
       }
 
+      if (recipientType === "unverified_contacts") {
+        const { data, error } = await supabase
+          .from("office_contacts")
+          .select(`
+            id, 
+            nome, 
+            telefone_norm, 
+            verification_code,
+            source_id,
+            lideres!office_contacts_source_id_fkey (nome_completo)
+          `)
+          .eq("source_type", "lider")
+          .eq("is_verified", false)
+          .eq("is_active", true)
+          .not("telefone_norm", "is", null)
+          .not("source_id", "is", null);
+        if (error) throw error;
+        // Filtrar contatos promovidos
+        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        return { count: filteredData.length, recipients: filteredData };
+      }
+
       return { count: 0, recipients: [] };
     },
     enabled:
       recipientType === "leaders" ||
       recipientType === "all_contacts" ||
+      recipientType === "unverified_contacts" ||
       (recipientType === "single_contact" && !!selectedSingleContact) ||
       (recipientType === "single_leader" && !!selectedSingleLeader) ||
       (recipientType === "event_contacts" && !!selectedEvent) ||
@@ -359,6 +385,11 @@ export function WhatsAppBulkSendTab() {
     if (!templates) return [];
 
     const activeTemplates = templates.filter((t) => t.is_active);
+
+    // Templates de verificação para contatos não verificados
+    if (recipientType === "unverified_contacts") {
+      return activeTemplates.filter((t) => VERIFICATION_TEMPLATES.includes(t.slug));
+    }
 
     if (recipientType === "leaders" || recipientType === "single_leader") {
       return activeTemplates.filter((t) => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
@@ -373,6 +404,7 @@ export function WhatsAppBulkSendTab() {
     recipientsData.count > 0 &&
     (recipientType === "leaders" ||
       recipientType === "all_contacts" ||
+      recipientType === "unverified_contacts" ||
       (recipientType === "single_contact" && selectedSingleContact) ||
       (recipientType === "single_leader" && selectedSingleLeader) ||
       (recipientType === "event_contacts" && selectedEvent) ||
@@ -525,6 +557,79 @@ export function WhatsAppBulkSendTab() {
             // Se for líder e template lideranca-pesquisa-link, gerar link_pesquisa_afiliado
             if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token && selectedTemplateData.slug === "lideranca-pesquisa-link") {
               variables.link_pesquisa_afiliado = generateSurveyAffiliateUrl(targetSurvey.slug, recipient.affiliate_token as string);
+            }
+          }
+
+          // Se for template de verificação (contatos não verificados)
+          if (isVerificationTemplate && recipientType === "unverified_contacts") {
+            // Obter nome do líder que indicou
+            const liderData = recipient.lideres as { nome_completo: string } | null;
+            const liderNome = liderData?.nome_completo || "Líder";
+            
+            // Gerar ou obter código de verificação
+            let verificationCode = recipient.verification_code as string;
+            if (!verificationCode) {
+              verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+              // Atualizar código no banco
+              await supabase
+                .from("office_contacts")
+                .update({ verification_code: verificationCode })
+                .eq("id", recipient.id as string);
+            }
+            
+            variables.lider_nome = liderNome;
+            variables.deputado_nome = organization?.nome || "Deputado";
+            variables.codigo = verificationCode;
+            
+            const message = replaceTemplateVariables(selectedTemplateData.mensagem, variables);
+            
+            try {
+              // Enviar mensagem principal de verificação
+              const { data: mainResult, error: mainError } = await supabase.functions.invoke("send-whatsapp", {
+                body: {
+                  phone,
+                  message,
+                  contactId,
+                },
+              });
+              
+              if (mainError || !mainResult?.success) {
+                errorCount++;
+              } else {
+                // Aguardar 2 segundos e enviar o código separadamente
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                
+                // Enviar mensagem com o código
+                const codigoMessage = `🔑 *Seu código de verificação:*\n\n*${verificationCode}*\n\nDigite este código no link que enviamos para confirmar seu cadastro.`;
+                
+                await supabase.functions.invoke("send-whatsapp", {
+                  body: {
+                    phone,
+                    message: codigoMessage,
+                    contactId,
+                  },
+                });
+                
+                // Atualizar verification_sent_at
+                await supabase
+                  .from("office_contacts")
+                  .update({ verification_sent_at: new Date().toISOString() })
+                  .eq("id", recipient.id as string);
+                
+                successCount++;
+                markSent(phone);
+              }
+              
+              setSendProgress({ current: globalIndex + 1, total: totalRecipients });
+              
+              if (i < batchRecipients.length - 1 || batch < numBatches - 1) {
+                await new Promise((resolve) => setTimeout(resolve, getRandomDelay()));
+              }
+              continue; // Pular o envio padrão abaixo
+            } catch (verifyError) {
+              console.error("Erro ao enviar verificação:", verifyError);
+              errorCount++;
+              continue;
             }
           }
 
@@ -793,6 +898,12 @@ export function WhatsAppBulkSendTab() {
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4" />
                       Contatos de Funil de Captação
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="unverified_contacts">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Contatos Não Verificados
                     </div>
                   </SelectItem>
                 </SelectContent>
