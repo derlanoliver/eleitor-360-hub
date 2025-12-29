@@ -2712,6 +2712,19 @@ export type Database = {
               verified_at: string
             }[]
           }
+      get_leaders_ranking_with_indicacoes: {
+        Args: never
+        Returns: {
+          cidade_nome: string
+          id: string
+          indicacoes: number
+          is_active: boolean
+          last_activity: string
+          nome_completo: string
+          pontuacao_total: number
+          telefone: string
+        }[]
+      }
       get_public_form_settings: {
         Args: never
         Returns: {
