@@ -267,15 +267,9 @@ const LeadersRanking = () => {
 
                       <LeaderLevelProgress points={leader.points} showLabel={false} />
 
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="text-center p-2 bg-white/50 rounded">
-                          <p className="font-semibold">{leader.registrations}</p>
-                          <p className="text-gray-600">cadastros</p>
-                        </div>
-                        <div className="text-center p-2 bg-white/50 rounded">
-                          <p className="font-semibold">{leader.events}</p>
-                          <p className="text-gray-600">eventos</p>
-                        </div>
+                      <div className="text-center p-2 bg-white/50 rounded text-sm">
+                        <p className="font-semibold">{leader.indicacoes}</p>
+                        <p className="text-gray-600">indicações</p>
                       </div>
 
                       {leader.phone ? (
@@ -349,13 +343,8 @@ const LeadersRanking = () => {
                     </div>
 
                     <div className="text-center">
-                      <p className="font-semibold text-gray-900">{leader.registrations}</p>
-                      <p className="text-xs text-gray-600">cadastros</p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="font-semibold text-gray-900">{leader.events}</p>
-                      <p className="text-xs text-gray-600">eventos</p>
+                      <p className="font-semibold text-gray-900">{leader.indicacoes}</p>
+                      <p className="text-xs text-gray-600">indicações</p>
                     </div>
 
                         <div className="flex items-center space-x-2">
@@ -502,21 +491,25 @@ const LeadersRanking = () => {
                 </div>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Tendências:</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-600">Subindo: crescimento vs. mês anterior</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />
-                    <span className="text-gray-600">Descendo: queda vs. mês anterior</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-4 w-4 bg-gray-400 rounded-full" />
-                    <span className="text-gray-600">Estável: mesmo patamar</span>
-                  </div>
-                </div>
+                <h4 className="font-semibold text-gray-900 mb-3">O que conta como Indicação:</h4>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary-600">•</span>
+                    <span>Contatos cadastrados pelo seu link</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary-600">•</span>
+                    <span>Inscrições em eventos com sua indicação</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary-600">•</span>
+                    <span>Respostas de pesquisas com sua referência</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary-600">•</span>
+                    <span>Líderes que você indicou diretamente</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </CardContent>
