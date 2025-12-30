@@ -1,55 +1,19 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Calendar,
-  Clock,
-  Mail,
-  MessageSquare,
-  Phone,
-  Search,
-  XCircle,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  Ban,
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Clock, Calendar, Mail, MessageSquare, Phone, Trash2, CheckCircle, XCircle, Loader2, AlertCircle, Filter, Ban, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  useScheduledMessages,
-  useScheduledMessageStats,
-  useCancelScheduledMessages,
-} from "@/hooks/useScheduledMessages";
 import { toast } from "sonner";
+import { useScheduledMessages, useScheduledMessageStats, useCancelScheduledMessages } from "@/hooks/useScheduledMessages";
+import { ScheduleMessageDialog } from "@/components/scheduling/ScheduleMessageDialog";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";

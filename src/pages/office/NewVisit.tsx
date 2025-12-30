@@ -1,25 +1,28 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RegionSelect } from "@/components/office/RegionSelect";
-import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
-import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
-import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateScheduledVisit } from "@/hooks/office/useScheduledVisits";
-import { useOfficeSettings } from "@/hooks/office/useOfficeSettings";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, UserPlus, QrCode, CalendarIcon, Clock } from "lucide-react";
-import { ProtocolBadge } from "@/components/office/ProtocolBadge";
-import { generateVisitFormUrl } from "@/lib/urlHelper";
-import QRCode from "qrcode";
+import { Loader2, UserPlus, Search, CheckCircle, Phone, User, MapPin, Info, ChevronRight, QrCode, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import QRCode from "qrcode";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { CitySelect } from "@/components/office/CitySelect";
+import { RegionSelect } from "@/components/office/RegionSelect";
+import { ContactPhoneAutocomplete } from "@/components/office/ContactPhoneAutocomplete";
+import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
+import { ProtocolBadge } from "@/components/office/ProtocolBadge";
+import { useOfficeSettings } from "@/hooks/office/useOfficeSettings";
+import { useCreateScheduledVisit } from "@/hooks/office/useScheduledVisits";
 import { cn } from "@/lib/utils";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -47,6 +50,10 @@ const newVisitTutorialSteps: Step[] = [
     placement: "top",
   },
 ];
+
+const generateVisitFormUrl = (visitId: string, token: string) => {
+  return `${window.location.origin}/visit-checkin/${visitId}?token=${token}`;
+};
 
 interface SelectedContact {
   id: string;

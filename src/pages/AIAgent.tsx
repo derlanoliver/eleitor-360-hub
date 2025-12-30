@@ -1,22 +1,49 @@
 import { useState, useRef, useEffect } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Send, Paperclip, Copy, Trash2, Plus, FileText, Image as ImageIcon, Bot, User, MessageSquare, Menu, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { 
+  Bot, 
+  Send, 
+  User, 
+  Plus, 
+  Trash2, 
+  MessageSquare, 
+  MoreVertical,
+  Loader2,
+  Sparkles,
+  ChevronLeft,
+  Menu,
+  X,
+  Paperclip,
+  Copy,
+  ImageIcon,
+  FileText
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAIConversations, AIMessage } from "@/hooks/useAIConversations";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useAIConversations } from "@/hooks/useAIConversations";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
@@ -62,7 +89,6 @@ interface AttachedFile {
 const AIAgent = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { toast } = useToast();
   
   const {
     conversations,

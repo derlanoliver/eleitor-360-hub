@@ -1,15 +1,18 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useOfficeSettings, useUpdateOfficeSettings } from "@/hooks/office/useOfficeSettings";
-import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Save } from "lucide-react";
 import { useState, useEffect } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Settings as SettingsIcon, Save, Loader2, Link2, FileText, Volume2, Copy, Check } from "lucide-react";
+import { useOfficeSettings, useUpdateOfficeSettings } from "@/hooks/office/useOfficeSettings";
+import { toast } from "sonner";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import type { Step } from "react-joyride";
+import { useAuth } from "@/contexts/AuthContext";
 
 const officeSettingsTutorialSteps: Step[] = [
   {
