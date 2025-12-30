@@ -58,6 +58,20 @@ import {
   ChatbotKeyword,
   AVAILABLE_DYNAMIC_FUNCTIONS
 } from "@/hooks/useWhatsAppChatbot";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const chatbotTutorialSteps: Step[] = [
+  { target: '[data-tutorial="bot-header"]', title: 'Assistente Virtual', content: 'Configure o chatbot para atender líderes via WhatsApp.' },
+  { target: '[data-tutorial="bot-toggle"]', title: 'Ativar/Desativar', content: 'Ligue ou desligue o assistente virtual.' },
+  { target: '[data-tutorial="bot-config"]', title: 'Configurações', content: 'Defina comportamento, limite de mensagens e uso de IA.' },
+  { target: '[data-tutorial="bot-messages"]', title: 'Mensagens Padrão', content: 'Configure boas-vindas e fallback.' },
+  { target: '[data-tutorial="bot-keywords"]', title: 'Palavras-Chave', content: 'Crie comandos que o chatbot reconhece.' },
+  { target: '[data-tutorial="bot-logs"]', title: 'Histórico', content: 'Veja as últimas conversas do chatbot.' },
+  { target: '[data-tutorial="bot-prompt"]', title: 'Prompt IA', content: 'Instruções para a IA responder perguntas abertas.' },
+];
 
 const WhatsAppChatbot = () => {
   const [activeTab, setActiveTab] = useState("config");

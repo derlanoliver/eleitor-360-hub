@@ -15,6 +15,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const gamificationTutorialSteps: Step[] = [
+  { target: '[data-tutorial="gam-header"]', title: 'Gamificação', content: 'Configure as regras de pontuação e níveis de líderes.' },
+  { target: '[data-tutorial="gam-limite"]', title: 'Limite Diário', content: 'Defina quantos eventos por dia geram pontos.' },
+  { target: '[data-tutorial="gam-pontos"]', title: 'Pontos por Ação', content: 'Configure pontos por formulário e reunião aceita.' },
+  { target: '[data-tutorial="gam-niveis"]', title: 'Níveis de Liderança', content: 'Defina os ranges de pontos para Bronze, Prata, Ouro e Diamante.' },
+  { target: '[data-tutorial="gam-save"]', title: 'Salvar', content: 'Salve as configurações de gamificação.' },
+];
 
 interface LevelConfig {
   name: string;
@@ -28,6 +40,7 @@ export default function Gamification() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useGamificationSettings();
+  const { restartTutorial } = useTutorial("gamification", gamificationTutorialSteps);
   
   const [limiteEventosDia, setLimiteEventosDia] = useState(0);
   const [pontosFormSubmitted, setPontosFormSubmitted] = useState(1);
