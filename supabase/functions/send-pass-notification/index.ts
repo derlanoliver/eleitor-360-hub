@@ -280,8 +280,26 @@ async function resolveMember(
   );
   
   if (listAllResult.status === 200 && listAllResult.data) {
-    const listData = listAllResult.data as Record<string, unknown>;
-    const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
+    // LOG DE DIAGNÓSTICO - ver formato real da resposta
+    console.log(`[resolveMember] Resposta da listagem - tipo: ${typeof listAllResult.data}, isArray: ${Array.isArray(listAllResult.data)}, keys: ${typeof listAllResult.data === 'object' && !Array.isArray(listAllResult.data) ? Object.keys(listAllResult.data as object).join(', ') : 'N/A'}`);
+    
+    // Tentar extrair array de membros de várias formas
+    let results: Record<string, unknown>[] | undefined;
+    
+    if (Array.isArray(listAllResult.data)) {
+      // Caso 1: data já é o array de membros diretamente
+      results = listAllResult.data as Record<string, unknown>[];
+      console.log(`[resolveMember] Data é um array direto com ${results.length} itens`);
+    } else {
+      // Caso 2: data é um objeto com uma propriedade contendo o array
+      const listData = listAllResult.data as Record<string, unknown>;
+      results = (listData?.results || listData?.result || listData?.data || listData?.members || listData?.passes) as Record<string, unknown>[] | undefined;
+      
+      if (!Array.isArray(results) || results.length === 0) {
+        // Log para debug: mostrar estrutura da resposta
+        console.log(`[resolveMember] Listagem não encontrou array de membros. Estrutura: ${JSON.stringify(listAllResult.data).substring(0, 500)}`);
+      }
+    }
     
     if (Array.isArray(results) && results.length > 0) {
       console.log(`[resolveMember] Listagem geral retornou ${results.length} membros, filtrando por externalId localmente...`);
