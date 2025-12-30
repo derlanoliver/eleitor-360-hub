@@ -378,7 +378,7 @@ export default function LeaderTree() {
               <CardDescription className="flex items-center gap-4 mt-2">
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  {selectedCoordinator.total_cadastros + selectedCoordinator.total_leaders} {selectedCoordinator.total_cadastros + selectedCoordinator.total_leaders === 1 ? 'indicação' : 'indicações'}
+                  {selectedCoordinator.total_leaders} {selectedCoordinator.total_leaders === 1 ? 'indicação' : 'indicações'}
                 </span>
                 <span className="flex items-center gap-1">
                   <Award className="h-4 w-4" />
