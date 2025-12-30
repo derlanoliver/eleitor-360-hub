@@ -567,24 +567,42 @@ export function WhatsAppBulkSendTab() {
             }
           }
 
-          // Se for template de verificação (contatos não verificados)
-          if (isVerificationTemplate && recipientType === "unverified_contacts") {
-            // Obter nome do líder que indicou
-            const liderData = recipient.lideres as { nome_completo: string } | null;
-            const liderNome = liderData?.nome_completo || "Líder";
-            
+          // Se for template de verificação (contatos não verificados ou líder único)
+          if (isVerificationTemplate && (recipientType === "unverified_contacts" || recipientType === "single_leader")) {
             // Gerar ou obter código de verificação
-            let verificationCode = recipient.verification_code as string;
-            if (!verificationCode) {
-              verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-              // Atualizar código no banco
-              await supabase
-                .from("office_contacts")
-                .update({ verification_code: verificationCode })
-                .eq("id", recipient.id as string);
+            let verificationCode: string;
+            
+            const recipientId = recipient.id as string;
+            
+            if (recipientType === "single_leader") {
+              // Para líder único, buscar ou gerar código do líder
+              const { data: leaderData } = await supabase
+                .from("lideres")
+                .select("verification_code")
+                .eq("id", recipientId)
+                .single();
+              
+              verificationCode = leaderData?.verification_code || 
+                Math.floor(100000 + Math.random() * 900000).toString();
+              
+              if (!leaderData?.verification_code) {
+                await supabase
+                  .from("lideres")
+                  .update({ verification_code: verificationCode })
+                  .eq("id", recipientId);
+              }
+            } else {
+              // Para contatos não verificados
+              verificationCode = recipient.verification_code as string;
+              if (!verificationCode) {
+                verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+                await supabase
+                  .from("office_contacts")
+                  .update({ verification_code: verificationCode })
+                  .eq("id", recipientId);
+              }
             }
             
-            variables.lider_nome = liderNome;
             variables.deputado_nome = organization?.nome || "Deputado";
             variables.codigo = verificationCode;
             
@@ -607,7 +625,7 @@ export function WhatsAppBulkSendTab() {
                 await new Promise((resolve) => setTimeout(resolve, 2000));
                 
                 // Enviar mensagem com o código
-                const codigoMessage = `🔑 *Seu código de verificação:*\n\n*${verificationCode}*\n\nDigite este código no link que enviamos para confirmar seu cadastro.`;
+                const codigoMessage = `🔑 *Seu código de verificação:*\n\n*${verificationCode}*\n\nResponda esta mensagem com o código acima para confirmar seu cadastro.`;
                 
                 await supabase.functions.invoke("send-whatsapp", {
                   body: {
@@ -618,10 +636,17 @@ export function WhatsAppBulkSendTab() {
                 });
                 
                 // Atualizar verification_sent_at
-                await supabase
-                  .from("office_contacts")
-                  .update({ verification_sent_at: new Date().toISOString() })
-                  .eq("id", recipient.id as string);
+                if (recipientType === "single_leader") {
+                  await supabase
+                    .from("lideres")
+                    .update({ verification_sent_at: new Date().toISOString() })
+                    .eq("id", recipientId);
+                } else {
+                  await supabase
+                    .from("office_contacts")
+                    .update({ verification_sent_at: new Date().toISOString() })
+                    .eq("id", recipientId);
+                }
                 
                 successCount++;
                 markSent(phone);
