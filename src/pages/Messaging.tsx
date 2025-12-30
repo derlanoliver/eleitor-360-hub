@@ -8,6 +8,38 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Send, Phone, Mail, Calendar, IdCard, Plus, MoreVertical, Paperclip, Smile, Mic, Filter, User, Tag, Target, Zap } from "lucide-react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const messagingTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="messaging-sidebar"]',
+    title: "Lista de Conversas",
+    content: "Veja todas as suas conversas. Busque contatos, filtre por status e veja mensagens não lidas.",
+    placement: "right",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="messaging-chat"]',
+    title: "Área de Chat",
+    content: "Visualize e responda mensagens. Veja o histórico completo da conversa com cada contato.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="messaging-input"]',
+    title: "Enviar Mensagem",
+    content: "Digite sua mensagem, anexe arquivos ou use emojis. Pressione Enter ou clique no botão para enviar.",
+    placement: "top",
+  },
+  {
+    target: '[data-tutorial="messaging-contact-info"]',
+    title: "Informações do Contato",
+    content: "Veja detalhes do contato selecionado: telefone, email, etiquetas e campanha associada.",
+    placement: "left",
+  },
+];
 
 // Mock data
 const mockContacts = [{
@@ -101,6 +133,9 @@ const Messaging = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  
+  const { restartTutorial } = useTutorial("messaging", messagingTutorialSteps);
+  
   const filteredContacts = mockContacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) || contact.phone.includes(searchTerm);
     const matchesFilter = filterStatus === "all" || filterStatus === "unread" && contact.unread > 0 || filterStatus === "online" && contact.status === "online";
@@ -130,13 +165,15 @@ const Messaging = () => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
   return <div className="h-screen flex bg-gray-50 overflow-hidden">
+      <TutorialOverlay page="messaging" />
       {/* Left Sidebar - Contacts List */}
-      <div className="w-full sm:w-96 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div data-tutorial="messaging-sidebar" className="w-full sm:w-96 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
         <div className="p-4 sm:p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Conversas</h2>
             <div className="flex gap-2">
+              <TutorialButton onClick={restartTutorial} />
               <Button variant="ghost" size="sm">
                 <Filter className="h-4 w-4" />
               </Button>
@@ -208,7 +245,7 @@ const Messaging = () => {
       </div>
 
       {/* Center - Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50 max-h-screen">
+      <div data-tutorial="messaging-chat" className="flex-1 flex flex-col bg-gray-50 max-h-screen">
         {/* Chat Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -278,7 +315,7 @@ const Messaging = () => {
         </div>
 
         {/* Message Input - Fixed at bottom */}
-        <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
+        <div data-tutorial="messaging-input" className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm">
               <Paperclip className="h-4 w-4" />
@@ -302,7 +339,7 @@ const Messaging = () => {
       </div>
 
       {/* Right Sidebar - Contact Info */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col max-h-screen">
+      <div data-tutorial="messaging-contact-info" className="w-80 bg-white border-l border-gray-200 flex flex-col max-h-screen">
         {/* Contact Header */}
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3 mb-4">

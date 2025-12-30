@@ -349,6 +349,8 @@ export default function StrategicMap() {
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [selectedLeader, setSelectedLeader] = useState<string>("all");
 
+  const { restartTutorial } = useTutorial("strategic-map", mapTutorialSteps);
+
   // Separate coordinators and regular leaders for dropdown
   const leaderOptions = useMemo(() => {
     const coordinators = leaders.filter(l => l.is_coordinator).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
@@ -450,8 +452,9 @@ export default function StrategicMap() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      <TutorialOverlay page="strategic-map" />
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div data-tutorial="map-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
             <MapIcon className="h-6 w-6 text-primary" />
@@ -462,29 +465,32 @@ export default function StrategicMap() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-wrap gap-3">
-          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-            <Crown className="h-4 w-4" />
-            {stats?.coordinatorsCount ?? 0} Coordenadores
-          </Badge>
-          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-            <Star className="h-4 w-4" />
-            {stats?.leadersCount ?? 0} Líderes
-          </Badge>
-          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-            <Users className="h-4 w-4" />
-            {stats?.contactsCount ?? 0} Contatos
-          </Badge>
-          <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-            <Link2 className="h-4 w-4" />
-            {contactConnectionsCount + hierarchyConnectionsCount} Conexões
-          </Badge>
+        <div className="flex items-center gap-3">
+          {/* Stats */}
+          <div data-tutorial="map-stats" className="flex flex-wrap gap-3">
+            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+              <Crown className="h-4 w-4" />
+              {stats?.coordinatorsCount ?? 0} Coordenadores
+            </Badge>
+            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+              <Star className="h-4 w-4" />
+              {stats?.leadersCount ?? 0} Líderes
+            </Badge>
+            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+              <Users className="h-4 w-4" />
+              {stats?.contactsCount ?? 0} Contatos
+            </Badge>
+            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+              <Link2 className="h-4 w-4" />
+              {contactConnectionsCount + hierarchyConnectionsCount} Conexões
+            </Badge>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
       </div>
 
       {/* Controls */}
-      <Card>
+      <Card data-tutorial="map-controls">
         <CardContent className="py-4">
           <div className="flex flex-wrap items-center gap-6">
             {/* Map Style Selector */}
@@ -613,7 +619,7 @@ export default function StrategicMap() {
       </Card>
 
       {/* Map */}
-      <Card className="overflow-hidden">
+      <Card data-tutorial="map-container" className="overflow-hidden">
         <CardContent className="p-0">
           <div className={`h-[600px] w-full ${currentStyle.className}`}>
             <MapContainer

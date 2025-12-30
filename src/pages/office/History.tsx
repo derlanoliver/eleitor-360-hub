@@ -49,6 +49,8 @@ export default function History() {
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   
+  const { restartTutorial } = useTutorial("office-history", historyTutorialSteps);
+  
   // Filtrar apenas visitas finalizadas
   const finishedStatuses = ["MEETING_COMPLETED", "CANCELLED"];
   const finishedVisits = visits?.filter((v) => finishedStatuses.includes(v.status)) || [];
@@ -68,14 +70,18 @@ export default function History() {
   
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Histórico de Visitas</h1>
-        <p className="text-muted-foreground">
-          Consulte todas as visitas registradas
-        </p>
+      <TutorialOverlay page="office-history" />
+      <div data-tutorial="history-header" className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Histórico de Visitas</h1>
+          <p className="text-muted-foreground">
+            Consulte todas as visitas registradas
+          </p>
+        </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
       
-      <Card>
+      <Card data-tutorial="history-table">
         <CardHeader>
           <CardTitle>Visitas Finalizadas</CardTitle>
         </CardHeader>

@@ -48,6 +48,8 @@ export default function ScheduledMessages() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  const { restartTutorial } = useTutorial("scheduled-messages", scheduledTutorialSteps);
+
   const { data: messages, isLoading } = useScheduledMessages({
     status: statusFilter === "all" ? undefined : statusFilter,
     messageType: typeFilter === "all" ? undefined : typeFilter,
@@ -146,16 +148,20 @@ export default function ScheduledMessages() {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="scheduled-messages" />
       <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold">Mensagens Agendadas</h1>
-          <p className="text-muted-foreground">
-            Gerencie envios programados de SMS, E-mail e WhatsApp
-          </p>
+        <div data-tutorial="scheduled-header" className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Mensagens Agendadas</h1>
+            <p className="text-muted-foreground">
+              Gerencie envios programados de SMS, E-mail e WhatsApp
+            </p>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div data-tutorial="scheduled-stats" className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -214,7 +220,7 @@ export default function ScheduledMessages() {
         </div>
 
         {/* Filters */}
-        <Card>
+        <Card data-tutorial="scheduled-filters">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
               <CardTitle className="text-lg">Fila de Mensagens</CardTitle>
