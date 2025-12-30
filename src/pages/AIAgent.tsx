@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAIConversations } from "@/hooks/useAIConversations";
+import { useAIConversations, AIMessage } from "@/hooks/useAIConversations";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -174,10 +174,7 @@ const AIAgent = () => {
       setAttachedFiles((prev) => [...prev, newFile]);
     });
 
-    toast({
-      title: "Arquivo anexado",
-      description: `${files.length} arquivo(s) anexado(s) com sucesso.`,
-    });
+    toast.success(`${files.length} arquivo(s) anexado(s) com sucesso.`);
   };
 
   const removeFile = (index: number) => {
@@ -316,11 +313,7 @@ const AIAgent = () => {
 
       await saveMessage(currentConversationId, 'assistant', errorContent);
 
-      toast({
-        title: "Erro ao conectar com IA",
-        description: "Erro ao processar sua solicitação. Tente novamente.",
-        variant: "destructive",
-      });
+      toast.error("Erro ao conectar com IA. Tente novamente.");
     }
   };
 
@@ -344,7 +337,7 @@ const AIAgent = () => {
     e.stopPropagation();
     const success = await deleteConversation(conversationId);
     if (success) {
-      toast({ title: "Conversa excluída" });
+      toast.success("Conversa excluída");
       // Se excluiu a conversa atual, criar uma nova
       if (conversationId === currentConversationId) {
         await handleNewConversation();
@@ -364,7 +357,7 @@ const AIAgent = () => {
     if (editingTitle.trim() && editingTitle.trim() !== originalTitle) {
       const success = await updateTitle(conversationId, editingTitle.trim());
       if (success) {
-        toast({ title: "Conversa renomeada" });
+        toast.success("Conversa renomeada");
       }
     }
     setEditingConversationId(null);
@@ -383,10 +376,7 @@ const AIAgent = () => {
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
-    toast({
-      title: "Copiado!",
-      description: "Mensagem copiada para a área de transferência.",
-    });
+    toast.success("Mensagem copiada para a área de transferência.");
   };
 
   if (loading && !initialized) {

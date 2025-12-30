@@ -51,8 +51,8 @@ const newVisitTutorialSteps: Step[] = [
   },
 ];
 
-const generateVisitFormUrl = (visitId: string, token: string) => {
-  return `${window.location.origin}/visit-checkin/${visitId}?token=${token}`;
+const generateVisitFormUrl = (visitId: string) => {
+  return `${window.location.origin}/visit-checkin/${visitId}`;
 };
 
 interface SelectedContact {
