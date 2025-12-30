@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Info } from "lucide-react";
+import { Loader2, Info, ArrowLeft } from "lucide-react";
 import { useAppSettings, useUpdateAppSettings } from "@/hooks/useAppSettings";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const TrackingSettings = () => {
+  const navigate = useNavigate();
   const { data: settings, isLoading } = useAppSettings();
   const updateSettings = useUpdateAppSettings();
 
@@ -45,15 +47,20 @@ const TrackingSettings = () => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Rastreamento</h1>
-        <p className="text-muted-foreground mt-2">
-          Configure Facebook Pixel, Google Tag Manager e rastreamento de conversões
-        </p>
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Rastreamento</h1>
+          <p className="text-muted-foreground">
+            Configure Facebook Pixel, Google Tag Manager e rastreamento de conversões
+          </p>
+        </div>
       </div>
 
-      <Alert className="mb-6">
+      <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
           Todas as configurações são aplicadas automaticamente em todas as páginas do sistema, 
