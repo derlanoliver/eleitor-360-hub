@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,11 +25,14 @@ import {
   EyeOff,
   Loader2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from "lucide-react";
 import { toast } from "sonner";
+import { ActiveSessionsCard } from "@/components/settings/ActiveSessionsCard";
 
 const Privacy = () => {
+  const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -94,11 +97,16 @@ const Privacy = () => {
   return (
     <DashboardLayout>
       <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Privacidade e Segurança</h1>
-          <p className="text-muted-foreground">
-            Gerencie sua segurança e preferências de privacidade
-          </p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Privacidade e Segurança</h1>
+            <p className="text-muted-foreground">
+              Gerencie sua segurança e preferências de privacidade
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-6">
@@ -242,6 +250,9 @@ const Privacy = () => {
             </CardContent>
           </Card>
 
+          {/* Card de Sessões Ativas */}
+          <ActiveSessionsCard />
+
           {/* Card de Segurança */}
           <Card>
             <CardHeader>
@@ -265,20 +276,9 @@ const Privacy = () => {
                   </div>
                 </div>
               </div>
-
-              <div className="rounded-lg border p-4 bg-muted/30">
-                <div className="flex items-start gap-3">
-                  <Lock className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Sessões Ativas</p>
-                    <p className="text-sm text-muted-foreground">
-                      Gerencie os dispositivos conectados à sua conta (em breve).
-                    </p>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
+
 
           {/* Card de Zona de Perigo */}
           <Card className="border-destructive/50">

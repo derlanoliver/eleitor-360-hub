@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_sessions: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_info: string | null
+          expires_at: string | null
+          force_logout_at: string | null
+          force_logout_reason: string | null
+          id: string
+          ip_address: string | null
+          is_current: boolean | null
+          last_activity: string
+          os: string | null
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_info?: string | null
+          expires_at?: string | null
+          force_logout_at?: string | null
+          force_logout_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          is_current?: boolean | null
+          last_activity?: string
+          os?: string | null
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_info?: string | null
+          expires_at?: string | null
+          force_logout_at?: string | null
+          force_logout_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          is_current?: boolean | null
+          last_activity?: string
+          os?: string | null
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           created_at: string

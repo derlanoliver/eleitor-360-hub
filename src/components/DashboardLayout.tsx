@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./AppSidebar";
 import UserMenu from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
+import { SessionLogoutWarning } from "./SessionLogoutWarning";
 import { Menu } from "lucide-react";
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -13,6 +15,9 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   return <TooltipProvider>
     <SidebarProvider>
+      {/* Warning de logout forçado - aparece no topo */}
+      <SessionLogoutWarning />
+      
       <div className="min-h-screen flex w-full max-w-full overflow-x-hidden bg-gray-50">
         <AppSidebar />
         
