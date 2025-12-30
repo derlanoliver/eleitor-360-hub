@@ -51,6 +51,7 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const { data: programs = [], isLoading } = usePrograms();
+  const { restartTutorial } = useTutorial("projects", projectsTutorialSteps);
 
   const filteredPrograms = programs.filter(program => {
     const matchesSearch = program.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,17 +68,21 @@ const Projects = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      <TutorialOverlay page="projects" />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" data-tutorial="projects-header">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Programas</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Programas</h1>
+              <TutorialButton onClick={restartTutorial} />
+            </div>
             <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Acompanhe os programas oficiais e seu impacto na comunidade
             </p>
           </div>
           <AddProgramDialog>
-            <Button>
+            <Button data-tutorial="projects-create">
               <Plus className="h-4 w-4 mr-2" />
               Novo Programa
             </Button>
@@ -85,7 +90,7 @@ const Projects = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6" data-tutorial="projects-filters">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
