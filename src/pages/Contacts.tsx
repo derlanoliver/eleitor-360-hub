@@ -174,6 +174,8 @@ const Contacts = () => {
   const [statusFilter, setStatusFilter] = useState("active");
   const [deactivatingContact, setDeactivatingContact] = useState<{ id: string; name: string } | null>(null);
 
+  const { restartTutorial } = useTutorial("contacts", contactsTutorialSteps);
+
   const identifyGenders = useIdentifyGenders();
   const reactivateContact = useReactivateContact();
   const { isAdmin } = useUserRole();
@@ -531,12 +533,13 @@ const Contacts = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <TutorialOverlay page="contacts" />
       {/* Header Compacto */}
       <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div data-tutorial="contacts-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Base de Contatos</h1>
-            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+            <div data-tutorial="contacts-stats" className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
                 <strong className="text-foreground">{totalCount}</strong> contatos
@@ -562,7 +565,8 @@ const Contacts = () => {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div data-tutorial="contacts-actions" className="flex flex-wrap gap-2">
+            <TutorialButton onClick={restartTutorial} />
             <Button
               variant="outline"
               size="sm"
@@ -588,7 +592,7 @@ const Contacts = () => {
       </div>
 
       {/* Barra de Filtros */}
-      <Card className="mb-6">
+      <Card data-tutorial="contacts-filters" className="mb-6">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Busca */}

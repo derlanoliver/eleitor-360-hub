@@ -14,6 +14,38 @@ import { ptBR } from "date-fns/locale";
 import { Search, Loader2, Ticket, CheckCircle, Clock, MessageCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const adminTicketsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="admin-tickets-header"]',
+    title: "Administrar Tickets",
+    content: "Gerencie todos os tickets de suporte abertos pelos usuários do sistema.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="admin-tickets-stats"]',
+    title: "Estatísticas",
+    content: "Acompanhe quantos tickets estão abertos, em análise, respondidos, resolvidos e fechados.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="admin-tickets-filters"]',
+    title: "Filtros",
+    content: "Busque por protocolo ou assunto, filtre por status e prioridade.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="admin-tickets-list"]',
+    title: "Lista de Tickets",
+    content: "Veja todos os tickets, altere status rapidamente ou clique para ver detalhes completos.",
+    placement: "top",
+  },
+];
 
 const AdminTickets = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,6 +54,8 @@ const AdminTickets = () => {
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  
+  const { restartTutorial } = useTutorial("admin-tickets", adminTicketsTutorialSteps);
   
   const { data: isSuperAdmin, isLoading: isCheckingAdmin } = useIsSuperAdmin();
   const { data: tickets, isLoading } = useAllTickets();
@@ -96,17 +130,21 @@ const AdminTickets = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="admin-tickets" />
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Administrar Tickets</h1>
-          <p className="text-muted-foreground text-sm">
-            Gerencie todos os tickets de suporte do sistema
-          </p>
+        <div data-tutorial="admin-tickets-header" className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Administrar Tickets</h1>
+            <p className="text-muted-foreground text-sm">
+              Gerencie todos os tickets de suporte do sistema
+            </p>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+          <div data-tutorial="admin-tickets-stats" className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -165,7 +203,7 @@ const AdminTickets = () => {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div data-tutorial="admin-tickets-filters" className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -208,7 +246,7 @@ const AdminTickets = () => {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : filteredTickets && filteredTickets.length > 0 ? (
-          <div className="space-y-3">
+          <div data-tutorial="admin-tickets-list" className="space-y-3">
             {filteredTickets.map((ticket) => (
               <Card 
                 key={ticket.id} 
