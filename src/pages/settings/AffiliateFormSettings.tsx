@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Upload, Trash2, Loader2, Image, ExternalLink, ImageIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import defaultLogo from "@/assets/logo-rafael-prudente.png";
 
 export default function AffiliateFormSettings() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -172,18 +173,16 @@ export default function AffiliateFormSettings() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <Link 
-          to="/settings" 
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Voltar para Configurações
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">Formulário de Indicação</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure a aparência do formulário de cadastro via link de líder
-        </p>
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Formulário de Indicação</h1>
+          <p className="text-muted-foreground">
+            Configure a aparência do formulário de cadastro via link de líder
+          </p>
+        </div>
       </div>
 
       <div className="space-y-6">
