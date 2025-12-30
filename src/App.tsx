@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TrackingProvider } from "./components/TrackingProvider";
+import { TutorialProvider } from "./contexts/TutorialContext";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
@@ -75,10 +76,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <TrackingProvider>
-        <BrowserRouter
+      <TutorialProvider>
+        <Toaster />
+        <Sonner />
+        <TrackingProvider>
+          <BrowserRouter
           future={{
             v7_startTransition: true,
             v7_relativeSplatPath: true,
@@ -390,8 +392,9 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
-        </BrowserRouter>
-      </TrackingProvider>
+          </BrowserRouter>
+        </TrackingProvider>
+      </TutorialProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
