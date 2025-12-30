@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLeadersRanking } from "@/hooks/leaders/useLeadersRanking";
+import { useLeaderLevels } from "@/hooks/leaders/useLeaderLevels";
 import { useRegions } from "@/hooks/useRegions";
 import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
 import {
@@ -80,6 +81,7 @@ const LeadersRanking = () => {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const { data: allRegions = [] } = useRegions();
+  const { data: leaderLevels = [] } = useLeaderLevels();
   const regions = allRegions.map(r => r.nome).sort();
 
   const handleWhatsAppClick = (phone: string) => {
@@ -511,25 +513,23 @@ const LeadersRanking = () => {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Níveis de Liderança:</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 bg-amber-50 rounded-lg border border-amber-200">
-                    <span className="font-medium">🥉 Bronze</span>
-                    <span className="text-gray-600">0-10 pontos</span>
+              <h4 className="font-semibold text-gray-900 mb-3">Níveis de Liderança:</h4>
+              <div className="space-y-3">
+                {leaderLevels.map((level) => (
+                  <div 
+                    key={level.name}
+                    className={`flex items-center justify-between p-2 rounded-lg border ${level.bgClass} ${level.borderClass}`}
+                  >
+                    <span className="font-medium">{level.icon} {level.name}</span>
+                    <span className="text-gray-600">
+                      {level.max === Infinity 
+                        ? `${level.min}+ pontos`
+                        : `${level.min}-${level.max} pontos`
+                      }
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <span className="font-medium">🥈 Prata</span>
-                    <span className="text-gray-600">11-30 pontos</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <span className="font-medium">🥇 Ouro</span>
-                    <span className="text-gray-600">31-50 pontos</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <span className="font-medium">💎 Diamante</span>
-                    <span className="text-gray-600">51+ pontos</span>
-                  </div>
-                </div>
+                ))}
+              </div>
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">O que conta como Indicação:</h4>
