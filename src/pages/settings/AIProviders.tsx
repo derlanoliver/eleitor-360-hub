@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Key, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Key, AlertCircle, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const AIProviders = () => {
+  const navigate = useNavigate();
   const [apiKey, setApiKey] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,15 +113,20 @@ const AIProviders = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Provedores de IA</h1>
-        <p className="text-gray-600 mt-1">
-          Configure as credenciais para integração com serviços de IA
-        </p>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Provedores de IA</h1>
+          <p className="text-muted-foreground">
+            Configure as credenciais para integração com serviços de IA
+          </p>
+        </div>
       </div>
 
-      <Alert className="mb-6">
+      <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           A chave de API é armazenada com segurança no Lovable Cloud (Supabase Secrets).
