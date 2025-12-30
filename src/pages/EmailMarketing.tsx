@@ -66,8 +66,8 @@ const EmailMarketing = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-tutorial="email-tabs">
-            <TabsList className="w-full grid grid-cols-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="w-full grid grid-cols-3" data-tutorial="email-tabs">
               <TabsTrigger value="bulk" className="gap-2">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Envio em Massa</span>
