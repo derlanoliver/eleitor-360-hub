@@ -52,6 +52,19 @@ import { EditMemberDialog } from "@/components/team/EditMemberDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const teamTutorialSteps: Step[] = [
+  { target: '[data-tutorial="team-header"]', title: 'Gestão de Equipe', content: 'Gerencie os membros que têm acesso ao sistema.' },
+  { target: '[data-tutorial="team-add"]', title: 'Adicionar Membro', content: 'Cadastre novos usuários com diferentes níveis de acesso.' },
+  { target: '[data-tutorial="team-stats"]', title: 'Estatísticas', content: 'Veja o total de membros, ativos e inativos.' },
+  { target: '[data-tutorial="team-filters"]', title: 'Filtros', content: 'Busque por nome, email e filtre por nível ou status.' },
+  { target: '[data-tutorial="team-table"]', title: 'Lista de Membros', content: 'Tabela com todos os membros, seus níveis, status e último acesso.' },
+  { target: '[data-tutorial="team-actions"]', title: 'Ações', content: 'Edite permissões, ative/desative ou exclua membros.' },
+];
 
 export default function Team() {
   const navigate = useNavigate();
@@ -68,6 +81,7 @@ export default function Team() {
   const updateMember = useUpdateMember();
   const deleteMember = useDeleteMember();
   const { user } = useAuth();
+  const { restartTutorial } = useTutorial("team", teamTutorialSteps);
 
   const filteredMembers = members?.filter((member) => {
     const matchesSearch =
@@ -130,28 +144,33 @@ export default function Team() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Equipe</h1>
-            <p className="text-muted-foreground">
-              Gerencie os membros da sua equipe
-            </p>
+    <>
+      <TutorialOverlay page="team" />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" data-tutorial="team-header">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Equipe</h1>
+              <p className="text-muted-foreground">
+                Gerencie os membros da sua equipe
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <TutorialButton onClick={restartTutorial} />
+            <Button onClick={() => setAddDialogOpen(true)} data-tutorial="team-add">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Adicionar Membro
+            </Button>
           </div>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Adicionar Membro
-        </Button>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tutorial="team-stats">
+          <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total de Membros
@@ -384,6 +403,7 @@ export default function Team() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </>
   );
 }

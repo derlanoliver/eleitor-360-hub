@@ -23,11 +23,25 @@ import {
   Loader2,
   Briefcase
 } from "lucide-react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const organizationTutorialSteps: Step[] = [
+  { target: '[data-tutorial="org-header"]', title: 'Organização', content: 'Configure os dados do político e da campanha.' },
+  { target: '[data-tutorial="org-logo"]', title: 'Logo / Foto', content: 'Imagem principal que aparece em documentos e comunicações.' },
+  { target: '[data-tutorial="org-dados"]', title: 'Dados do Político', content: 'Nome da plataforma, cargo, partido, estado e cidade.' },
+  { target: '[data-tutorial="org-bio"]', title: 'Biografia', content: 'Descrição sobre o político e sua atuação.' },
+  { target: '[data-tutorial="org-redes"]', title: 'Redes Sociais', content: 'Links para Instagram, Facebook, Twitter/X e YouTube.' },
+  { target: '[data-tutorial="org-contato"]', title: 'Contato', content: 'Website, email e WhatsApp públicos.' },
+];
 
 const Organization = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: organization, isLoading } = useOrganization();
   const updateOrganization = useUpdateOrganization();
+  const { restartTutorial } = useTutorial("organization", organizationTutorialSteps);
   
   const [nome, setNome] = useState("");
   const [nomePlataforma, setNomePlataforma] = useState("");
@@ -120,12 +134,16 @@ const Organization = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="organization" />
       <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Organização</h1>
-          <p className="text-muted-foreground">
-            Configure os dados do político e da campanha
-          </p>
+        <div className="flex items-center justify-between" data-tutorial="org-header">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Organização</h1>
+            <p className="text-muted-foreground">
+              Configure os dados do político e da campanha
+            </p>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

@@ -30,9 +30,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ActiveSessionsCard } from "@/components/settings/ActiveSessionsCard";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const privacyTutorialSteps: Step[] = [
+  { target: '[data-tutorial="priv-header"]', title: 'Privacidade e Segurança', content: 'Gerencie a segurança da sua conta.' },
+  { target: '[data-tutorial="priv-password"]', title: 'Alterar Senha', content: 'Atualize sua senha regularmente para maior segurança.' },
+  { target: '[data-tutorial="priv-sessions"]', title: 'Sessões Ativas', content: 'Veja todos os dispositivos conectados e encerre sessões.' },
+  { target: '[data-tutorial="priv-2fa"]', title: 'Autenticação 2FA', content: 'Em breve: camada extra de segurança.' },
+  { target: '[data-tutorial="priv-danger"]', title: 'Zona de Perigo', content: 'Ações irreversíveis como exclusão de conta.' },
+];
 
 const Privacy = () => {
   const navigate = useNavigate();
+  const { restartTutorial } = useTutorial("privacy", privacyTutorialSteps);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -96,17 +109,19 @@ const Privacy = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="privacy" />
       <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-tutorial="priv-header">
           <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold">Privacidade e Segurança</h1>
             <p className="text-muted-foreground">
               Gerencie sua segurança e preferências de privacidade
             </p>
           </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         <div className="grid gap-6">

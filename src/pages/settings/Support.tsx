@@ -11,12 +11,24 @@ import { TicketPriorityBadge } from "@/components/support/TicketPriorityBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Plus, Ticket, Loader2 } from "lucide-react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const supportTutorialSteps: Step[] = [
+  { target: '[data-tutorial="sup-header"]', title: 'Suporte', content: 'Abra tickets para reportar problemas ou tirar dúvidas.' },
+  { target: '[data-tutorial="sup-create"]', title: 'Abrir Ticket', content: 'Crie um novo chamado de suporte.' },
+  { target: '[data-tutorial="sup-list"]', title: 'Seus Tickets', content: 'Lista de todos os tickets com status e prioridade.' },
+  { target: '[data-tutorial="sup-details"]', title: 'Detalhes', content: 'Clique em um ticket para ver detalhes e respostas.' },
+];
 
 const Support = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const { restartTutorial } = useTutorial("support", supportTutorialSteps);
   
   const { data: tickets, isLoading } = useSupportTickets();
 
@@ -45,18 +57,22 @@ const Support = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="support" />
       <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6" data-tutorial="sup-header">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Suporte</h1>
             <p className="text-muted-foreground text-sm">
               Abra tickets para reportar problemas ou tirar dúvidas
             </p>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Abrir Ticket
-          </Button>
+          <div className="flex items-center gap-2">
+            <TutorialButton onClick={restartTutorial} />
+            <Button onClick={() => setCreateDialogOpen(true)} data-tutorial="sup-create">
+              <Plus className="h-4 w-4 mr-2" />
+              Abrir Ticket
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

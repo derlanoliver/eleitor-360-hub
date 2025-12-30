@@ -24,11 +24,24 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const profileTutorialSteps: Step[] = [
+  { target: '[data-tutorial="profile-header"]', title: 'Meu Perfil', content: 'Gerencie suas informações pessoais e preferências de conta.' },
+  { target: '[data-tutorial="profile-avatar"]', title: 'Foto de Perfil', content: 'Clique na imagem para alterar sua foto. Aceita JPG, PNG ou GIF até 2MB.' },
+  { target: '[data-tutorial="profile-info"]', title: 'Informações Pessoais', content: 'Atualize seu nome, telefone e biografia.' },
+  { target: '[data-tutorial="profile-account"]', title: 'Informações da Conta', content: 'Veja sua função no sistema, data de criação e última atualização.' },
+  { target: '[data-tutorial="profile-save"]', title: 'Salvar Alterações', content: 'Clique para salvar todas as modificações feitas no seu perfil.' },
+];
 
 const Profile = () => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateProfile = useUpdateProfile();
+  const { restartTutorial } = useTutorial("profile", profileTutorialSteps);
   
   const [name, setName] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -110,12 +123,16 @@ const Profile = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="profile" />
       <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas informações pessoais e preferências
-          </p>
+        <div className="flex items-center justify-between" data-tutorial="profile-header">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
+            <p className="text-muted-foreground">
+              Gerencie suas informações pessoais e preferências
+            </p>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">

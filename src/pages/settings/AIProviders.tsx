@@ -8,9 +8,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Key, AlertCircle, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const aiProvidersTutorialSteps: Step[] = [
+  { target: '[data-tutorial="ai-header"]', title: 'Provedores de IA', content: 'Configure credenciais para serviços de IA.' },
+  { target: '[data-tutorial="ai-key"]', title: 'API Key OpenAI', content: 'Insira sua chave de API para habilitar GPT-5.' },
+  { target: '[data-tutorial="ai-test"]', title: 'Testar Conexão', content: 'Verifique se a chave está funcionando.' },
+  { target: '[data-tutorial="ai-model"]', title: 'Modelo Configurado', content: 'Informações sobre o modelo GPT-5 Mini em uso.' },
+];
 
 const AIProviders = () => {
   const navigate = useNavigate();
+  const { restartTutorial } = useTutorial("ai-providers", aiProvidersTutorialSteps);
   const [apiKey, setApiKey] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

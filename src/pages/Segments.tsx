@@ -11,6 +11,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Users, Filter, Edit, Trash2, Search, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const segmentsTutorialSteps: Step[] = [
+  { target: '[data-tutorial="seg-header"]', title: 'Segmentos', content: 'Organize contatos em grupos para campanhas direcionadas.' },
+  { target: '[data-tutorial="seg-create"]', title: 'Criar Segmento', content: 'Crie um novo segmento com filtros específicos.' },
+  { target: '[data-tutorial="seg-filters"]', title: 'Filtros', content: 'Busque e filtre segmentos por categoria.' },
+  { target: '[data-tutorial="seg-card"]', title: 'Card do Segmento', content: 'Veja total de contatos, categorias e status.' },
+  { target: '[data-tutorial="seg-actions"]', title: 'Ações', content: 'Edite ou exclua segmentos existentes.' },
+];
 
 // Mock data
 const mockSegments = [
@@ -54,6 +66,7 @@ const Segments = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const { restartTutorial } = useTutorial("segments", segmentsTutorialSteps);
   const [newSegment, setNewSegment] = useState({
     name: "",
     description: "",
