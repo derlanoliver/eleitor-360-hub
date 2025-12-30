@@ -64,6 +64,7 @@ export default function Queue() {
   const [minutesVisit, setMinutesVisit] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { completeMeeting, cancelMeeting, rescheduleMeeting } = useVisitMeetingActions();
+  const { restartTutorial } = useTutorial("office-queue", queueTutorialSteps);
   
   if (isLoading) {
     return (
@@ -171,9 +172,13 @@ export default function Queue() {
   
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
+      <TutorialOverlay page="office-queue" />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6" data-tutorial="queue-header">
         <div>
-          <h1 className="text-3xl font-bold">Fila do Dia</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">Fila do Dia</h1>
+            <TutorialButton onClick={restartTutorial} />
+          </div>
           <p className="text-muted-foreground">
             Acompanhe o status das visitas em tempo real
           </p>
@@ -184,7 +189,7 @@ export default function Queue() {
           )}
         </div>
         
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full sm:w-80" data-tutorial="queue-search">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Buscar por protocolo, nome ou WhatsApp..."
@@ -197,7 +202,7 @@ export default function Queue() {
 
       {/* Tab de Agendadas Hoje - só aparece se houver visitas agendadas */}
       {scheduledTodayFiltered.length > 0 && (
-        <Card className="mb-6 border-primary/20 bg-primary/5">
+        <Card className="mb-6 border-primary/20 bg-primary/5" data-tutorial="queue-scheduled">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <CalendarDays className="h-4 w-4 text-primary" />
@@ -296,7 +301,7 @@ export default function Queue() {
         </Card>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-tutorial="queue-columns">
         {/* Aguardando preenchimento */}
         <Card>
           <CardHeader>

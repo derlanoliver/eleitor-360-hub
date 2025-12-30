@@ -10,11 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { generateLeaderRegistrationUrl } from "@/lib/urlHelper";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const leaderFormTutorialSteps: Step[] = [
+  { target: '[data-tutorial="leader-form-header"]', title: 'Formulário de Liderança', content: 'Personalize a página pública de cadastro de líderes.', placement: 'bottom', disableBeacon: true },
+  { target: '[data-tutorial="leader-form-preview"]', title: 'Preview', content: 'Veja em tempo real como o formulário aparecerá para os usuários.', placement: 'right' },
+  { target: '[data-tutorial="leader-form-config"]', title: 'Configurações', content: 'Configure capa, logo, título e subtítulo do formulário.', placement: 'left' },
+];
 
 export default function LeaderFormSettings() {
   const navigate = useNavigate();
   const { data: settings, isLoading } = useAppSettings();
   const updateSettings = useUpdateAppSettings();
+  const { restartTutorial } = useTutorial("leader-form-settings", leaderFormTutorialSteps);
 
   const [coverUrl, setCoverUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -88,21 +99,23 @@ export default function LeaderFormSettings() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <TutorialOverlay page="leader-form-settings" />
+      <div className="flex items-center gap-4" data-tutorial="leader-form-header">
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Formulário de Cadastro de Líder</h1>
           <p className="text-muted-foreground">
             Configure a aparência da página pública de cadastro de líderes
           </p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Preview */}
-        <Card>
+        <Card data-tutorial="leader-form-preview">
           <CardHeader>
             <CardTitle className="text-lg">Preview</CardTitle>
             <CardDescription>Visualização da página de cadastro</CardDescription>
@@ -151,7 +164,7 @@ export default function LeaderFormSettings() {
         </Card>
 
         {/* Configurações */}
-        <Card>
+        <Card data-tutorial="leader-form-config">
           <CardHeader>
             <CardTitle className="text-lg">Configurações</CardTitle>
             <CardDescription>Personalize o formulário de cadastro</CardDescription>

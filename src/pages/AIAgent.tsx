@@ -89,6 +89,7 @@ interface AttachedFile {
 const AIAgent = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const { restartTutorial } = useTutorial("ai-agent", aiAgentTutorialSteps);
   
   const {
     conversations,
@@ -389,9 +390,10 @@ const AIAgent = () => {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] sm:h-[calc(100vh-4rem)] bg-background">
+      <TutorialOverlay page="ai-agent" />
       {/* Sidebar de Conversas - Desktop */}
       {!isMobile && (
-        <div className="w-64 border-r bg-card flex flex-col overflow-hidden flex-shrink-0">
+        <div className="w-64 border-r bg-card flex flex-col overflow-hidden flex-shrink-0" data-tutorial="ai-conversations">
           <div className="p-3 border-b flex-shrink-0">
             <Button onClick={handleNewConversation} className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-2" />
@@ -732,7 +734,7 @@ const AIAgent = () => {
         </div>
 
         {/* Input Area */}
-        <div className="bg-card border-t p-3 sm:p-4 flex-shrink-0">
+        <div className="bg-card border-t p-3 sm:p-4 flex-shrink-0" data-tutorial="ai-input">
           <div className="max-w-4xl mx-auto">
             {attachedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">

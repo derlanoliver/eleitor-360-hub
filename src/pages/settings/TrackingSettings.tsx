@@ -8,11 +8,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Info, ArrowLeft } from "lucide-react";
 import { useAppSettings, useUpdateAppSettings } from "@/hooks/useAppSettings";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const trackingTutorialSteps: Step[] = [
+  { target: '[data-tutorial="tracking-header"]', title: 'Rastreamento', content: 'Configure Facebook Pixel e Google Tag Manager para rastrear conversões.', placement: 'bottom', disableBeacon: true },
+  { target: '[data-tutorial="tracking-pixel"]', title: 'Facebook Pixel', content: 'Configure o Pixel ID e API Token para rastrear eventos de lead e conversão.', placement: 'bottom' },
+  { target: '[data-tutorial="tracking-gtm"]', title: 'Google Tag Manager', content: 'Configure o GTM para gerenciar todas as tags de marketing em um só lugar.', placement: 'top' },
+];
 
 const TrackingSettings = () => {
   const navigate = useNavigate();
   const { data: settings, isLoading } = useAppSettings();
   const updateSettings = useUpdateAppSettings();
+  const { restartTutorial } = useTutorial("tracking-settings", trackingTutorialSteps);
 
   const [facebookPixelId, setFacebookPixelId] = useState("");
   const [facebookApiToken, setFacebookApiToken] = useState("");
@@ -48,16 +59,18 @@ const TrackingSettings = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <TutorialOverlay page="tracking-settings" />
+      <div className="flex items-center gap-4" data-tutorial="tracking-header">
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Rastreamento</h1>
           <p className="text-muted-foreground">
             Configure Facebook Pixel, Google Tag Manager e rastreamento de conversões
           </p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       <Alert>
@@ -71,7 +84,7 @@ const TrackingSettings = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Facebook Pixel Section */}
-        <Card>
+        <Card data-tutorial="tracking-pixel">
           <CardHeader>
             <CardTitle>Facebook Pixel</CardTitle>
             <CardDescription>
@@ -125,7 +138,7 @@ const TrackingSettings = () => {
         </Card>
 
         {/* Google Tag Manager Section */}
-        <Card>
+        <Card data-tutorial="tracking-gtm">
           <CardHeader>
             <CardTitle>Google Tag Manager</CardTitle>
             <CardDescription>
