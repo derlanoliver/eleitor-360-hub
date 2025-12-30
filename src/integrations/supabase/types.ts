@@ -870,6 +870,7 @@ export type Database = {
           observacao: string | null
           parent_leader_id: string | null
           passkit_installed_at: string | null
+          passkit_invalidated_at: string | null
           passkit_member_id: string | null
           passkit_pass_installed: boolean | null
           passkit_uninstalled_at: string | null
@@ -901,6 +902,7 @@ export type Database = {
           observacao?: string | null
           parent_leader_id?: string | null
           passkit_installed_at?: string | null
+          passkit_invalidated_at?: string | null
           passkit_member_id?: string | null
           passkit_pass_installed?: boolean | null
           passkit_uninstalled_at?: string | null
@@ -932,6 +934,7 @@ export type Database = {
           observacao?: string | null
           parent_leader_id?: string | null
           passkit_installed_at?: string | null
+          passkit_invalidated_at?: string | null
           passkit_member_id?: string | null
           passkit_pass_installed?: boolean | null
           passkit_uninstalled_at?: string | null
