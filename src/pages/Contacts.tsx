@@ -70,6 +70,38 @@ import { useReactivateContact } from "@/hooks/contacts/useDeactivateContact";
 import { useUserRole } from "@/hooks/useUserRole";
 import { resendVerificationSMS } from "@/hooks/contacts/useContactVerification";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const contactsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="contacts-header"]',
+    title: "Base de Contatos",
+    content: "Gerencie todos os contatos cadastrados no sistema. Visualize origem, status de verificação e informações detalhadas.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="contacts-stats"]',
+    title: "Estatísticas",
+    content: "Acompanhe o total de contatos, quantos têm WhatsApp e quantos têm email cadastrado.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="contacts-filters"]',
+    title: "Filtros Avançados",
+    content: "Filtre contatos por região, origem (evento, líder, captação), status de verificação e muito mais.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="contacts-actions"]',
+    title: "Ações em Massa",
+    content: "Importe contatos via Excel ou identifique gêneros automaticamente usando IA.",
+    placement: "left",
+  },
+];
 
 // Cores e labels para badges de origem
 const sourceConfig: Record<string, { label: string; className: string; icon: typeof Calendar }> = {

@@ -17,6 +17,32 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const aiAgentTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="ai-header"]',
+    title: "Assistente de IA",
+    content: "Converse com o assistente virtual para obter análises, insights e informações sobre a campanha.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="ai-conversations"]',
+    title: "Histórico de Conversas",
+    content: "Veja suas conversas anteriores. Clique para retomar ou crie uma nova conversa.",
+    placement: "right",
+  },
+  {
+    target: '[data-tutorial="ai-input"]',
+    title: "Enviar Mensagem",
+    content: "Digite sua pergunta e pressione Enter ou clique no botão para enviar. Você também pode anexar arquivos.",
+    placement: "top",
+  },
+];
 
 interface Message {
   id: string;

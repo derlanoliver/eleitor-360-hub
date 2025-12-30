@@ -62,6 +62,32 @@ import {
   LineChart,
   Line
 } from "recharts";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const campaignsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="campaigns-header"]',
+    title: "Campanhas de Atribuição",
+    content: "Gerencie campanhas UTM para rastrear a origem dos cadastros. Crie links personalizados para eventos e funis.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="campaigns-tabs"]',
+    title: "Abas de Campanhas",
+    content: "Alterne entre campanhas UTM (para eventos) e a aba de Captação (funis de lead magnet).",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="campaigns-create"]',
+    title: "Criar Campanha",
+    content: "Crie novas campanhas com parâmetros UTM para rastrear a origem dos cadastros.",
+    placement: "left",
+  },
+];
 
 // Função para normalizar strings (remover acentos e lowercase)
 const normalizeString = (str: string): string => {
