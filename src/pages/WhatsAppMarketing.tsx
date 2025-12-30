@@ -6,22 +6,53 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { WhatsAppTemplatesTab } from "@/components/whatsapp/WhatsAppTemplatesTab";
 import { WhatsAppBulkSendTab } from "@/components/whatsapp/WhatsAppBulkSendTab";
 import { WhatsAppHistoryTab } from "@/components/whatsapp/WhatsAppHistoryTab";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const whatsappTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="whatsapp-header"]',
+    title: '💬 WhatsApp Marketing',
+    content: 'Gerencie envios de mensagens em massa via WhatsApp, crie templates personalizados e acompanhe o histórico de envios.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="whatsapp-tabs"]',
+    title: '📑 Abas de Navegação',
+    content: 'Navegue entre Envio em Massa para campanhas, Templates para criar modelos de mensagem e Histórico para acompanhar envios.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="whatsapp-content"]',
+    title: '📤 Área de Conteúdo',
+    content: 'Cada aba apresenta funcionalidades específicas. No envio em massa, selecione contatos e templates. Em templates, crie modelos reutilizáveis.',
+    placement: 'top',
+  },
+];
 
 export default function WhatsAppMarketing() {
   const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
+  const { restartTutorial } = useTutorial("whatsapp-marketing", whatsappTutorialSteps);
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="whatsapp-marketing" />
       <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-6" data-tutorial="whatsapp-header">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
-                  WhatsApp Marketing
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
+                    WhatsApp Marketing
+                  </h1>
+                  <TutorialButton onClick={restartTutorial} />
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Gerencie templates e envie mensagens em massa via WhatsApp
                 </p>
@@ -43,23 +74,25 @@ export default function WhatsAppMarketing() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full grid grid-cols-3 mb-6">
+            <TabsList className="w-full grid grid-cols-3 mb-6" data-tutorial="whatsapp-tabs">
               <TabsTrigger value="bulk">Envio em Massa</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
               <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="bulk">
-              <WhatsAppBulkSendTab />
-            </TabsContent>
+            <div data-tutorial="whatsapp-content">
+              <TabsContent value="bulk">
+                <WhatsAppBulkSendTab />
+              </TabsContent>
 
-            <TabsContent value="templates">
-              <WhatsAppTemplatesTab />
-            </TabsContent>
+              <TabsContent value="templates">
+                <WhatsAppTemplatesTab />
+              </TabsContent>
 
-            <TabsContent value="history">
-              <WhatsAppHistoryTab />
-            </TabsContent>
+              <TabsContent value="history">
+                <WhatsAppHistoryTab />
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
       </div>

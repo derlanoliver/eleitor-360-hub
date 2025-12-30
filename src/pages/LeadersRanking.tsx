@@ -26,6 +26,38 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const rankingTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="ranking-header"]',
+    title: '🏆 Ranking de Lideranças',
+    content: 'Visualize a classificação completa de todos os líderes ordenados por desempenho.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="ranking-filters"]',
+    title: '🔍 Filtros do Ranking',
+    content: 'Filtre por período (mês atual, mês passado, trimestre, ano) e por região administrativa.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="ranking-podium"]',
+    title: '🥇 Pódio dos Campeões',
+    content: 'Os 3 líderes com melhor desempenho aparecem em destaque no pódio com suas estatísticas.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="ranking-full"]',
+    title: '📊 Ranking Completo',
+    content: 'Lista completa de todos os líderes com posição, pontos, indicações e tendência de desempenho.',
+    placement: 'top',
+  },
+];
 
 const ITEMS_PER_PAGE = 20;
 
@@ -33,6 +65,7 @@ const LeadersRanking = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const { restartTutorial } = useTutorial("leaders-ranking", rankingTutorialSteps);
 
   // Buscar dados reais do banco
   const { data: rankingResult, isLoading } = useLeadersRanking({ 
@@ -111,9 +144,10 @@ const LeadersRanking = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      <TutorialOverlay page="leaders-ranking" />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8" data-tutorial="ranking-header">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center mb-2">
@@ -123,9 +157,12 @@ const LeadersRanking = () => {
                     Voltar
                   </Link>
                 </Button>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  Ranking Detalhado de Lideranças
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    Ranking Detalhado de Lideranças
+                  </h1>
+                  <TutorialButton onClick={restartTutorial} />
+                </div>
               </div>
               <p className="text-sm sm:text-base text-gray-600">
                 Classificação completa com histórico de desempenho
