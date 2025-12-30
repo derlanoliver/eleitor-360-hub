@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Send, History, Search } from "lucide-react";
-import { EmailTemplatesTab } from "@/components/email/EmailTemplatesTab";
-import { EmailBulkSendTab } from "@/components/email/EmailBulkSendTab";
-import { EmailHistoryTab } from "@/components/email/EmailHistoryTab";
 import { Input } from "@/components/ui/input";
+import { Mail, Send, History, FileText, Search } from "lucide-react";
+import { EmailTemplatesTab } from "@/components/email/EmailTemplatesTab";
+import { EmailHistoryTab } from "@/components/email/EmailHistoryTab";
+import { EmailBulkSendTab } from "@/components/email/EmailBulkSendTab";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";

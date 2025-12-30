@@ -1,50 +1,20 @@
 import { useState } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MessageSquare, Search, Filter, Clock, CheckCircle2, XCircle, AlertCircle, Send, Inbox, ArrowUpDown, RefreshCw, CheckCheck, BookOpen, AlertTriangle, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  MessageSquare,
-  Search,
-  Send,
-  CheckCheck,
-  BookOpen,
-  AlertTriangle,
-  Filter,
-  Eye,
-  RefreshCw,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  useWhatsAppMessages,
-  useWhatsAppMetrics,
-  WhatsAppFilters,
-  WhatsAppMessage,
-} from "@/hooks/useWhatsAppMessages";
-import { MessageStatusBadge, DirectionBadge } from "@/components/whatsapp/MessageStatusBadge";
+import { useWhatsAppMessages, WhatsAppFilters, WhatsAppMessage, useWhatsAppMetrics } from "@/hooks/useWhatsAppMessages";
+import { MessageStatusBadge } from "@/components/whatsapp/MessageStatusBadge";
 import { MessageDetailsDialog } from "@/components/whatsapp/MessageDetailsDialog";
-import { Badge } from "@/components/ui/badge";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
@@ -71,6 +41,13 @@ const whatsappHistoryTutorialSteps: Step[] = [
     placement: "bottom",
   },
 ];
+
+const DirectionBadge = ({ direction }: { direction: string }) => (
+  <Badge variant={direction === "outbound" ? "default" : "secondary"}>
+    {direction === "outbound" ? <Send className="h-3 w-3 mr-1" /> : <Inbox className="h-3 w-3 mr-1" />}
+    {direction === "outbound" ? "Enviada" : "Recebida"}
+  </Badge>
+);
 
 export default function WhatsAppHistory() {
   const [filters, setFilters] = useState<WhatsAppFilters>({
