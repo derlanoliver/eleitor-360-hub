@@ -77,6 +77,7 @@ const WhatsAppChatbot = () => {
   const [activeTab, setActiveTab] = useState("config");
   const [keywordDialogOpen, setKeywordDialogOpen] = useState(false);
   const [editingKeyword, setEditingKeyword] = useState<ChatbotKeyword | null>(null);
+  const { restartTutorial } = useTutorial("whatsapp-chatbot", chatbotTutorialSteps);
 
   // Form state for keyword
   const [keywordForm, setKeywordForm] = useState({
@@ -182,14 +183,15 @@ const WhatsAppChatbot = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <TutorialOverlay page="whatsapp-chatbot" />
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4" data-tutorial="bot-header">
         <Link to="/settings">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
             Assistente Virtual WhatsApp
@@ -198,13 +200,14 @@ const WhatsAppChatbot = () => {
             Configure o chatbot para atender automaticamente os líderes via WhatsApp
           </p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       {/* Main Toggle */}
       {loadingConfig ? (
         <Skeleton className="h-20 w-full" />
       ) : (
-        <Card className={config?.is_enabled ? "border-green-500 bg-green-50/50" : ""}>
+        <Card className={config?.is_enabled ? "border-green-500 bg-green-50/50" : ""} data-tutorial="bot-toggle">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -225,13 +228,13 @@ const WhatsAppChatbot = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="config" className="gap-2">
+          <TabsTrigger value="config" className="gap-2" data-tutorial="bot-config">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
-          <TabsTrigger value="keywords" className="gap-2">
+          <TabsTrigger value="keywords" className="gap-2" data-tutorial="bot-keywords">
             <MessageSquare className="h-4 w-4" /> Palavras-Chave
           </TabsTrigger>
-          <TabsTrigger value="logs" className="gap-2">
+          <TabsTrigger value="logs" className="gap-2" data-tutorial="bot-logs">
             <History className="h-4 w-4" /> Histórico
           </TabsTrigger>
         </TabsList>
@@ -277,7 +280,7 @@ const WhatsAppChatbot = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card data-tutorial="bot-messages">
                 <CardHeader>
                   <CardTitle>Mensagens Padrão</CardTitle>
                   <CardDescription>Mensagens automáticas do chatbot</CardDescription>
@@ -305,7 +308,7 @@ const WhatsAppChatbot = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card data-tutorial="bot-prompt">
                 <CardHeader>
                   <CardTitle>Prompt do Sistema de IA</CardTitle>
                   <CardDescription>Instruções para a IA quando responder perguntas abertas</CardDescription>

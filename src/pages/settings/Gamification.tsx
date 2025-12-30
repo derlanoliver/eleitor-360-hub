@@ -164,18 +164,20 @@ export default function Gamification() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <TutorialOverlay page="gamification" />
+      <div className="flex items-center gap-4" data-tutorial="gam-header">
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Gamificação</h1>
           <p className="text-muted-foreground">Configure as regras de pontuação e níveis de líderes</p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       {/* Limite diário de eventos */}
-      <Card>
+      <Card data-tutorial="gam-limite">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
@@ -216,7 +218,7 @@ export default function Gamification() {
       </Card>
 
       {/* Pontos por ação */}
-      <Card>
+      <Card data-tutorial="gam-pontos">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
@@ -255,7 +257,7 @@ export default function Gamification() {
       </Card>
 
       {/* Níveis de liderança */}
-      <Card>
+      <Card data-tutorial="gam-niveis">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
@@ -350,7 +352,7 @@ export default function Gamification() {
       </Card>
 
       {/* Botão salvar */}
-      <div className="flex justify-end">
+      <div className="flex justify-end" data-tutorial="gam-save">
         <Button onClick={handleSave} disabled={isSaving} size="lg">
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? "Salvando..." : "Salvar Configurações"}

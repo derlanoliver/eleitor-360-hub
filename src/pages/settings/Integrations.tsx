@@ -152,6 +152,7 @@ const AutoMessageToggle = ({ icon, label, description, checked, onCheckedChange,
 
 const Integrations = () => {
   const navigate = useNavigate();
+  const { restartTutorial } = useTutorial("integrations", integrationsTutorialSteps);
   const { data: settings, isLoading } = useIntegrationsSettings();
   const updateSettings = useUpdateIntegrationsSettings();
   const testZapiConnection = useTestZapiConnection();
@@ -331,21 +332,23 @@ const Integrations = () => {
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="integrations" />
       <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-tutorial="int-header">
           <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold">Integrações</h1>
             <p className="text-muted-foreground">
               Conecte serviços externos para ampliar as funcionalidades do sistema
             </p>
           </div>
+          <TutorialButton onClick={restartTutorial} />
         </div>
 
         {/* Z-API WhatsApp */}
-        <Card>
+        <Card data-tutorial="int-zapi">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

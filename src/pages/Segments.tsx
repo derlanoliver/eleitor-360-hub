@@ -146,8 +146,9 @@ const Segments = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <TutorialOverlay page="segments" />
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6" data-tutorial="seg-header">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Segmentos</h1>
           <p className="text-gray-600 mt-1">
@@ -155,13 +156,15 @@ const Segments = () => {
           </p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Criar Segmento
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <TutorialButton onClick={restartTutorial} />
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2" data-tutorial="seg-create">
+                <Plus className="h-4 w-4" />
+                Criar Segmento
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Criar Novo Segmento</DialogTitle>
@@ -336,11 +339,12 @@ const Segments = () => {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-4 mb-6" data-tutorial="seg-filters">
         <div className="flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -371,12 +375,12 @@ const Segments = () => {
 
       {/* Segments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredSegments.map((segment) => (
-          <Card key={segment.id} className="relative">
+        {filteredSegments.map((segment, index) => (
+          <Card key={segment.id} className="relative" data-tutorial={index === 0 ? "seg-card" : undefined}>
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg">{segment.name}</CardTitle>
-                <div className="flex gap-1">
+                <div className="flex gap-1" data-tutorial={index === 0 ? "seg-actions" : undefined}>
                   <Button variant="ghost" size="sm">
                     <Edit className="h-4 w-4" />
                   </Button>

@@ -126,16 +126,18 @@ const AIProviders = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <TutorialOverlay page="ai-providers" />
+      <div className="flex items-center gap-4" data-tutorial="ai-header">
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Provedores de IA</h1>
           <p className="text-muted-foreground">
             Configure as credenciais para integração com serviços de IA
           </p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       <Alert>
@@ -146,7 +148,7 @@ const AIProviders = () => {
         </AlertDescription>
       </Alert>
 
-      <Card>
+      <Card data-tutorial="ai-key">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="h-5 w-5 text-primary-500" />
@@ -191,7 +193,7 @@ const AIProviders = () => {
             </Alert>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex gap-3" data-tutorial="ai-test">
             <Button onClick={handleSave} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar Configuração
@@ -217,7 +219,7 @@ const AIProviders = () => {
             </Button>
           </div>
 
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t" data-tutorial="ai-model">
             <h4 className="font-medium text-sm mb-2">Modelo configurado:</h4>
             <p className="text-sm text-gray-600">
               <span className="font-mono bg-gray-100 px-2 py-1 rounded">gpt-5-mini-2025-08-07</span>
