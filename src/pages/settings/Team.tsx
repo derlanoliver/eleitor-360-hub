@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import {
   UserCheck,
   UserX,
   Trash2,
+  ArrowLeft,
 } from "lucide-react";
 import { useTeamMembers, TeamMember } from "@/hooks/team/useTeamMembers";
 import { useUpdateMember } from "@/hooks/team/useUpdateMember";
@@ -52,6 +54,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
 export default function Team() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -129,11 +132,16 @@ export default function Team() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Equipe</h1>
-          <p className="text-muted-foreground">
-            Gerencie os membros da sua equipe
-          </p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Equipe</h1>
+            <p className="text-muted-foreground">
+              Gerencie os membros da sua equipe
+            </p>
+          </div>
         </div>
         <Button onClick={() => setAddDialogOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
