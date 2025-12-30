@@ -53,6 +53,68 @@ import { supabase } from "@/integrations/supabase/client";
 import type { OfficeLeader } from "@/types/office";
 import { generateAffiliateUrl } from "@/lib/urlHelper";
 import { format } from "date-fns";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const leadersTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="leaders-header"]',
+    title: '👥 Gestão de Lideranças',
+    content: 'Nesta página você gerencia todos os líderes cadastrados no sistema. Visualize estatísticas, filtre, adicione e gerencie cada líder.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="leaders-stats"]',
+    title: '📊 Estatísticas Gerais',
+    content: 'Veja o total de líderes, quantos estão ativos e a soma de pontos de toda a rede de lideranças.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-ranking-btn"]',
+    title: '🏆 Ver Ranking',
+    content: 'Acesse o ranking completo de líderes ordenado por pontuação e indicações.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-push-btn"]',
+    title: '🔔 Notificação Push',
+    content: 'Envie notificações push em massa para todos os líderes verificados que possuem o cartão digital instalado.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-import-btn"]',
+    title: '📥 Importar Líderes',
+    content: 'Importe líderes em massa através de uma planilha Excel ou CSV.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-form-btn"]',
+    title: '📝 Formulário Público',
+    content: 'Gere um QR Code e link para um formulário público onde novos líderes podem se cadastrar.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-add-btn"]',
+    title: '➕ Adicionar Líder',
+    content: 'Cadastre manualmente um novo líder no sistema com todos os dados necessários.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-filters"]',
+    title: '🔍 Filtros de Busca',
+    content: 'Use os filtros para encontrar líderes específicos por nome, região, status de verificação ou ordenação.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="leaders-list"]',
+    title: '📋 Lista de Líderes',
+    content: 'Cada card mostra informações do líder: nível, pontos, indicações, badges e ações disponíveis como editar, ver detalhes ou enviar WhatsApp.',
+    placement: 'top',
+  },
+];
 
 const getInitials = (name: string) => {
   return name
@@ -296,14 +358,20 @@ const Leaders = () => {
     return pages;
   };
 
+  const { restartTutorial } = useTutorial("leaders", leadersTutorialSteps);
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <TutorialOverlay page="leaders" />
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6" data-tutorial="leaders-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão de Lideranças</h1>
-            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão de Lideranças</h1>
+              <TutorialButton onClick={restartTutorial} />
+            </div>
+            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground" data-tutorial="leaders-stats">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
                 <strong className="text-foreground">{totalCount}</strong> líderes
@@ -319,7 +387,7 @@ const Leaders = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild>
+            <Button asChild data-tutorial="leaders-ranking-btn">
               <Link to="/leaders/ranking">
                 <Trophy className="h-4 w-4 mr-2" />
                 Ver Ranking
@@ -329,20 +397,22 @@ const Leaders = () => {
               allVerifiedCount={verifiedLeadersCount || 0}
               onSendToAll={fetchAllVerifiedLeaderIds}
             >
-              <Button variant="outline">
+              <Button variant="outline" data-tutorial="leaders-push-btn">
                 <Bell className="h-4 w-4 mr-2" />
                 Notificação Push
               </Button>
             </SendPassNotificationDialog>
-            <ImportLeadersDialog />
+            <div data-tutorial="leaders-import-btn">
+              <ImportLeadersDialog />
+            </div>
             <LeaderRegistrationQRDialog>
-              <Button variant="outline">
+              <Button variant="outline" data-tutorial="leaders-form-btn">
                 <QrCode className="h-4 w-4 mr-2" />
                 Formulário
               </Button>
             </LeaderRegistrationQRDialog>
             <AddLeaderDialog>
-              <Button variant="outline">
+              <Button variant="outline" data-tutorial="leaders-add-btn">
                 <Users className="h-4 w-4 mr-2" />
                 Adicionar
               </Button>
@@ -352,7 +422,7 @@ const Leaders = () => {
       </div>
 
       {/* Filtros Horizontais */}
-      <div className="bg-card border rounded-lg p-4 mb-6">
+      <div className="bg-card border rounded-lg p-4 mb-6" data-tutorial="leaders-filters">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -429,7 +499,7 @@ const Leaders = () => {
       </div>
 
       {/* Lista de Líderes */}
-      <div className="space-y-3">
+      <div className="space-y-3" data-tutorial="leaders-list">
         {isLoading ? (
           <Card>
             <CardContent className="p-8 text-center">

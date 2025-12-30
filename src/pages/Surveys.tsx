@@ -38,11 +38,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const surveysTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="surveys-header"]',
+    title: '📋 Pesquisas Eleitorais',
+    content: 'Crie e gerencie pesquisas de opinião para coletar dados importantes dos seus contatos e lideranças.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="surveys-create-btn"]',
+    title: '➕ Nova Pesquisa',
+    content: 'Clique aqui para criar uma nova pesquisa. Você pode usar IA para gerar perguntas automaticamente!',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="surveys-stats"]',
+    title: '📊 Estatísticas',
+    content: 'Acompanhe o total de pesquisas criadas, quantas estão ativas e o total de respostas coletadas.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="surveys-filters"]',
+    title: '🔍 Filtros',
+    content: 'Busque pesquisas pelo título ou filtre por status (rascunho, ativa, encerrada).',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="surveys-list"]',
+    title: '📝 Lista de Pesquisas',
+    content: 'Cada card mostra título, descrição, número de respostas e ações disponíveis: editar, ver resultados, gerar links para líderes e visualizar.',
+    placement: 'top',
+  },
+];
 
 export default function Surveys() {
   const navigate = useNavigate();
   const { data: surveys, isLoading } = useSurveys();
   const deleteSurvey = useDeleteSurvey();
+  const { restartTutorial } = useTutorial("surveys", surveysTutorialSteps);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -95,21 +134,25 @@ export default function Surveys() {
 
   return (
     <>
+      <TutorialOverlay page="surveys" />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" data-tutorial="surveys-header">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Pesquisas Eleitorais</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground">Pesquisas Eleitorais</h1>
+              <TutorialButton onClick={restartTutorial} />
+            </div>
             <p className="text-muted-foreground">Gerencie pesquisas de opinião e análise de resultados</p>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={() => setCreateDialogOpen(true)} data-tutorial="surveys-create-btn">
             <Plus className="h-4 w-4 mr-2" />
             Nova Pesquisa
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tutorial="surveys-stats">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -146,7 +189,7 @@ export default function Surveys() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4" data-tutorial="surveys-filters">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -171,7 +214,7 @@ export default function Surveys() {
 
         {/* Surveys Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-tutorial="surveys-list">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardHeader className="pb-2">
@@ -185,7 +228,7 @@ export default function Surveys() {
             ))}
           </div>
         ) : filteredSurveys.length === 0 ? (
-          <Card>
+          <Card data-tutorial="surveys-list">
             <CardContent className="p-12 text-center">
               <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Nenhuma pesquisa encontrada</h3>
@@ -203,7 +246,7 @@ export default function Surveys() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-tutorial="surveys-list">
             {filteredSurveys.map((survey) => (
               <Card key={survey.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">

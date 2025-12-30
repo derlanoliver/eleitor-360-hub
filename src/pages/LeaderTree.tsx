@@ -27,6 +27,44 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const leaderTreeTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="tree-header"]',
+    title: '🌳 Árvore de Lideranças',
+    content: 'Visualize e gerencie a hierarquia multinível de coordenadores e líderes do seu projeto político.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="tree-new-coord"]',
+    title: '👑 Novo Coordenador',
+    content: 'Promova um líder existente para coordenador. Coordenadores podem ter líderes subordinados em até 3 níveis.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="tree-stats"]',
+    title: '📊 Estatísticas da Hierarquia',
+    content: 'Veja o total de coordenadores, cadastros gerados pela rede e pontuação acumulada.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="tree-coordinators"]',
+    title: '👥 Lista de Coordenadores',
+    content: 'Selecione um coordenador para visualizar sua árvore de subordinados. Use a busca para encontrar líderes específicos.',
+    placement: 'right',
+  },
+  {
+    target: '[data-tutorial="tree-view"]',
+    title: '🔍 Visualização da Árvore',
+    content: 'Veja a estrutura hierárquica do coordenador selecionado com todos os níveis de líderes subordinados.',
+    placement: 'left',
+  },
+];
 
 export default function LeaderTree() {
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState<string | null>(null);
@@ -127,27 +165,33 @@ export default function LeaderTree() {
     }
   };
 
+  const { restartTutorial } = useTutorial("leader-tree", leaderTreeTutorialSteps);
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      <TutorialOverlay page="leader-tree" />
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" data-tutorial="tree-header">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <GitBranch className="h-6 w-6 text-primary" />
-            Árvore de Lideranças
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <GitBranch className="h-6 w-6 text-primary" />
+              Árvore de Lideranças
+            </h1>
+            <TutorialButton onClick={restartTutorial} />
+          </div>
           <p className="text-muted-foreground mt-1">
             Gerencie a hierarquia multinível de coordenadores e líderes
           </p>
         </div>
-        <Button onClick={() => setShowPromoteDialog(true)} className="gap-2">
+        <Button onClick={() => setShowPromoteDialog(true)} className="gap-2" data-tutorial="tree-new-coord">
           <Crown className="h-4 w-4" />
           Novo Coordenador
         </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-tutorial="tree-stats">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -190,7 +234,7 @@ export default function LeaderTree() {
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Coordinators List */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2" data-tutorial="tree-coordinators">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Crown className="h-5 w-5 text-amber-500" />

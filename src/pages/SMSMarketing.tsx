@@ -6,22 +6,53 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { SMSTemplatesTab } from "@/components/sms/SMSTemplatesTab";
 import { SMSBulkSendTab } from "@/components/sms/SMSBulkSendTab";
 import { SMSHistoryTab } from "@/components/sms/SMSHistoryTab";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const smsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="sms-header"]',
+    title: '📱 SMS Marketing',
+    content: 'Gerencie envios de mensagens SMS em massa, crie templates personalizados e acompanhe o histórico de envios.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="sms-tabs"]',
+    title: '📑 Abas de Navegação',
+    content: 'Navegue entre Envio em Massa para campanhas, Templates para criar modelos de mensagem e Histórico para acompanhar envios.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tutorial="sms-content"]',
+    title: '📤 Área de Conteúdo',
+    content: 'Cada aba apresenta funcionalidades específicas. O SMS é ideal para mensagens curtas e com alta taxa de abertura.',
+    placement: 'top',
+  },
+];
 
 export default function SMSMarketing() {
   const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
+  const { restartTutorial } = useTutorial("sms-marketing", smsTutorialSteps);
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="sms-marketing" />
       <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-6" data-tutorial="sms-header">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
-                  SMS Marketing
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
+                    SMS Marketing
+                  </h1>
+                  <TutorialButton onClick={restartTutorial} />
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Gerencie templates e envie mensagens em massa via SMS
                 </p>
@@ -43,23 +74,25 @@ export default function SMSMarketing() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full grid grid-cols-3 mb-6">
+            <TabsList className="w-full grid grid-cols-3 mb-6" data-tutorial="sms-tabs">
               <TabsTrigger value="bulk">Envio em Massa</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
               <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="bulk">
-              <SMSBulkSendTab />
-            </TabsContent>
+            <div data-tutorial="sms-content">
+              <TabsContent value="bulk">
+                <SMSBulkSendTab />
+              </TabsContent>
 
-            <TabsContent value="templates">
-              <SMSTemplatesTab searchTerm={searchTerm} />
-            </TabsContent>
+              <TabsContent value="templates">
+                <SMSTemplatesTab searchTerm={searchTerm} />
+              </TabsContent>
 
-            <TabsContent value="history">
-              <SMSHistoryTab />
-            </TabsContent>
+              <TabsContent value="history">
+                <SMSHistoryTab />
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
       </div>
