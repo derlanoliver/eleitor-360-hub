@@ -146,6 +146,7 @@ const Events = () => {
   });
 
   const { toast } = useToast();
+  const { restartTutorial } = useTutorial("events", eventsTutorialSteps);
 
   const handleGenerateRegistrationsPDF = async (event: any) => {
     try {
@@ -424,14 +425,18 @@ const Events = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      <TutorialOverlay page="events" />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8" data-tutorial="events-header">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                Gestão de Eventos
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+                  Gestão de Eventos
+                </h1>
+                <TutorialButton onClick={restartTutorial} />
+              </div>
               <p className="text-sm sm:text-base text-muted-foreground">
                 {filteredEvents.length} eventos encontrados
               </p>
@@ -439,7 +444,7 @@ const Events = () => {
             {canManageEvents && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button data-tutorial="events-create">
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Evento
                 </Button>
@@ -633,7 +638,7 @@ const Events = () => {
           <TabsContent value="events">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
               {/* Filtros */}
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-1" data-tutorial="events-filters">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center text-base">
@@ -691,7 +696,7 @@ const Events = () => {
               </div>
 
               {/* Grid de Eventos */}
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3" data-tutorial="events-list">
                 <div className="grid gap-4">
                   {filteredEvents.map((event) => (
                     <Card key={event.id}>
