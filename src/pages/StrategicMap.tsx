@@ -12,6 +12,38 @@ import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
 import "leaflet/dist/leaflet.css";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const mapTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="map-header"]',
+    title: "Mapa Estratégico",
+    content: "Visualize a distribuição geográfica de líderes e contatos no Distrito Federal.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="map-stats"]',
+    title: "Estatísticas",
+    content: "Veja o total de coordenadores, líderes, contatos e conexões mapeadas.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="map-controls"]',
+    title: "Controles do Mapa",
+    content: "Ative/desative camadas como heatmap, líderes e contatos. Escolha o estilo do mapa e filtre por região.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="map-container"]',
+    title: "Mapa Interativo",
+    content: "Navegue pelo mapa, clique nos marcadores para ver detalhes e use o zoom para explorar regiões.",
+    placement: "top",
+  },
+];
 
 // Distrito Federal center coordinates
 const DF_CENTER: [number, number] = [-15.7801, -47.9292];

@@ -21,6 +21,32 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const newVisitTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="new-visit-form"]',
+    title: "Nova Visita",
+    content: "Cadastre rapidamente uma nova visita ao gabinete. Preencha os dados do visitante e agende a data/hora.",
+    placement: "right",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="new-visit-phone"]',
+    title: "WhatsApp",
+    content: "Digite o número para buscar contatos existentes ou cadastrar um novo visitante.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="new-visit-schedule"]',
+    title: "Agendamento",
+    content: "Selecione a data e horário da visita. O visitante receberá um SMS com o link do formulário.",
+    placement: "top",
+  },
+];
 
 interface SelectedContact {
   id: string;

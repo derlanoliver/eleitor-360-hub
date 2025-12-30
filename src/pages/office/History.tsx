@@ -23,6 +23,26 @@ import { VisitDetailsDialog } from "@/components/office/VisitDetailsDialog";
 import { formatPhoneBR } from "@/services/office/officeService";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const historyTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="history-header"]',
+    title: "Histórico de Visitas",
+    content: "Consulte todas as visitas finalizadas ao gabinete. Visualize detalhes, atas de reunião e status.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="history-table"]',
+    title: "Tabela de Visitas",
+    content: "Veja protocolo, visitante, líder responsável, status e datas. Clique no ícone de olho para ver detalhes.",
+    placement: "top",
+  },
+];
 
 export default function History() {
   const { data: visits, isLoading } = useOfficeVisits();

@@ -22,6 +22,38 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const queueTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="queue-header"]',
+    title: "Fila do Dia",
+    content: "Acompanhe em tempo real o status de todas as visitas ao gabinete. Visualize visitantes aguardando, em atendimento e finalizados.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="queue-search"]',
+    title: "Busca Rápida",
+    content: "Busque visitas por protocolo, nome do visitante ou número de WhatsApp.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="queue-scheduled"]',
+    title: "Agendamentos do Dia",
+    content: "Veja as visitas agendadas para hoje, com horário e status de confirmação.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="queue-columns"]',
+    title: "Colunas de Status",
+    content: "As visitas são organizadas em colunas: Aguardando Preenchimento, Form Aberto, Form Enviado e Em Atendimento.",
+    placement: "top",
+  },
+];
 
 export default function Queue() {
   const { data: visits, isLoading } = useOfficeVisits();

@@ -16,6 +16,26 @@ import {
   Trophy,
   MessageSquareText
 } from "lucide-react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const settingsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="settings-header"]',
+    title: "Configurações",
+    content: "Gerencie todas as configurações da plataforma: organização, equipe, integrações e mais.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="settings-grid"]',
+    title: "Seções de Configuração",
+    content: "Clique em cada card para acessar as configurações específicas. Algumas funcionalidades podem estar em desenvolvimento.",
+    placement: "top",
+  },
+];
 
 type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
 

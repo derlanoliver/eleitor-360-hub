@@ -45,6 +45,32 @@ import {
 import { MessageStatusBadge, DirectionBadge } from "@/components/whatsapp/MessageStatusBadge";
 import { MessageDetailsDialog } from "@/components/whatsapp/MessageDetailsDialog";
 import { Badge } from "@/components/ui/badge";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const whatsappHistoryTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="whatsapp-history-header"]',
+    title: "Histórico de WhatsApp",
+    content: "Acompanhe todas as mensagens enviadas e recebidas via WhatsApp.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="whatsapp-history-metrics"]',
+    title: "Métricas",
+    content: "Visualize estatísticas de entrega, leitura e erros das mensagens.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="whatsapp-history-filters"]',
+    title: "Filtros",
+    content: "Filtre mensagens por direção (enviadas/recebidas), status e período.",
+    placement: "bottom",
+  },
+];
 
 export default function WhatsAppHistory() {
   const [filters, setFilters] = useState<WhatsAppFilters>({

@@ -65,8 +65,40 @@ import { SendEventPhotosDialog } from "@/components/events/SendEventPhotosDialog
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
 
 import { useContactsAnalysis } from "@/hooks/events/useContactsAnalysis";
+
+const eventsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="events-header"]',
+    title: "Gestão de Eventos",
+    content: "Aqui você gerencia todos os eventos da organização. Crie, edite e acompanhe inscrições e check-ins.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="events-create"]',
+    title: "Criar Novo Evento",
+    content: "Clique aqui para criar um novo evento. Defina nome, data, local, categorias e capacidade.",
+    placement: "left",
+  },
+  {
+    target: '[data-tutorial="events-filters"]',
+    title: "Filtros de Busca",
+    content: "Use os filtros para encontrar eventos por nome, status ou categoria.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="events-list"]',
+    title: "Lista de Eventos",
+    content: "Visualize todos os seus eventos com informações de inscritos, check-ins e ações disponíveis.",
+    placement: "top",
+  },
+];
 
 const Events = () => {
   const { data: events = [], isLoading } = useEvents();

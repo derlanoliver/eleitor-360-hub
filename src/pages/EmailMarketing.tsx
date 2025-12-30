@@ -6,6 +6,26 @@ import { EmailTemplatesTab } from "@/components/email/EmailTemplatesTab";
 import { EmailBulkSendTab } from "@/components/email/EmailBulkSendTab";
 import { EmailHistoryTab } from "@/components/email/EmailHistoryTab";
 import { Input } from "@/components/ui/input";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const emailTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="email-header"]',
+    title: "Email Marketing",
+    content: "Gerencie templates, envie emails em massa e acompanhe o histórico de envios.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="email-tabs"]',
+    title: "Navegação",
+    content: "Alterne entre envio em massa, gerenciamento de templates e histórico de emails.",
+    placement: "bottom",
+  },
+];
 
 const EmailMarketing = () => {
   const [activeTab, setActiveTab] = useState("bulk");

@@ -50,6 +50,32 @@ import {
   useCancelScheduledMessages,
 } from "@/hooks/useScheduledMessages";
 import { toast } from "sonner";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const scheduledTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="scheduled-header"]',
+    title: "Mensagens Agendadas",
+    content: "Gerencie envios programados de SMS, Email e WhatsApp. Visualize status e cancele mensagens pendentes.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="scheduled-stats"]',
+    title: "Estatísticas",
+    content: "Acompanhe quantas mensagens estão aguardando, processando, enviadas ou com falha.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="scheduled-filters"]',
+    title: "Filtros",
+    content: "Filtre mensagens por status (pendente, enviado, falhou) e tipo (SMS, Email, WhatsApp).",
+    placement: "bottom",
+  },
+];
 
 export default function ScheduledMessages() {
   const [statusFilter, setStatusFilter] = useState<string>("all");

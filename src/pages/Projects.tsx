@@ -11,6 +11,32 @@ import { usePrograms } from "@/hooks/programs/usePrograms";
 import { AddProgramDialog } from "@/components/programs/AddProgramDialog";
 import { EditProgramDialog } from "@/components/programs/EditProgramDialog";
 import { DeleteProgramDialog } from "@/components/programs/DeleteProgramDialog";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const projectsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="projects-header"]',
+    title: "Programas",
+    content: "Gerencie os programas oficiais e acompanhe seu impacto na comunidade.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="projects-create"]',
+    title: "Novo Programa",
+    content: "Crie novos programas definindo nome, descrição, status e data de início.",
+    placement: "left",
+  },
+  {
+    target: '[data-tutorial="projects-filters"]',
+    title: "Filtros",
+    content: "Busque programas por nome ou filtre por status (Ativo, Em Planejamento, Inativo).",
+    placement: "bottom",
+  },
+];
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");

@@ -16,7 +16,32 @@ import { Loader2, Plus, CalendarDays, Clock, CheckCircle2, AlertCircle, User, Fi
 import type { OfficeVisitStatus } from "@/types/office";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
 
+const scheduleTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="schedule-header"]',
+    title: "Agenda de Visitas",
+    content: "Gerencie os agendamentos de visitas ao gabinete. Visualize por mês e dia.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="schedule-stats"]',
+    title: "Estatísticas do Mês",
+    content: "Acompanhe o total de visitas agendadas, confirmadas e pendentes.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="schedule-calendar"]',
+    title: "Calendário",
+    content: "Clique em uma data para ver as visitas agendadas. Dias com visitas são destacados.",
+    placement: "right",
+  },
+];
 // Componente para mostrar o estágio da visita
 const VisitStageBadge = ({ status }: { status: string }) => {
   if (status === "SCHEDULED" || status === "REGISTERED" || status === "LINK_SENT") {

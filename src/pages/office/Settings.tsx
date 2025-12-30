@@ -6,6 +6,32 @@ import { useOfficeSettings, useUpdateOfficeSettings } from "@/hooks/office/useOf
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Save } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const officeSettingsTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="office-settings-header"]',
+    title: "Configurações do Gabinete",
+    content: "Configure o prefixo do protocolo, webhook e regras de pontuação de líderes.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="office-settings-protocol"]',
+    title: "Prefixo do Protocolo",
+    content: "Defina o prefixo usado nos protocolos de visitas (ex: RP-GB-20251009-0001).",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="office-settings-points"]',
+    title: "Pontuação de Líderes",
+    content: "Configure quantos pontos os líderes ganham quando um visitante preenche o formulário ou aceita reunião.",
+    placement: "top",
+  },
+];
 
 export default function Settings() {
   const { user } = useAuth();
