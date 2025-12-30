@@ -74,14 +74,11 @@ export function CoordinatorCard({
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <Badge variant="secondary" className="gap-1">
             <Users className="h-3 w-3" />
-            {coordinator.total_leaders} líderes
+            {coordinator.total_cadastros + coordinator.total_leaders} {coordinator.total_cadastros + coordinator.total_leaders === 1 ? 'indicação' : 'indicações'}
           </Badge>
           <Badge variant="secondary" className="gap-1">
             <Award className="h-3 w-3" />
             {coordinator.total_pontos} pts
-          </Badge>
-          <Badge variant="outline" className="gap-1">
-            {coordinator.total_cadastros} cadastros
           </Badge>
         </div>
       </CardContent>
