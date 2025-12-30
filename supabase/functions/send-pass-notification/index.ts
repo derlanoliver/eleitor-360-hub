@@ -87,10 +87,23 @@ async function passkitRequest(
 }
 
 /**
+ * Verifica se um membro está invalidado baseado em seu status
+ */
+function isMemberInvalidated(member: Record<string, unknown>): boolean {
+  const status = member.universalStatus || 
+                 member.status || 
+                 (member.recordData as Record<string, unknown>)?.["universal.status"];
+  return status === "PASS_INVALIDATED" || status === "3" || status === 3;
+}
+
+/**
  * Resolve o membro no PassKit usando múltiplas estratégias:
  * 1) GET /members/member/{id} (se temos passkit_member_id local)
  * 2) GET /members/member/external/{programId}/{externalId}
  * 3) POST /members/member/list/{programId} com filtro por memberId/externalId
+ * 4) POST /members/member/list/{programId} com filtro LIKE por externalId (para formato uuid_timestamp)
+ * 
+ * IMPORTANTE: Ignora membros invalidados e continua buscando alternativas válidas
  */
 async function resolveMember(
   leaderId: string,
@@ -111,10 +124,17 @@ async function resolveMember(
     );
     
     if (directResult.status === 200 && directResult.data) {
-      console.log(`[resolveMember] Encontrado via GET direto por ID`);
-      return { member: directResult.data as PassKitMember };
+      const member = directResult.data as Record<string, unknown>;
+      // Verificar se está invalidado
+      if (isMemberInvalidated(member)) {
+        console.log(`[resolveMember] Membro ${localMemberId} encontrado mas está INVALIDADO - continuando busca`);
+      } else {
+        console.log(`[resolveMember] Encontrado via GET direto por ID (válido)`);
+        return { member: member as PassKitMember };
+      }
+    } else {
+      console.log(`[resolveMember] GET direto retornou status ${directResult.status}`);
     }
-    console.log(`[resolveMember] GET direto retornou status ${directResult.status}`);
   }
   
   // Estratégia 2: GET /members/member/external/{programId}/{externalId}
@@ -127,12 +147,18 @@ async function resolveMember(
   );
   
   if (externalResult.status === 200 && externalResult.data) {
-    console.log(`[resolveMember] Encontrado via GET external`);
-    return { member: externalResult.data as PassKitMember };
+    const member = externalResult.data as Record<string, unknown>;
+    if (isMemberInvalidated(member)) {
+      console.log(`[resolveMember] Membro encontrado via external mas está INVALIDADO - continuando busca`);
+    } else {
+      console.log(`[resolveMember] Encontrado via GET external (válido)`);
+      return { member: member as PassKitMember };
+    }
+  } else {
+    console.log(`[resolveMember] GET external retornou status ${externalResult.status}`);
   }
-  console.log(`[resolveMember] GET external retornou status ${externalResult.status}`);
   
-  // Estratégia 3: POST /members/member/list/{programId} com filtros
+  // Estratégia 3: POST /members/member/list/{programId} com filtros por memberId
   console.log(`[resolveMember] Tentativa 3: POST /members/member/list/${programId} (filtro por memberId)`);
   const listResult = await passkitRequest(
     "POST",
@@ -155,23 +181,27 @@ async function resolveMember(
         ],
       },
       page: 0,
-      pageSize: 10,
+      pageSize: 20,
     }
   );
   
   if (listResult.status === 200 && listResult.data) {
     const listData = listResult.data as Record<string, unknown>;
-    const results = listData?.results || listData?.result || listData?.data || listData?.members;
-    const memberFromList = Array.isArray(results) ? results[0] : results;
+    const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
     
-    if (memberFromList?.id) {
-      console.log(`[resolveMember] Encontrado via list por memberId: ${memberFromList.id}`);
-      return { member: memberFromList as PassKitMember };
+    if (Array.isArray(results) && results.length > 0) {
+      // Filtrar membros válidos (não invalidados)
+      const validMember = results.find(m => !isMemberInvalidated(m));
+      if (validMember?.id) {
+        console.log(`[resolveMember] Encontrado via list por memberId (válido): ${validMember.id}`);
+        return { member: validMember as PassKitMember };
+      }
+      console.log(`[resolveMember] Encontrou ${results.length} membros por memberId, mas todos invalidados`);
     }
   }
   
-  // Estratégia 3b: tentar filtrar por externalId
-  console.log(`[resolveMember] Tentativa 3b: POST /members/member/list/${programId} (filtro por externalId)`);
+  // Estratégia 3b: tentar filtrar por externalId exato
+  console.log(`[resolveMember] Tentativa 3b: POST /members/member/list/${programId} (filtro por externalId exato)`);
   const listByExternalResult = await passkitRequest(
     "POST",
     `/members/member/list/${programId}`,
@@ -193,23 +223,79 @@ async function resolveMember(
         ],
       },
       page: 0,
-      pageSize: 10,
+      pageSize: 20,
     }
   );
   
   if (listByExternalResult.status === 200 && listByExternalResult.data) {
     const listData = listByExternalResult.data as Record<string, unknown>;
-    const results = listData?.results || listData?.result || listData?.data || listData?.members;
-    const memberFromList = Array.isArray(results) ? results[0] : results;
+    const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
     
-    if (memberFromList?.id) {
-      console.log(`[resolveMember] Encontrado via list por externalId: ${memberFromList.id}`);
-      return { member: memberFromList as PassKitMember };
+    if (Array.isArray(results) && results.length > 0) {
+      const validMember = results.find(m => !isMemberInvalidated(m));
+      if (validMember?.id) {
+        console.log(`[resolveMember] Encontrado via list por externalId exato (válido): ${validMember.id}`);
+        return { member: validMember as PassKitMember };
+      }
+      console.log(`[resolveMember] Encontrou ${results.length} membros por externalId exato, mas todos invalidados`);
     }
   }
   
-  console.log(`[resolveMember] Membro não encontrado por nenhuma estratégia`);
-  return { member: null, error: "Membro não encontrado no PassKit após todas as tentativas" };
+  // Estratégia 3c: tentar filtrar por externalId com prefixo (para membros recriados com formato uuid_timestamp)
+  console.log(`[resolveMember] Tentativa 3c: POST /members/member/list/${programId} (filtro LIKE por externalId: ${leaderId}*)`);
+  const listByPrefixResult = await passkitRequest(
+    "POST",
+    `/members/member/list/${programId}`,
+    apiToken,
+    baseUrl,
+    {
+      filters: {
+        filterGroups: [
+          {
+            condition: "AND",
+            fieldFilters: [
+              {
+                filterField: "externalId",
+                filterValue: `${leaderId}%`,  // Busca por prefixo: uuid_*
+                filterOperator: "like",
+              },
+            ],
+          },
+        ],
+      },
+      page: 0,
+      pageSize: 20,
+    }
+  );
+  
+  if (listByPrefixResult.status === 200 && listByPrefixResult.data) {
+    const listData = listByPrefixResult.data as Record<string, unknown>;
+    const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
+    
+    if (Array.isArray(results) && results.length > 0) {
+      console.log(`[resolveMember] Encontrou ${results.length} membros com externalId prefixo ${leaderId}*`);
+      // Filtrar apenas membros válidos (não invalidados)
+      const validMembers = results.filter(m => !isMemberInvalidated(m));
+      
+      if (validMembers.length > 0) {
+        // Se há múltiplos válidos, pegar o mais recente (último criado)
+        // Ordenar por externalId descendente (timestamp maior = mais recente)
+        validMembers.sort((a, b) => {
+          const extA = String(a.externalId || "");
+          const extB = String(b.externalId || "");
+          return extB.localeCompare(extA);
+        });
+        
+        const bestMember = validMembers[0];
+        console.log(`[resolveMember] Encontrado via list por prefixo (válido, mais recente): ${bestMember.id} (externalId: ${bestMember.externalId})`);
+        return { member: bestMember as PassKitMember };
+      }
+      console.log(`[resolveMember] Encontrou ${results.length} membros por prefixo, mas todos invalidados`);
+    }
+  }
+  
+  console.log(`[resolveMember] Membro válido não encontrado por nenhuma estratégia`);
+  return { member: null, error: "Membro válido não encontrado no PassKit (pode haver apenas membros invalidados)" };
 }
 
 serve(async (req) => {
@@ -337,16 +423,17 @@ serve(async (req) => {
         console.log(`Status do membro: ${memberStatus}`);
         
         // Verificar se está invalidado (status 3 ou PASS_INVALIDATED)
+        // NOTA: resolveMember já filtra invalidados, então isso é apenas uma proteção extra
         if (memberStatus === "PASS_INVALIDATED" || memberStatus === "3" || memberStatus === 3) {
-          console.log(`Membro ${memberId} está INVALIDADO - atualizando banco e pulando`);
+          console.log(`Membro ${memberId} está INVALIDADO - limpando apenas cache do member_id`);
           
-          // Atualizar o banco para refletir o status correto
+          // Limpar apenas o cache do member_id (forçar nova busca na próxima tentativa)
+          // NÃO limpar passkit_pass_installed - o webhook é a fonte da verdade para isso
           await supabase
             .from("lideres")
             .update({
-              passkit_pass_installed: false,
-              passkit_member_id: null,
-              passkit_invalidated_at: new Date().toISOString(),
+              passkit_member_id: null,  // Limpar cache para forçar nova resolução
+              // NÃO definir passkit_pass_installed: false aqui
             })
             .eq("id", leader.id);
           
@@ -354,7 +441,7 @@ serve(async (req) => {
             success: false,
             leaderId: leader.id,
             leaderName: leader.nome_completo,
-            error: "Cartão foi invalidado no PassKit. É necessário gerar um novo cartão.",
+            error: "O membro encontrado estava invalidado. Tente novamente ou gere um novo cartão.",
           });
           continue;
         }
@@ -432,14 +519,20 @@ serve(async (req) => {
           if (updateResult.error.includes("cannot update invalided member") || 
               updateResult.error.includes("invalidated") ||
               updateResult.error.includes("invalid member")) {
-            console.log(`Erro de membro invalidado detectado - limpando cache no banco`);
             
+            // IMPORTANTE: Se encontramos um membro invalidado, mas já filtramos invalidados na busca,
+            // isso significa que o membro ficou invalidado DEPOIS que resolvemos ele.
+            // Neste caso, limpar apenas o passkit_member_id para forçar nova resolução,
+            // mas NÃO limpar passkit_pass_installed se ainda estiver true (pode haver outro membro válido)
+            console.log(`Erro de membro invalidado detectado para ${memberId}`);
+            
+            // Limpar apenas o member_id cacheado (forçar nova busca na próxima vez)
+            // Mas manter passkit_pass_installed como está - o webhook é a fonte da verdade
             await supabase
               .from("lideres")
               .update({
-                passkit_pass_installed: false,
-                passkit_member_id: null,
-                passkit_invalidated_at: new Date().toISOString(),
+                passkit_member_id: null,  // Limpar cache do member_id
+                // NÃO limpar passkit_pass_installed - o webhook atualiza isso
               })
               .eq("id", leader.id);
             
@@ -447,7 +540,7 @@ serve(async (req) => {
               success: false,
               leaderId: leader.id,
               leaderName: leader.nome_completo,
-              error: "Cartão expirado/invalidado. Gere um novo cartão para este líder.",
+              error: "O membro encontrado estava invalidado. Tente novamente ou gere um novo cartão.",
             });
             continue;
           }
