@@ -100,17 +100,20 @@ function isMemberInvalidated(member: Record<string, unknown>): boolean {
  * Resolve o membro no PassKit usando múltiplas estratégias:
  * 1) GET /members/member/{id} (se temos passkit_member_id local)
  * 2) GET /members/member/external/{programId}/{externalId}
- * 3) POST /members/member/list/{programId} com filtro por memberId/externalId
- * 4) POST /members/member/list/{programId} com filtro LIKE por externalId (para formato uuid_timestamp)
+ * 3) POST /members/member/list/{programId} com filtro por memberId
+ * 4) POST /members/member/list/{programId} com filtro por email (se disponível)
+ * 5) POST /members/member/list/{programId} sem filtros + filtro local por externalId
  * 
  * IMPORTANTE: Ignora membros invalidados e continua buscando alternativas válidas
+ * NOTA: A API do PassKit NÃO suporta filtrar por externalId - usamos filtro local
  */
 async function resolveMember(
   leaderId: string,
   localMemberId: string | null,
   programId: string,
   apiToken: string,
-  baseUrl: string
+  baseUrl: string,
+  leaderEmail?: string | null
 ): Promise<{ member: PassKitMember | null; error?: string }> {
   
   // Estratégia 1: Tentar GET direto pelo passkit_member_id local
@@ -200,98 +203,120 @@ async function resolveMember(
     }
   }
   
-  // Estratégia 3b: tentar filtrar por externalId exato
-  console.log(`[resolveMember] Tentativa 3b: POST /members/member/list/${programId} (filtro por externalId exato)`);
-  const listByExternalResult = await passkitRequest(
-    "POST",
-    `/members/member/list/${programId}`,
-    apiToken,
-    baseUrl,
-    {
-      filters: {
-        filterGroups: [
-          {
-            condition: "AND",
-            fieldFilters: [
-              {
-                filterField: "externalId",
-                filterValue: leaderId,
-                filterOperator: "eq",
-              },
-            ],
-          },
-        ],
-      },
-      page: 0,
-      pageSize: 20,
-    }
-  );
-  
-  if (listByExternalResult.status === 200 && listByExternalResult.data) {
-    const listData = listByExternalResult.data as Record<string, unknown>;
-    const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
-    
-    if (Array.isArray(results) && results.length > 0) {
-      const validMember = results.find(m => !isMemberInvalidated(m));
-      if (validMember?.id) {
-        console.log(`[resolveMember] Encontrado via list por externalId exato (válido): ${validMember.id}`);
-        return { member: validMember as PassKitMember };
+  // Estratégia 4: Buscar por email do líder (campo suportado pela API)
+  if (leaderEmail) {
+    console.log(`[resolveMember] Tentativa 4: POST /members/member/list/${programId} (filtro por email: ${leaderEmail})`);
+    const listByEmailResult = await passkitRequest(
+      "POST",
+      `/members/member/list/${programId}`,
+      apiToken,
+      baseUrl,
+      {
+        filters: {
+          filterGroups: [
+            {
+              condition: "AND",
+              fieldFilters: [
+                {
+                  filterField: "person.emailAddress",
+                  filterValue: leaderEmail,
+                  filterOperator: "eq",
+                },
+              ],
+            },
+          ],
+        },
+        page: 0,
+        pageSize: 20,
       }
-      console.log(`[resolveMember] Encontrou ${results.length} membros por externalId exato, mas todos invalidados`);
+    );
+    
+    if (listByEmailResult.status === 200 && listByEmailResult.data) {
+      const listData = listByEmailResult.data as Record<string, unknown>;
+      const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
+      
+      if (Array.isArray(results) && results.length > 0) {
+        console.log(`[resolveMember] Encontrou ${results.length} membros por email`);
+        // Filtrar membros cujo externalId corresponde ao leaderId (com ou sem timestamp)
+        const matchingMembers = results.filter(m => {
+          const extId = String(m.externalId || "");
+          return extId === leaderId || extId.startsWith(`${leaderId}_`);
+        });
+        
+        // Filtrar apenas membros válidos
+        const validMembers = matchingMembers.filter(m => !isMemberInvalidated(m));
+        
+        if (validMembers.length > 0) {
+          // Ordenar por externalId descendente (timestamp maior = mais recente)
+          validMembers.sort((a, b) => {
+            const extA = String(a.externalId || "");
+            const extB = String(b.externalId || "");
+            return extB.localeCompare(extA);
+          });
+          
+          const bestMember = validMembers[0];
+          console.log(`[resolveMember] Encontrado via email (válido, mais recente): ${bestMember.id} (externalId: ${bestMember.externalId})`);
+          return { member: bestMember as PassKitMember };
+        }
+        console.log(`[resolveMember] Membros encontrados por email não correspondem ao líder ou estão invalidados`);
+      }
+    } else {
+      console.log(`[resolveMember] Busca por email retornou status ${listByEmailResult.status}`);
     }
   }
   
-  // Estratégia 3c: tentar filtrar por externalId com prefixo (para membros recriados com formato uuid_timestamp)
-  console.log(`[resolveMember] Tentativa 3c: POST /members/member/list/${programId} (filtro LIKE por externalId: ${leaderId}*)`);
-  const listByPrefixResult = await passkitRequest(
+  // Estratégia 5: Listar membros recentes e filtrar localmente por externalId
+  // NOTA: A API do PassKit NÃO suporta filtrar por externalId diretamente - dá erro 400
+  console.log(`[resolveMember] Tentativa 5: Listar membros recentes e filtrar localmente por externalId`);
+  const listAllResult = await passkitRequest(
     "POST",
     `/members/member/list/${programId}`,
     apiToken,
     baseUrl,
     {
-      filters: {
-        filterGroups: [
-          {
-            condition: "AND",
-            fieldFilters: [
-              {
-                filterField: "externalId",
-                filterValue: `${leaderId}%`,  // Busca por prefixo: uuid_*
-                filterOperator: "like",
-              },
-            ],
-          },
-        ],
-      },
       page: 0,
-      pageSize: 20,
+      pageSize: 100,  // Buscar os últimos 100 membros
     }
   );
   
-  if (listByPrefixResult.status === 200 && listByPrefixResult.data) {
-    const listData = listByPrefixResult.data as Record<string, unknown>;
+  if (listAllResult.status === 200 && listAllResult.data) {
+    const listData = listAllResult.data as Record<string, unknown>;
     const results = (listData?.results || listData?.result || listData?.data || listData?.members) as Record<string, unknown>[] | undefined;
     
     if (Array.isArray(results) && results.length > 0) {
-      console.log(`[resolveMember] Encontrou ${results.length} membros com externalId prefixo ${leaderId}*`);
-      // Filtrar apenas membros válidos (não invalidados)
-      const validMembers = results.filter(m => !isMemberInvalidated(m));
+      console.log(`[resolveMember] Listagem geral retornou ${results.length} membros, filtrando por externalId localmente...`);
       
-      if (validMembers.length > 0) {
-        // Se há múltiplos válidos, pegar o mais recente (último criado)
-        // Ordenar por externalId descendente (timestamp maior = mais recente)
-        validMembers.sort((a, b) => {
-          const extA = String(a.externalId || "");
-          const extB = String(b.externalId || "");
-          return extB.localeCompare(extA);
-        });
+      // Filtrar localmente por externalId que corresponde ao leaderId
+      const matchingMembers = results.filter(m => {
+        const extId = String(m.externalId || "");
+        return extId === leaderId || extId.startsWith(`${leaderId}_`);
+      });
+      
+      if (matchingMembers.length > 0) {
+        console.log(`[resolveMember] Encontrou ${matchingMembers.length} membros com externalId correspondente`);
         
-        const bestMember = validMembers[0];
-        console.log(`[resolveMember] Encontrado via list por prefixo (válido, mais recente): ${bestMember.id} (externalId: ${bestMember.externalId})`);
-        return { member: bestMember as PassKitMember };
+        // Filtrar apenas membros válidos (não invalidados)
+        const validMembers = matchingMembers.filter(m => !isMemberInvalidated(m));
+        
+        if (validMembers.length > 0) {
+          // Se há múltiplos válidos, pegar o mais recente (maior timestamp no externalId)
+          validMembers.sort((a, b) => {
+            const extA = String(a.externalId || "");
+            const extB = String(b.externalId || "");
+            return extB.localeCompare(extA);
+          });
+          
+          const bestMember = validMembers[0];
+          console.log(`[resolveMember] Encontrado via filtro local (válido, mais recente): ${bestMember.id} (externalId: ${bestMember.externalId})`);
+          return { member: bestMember as PassKitMember };
+        }
+        console.log(`[resolveMember] Encontrou ${matchingMembers.length} membros correspondentes, mas todos invalidados`);
+      } else {
+        console.log(`[resolveMember] Nenhum membro na lista corresponde ao leaderId ${leaderId}`);
       }
-      console.log(`[resolveMember] Encontrou ${results.length} membros por prefixo, mas todos invalidados`);
     }
+  } else {
+    console.log(`[resolveMember] Listagem geral retornou status ${listAllResult.status}`);
   }
   
   console.log(`[resolveMember] Membro válido não encontrado por nenhuma estratégia`);
@@ -391,13 +416,14 @@ serve(async (req) => {
       try {
         console.log(`\n========== Processando: ${leader.nome_completo} (${leader.id}) ==========`);
 
-        // Usar a função robusta de resolução de membro
+        // Usar a função robusta de resolução de membro (passando email para busca alternativa)
         const { member, error: resolveError } = await resolveMember(
           leader.id,
           leader.passkit_member_id,
           settings.passkit_program_id!,
           settings.passkit_api_token!,
-          passkitBaseUrl
+          passkitBaseUrl,
+          leader.email  // Email para estratégia de busca por person.emailAddress
         );
 
         if (!member || !member.id) {
