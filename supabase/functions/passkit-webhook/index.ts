@@ -60,6 +60,18 @@ function toIsoTimestamp(value: TimestampLike | undefined, fallbackIso?: string) 
   return iso;
 }
 
+// Extrai o UUID de um externalId que pode ter formato:
+// - "uuid" (antigo) 
+// - "uuid_timestamp" (novo, quando recriado após invalidação)
+function extractLeaderId(externalId: string): string {
+  // Se contém underscore, pega apenas a primeira parte (o UUID)
+  if (externalId.includes("_")) {
+    const parts = externalId.split("_");
+    return parts[0];
+  }
+  return externalId;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -91,21 +103,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const externalId = passData.externalId; // leader_id
+    const externalIdRaw = passData.externalId; // Pode ser "uuid" ou "uuid_timestamp"
     const memberId = passData.id; // PassKit member ID
     const metadata = passData.metadata;
     const recordData = passData.recordData || {};
+    
+    // Extrair o UUID puro do externalId (remove timestamp se existir)
+    const leaderId = externalIdRaw ? extractLeaderId(externalIdRaw) : null;
     
     // Verificar status de instalação no recordData
     const universalStatus = recordData["universal.status"];
 
     console.log(`Evento: ${eventType}`);
-    console.log(`ExternalId (leader_id): ${externalId}`);
+    console.log(`ExternalId (raw): ${externalIdRaw}`);
+    console.log(`LeaderId (extracted UUID): ${leaderId}`);
     console.log(`MemberId: ${memberId}`);
     console.log(`Universal Status: ${universalStatus}`);
     console.log(`Metadata:`, JSON.stringify(metadata, null, 2));
 
-    if (!externalId) {
+    if (!leaderId) {
       console.log("ExternalId não encontrado no payload, tentando buscar pelo memberId...");
       
       if (memberId) {
@@ -128,12 +144,12 @@ Deno.serve(async (req) => {
       
       console.log("Não foi possível identificar o líder");
       return new Response(
-        JSON.stringify({ success: false, error: "ExternalId não encontrado" }),
+        JSON.stringify({ success: false, error: "LeaderId não encontrado no externalId" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    await processEvent(supabase, eventType, externalId, memberId, metadata, universalStatus);
+    await processEvent(supabase, eventType, leaderId, memberId, metadata, universalStatus);
 
     return new Response(
       JSON.stringify({ success: true, message: `Evento ${eventType} processado` }),
