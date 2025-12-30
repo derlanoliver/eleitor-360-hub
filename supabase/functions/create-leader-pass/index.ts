@@ -526,7 +526,7 @@ serve(async (req) => {
                 success: true,
                 data: {
                   passId: newResult.id,
-                  passUrl: newResult.url || newResult.passUrl,
+                  passUrl: newResult.url || newResult.passUrl || `https://pub2.pskt.io/${newResult.id}`,
                   appleUrl: newResult.appleUrl,
                   googleUrl: newResult.googleUrl,
                   message: "Novo cartão criado com sucesso! (anterior estava invalidado)",
@@ -616,7 +616,7 @@ serve(async (req) => {
                   success: true,
                   data: {
                     passId: newResult.id,
-                    passUrl: newResult.url || newResult.passUrl,
+                    passUrl: newResult.url || newResult.passUrl || `https://pub2.pskt.io/${newResult.id}`,
                     message: "Novo cartão criado com sucesso!",
                   },
                 }),
@@ -704,7 +704,7 @@ serve(async (req) => {
         success: true, 
         data: {
           passId: result.id,
-          passUrl: result.url || result.passUrl,
+          passUrl: result.url || result.passUrl || `https://pub2.pskt.io/${result.id}`,
           appleUrl: result.appleUrl,
           googleUrl: result.googleUrl,
           message: "Passe criado com sucesso"
