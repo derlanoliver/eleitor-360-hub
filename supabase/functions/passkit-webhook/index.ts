@@ -184,6 +184,7 @@ async function processEvent(
         passkit_pass_installed: true,
         passkit_installed_at: installedAt,
         passkit_uninstalled_at: null,
+        passkit_invalidated_at: null, // Limpar invalidação anterior se houver
       })
       .eq("id", leaderId);
 
@@ -192,6 +193,29 @@ async function processEvent(
       throw error;
     }
     console.log(`Cartão marcado como INSTALADO para líder ${leaderId}`);
+    return;
+  }
+
+  // Tratar cartão INVALIDADO (expirado ou invalidado manualmente)
+  if (universalStatus === "PASS_INVALIDATED") {
+    console.log("Cartão INVALIDADO");
+    const invalidatedAt = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("lideres")
+      .update({
+        ...baseUpdate,
+        passkit_pass_installed: false,
+        passkit_invalidated_at: invalidatedAt,
+        passkit_member_id: null, // Limpar o ID invalidado para permitir recriação
+      })
+      .eq("id", leaderId);
+
+    if (error) {
+      console.error("Erro ao marcar cartão como invalidado:", error);
+      throw error;
+    }
+    console.log(`Cartão marcado como INVALIDADO para líder ${leaderId}`);
     return;
   }
 

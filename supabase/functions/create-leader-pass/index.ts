@@ -479,12 +479,74 @@ serve(async (req) => {
       if (existingMember?.id) {
         console.log("[create-leader-pass] Membro existente encontrado:", existingMember.id);
 
+        // Verificar se o membro está invalidado
+        const memberStatus = existingMember.universalStatus || 
+                             existingMember.status || 
+                             (existingMember.recordData && existingMember.recordData["universal.status"]);
+        
+        console.log("[create-leader-pass] Status do membro existente:", memberStatus);
+        
+        // Se está invalidado, criar um NOVO membro com externalId diferente
+        if (memberStatus === "PASS_INVALIDATED" || memberStatus === "3" || memberStatus === 3) {
+          console.log("[create-leader-pass] Membro anterior estava INVALIDADO, criando novo...");
+          
+          // Usar um novo externalId com timestamp para criar membro fresco
+          const newExternalId = `${leader.id}_${Date.now()}`;
+          const newPassData = {
+            ...passData,
+            externalId: newExternalId,
+          };
+          
+          console.log(`[create-leader-pass] Criando novo membro com externalId: ${newExternalId}`);
+          const newMemberResponse = await fetch(`${passkitBaseUrl}/members/member`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${passkitToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newPassData),
+          });
+          
+          if (newMemberResponse.ok) {
+            const newResult = await newMemberResponse.json();
+            console.log("[create-leader-pass] Novo membro criado:", newResult.id);
+            
+            // Salvar novo ID e limpar invalidação
+            await supabase
+              .from("lideres")
+              .update({ 
+                passkit_member_id: newResult.id,
+                passkit_invalidated_at: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", leaderId);
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: {
+                  passId: newResult.id,
+                  passUrl: newResult.url || newResult.passUrl,
+                  appleUrl: newResult.appleUrl,
+                  googleUrl: newResult.googleUrl,
+                  message: "Novo cartão criado com sucesso! (anterior estava invalidado)",
+                },
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } else {
+            const newError = await newMemberResponse.text();
+            console.error("[create-leader-pass] Erro ao criar novo membro:", newError);
+          }
+        }
+
         // Salvar o passkit_member_id no líder (caso não esteja salvo)
         console.log(`[create-leader-pass] Salvando passkit_member_id: ${existingMember.id}`);
         const { error: saveMemberIdError } = await supabase
           .from("lideres")
           .update({
             passkit_member_id: existingMember.id,
+            passkit_invalidated_at: null, // Limpar invalidação anterior
             updated_at: new Date().toISOString(),
           })
           .eq("id", leaderId);
@@ -516,6 +578,52 @@ serve(async (req) => {
         if (!updateResponse.ok) {
           const updateError = await updateResponse.text();
           console.error("[create-leader-pass] Erro ao atualizar:", updateResponse.status, updateError);
+          
+          // Verificar se o erro é de membro invalidado
+          if (updateError.includes("cannot update invalided member") || updateError.includes("invalidated")) {
+            console.log("[create-leader-pass] Membro invalidado detectado via erro PUT, tentando criar novo...");
+            
+            // Criar novo membro com externalId diferente
+            const newExternalId = `${leader.id}_${Date.now()}`;
+            const newPassData = {
+              ...passData,
+              externalId: newExternalId,
+            };
+            
+            const newMemberResponse = await fetch(`${passkitBaseUrl}/members/member`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${passkitToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(newPassData),
+            });
+            
+            if (newMemberResponse.ok) {
+              const newResult = await newMemberResponse.json();
+              
+              await supabase
+                .from("lideres")
+                .update({ 
+                  passkit_member_id: newResult.id,
+                  passkit_invalidated_at: null,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", leaderId);
+              
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  data: {
+                    passId: newResult.id,
+                    passUrl: newResult.url || newResult.passUrl,
+                    message: "Novo cartão criado com sucesso!",
+                  },
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          }
         }
 
         const passUrl =
@@ -579,6 +687,7 @@ serve(async (req) => {
         .from("lideres")
         .update({
           passkit_member_id: result.id,
+          passkit_invalidated_at: null, // Limpar invalidação anterior
           updated_at: new Date().toISOString(),
         })
         .eq("id", leaderId);

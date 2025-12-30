@@ -329,6 +329,36 @@ serve(async (req) => {
         const memberId = member.id;
         console.log(`Membro resolvido: ${memberId}`);
 
+        // Verificar status do membro - pode estar em diferentes propriedades
+        const memberStatus = (member as any).universalStatus || 
+                             (member as any).status || 
+                             ((member as any).recordData && (member as any).recordData["universal.status"]);
+        
+        console.log(`Status do membro: ${memberStatus}`);
+        
+        // Verificar se está invalidado (status 3 ou PASS_INVALIDATED)
+        if (memberStatus === "PASS_INVALIDATED" || memberStatus === "3" || memberStatus === 3) {
+          console.log(`Membro ${memberId} está INVALIDADO - atualizando banco e pulando`);
+          
+          // Atualizar o banco para refletir o status correto
+          await supabase
+            .from("lideres")
+            .update({
+              passkit_pass_installed: false,
+              passkit_member_id: null,
+              passkit_invalidated_at: new Date().toISOString(),
+            })
+            .eq("id", leader.id);
+          
+          results.push({
+            success: false,
+            leaderId: leader.id,
+            leaderName: leader.nome_completo,
+            error: "Cartão foi invalidado no PassKit. É necessário gerar um novo cartão.",
+          });
+          continue;
+        }
+
         // Atualizar passkit_member_id no banco se diferente
         if (memberId !== leader.passkit_member_id) {
           console.log(`Atualizando passkit_member_id no banco: ${leader.passkit_member_id} -> ${memberId}`);
@@ -397,6 +427,31 @@ serve(async (req) => {
 
         if (updateResult.error) {
           console.error(`PUT falhou:`, updateResult.error);
+          
+          // Verificar se o erro é de membro invalidado
+          if (updateResult.error.includes("cannot update invalided member") || 
+              updateResult.error.includes("invalidated") ||
+              updateResult.error.includes("invalid member")) {
+            console.log(`Erro de membro invalidado detectado - limpando cache no banco`);
+            
+            await supabase
+              .from("lideres")
+              .update({
+                passkit_pass_installed: false,
+                passkit_member_id: null,
+                passkit_invalidated_at: new Date().toISOString(),
+              })
+              .eq("id", leader.id);
+            
+            results.push({
+              success: false,
+              leaderId: leader.id,
+              leaderName: leader.nome_completo,
+              error: "Cartão expirado/invalidado. Gere um novo cartão para este líder.",
+            });
+            continue;
+          }
+          
           results.push({
             success: false,
             leaderId: leader.id,
