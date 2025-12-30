@@ -137,6 +137,7 @@ const Campaigns = () => {
   const leadersPerPage = 10;
   
   const { toast } = useToast();
+  const { restartTutorial } = useTutorial("campaigns", campaignsTutorialSteps);
   
   const { data: events = [] } = useEvents();
   const activeEvents = events.filter(e => e.status === 'active');
@@ -745,9 +746,10 @@ const Campaigns = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      <TutorialOverlay page="campaigns" />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8" data-tutorial="campaigns-header">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -758,13 +760,14 @@ const Campaigns = () => {
               </p>
             </div>
             <div className="flex gap-2">
+              <TutorialButton onClick={restartTutorial} />
               <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Atualizar
               </Button>
               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button data-tutorial="campaigns-create">
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Campanha
                   </Button>
@@ -787,7 +790,7 @@ const Campaigns = () => {
         </div>
 
         <Tabs defaultValue="campaigns" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-4" data-tutorial="campaigns-tabs">
             <TabsTrigger value="campaigns">Campanhas UTM</TabsTrigger>
             <TabsTrigger value="captacao">Captação</TabsTrigger>
             <TabsTrigger value="leaders">Links de Líderes</TabsTrigger>
