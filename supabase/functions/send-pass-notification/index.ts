@@ -69,6 +69,24 @@ async function passkitRequest(
     if (text) {
       try {
         data = JSON.parse(text);
+        
+        // Detectar e corrigir JSON duplamente codificado (string contendo JSON escapado)
+        // Ex: "{\"result\":{...}}" -> { result: {...} }
+        let parseAttempts = 0;
+        while (typeof data === 'string' && parseAttempts < 2) {
+          const trimmed = (data as string).trim();
+          if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"')) {
+            try {
+              console.log(`[passkitRequest] Detectado JSON duplamente codificado, fazendo parse adicional...`);
+              data = JSON.parse(data as string);
+              parseAttempts++;
+            } catch {
+              break; // Não é JSON válido, manter como string
+            }
+          } else {
+            break;
+          }
+        }
       } catch {
         data = text;
       }
@@ -283,25 +301,66 @@ async function resolveMember(
     // LOG DE DIAGNÓSTICO - ver formato real da resposta
     console.log(`[resolveMember] Resposta da listagem - tipo: ${typeof listAllResult.data}, isArray: ${Array.isArray(listAllResult.data)}, keys: ${typeof listAllResult.data === 'object' && !Array.isArray(listAllResult.data) ? Object.keys(listAllResult.data as object).join(', ') : 'N/A'}`);
     
-    // Tentar extrair array de membros de várias formas
-    let results: Record<string, unknown>[] | undefined;
-    
-    if (Array.isArray(listAllResult.data)) {
-      // Caso 1: data já é o array de membros diretamente
-      results = listAllResult.data as Record<string, unknown>[];
-      console.log(`[resolveMember] Data é um array direto com ${results.length} itens`);
-    } else {
-      // Caso 2: data é um objeto com uma propriedade contendo o array
-      const listData = listAllResult.data as Record<string, unknown>;
-      results = (listData?.results || listData?.result || listData?.data || listData?.members || listData?.passes) as Record<string, unknown>[] | undefined;
+    // Função auxiliar para extrair lista de membros de várias estruturas possíveis
+    const extractMembersList = (payload: unknown): Record<string, unknown>[] => {
+      // Se já é array, retornar diretamente
+      if (Array.isArray(payload)) {
+        return payload as Record<string, unknown>[];
+      }
       
-      if (!Array.isArray(results) || results.length === 0) {
-        // Log para debug: mostrar estrutura da resposta
-        console.log(`[resolveMember] Listagem não encontrou array de membros. Estrutura: ${JSON.stringify(listAllResult.data).substring(0, 500)}`);
+      if (typeof payload !== 'object' || payload === null) {
+        return [];
+      }
+      
+      const obj = payload as Record<string, unknown>;
+      
+      // Tentar propriedades conhecidas que podem conter array
+      const arrayProps = ['results', 'data', 'members', 'passes'];
+      for (const prop of arrayProps) {
+        if (Array.isArray(obj[prop])) {
+          return obj[prop] as Record<string, unknown>[];
+        }
+      }
+      
+      // Caso especial: "result" pode ser um OBJETO ÚNICO (não array)
+      // Converter para array de 1 elemento
+      if (obj.result && typeof obj.result === 'object' && !Array.isArray(obj.result)) {
+        const singleResult = obj.result as Record<string, unknown>;
+        // Verificar se parece um membro (tem id ou externalId)
+        if (singleResult.id || singleResult.externalId) {
+          console.log(`[resolveMember] Detectado "result" como objeto único, convertendo para array`);
+          return [singleResult];
+        }
+      }
+      
+      // Se result for array, usar
+      if (Array.isArray(obj.result)) {
+        return obj.result as Record<string, unknown>[];
+      }
+      
+      return [];
+    };
+    
+    // Fallback: se data ainda for string (não deveria após fix no passkitRequest), tentar parse local
+    let dataToProcess = listAllResult.data;
+    if (typeof dataToProcess === 'string') {
+      try {
+        console.log(`[resolveMember] Data ainda é string, tentando parse local...`);
+        dataToProcess = JSON.parse(dataToProcess);
+      } catch {
+        console.log(`[resolveMember] Falha ao fazer parse local da string`);
       }
     }
     
-    if (Array.isArray(results) && results.length > 0) {
+    const results = extractMembersList(dataToProcess);
+    
+    if (results.length === 0) {
+      // Log para debug: mostrar estrutura da resposta
+      const preview = JSON.stringify(listAllResult.data).substring(0, 500);
+      console.log(`[resolveMember] Listagem não encontrou membros. Preview: ${preview}`);
+    }
+    
+    if (results.length > 0) {
       console.log(`[resolveMember] Listagem geral retornou ${results.length} membros, filtrando por externalId localmente...`);
       
       // Filtrar localmente por externalId que corresponde ao leaderId
@@ -310,11 +369,12 @@ async function resolveMember(
         return extId === leaderId || extId.startsWith(`${leaderId}_`);
       });
       
+      console.log(`[resolveMember] Membros com externalId correspondente: ${matchingMembers.length} de ${results.length} total`);
+      
       if (matchingMembers.length > 0) {
-        console.log(`[resolveMember] Encontrou ${matchingMembers.length} membros com externalId correspondente`);
-        
         // Filtrar apenas membros válidos (não invalidados)
         const validMembers = matchingMembers.filter(m => !isMemberInvalidated(m));
+        console.log(`[resolveMember] Membros válidos (não invalidados): ${validMembers.length}`);
         
         if (validMembers.length > 0) {
           // Se há múltiplos válidos, pegar o mais recente (maior timestamp no externalId)
@@ -328,9 +388,11 @@ async function resolveMember(
           console.log(`[resolveMember] Encontrado via filtro local (válido, mais recente): ${bestMember.id} (externalId: ${bestMember.externalId})`);
           return { member: bestMember as PassKitMember };
         }
-        console.log(`[resolveMember] Encontrou ${matchingMembers.length} membros correspondentes, mas todos invalidados`);
+        console.log(`[resolveMember] Todos os ${matchingMembers.length} membros correspondentes estão invalidados`);
       } else {
-        console.log(`[resolveMember] Nenhum membro na lista corresponde ao leaderId ${leaderId}`);
+        // Log de todos os externalIds para diagnóstico
+        const allExternalIds = results.slice(0, 10).map(m => m.externalId).filter(Boolean);
+        console.log(`[resolveMember] Nenhum match para leaderId ${leaderId}. Primeiros externalIds na lista: ${allExternalIds.join(', ')}`);
       }
     }
   } else {
