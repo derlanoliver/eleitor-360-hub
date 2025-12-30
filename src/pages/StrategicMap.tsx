@@ -308,10 +308,10 @@ function ConnectionsLayer({
 }
 
 export default function StrategicMap() {
-  const { leaders, contacts, cities, isLoading, error } = useStrategicMapData();
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const [showLeaders, setShowLeaders] = useState(true);
-  const [showContacts, setShowContacts] = useState(true);
+  const { leaders, contacts, cities, stats, isLoading, error } = useStrategicMapData();
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showLeaders, setShowLeaders] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>("clean");
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
@@ -364,10 +364,6 @@ export default function StrategicMap() {
   const contactPositions = useMemo(() => {
     return getPositionsByCity(contacts, 'contact');
   }, [contacts]);
-
-  // Count stats
-  const coordinatorsCount = useMemo(() => leaders.filter(l => l.is_coordinator).length, [leaders]);
-  const regularLeadersCount = useMemo(() => leaders.filter(l => !l.is_coordinator).length, [leaders]);
 
   // Count connections for stats
   const contactConnectionsCount = useMemo(() => {
@@ -438,15 +434,15 @@ export default function StrategicMap() {
         <div className="flex flex-wrap gap-3">
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Crown className="h-4 w-4" />
-            {coordinatorsCount} Coordenadores
+            {stats?.coordinatorsCount ?? 0} Coordenadores
           </Badge>
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Star className="h-4 w-4" />
-            {regularLeadersCount} Líderes
+            {stats?.leadersCount ?? 0} Líderes
           </Badge>
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Users className="h-4 w-4" />
-            {contacts.length} Contatos
+            {stats?.contactsCount ?? 0} Contatos
           </Badge>
           <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
             <Link2 className="h-4 w-4" />
