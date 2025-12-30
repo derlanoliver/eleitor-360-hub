@@ -5,6 +5,7 @@ import { AppSidebar } from "./AppSidebar";
 import UserMenu from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
 import { SessionLogoutWarning } from "./SessionLogoutWarning";
+import { InactivityWarning } from "./InactivityWarning";
 import { Menu } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -17,6 +18,9 @@ export function DashboardLayout({
     <SidebarProvider>
       {/* Warning de logout forçado - aparece no topo */}
       <SessionLogoutWarning />
+      
+      {/* Warning de inatividade - aparece no canto inferior direito */}
+      <InactivityWarning />
       
       <div className="min-h-screen flex w-full max-w-full overflow-x-hidden bg-gray-50">
         <AppSidebar />
