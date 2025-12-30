@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface LeaderMapData {
@@ -37,6 +38,62 @@ export interface CityMapData {
 }
 
 export function useStrategicMapData() {
+  const queryClient = useQueryClient();
+
+  // Realtime subscriptions to auto-update when data changes
+  useEffect(() => {
+    const leadersChannel = supabase
+      .channel('strategic-map-leaders')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'lideres' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["strategic_map_leaders"] });
+          queryClient.invalidateQueries({ queryKey: ["strategic_map_stats"] });
+        }
+      )
+      .subscribe();
+
+    const contactsChannel = supabase
+      .channel('strategic-map-contacts')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'office_contacts' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["strategic_map_contacts"] });
+          queryClient.invalidateQueries({ queryKey: ["strategic_map_stats"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(leadersChannel);
+      supabase.removeChannel(contactsChannel);
+    };
+  }, [queryClient]);
+
+  // Fetch real totals from database (not filtered by coordinates)
+  const statsQuery = useQuery({
+    queryKey: ["strategic_map_stats"],
+    queryFn: async () => {
+      const [coordResult, leadersResult, contactsResult] = await Promise.all([
+        supabase.from("lideres").select("id", { count: "exact", head: true })
+          .eq("is_active", true).eq("is_coordinator", true),
+        supabase.from("lideres").select("id", { count: "exact", head: true })
+          .eq("is_active", true).eq("is_coordinator", false),
+        supabase.from("office_contacts").select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+      ]);
+      
+      return {
+        coordinatorsCount: coordResult.count || 0,
+        leadersCount: leadersResult.count || 0,
+        contactsCount: contactsResult.count || 0
+      };
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
   // Fetch leaders with city coordinates - always fresh data
   const leadersQuery = useQuery({
     queryKey: ["strategic_map_leaders"],
@@ -197,7 +254,8 @@ export function useStrategicMapData() {
     leaders: leadersQuery.data || [],
     contacts: contactsQuery.data || [],
     cities: citiesQuery.data || [],
-    isLoading: leadersQuery.isLoading || contactsQuery.isLoading || citiesQuery.isLoading,
-    error: leadersQuery.error || contactsQuery.error || citiesQuery.error,
+    stats: statsQuery.data,
+    isLoading: leadersQuery.isLoading || contactsQuery.isLoading || citiesQuery.isLoading || statsQuery.isLoading,
+    error: leadersQuery.error || contactsQuery.error || citiesQuery.error || statsQuery.error,
   };
 }
