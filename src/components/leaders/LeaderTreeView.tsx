@@ -130,7 +130,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>
-                {node.cadastros + (node.children?.length || 0)} {node.cadastros + (node.children?.length || 0) === 1 ? 'indicação' : 'indicações'}
+                {node.children?.length || 0} {(node.children?.length || 0) === 1 ? 'indicação' : 'indicações'}
               </span>
               <span>{node.pontuacao_total} pts</span>
             </div>
