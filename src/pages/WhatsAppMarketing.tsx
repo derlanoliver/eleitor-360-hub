@@ -36,7 +36,7 @@ const whatsappTutorialSteps: Step[] = [
 export default function WhatsAppMarketing() {
   const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
-  const { restartTutorial } = useTutorial("whatsapp-marketing", whatsappTutorialSteps);
+  const { restartTutorial } = useTutorial("whatsapp-marketing", whatsappTutorialSteps, { delay: 1200 });
 
   return (
     <DashboardLayout>

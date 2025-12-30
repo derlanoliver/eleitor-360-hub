@@ -36,7 +36,7 @@ const smsTutorialSteps: Step[] = [
 export default function SMSMarketing() {
   const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
-  const { restartTutorial } = useTutorial("sms-marketing", smsTutorialSteps);
+  const { restartTutorial } = useTutorial("sms-marketing", smsTutorialSteps, { delay: 1200 });
 
   return (
     <DashboardLayout>
