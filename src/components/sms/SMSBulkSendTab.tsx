@@ -163,41 +163,39 @@ export function SMSBulkSendTab() {
           affiliate_token: null,
         }));
       } else if (recipientType === "sms_not_sent") {
-        // Contatos indicados por líder que NUNCA receberam SMS (verification_sent_at IS NULL)
+        // Líderes que NUNCA receberam SMS de verificação (verification_sent_at IS NULL)
         const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, telefone_norm, email, verification_code")
+          .from("lideres")
+          .select("id, nome_completo, telefone, email, verification_code")
           .eq("is_active", true)
-          .eq("source_type", "lider")
           .eq("is_verified", false)
-          .not("telefone_norm", "is", null)
+          .not("telefone", "is", null)
           .is("verification_sent_at", null);
         if (error) throw error;
-        return data.map((c) => ({
-          id: c.id,
-          nome: c.nome,
-          phone: c.telefone_norm,
-          email: c.email,
-          verification_code: c.verification_code,
+        return data.map((l) => ({
+          id: l.id,
+          nome: l.nome_completo,
+          phone: l.telefone,
+          email: l.email,
+          verification_code: l.verification_code,
           affiliate_token: null,
         }));
       } else if (recipientType === "waiting_verification") {
-        // Contatos que já receberam SMS mas ainda não verificaram
+        // Líderes que já receberam SMS mas ainda não verificaram
         const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, telefone_norm, email, verification_code")
+          .from("lideres")
+          .select("id, nome_completo, telefone, email, verification_code")
           .eq("is_active", true)
-          .eq("source_type", "lider")
           .eq("is_verified", false)
-          .not("telefone_norm", "is", null)
+          .not("telefone", "is", null)
           .not("verification_sent_at", "is", null);
         if (error) throw error;
-        return data.map((c) => ({
-          id: c.id,
-          nome: c.nome,
-          phone: c.telefone_norm,
-          email: c.email,
-          verification_code: c.verification_code,
+        return data.map((l) => ({
+          id: l.id,
+          nome: l.nome_completo,
+          phone: l.telefone,
+          email: l.email,
+          verification_code: l.verification_code,
           affiliate_token: null,
         }));
       }
@@ -263,9 +261,9 @@ export function SMSBulkSendTab() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             verificationCode = Array(5).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
             
-            // Update the contact with the new verification code
+            // Update the leader with the new verification code
             await supabase
-              .from("office_contacts")
+              .from("lideres")
               .update({ verification_code: verificationCode })
               .eq("id", recipient.id);
           }
@@ -379,8 +377,8 @@ export function SMSBulkSendTab() {
                 <ShieldCheck className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
                   {recipientType === "sms_not_sent" 
-                    ? "Contatos que nunca receberam SMS de verificação. Códigos serão gerados automaticamente."
-                    : "Contatos que já receberam SMS mas não clicaram no link."}
+                    ? "Líderes que nunca receberam SMS de verificação. Códigos serão gerados automaticamente."
+                    : "Líderes que já receberam SMS mas não verificaram."}
                 </AlertDescription>
               </Alert>
             )}
@@ -433,13 +431,13 @@ export function SMSBulkSendTab() {
                   <SelectItem value="sms_not_sent">
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="h-4 w-4" />
-                      SMS Não Enviado
+                      Líderes - SMS Não Enviado
                     </div>
                   </SelectItem>
                   <SelectItem value="waiting_verification">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" />
-                      Aguardando Verificação
+                      Líderes - Aguardando Verificação
                     </div>
                   </SelectItem>
                 </SelectContent>
