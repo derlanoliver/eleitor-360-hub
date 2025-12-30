@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,44 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Gerar um ID único para esta sessão do navegador
+const getOrCreateSessionId = (): string => {
+  const storageKey = 'active_session_id';
+  let sessionId = sessionStorage.getItem(storageKey);
+  
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    sessionStorage.setItem(storageKey, sessionId);
+  }
+  
+  return sessionId;
+};
+
+// Detectar informações do dispositivo/navegador
+const getDeviceInfo = () => {
+  const userAgent = navigator.userAgent;
+  
+  let browser = 'Desconhecido';
+  if (userAgent.includes('Firefox')) browser = 'Firefox';
+  else if (userAgent.includes('Edg')) browser = 'Edge';
+  else if (userAgent.includes('Chrome')) browser = 'Chrome';
+  else if (userAgent.includes('Safari')) browser = 'Safari';
+  else if (userAgent.includes('Opera')) browser = 'Opera';
+  
+  let os = 'Desconhecido';
+  if (userAgent.includes('Windows')) os = 'Windows';
+  else if (userAgent.includes('Mac')) os = 'macOS';
+  else if (userAgent.includes('Linux')) os = 'Linux';
+  else if (userAgent.includes('Android')) os = 'Android';
+  else if (userAgent.includes('iPhone') || userAgent.includes('iPad')) os = 'iOS';
+  
+  let deviceType = 'Desktop';
+  if (/Mobi|Android/i.test(userAgent)) deviceType = 'Mobile';
+  else if (/Tablet|iPad/i.test(userAgent)) deviceType = 'Tablet';
+  
+  return { browser, os, deviceInfo: `${deviceType} - ${browser} no ${os}` };
+};
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -37,6 +75,81 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const { toast } = useToast();
 
   const isAuthenticated = !!user && !!session;
+
+  // Registrar sessão no banco de dados
+  const registerSession = useCallback(async (userId: string) => {
+    const sessionId = getOrCreateSessionId();
+    const { browser, os, deviceInfo } = getDeviceInfo();
+    
+    try {
+      // Verificar se sessão já existe
+      const { data: existingSession } = await supabase
+        .from('active_sessions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+      
+      if (existingSession) {
+        // Atualizar última atividade
+        await supabase
+          .from('active_sessions')
+          .update({ 
+            last_activity: new Date().toISOString(),
+            is_current: true 
+          })
+          .eq('session_id', sessionId);
+        return;
+      }
+      
+      // Buscar sessões existentes do usuário
+      const { data: existingSessions } = await supabase
+        .from('active_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      
+      // Se há outras sessões, marcar a mais antiga para logout em 5 minutos
+      if (existingSessions && existingSessions.length > 0) {
+        const oldestSession = existingSessions[0];
+        const forceLogoutTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        
+        await supabase
+          .from('active_sessions')
+          .update({ 
+            force_logout_at: forceLogoutTime,
+            force_logout_reason: 'Nova sessão iniciada em outro dispositivo'
+          })
+          .eq('id', oldestSession.id);
+      }
+      
+      // Criar nova sessão
+      await supabase
+        .from('active_sessions')
+        .insert({
+          user_id: userId,
+          session_id: sessionId,
+          browser,
+          os,
+          device_info: deviceInfo,
+          is_current: true
+        });
+    } catch (error) {
+      console.error('Erro ao registrar sessão:', error);
+    }
+  }, []);
+
+  // Encerrar sessão atual
+  const terminateSession = useCallback(async () => {
+    const sessionId = getOrCreateSessionId();
+    try {
+      await supabase
+        .from('active_sessions')
+        .delete()
+        .eq('session_id', sessionId);
+    } catch (error) {
+      console.error('Erro ao encerrar sessão:', error);
+    }
+  }, []);
 
   // Fetch user profile from profiles table and role from user_roles table
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
@@ -147,6 +260,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (data.user) {
+        // Registrar sessão após login bem-sucedido
+        await registerSession(data.user.id);
+        
         toast({
           title: "Login realizado com sucesso!",
           description: `Bem-vindo de volta!`
@@ -219,6 +335,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logout = async () => {
     try {
+      // Encerrar sessão no banco antes do logout
+      await terminateSession();
+      
       await supabase.auth.signOut();
       
       toast({
