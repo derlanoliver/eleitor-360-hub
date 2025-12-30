@@ -9,12 +9,23 @@ import { toast } from "sonner";
 import { ArrowLeft, Upload, Trash2, Loader2, Image, ExternalLink, ImageIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import defaultLogo from "@/assets/logo-rafael-prudente.png";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import type { Step } from "react-joyride";
+
+const affiliateFormTutorialSteps: Step[] = [
+  { target: '[data-tutorial="affiliate-header"]', title: 'Formulário de Indicação', content: 'Personalize a aparência do formulário usado pelos líderes para indicar contatos.', placement: 'bottom', disableBeacon: true },
+  { target: '[data-tutorial="affiliate-cover"]', title: 'Imagem de Capa', content: 'Upload de imagem que aparece no topo do formulário com efeito de fade.', placement: 'bottom' },
+  { target: '[data-tutorial="affiliate-logo"]', title: 'Logo', content: 'Logo centralizada sobre a imagem de capa. PNG transparente recomendado.', placement: 'top' },
+];
 
 export default function AffiliateFormSettings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const { restartTutorial } = useTutorial("affiliate-form-settings", affiliateFormTutorialSteps);
 
   // Buscar configurações
   const { data: settings, isLoading } = useQuery({
@@ -172,22 +183,24 @@ export default function AffiliateFormSettings() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <TutorialOverlay page="affiliate-form-settings" />
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-6" data-tutorial="affiliate-header">
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Formulário de Indicação</h1>
           <p className="text-muted-foreground">
             Configure a aparência do formulário de cadastro via link de líder
           </p>
         </div>
+        <TutorialButton onClick={restartTutorial} />
       </div>
 
       <div className="space-y-6">
         {/* Cover Image Card */}
-        <Card>
+        <Card data-tutorial="affiliate-cover">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Image className="h-5 w-5 text-primary" />
@@ -258,7 +271,7 @@ export default function AffiliateFormSettings() {
         </Card>
 
         {/* Logo Card */}
-        <Card>
+        <Card data-tutorial="affiliate-logo">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-primary" />

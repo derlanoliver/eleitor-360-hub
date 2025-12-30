@@ -30,19 +30,24 @@ const emailTutorialSteps: Step[] = [
 const EmailMarketing = () => {
   const [activeTab, setActiveTab] = useState("bulk");
   const [searchTerm, setSearchTerm] = useState("");
+  const { restartTutorial } = useTutorial("email-marketing", emailTutorialSteps);
 
   return (
     <DashboardLayout>
+      <TutorialOverlay page="email-marketing" />
       <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-6 sm:mb-8">
+          <div className="mb-6 sm:mb-8" data-tutorial="email-header">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  Email Marketing
-                </h1>
-                <p className="text-sm sm:text-base text-gray-600">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+                    Email Marketing
+                  </h1>
+                  <TutorialButton onClick={restartTutorial} />
+                </div>
+                <p className="text-sm sm:text-base text-muted-foreground mt-1">
                   Gerencie templates, envie emails em massa e acompanhe o histórico
                 </p>
               </div>
@@ -61,7 +66,7 @@ const EmailMarketing = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-tutorial="email-tabs">
             <TabsList className="w-full grid grid-cols-3">
               <TabsTrigger value="bulk" className="gap-2">
                 <Send className="h-4 w-4" />

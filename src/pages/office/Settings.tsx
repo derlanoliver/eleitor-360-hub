@@ -40,6 +40,7 @@ export default function Settings() {
   const { user } = useAuth();
   const { data: settings, isLoading } = useOfficeSettings();
   const updateSettings = useUpdateOfficeSettings();
+  const { restartTutorial } = useTutorial("office-settings", officeSettingsTutorialSteps);
   
   const [prefix, setPrefix] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -76,15 +77,21 @@ export default function Settings() {
   
   return (
     <div className="container mx-auto py-6 max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Configurações do Gabinete</h1>
-        <p className="text-muted-foreground">
-          Gerencie as configurações do módulo de visitas
-        </p>
+      <TutorialOverlay page="office-settings" />
+      <div className="mb-6" data-tutorial="office-settings-header">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Configurações do Gabinete</h1>
+            <p className="text-muted-foreground">
+              Gerencie as configurações do módulo de visitas
+            </p>
+          </div>
+          <TutorialButton onClick={restartTutorial} />
+        </div>
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
+        <Card data-tutorial="office-settings-protocol">
           <CardHeader>
             <CardTitle>Protocolo</CardTitle>
             <CardDescription>
@@ -129,7 +136,7 @@ export default function Settings() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-tutorial="office-settings-points">
           <CardHeader>
             <CardTitle>Pontuação de Líderes</CardTitle>
             <CardDescription>

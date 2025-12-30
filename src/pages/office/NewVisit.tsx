@@ -72,6 +72,7 @@ const TIME_SLOTS = [
 
 export default function NewVisit() {
   const navigate = useNavigate();
+  const { restartTutorial } = useTutorial("office-new-visit", newVisitTutorialSteps);
   
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -263,16 +264,22 @@ export default function NewVisit() {
   
   return (
     <div className="container mx-auto py-6 max-w-2xl">
-      <Card>
+      <TutorialOverlay page="office-new-visit" />
+      <Card data-tutorial="new-visit-form">
         <CardHeader>
-          <CardTitle className="text-2xl">Nova Visita ao Gabinete</CardTitle>
-          <CardDescription>
-            Cadastre rapidamente uma nova visita e gere o link do formulário.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl">Nova Visita ao Gabinete</CardTitle>
+              <CardDescription>
+                Cadastre rapidamente uma nova visita e gere o link do formulário.
+              </CardDescription>
+            </div>
+            <TutorialButton onClick={restartTutorial} />
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-tutorial="new-visit-phone">
               <Label htmlFor="whatsapp">WhatsApp *</Label>
               <ContactPhoneAutocomplete
                 value={whatsapp}
@@ -323,7 +330,7 @@ export default function NewVisit() {
               )}
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4" data-tutorial="new-visit-schedule">
               <div className="space-y-2">
                 <Label>Data da Visita *</Label>
                 <Popover>

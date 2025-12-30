@@ -83,6 +83,7 @@ export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const { restartTutorial } = useTutorial("office-schedule", scheduleTutorialSteps);
 
   const { data: monthVisits = [], isLoading: monthLoading } = useScheduledVisitsByMonth(currentMonth);
   const { data: dayVisits = [], isLoading: dayLoading } = useScheduledVisitsByDate(selectedDate);
@@ -103,9 +104,13 @@ export default function Schedule() {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
+      <TutorialOverlay page="office-schedule" />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6" data-tutorial="schedule-header">
         <div>
-          <h1 className="text-3xl font-bold">Agenda de Visitas</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">Agenda de Visitas</h1>
+            <TutorialButton onClick={restartTutorial} />
+          </div>
           <p className="text-muted-foreground">
             Gerencie os agendamentos de visitas ao gabinete
           </p>
@@ -118,7 +123,7 @@ export default function Schedule() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" data-tutorial="schedule-stats">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -163,7 +168,7 @@ export default function Schedule() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendário */}
-        <Card className="min-h-[480px]">
+        <Card className="min-h-[480px]" data-tutorial="schedule-calendar">
           <CardHeader>
             <CardTitle className="text-base">Calendário</CardTitle>
             <CardDescription>Selecione uma data para ver as visitas</CardDescription>
