@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Trophy, Phone, Users, MapPin, Calendar, Activity, TrendingUp, Building2, ClipboardList, ExternalLink, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RankingChart } from "@/components/dashboard/RankingChart";
 import { FilterTabs } from "@/components/dashboard/FilterTabs";
 import { ProfileStats } from "@/components/dashboard/ProfileStats";
@@ -19,12 +19,78 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { LeaderLevelBadge, LeaderLevelProgress } from "@/components/leaders/LeaderLevelBadge";
+import { useTutorial } from "@/hooks/useTutorial";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { TutorialButton } from "@/components/TutorialButton";
+import { Step } from "react-joyride";
 
+
+// Tutorial steps for Dashboard
+const dashboardTutorialSteps: Step[] = [
+  {
+    target: '[data-tutorial="dashboard-header"]',
+    title: "👋 Bem-vindo ao Dashboard!",
+    content: "Esta é a visão geral do sistema. Aqui você acompanha os principais indicadores, rankings de lideranças e métricas de desempenho.",
+    placement: "bottom",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tutorial="refresh-button"]',
+    title: "🔄 Atualizar Dados",
+    content: "Clique aqui para recarregar todos os dados do dashboard em tempo real. Os dados serão buscados novamente do banco de dados.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tutorial="ranking-top5"]',
+    title: "🏆 Ranking TOP 5",
+    content: "Veja os líderes com melhor desempenho do mês. O pódio mostra as 3 primeiras posições com troféus de ouro, prata e bronze. Você pode ativar/desativar líderes e enviar WhatsApp diretamente daqui.",
+    placement: "right",
+  },
+  {
+    target: '[data-tutorial="ranking-ra"]',
+    title: "📍 Ranking por Região",
+    content: "Gráfico mostrando quais Regiões Administrativas têm mais cadastros. Use os filtros (7d, 30d, 90d, 1a) para alterar o período de análise.",
+    placement: "top",
+  },
+  {
+    target: '[data-tutorial="ranking-temas"]',
+    title: "📊 Ranking por Temas",
+    content: "Veja quais temas e pautas estão gerando mais engajamento e cadastros. Isso ajuda a entender os interesses do público.",
+    placement: "top",
+  },
+  {
+    target: '[data-tutorial="stats-gerais"]',
+    title: "📈 Estatísticas Gerais",
+    content: "Resumo com total de cadastros, cidades/RAs alcançadas, líderes ativos e quando foi o último cadastro no sistema.",
+    placement: "left",
+  },
+  {
+    target: '[data-tutorial="perfil-stats"]',
+    title: "👥 Perfil dos Cadastrados",
+    content: "Análise demográfica dos seus cadastros: distribuição por gênero (masculino, feminino, não informado) apresentada de forma visual.",
+    placement: "left",
+  },
+  {
+    target: '[data-tutorial="gabinete"]',
+    title: "🏛️ Atendimento do Gabinete",
+    content: "Métricas do gabinete: total de visitas, aguardando atendimento, reuniões realizadas e a taxa de aceite. Também mostra os próximos na fila.",
+    placement: "left",
+  },
+  {
+    target: '[data-tutorial="acoes-rapidas"]',
+    title: "⚡ Ações Rápidas",
+    content: "Atalhos para as funcionalidades mais usadas: ver todos os líderes, criar eventos e gerar relatórios detalhados.",
+    placement: "left",
+  },
+];
 
 const Dashboard = () => {
   const [periodRA, setPeriodRA] = useState("30d");
   const [periodTemas, setPeriodTemas] = useState("30d");
   const queryClient = useQueryClient();
+
+  // Tutorial hook
+  const { restartTutorial } = useTutorial("dashboard", dashboardTutorialSteps);
 
   // Buscar dados reais do banco
   const { data: dashboardStats, isLoading: statsLoading } = useDashboardStats();
@@ -117,9 +183,12 @@ const Dashboard = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      {/* Tutorial Overlay */}
+      <TutorialOverlay page="dashboard" />
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8" data-tutorial="dashboard-header">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -129,22 +198,26 @@ const Dashboard = () => {
                 Visão geral do desempenho e ranking de lideranças
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshData}
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Atualizar</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <TutorialButton onClick={restartTutorial} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshData}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+                data-tutorial="refresh-button"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Atualizar</span>
+              </Button>
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Ranking de Lideranças - Pódio + TOP 5 */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6" data-tutorial="ranking-top5">
             <Card className="card-default">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="flex items-center justify-between text-base sm:text-lg">
@@ -275,7 +348,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Novo: Ranking por RA */}
-            <Card className="card-default">
+            <Card className="card-default" data-tutorial="ranking-ra">
               <CardHeader className="p-4 sm:p-6 pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
@@ -294,7 +367,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Novo: Ranking por Temas */}
-            <Card className="card-default">
+            <Card className="card-default" data-tutorial="ranking-temas">
               <CardHeader className="p-4 sm:p-6 pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
@@ -315,7 +388,7 @@ const Dashboard = () => {
 
           {/* Estatísticas Gerais */}
           <div className="space-y-4 sm:space-y-6">
-            <Card className="card-default">
+            <Card className="card-default" data-tutorial="stats-gerais">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="flex items-center text-base sm:text-lg">
                   <Activity className="h-5 w-5 text-primary-600 mr-2" />
@@ -378,10 +451,14 @@ const Dashboard = () => {
             </Card>
 
             {/* Novo: Perfil dos Cadastrados */}
-            {profileStats && <ProfileStats data={profileStats} />}
+            {profileStats && (
+              <div data-tutorial="perfil-stats">
+                <ProfileStats data={profileStats} />
+              </div>
+            )}
 
             {/* Atendimento do Gabinete */}
-            <Card className="card-default">
+            <Card className="card-default" data-tutorial="gabinete">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="flex items-center text-base sm:text-lg">
                   <Building2 className="h-5 w-5 text-primary-600 mr-2" />
@@ -449,7 +526,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Quick Actions */}
-            <Card className="card-default">
+            <Card className="card-default" data-tutorial="acoes-rapidas">
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="text-base sm:text-lg">Ações Rápidas</CardTitle>
               </CardHeader>
