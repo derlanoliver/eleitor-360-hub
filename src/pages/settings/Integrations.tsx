@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle, Radio, Wallet, ArrowLeft } from "lucide-react";
+import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle, Radio, Wallet, ArrowLeft, QrCode, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook } from "@/hooks/useIntegrationsSettings";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
+import { ZapiQRCodeDialog } from "@/components/settings/ZapiQRCodeDialog";
 import type { Step } from "react-joyride";
 
 const integrationsTutorialSteps: Step[] = [
@@ -168,6 +169,7 @@ const Integrations = () => {
   const [showToken, setShowToken] = useState(false);
   const [showClientToken, setShowClientToken] = useState(false);
   const [autoMessagesOpen, setAutoMessagesOpen] = useState(false);
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false);
 
   // Auto message toggles
   const [waAutoVerificacao, setWaAutoVerificacao] = useState(true);
@@ -558,7 +560,7 @@ const Integrations = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-wrap gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={handleTestZapi}
@@ -568,6 +570,15 @@ const Integrations = () => {
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
                 Testar Conexão
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setQrCodeDialogOpen(true)}
+                disabled={!isZapiConfigured}
+                className="text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Reconectar WhatsApp
               </Button>
               <Button
                 onClick={handleSaveZapi}
@@ -990,6 +1001,15 @@ const Integrations = () => {
         {/* GreatPages Webhook */}
         <GreatPagesWebhookCard />
       </div>
+
+      {/* Z-API QR Code Reconnect Dialog */}
+      <ZapiQRCodeDialog
+        open={qrCodeDialogOpen}
+        onOpenChange={setQrCodeDialogOpen}
+        instanceId={zapiInstanceId}
+        token={zapiToken}
+        clientToken={zapiClientToken}
+      />
     </DashboardLayout>
   );
 };
