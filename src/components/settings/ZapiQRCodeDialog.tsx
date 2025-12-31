@@ -119,8 +119,8 @@ export function ZapiQRCodeDialog({
           {!connected && !hasExhaustedAttempts && qrcode && (
             <>
               <div className="relative">
-                <img
-                  src={`data:image/png;base64,${qrcode}`}
+              <img
+                  src={qrcode.startsWith('data:') ? qrcode : `data:image/png;base64,${qrcode}`}
                   alt="WhatsApp QR Code"
                   className="w-64 h-64 border rounded-lg"
                 />
