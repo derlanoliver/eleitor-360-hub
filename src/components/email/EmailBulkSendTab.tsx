@@ -410,6 +410,7 @@ export function EmailBulkSendTab() {
     "lideranca-pesquisa-link",
     "lideranca-reuniao-link",
     "lideranca-cadastro-link",
+    "validacao-cadastro-email",
   ];
 
   const CONVITE_TEMPLATES_CONTACTS = [
