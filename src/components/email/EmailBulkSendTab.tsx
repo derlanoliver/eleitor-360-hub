@@ -15,19 +15,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock } from "lucide-react";
+import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock, ShieldAlert } from "lucide-react";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl } from "@/lib/urlHelper";
+import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl, generateVerificationUrl } from "@/lib/urlHelper";
 import { toast } from "sonner";
 import { useBulkSendSession } from "@/hooks/useBulkSendSession";
 import { ResumeSessionAlert } from "@/components/bulk-send/ResumeSessionAlert";
 
-type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader";
+type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader" | "unverified_leaders" | "unverified_contacts";
 
 // Templates que precisam de evento destino
 const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-convite"];
@@ -37,6 +37,8 @@ const FUNNEL_INVITE_TEMPLATES = ["captacao-convite-material"];
 const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
 // Templates de links de afiliado (apenas para líderes, sem necessidade de destino)
 const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
+// Template de validação de cadastro
+const VERIFICATION_TEMPLATE = "validacao-cadastro-email";
 
 // Opções de tamanho de lote
 const BATCH_SIZE_OPTIONS = [
@@ -47,6 +49,12 @@ const BATCH_SIZE_OPTIONS = [
   { value: "100", label: "100 por vez" },
   { value: "all", label: "Todos de uma vez" },
 ];
+
+// Função para gerar código de verificação
+function generateVerificationCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return Array(6).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+}
 
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
@@ -106,6 +114,7 @@ export function EmailBulkSendTab() {
   const isFunnelInviteTemplate = FUNNEL_INVITE_TEMPLATES.includes(selectedTemplate);
   const isSurveyInviteTemplate = SURVEY_INVITE_TEMPLATES.includes(selectedTemplate);
   const isLeaderAffiliateLinkTemplate = LEADER_AFFILIATE_LINK_TEMPLATES.includes(selectedTemplate);
+  const isVerificationTemplate = selectedTemplate === VERIFICATION_TEMPLATE;
 
   // Fetch funnels
   const { data: funnels } = useQuery({
@@ -242,6 +251,41 @@ export function EmailBulkSendTab() {
     enabled: recipientType === "single_leader" && singleContactSearch.length >= 2,
   });
 
+  // Fetch contagem de líderes não verificados
+  const { data: unverifiedLeadersCount = 0 } = useQuery({
+    queryKey: ["unverified-leaders-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("lideres")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("is_verified", false)
+        .not("email", "is", null)
+        .neq("email", "")
+        .is("verification_sent_at", null);
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
+  // Fetch contagem de contatos não verificados (indicados por líderes)
+  const { data: unverifiedContactsCount = 0 } = useQuery({
+    queryKey: ["unverified-contacts-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("office_contacts")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("source_type", "lider")
+        .eq("is_verified", false)
+        .not("email", "is", null)
+        .neq("email", "")
+        .is("verification_sent_at", null);
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
     queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id, promotedContactIds],
@@ -304,10 +348,53 @@ export function EmailBulkSendTab() {
         return data.map(l => ({ id: l.id, name: l.nome_completo, email: l.email!, type: "leader" as const, affiliateToken: l.affiliate_token }));
       }
 
+      // Líderes não verificados
+      if (recipientType === "unverified_leaders") {
+        const { data, error } = await supabase
+          .from("lideres")
+          .select("id, nome_completo, email, verification_code")
+          .eq("is_active", true)
+          .eq("is_verified", false)
+          .not("email", "is", null)
+          .neq("email", "")
+          .is("verification_sent_at", null);
+        if (error) throw error;
+        return data.map(l => ({ 
+          id: l.id, 
+          name: l.nome_completo, 
+          email: l.email!, 
+          type: "leader" as const, 
+          verificationCode: l.verification_code 
+        }));
+      }
+
+      // Contatos não verificados (indicados por líderes)
+      if (recipientType === "unverified_contacts") {
+        const { data, error } = await supabase
+          .from("office_contacts")
+          .select("id, nome, email, verification_code")
+          .eq("is_active", true)
+          .eq("source_type", "lider")
+          .eq("is_verified", false)
+          .not("email", "is", null)
+          .neq("email", "")
+          .is("verification_sent_at", null);
+        if (error) throw error;
+        return data.map(c => ({ 
+          id: c.id, 
+          name: c.nome, 
+          email: c.email!, 
+          type: "contact" as const, 
+          verificationCode: c.verification_code 
+        }));
+      }
+
       return [];
     },
     enabled: recipientType === "all_contacts" || 
              recipientType === "leaders" ||
+             recipientType === "unverified_leaders" ||
+             recipientType === "unverified_contacts" ||
              (recipientType === "single_contact" && !!selectedSingleContact) ||
              (recipientType === "single_leader" && !!selectedSingleLeader) ||
              (recipientType === "event_contacts" && !!selectedEvent) ||
@@ -334,6 +421,11 @@ export function EmailBulkSendTab() {
   // Filter templates based on recipient type
   const filteredTemplates = useMemo(() => {
     if (!templates) return [];
+    
+    // Para tipos de validação, só mostrar o template de validação
+    if (recipientType === "unverified_leaders" || recipientType === "unverified_contacts") {
+      return templates.filter(t => t.slug === VERIFICATION_TEMPLATE);
+    }
     
     if (recipientType === "leaders" || recipientType === "single_leader") {
       return templates.filter(t => CONVITE_TEMPLATES_LEADERS.includes(t.slug));
@@ -374,10 +466,41 @@ export function EmailBulkSendTab() {
     const sentIdentifiers = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();
 
     // Preparar lista de destinatários com variáveis
-    const allRecipientsList = recipients.map(r => {
+    const allRecipientsList = await Promise.all(recipients.map(async (r) => {
       const variables: Record<string, string> = {
         nome: r.name,
       };
+
+      // Para templates de verificação, gerar código se necessário e link de verificação
+      let verificationCode = (r as { verificationCode?: string | null }).verificationCode;
+      
+      if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts")) {
+        // Gerar código se não existir
+        if (!verificationCode) {
+          verificationCode = generateVerificationCode();
+          
+          // Salvar código no banco
+          if (recipientType === "unverified_leaders") {
+            await supabase
+              .from("lideres")
+              .update({ verification_code: verificationCode })
+              .eq("id", r.id);
+          } else {
+            await supabase
+              .from("office_contacts")
+              .update({ verification_code: verificationCode })
+              .eq("id", r.id);
+          }
+        }
+        
+        // Gerar link de verificação
+        const linkVerificacao = recipientType === "unverified_leaders"
+          ? `${baseUrl}/verificar-lider/${verificationCode}`
+          : generateVerificationUrl(verificationCode);
+        
+        variables.link_verificacao = linkVerificacao;
+        variables.deputado_nome = organization?.nome || "Deputado";
+      }
 
       if (isEventInviteTemplate && targetEvent) {
         variables.evento_nome = targetEvent.name;
@@ -436,8 +559,10 @@ export function EmailBulkSendTab() {
         leaderId: r.type === "leader" ? r.id : undefined,
         eventId: isEventInviteTemplate ? targetEventId : (selectedEvent || undefined),
         variables,
+        recipientId: r.id,
+        recipientType: r.type,
       };
-    });
+    }));
 
     // Filtrar recipients que ainda não receberam
     const recipientsList = allRecipientsList.filter(r => !sentIdentifiers.has(r.to));
@@ -495,6 +620,21 @@ export function EmailBulkSendTab() {
               successCount++;
               // Marcar como enviado para persistência
               markSent(recipient.to);
+              
+              // Atualizar verification_sent_at para tipos de validação
+              if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts")) {
+                if (recipient.recipientType === "leader") {
+                  await supabase
+                    .from("lideres")
+                    .update({ verification_sent_at: new Date().toISOString() })
+                    .eq("id", recipient.recipientId);
+                } else {
+                  await supabase
+                    .from("office_contacts")
+                    .update({ verification_sent_at: new Date().toISOString() })
+                    .eq("id", recipient.recipientId);
+                }
+              }
             }
           } catch (err) {
             errorCount++;
@@ -612,7 +752,6 @@ export function EmailBulkSendTab() {
                   setRecipientType(v as RecipientType);
                   setSelectedEvent("");
                   setSelectedFunnel("");
-                  setSelectedTemplate("");
                   setTargetEventId("");
                   setTargetFunnelId("");
                   setTargetSurveyId("");
@@ -620,6 +759,13 @@ export function EmailBulkSendTab() {
                   setSelectedSingleContact(null);
                   setSelectedSingleLeader(null);
                   setSingleContactSearch("");
+                  
+                  // Auto-selecionar template de validação para tipos de validação
+                  if (v === "unverified_leaders" || v === "unverified_contacts") {
+                    setSelectedTemplate(VERIFICATION_TEMPLATE);
+                  } else {
+                    setSelectedTemplate("");
+                  }
                 }}
               >
                 <div className="flex items-center space-x-2">
@@ -662,6 +808,39 @@ export function EmailBulkSendTab() {
                   <Label htmlFor="leaders" className="flex items-center gap-2 cursor-pointer">
                     <UserCheck className="h-4 w-4" />
                     Todas as Lideranças
+                  </Label>
+                </div>
+                
+                {/* Separador visual */}
+                <div className="border-t my-2 pt-2">
+                  <span className="text-xs text-muted-foreground font-medium flex items-center gap-1 mb-2">
+                    <ShieldAlert className="h-3 w-3" />
+                    Validação de Cadastro
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="unverified_leaders" id="unverified_leaders" />
+                  <Label htmlFor="unverified_leaders" className="flex items-center gap-2 cursor-pointer">
+                    <ShieldAlert className="h-4 w-4 text-amber-500" />
+                    Líderes sem Validação
+                    {unverifiedLeadersCount > 0 && (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                        {unverifiedLeadersCount}
+                      </Badge>
+                    )}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="unverified_contacts" id="unverified_contacts" />
+                  <Label htmlFor="unverified_contacts" className="flex items-center gap-2 cursor-pointer">
+                    <ShieldAlert className="h-4 w-4 text-amber-500" />
+                    Contatos sem Validação
+                    {unverifiedContactsCount > 0 && (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                        {unverifiedContactsCount}
+                      </Badge>
+                    )}
                   </Label>
                 </div>
               </RadioGroup>
@@ -940,6 +1119,19 @@ export function EmailBulkSendTab() {
                   <div className="py-3 border-b">
                     <span className="text-muted-foreground">Pesquisa do Convite</span>
                     <p className="font-medium mt-1">📊 {targetSurvey.titulo}</p>
+                  </div>
+                )}
+
+                {isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts") && (
+                  <div className="py-3 border-b">
+                    <span className="text-muted-foreground">Tipo de Envio</span>
+                    <p className="font-medium mt-1 flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-amber-500" />
+                      {recipientType === "unverified_leaders" ? "Validação de Líderes" : "Validação de Contatos"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Será gerado um código de verificação único para cada destinatário
+                    </p>
                   </div>
                 )}
 
