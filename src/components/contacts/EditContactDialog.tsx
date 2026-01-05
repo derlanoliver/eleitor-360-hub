@@ -47,7 +47,7 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
   
-  const { data: leadersResult } = useOfficeLeaders();
+  const { data: leadersResult } = useOfficeLeaders({ pageSize: 10000 });
   const leaders = leadersResult?.data || [];
   const updateContact = useUpdateContact();
   const promoteToLeaderMutation = usePromoteToLeader();
@@ -57,11 +57,9 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   useEffect(() => {
     setCidadeId(contact.cidade_id);
     
-    // Só usar source_id como leaderId se:
-    // 1. O source_type era 'lider', E
-    // 2. O líder ainda existe na lista
+    // Mostrar líder se o source_id existir na lista de líderes
+    // (independente do source_type)
     const shouldShowLeader = 
-      contact.source_type === 'lider' && 
       contact.source_id &&
       leaders.some(l => l.id === contact.source_id);
     
