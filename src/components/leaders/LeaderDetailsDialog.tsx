@@ -1074,7 +1074,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     try {
                       // 1. Buscar toda a árvore de líderes subordinados
                       const { data: treeData, error: treeError } = await supabase
-                        .rpc("get_leader_tree", { _leader_id: leader.id });
+                        .rpc("get_leader_tree", { _leader_id: leader.id })
+                        .range(0, 49999); // Permite até 50.000 líderes na árvore
                       
                       if (treeError) throw treeError;
                       
