@@ -7,10 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { RegionSelect } from "@/components/office/RegionSelect";
-import { useOfficeLeaders } from "@/hooks/office/useOfficeLeaders";
+import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
 import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
 import { usePromoteToLeader } from "@/hooks/contacts/usePromoteToLeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Crown, UserCheck } from "lucide-react";
 import { 
   MaskedDateInput, 
@@ -46,41 +48,39 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   );
   const [promoteToLeader, setPromoteToLeader] = useState(false);
   
-  
-  const { data: leadersResult } = useOfficeLeaders({ pageSize: 10000 });
-  const leaders = leadersResult?.data || [];
   const updateContact = useUpdateContact();
   const promoteToLeaderMutation = usePromoteToLeader();
   const { user } = useAuth();
 
+  // Verificar se contato já é líder (por telefone) - busca server-side
+  const { data: existingLeader } = useQuery({
+    queryKey: ["leader_by_phone", contact.telefone_norm],
+    queryFn: async () => {
+      const normalizedPhone = contact.telefone_norm.replace(/\D/g, '').slice(-11);
+      const { data } = await supabase
+        .from("lideres")
+        .select("id")
+        .ilike("telefone", `%${normalizedPhone}`)
+        .eq("is_active", true)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!contact.telefone_norm
+  });
+
+  const isAlreadyLeader = !!existingLeader;
+
   // Reset state when contact changes
   useEffect(() => {
     setCidadeId(contact.cidade_id);
-    
-    // Mostrar líder se o source_id existir na lista de líderes
-    // (independente do source_type)
-    const shouldShowLeader = 
-      contact.source_id &&
-      leaders.some(l => l.id === contact.source_id);
-    
-    setLeaderId(shouldShowLeader ? contact.source_id || "" : "");
+    // LeaderAutocomplete faz lookup separado do líder pelo ID
+    // então podemos usar source_id diretamente
+    setLeaderId(contact.source_id || "");
     setGenero(contact.genero || "Não identificado");
     setDataNascimento(contact.data_nascimento || "");
     setDataNascimentoDisplay(contact.data_nascimento ? formatDateBR(contact.data_nascimento) : "");
     setPromoteToLeader(false);
-  }, [contact, leaders]);
-
-  // Verificar se contato já é líder (por telefone)
-  const normalizePhone = (phone: string) => {
-    return phone.replace(/\D/g, '').slice(-11);
-  };
-  
-  const isAlreadyLeader = leaders.some(leader => {
-    if (!leader.telefone) return false;
-    const leaderPhone = normalizePhone(leader.telefone);
-    const contactPhone = normalizePhone(contact.telefone_norm);
-    return leaderPhone === contactPhone;
-  });
+  }, [contact]);
 
   const handleSave = async () => {
     // Determinar source_type e source_id corretamente
@@ -198,19 +198,12 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
           {/* Líder */}
           <div>
             <Label>Líder Responsável</Label>
-            <Select value={leaderId || "none"} onValueChange={(value) => setLeaderId(value === "none" ? "" : value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Nenhum líder" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhum líder</SelectItem>
-                {leaders.map((leader) => (
-                  <SelectItem key={leader.id} value={leader.id}>
-                    {leader.nome_completo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LeaderAutocomplete
+              value={leaderId}
+              onValueChange={setLeaderId}
+              placeholder="Buscar líder..."
+              allowAllLeaders={true}
+            />
           </div>
 
           {/* Seção: Promover a Líder */}
