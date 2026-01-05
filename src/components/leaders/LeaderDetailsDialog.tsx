@@ -1072,15 +1072,36 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   onClick={async () => {
                     setLoadingReport(true);
                     try {
-                      // 1. Buscar toda a árvore de líderes subordinados
-                      const { data: treeData, error: treeError } = await supabase
-                        .rpc("get_leader_tree", { _leader_id: leader.id })
-                        .range(0, 49999); // Permite até 50.000 líderes na árvore
-                      
-                      if (treeError) throw treeError;
+                      // 1. Buscar toda a árvore de líderes subordinados COM PAGINAÇÃO
+                      // O Supabase tem limite de 1000 registros por requisição RPC
+                      const allTreeData: any[] = [];
+                      const rpcPageSize = 1000;
+                      let rpcPage = 0;
+                      let hasMoreTreeData = true;
+
+                      while (hasMoreTreeData) {
+                        const from = rpcPage * rpcPageSize;
+                        const to = from + rpcPageSize - 1;
+
+                        const { data: pageData, error: pageError } = await supabase
+                          .rpc("get_leader_tree", { _leader_id: leader.id })
+                          .range(from, to);
+
+                        if (pageError) throw pageError;
+
+                        if (pageData && pageData.length > 0) {
+                          allTreeData.push(...pageData);
+                          hasMoreTreeData = pageData.length === rpcPageSize;
+                          rpcPage++;
+                        } else {
+                          hasMoreTreeData = false;
+                        }
+                      }
+
+                      console.log(`Total de líderes carregados da árvore: ${allTreeData.length}`);
                       
                       // Filtrar apenas líderes ativos (excluir desativados do relatório)
-                      const leaders = (treeData || []).filter((l: any) => l.is_active === true);
+                      const leaders = allTreeData.filter((l: any) => l.is_active === true);
                       const leaderIds = leaders.map((l: any) => l.id);
                       
                       if (leaderIds.length === 0) {
