@@ -2605,6 +2605,15 @@ export type Database = {
           total_pontos: number
         }[]
       }
+      get_coordinators_with_unverified_count: {
+        Args: { search_term?: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          total_in_tree: number
+          unverified_count: number
+        }[]
+      }
       get_leader_by_affiliate_token: {
         Args: { _token: string }
         Returns: {
@@ -2838,6 +2847,15 @@ export type Database = {
           nome_completo: string
           pontuacao_total: number
           telefone: string
+        }[]
+      }
+      get_unverified_leaders_in_tree: {
+        Args: { coordinator_id: string }
+        Returns: {
+          email: string
+          id: string
+          nome_completo: string
+          verification_code: string
         }[]
       }
       get_user_context: {

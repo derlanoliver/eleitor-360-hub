@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock, ShieldAlert } from "lucide-react";
+import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock, ShieldAlert, Network } from "lucide-react";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { useBulkSendSession } from "@/hooks/useBulkSendSession";
 import { ResumeSessionAlert } from "@/components/bulk-send/ResumeSessionAlert";
 
-type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader" | "unverified_leaders" | "unverified_contacts";
+type RecipientType = "all_contacts" | "event_contacts" | "funnel_contacts" | "leaders" | "single_contact" | "single_leader" | "unverified_leaders" | "unverified_contacts" | "coordinator_tree";
 
 // Templates que precisam de evento destino
 const EVENT_INVITE_TEMPLATES = ["evento-convite-participar", "lideranca-evento-convite"];
@@ -93,6 +93,15 @@ export function EmailBulkSendTab() {
   const [singleContactSearch, setSingleContactSearch] = useState("");
   const [selectedSingleContact, setSelectedSingleContact] = useState<{id: string; nome: string; email: string} | null>(null);
   const [selectedSingleLeader, setSelectedSingleLeader] = useState<{id: string; nome_completo: string; email: string; affiliate_token: string | null} | null>(null);
+
+  // Estados para árvore de coordenador
+  const [coordinatorSearch, setCoordinatorSearch] = useState("");
+  const [selectedCoordinator, setSelectedCoordinator] = useState<{
+    id: string;
+    nome_completo: string;
+    total_in_tree: number;
+    unverified_count: number;
+  } | null>(null);
 
   // Hook de sessão para retomada
   const {
@@ -286,6 +295,19 @@ export function EmailBulkSendTab() {
     },
   });
 
+  // Busca de coordenadores com contagem de não verificados
+  const { data: coordinatorSearchResults } = useQuery({
+    queryKey: ["coordinator-search-email", coordinatorSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_coordinators_with_unverified_count', {
+        search_term: coordinatorSearch
+      });
+      if (error) throw error;
+      return data as { id: string; nome_completo: string; total_in_tree: number; unverified_count: number }[];
+    },
+    enabled: recipientType === "coordinator_tree" && coordinatorSearch.length >= 2,
+  });
+
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
     queryKey: ["email_recipients", recipientType, selectedEvent, selectedFunnel, selectedSingleContact?.id, selectedSingleLeader?.id, promotedContactIds],
@@ -389,6 +411,21 @@ export function EmailBulkSendTab() {
         }));
       }
 
+      // Líderes não verificados de uma árvore de coordenador
+      if (recipientType === "coordinator_tree" && selectedCoordinator) {
+        const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree', {
+          coordinator_id: selectedCoordinator.id
+        });
+        if (error) throw error;
+        return (data || []).map((l: { id: string; nome_completo: string; email: string; verification_code: string | null }) => ({ 
+          id: l.id, 
+          name: l.nome_completo, 
+          email: l.email!, 
+          type: "leader" as const, 
+          verificationCode: l.verification_code 
+        }));
+      }
+
       return [];
     },
     enabled: recipientType === "all_contacts" || 
@@ -398,7 +435,8 @@ export function EmailBulkSendTab() {
              (recipientType === "single_contact" && !!selectedSingleContact) ||
              (recipientType === "single_leader" && !!selectedSingleLeader) ||
              (recipientType === "event_contacts" && !!selectedEvent) ||
-             (recipientType === "funnel_contacts" && !!selectedFunnel),
+             (recipientType === "funnel_contacts" && !!selectedFunnel) ||
+             (recipientType === "coordinator_tree" && !!selectedCoordinator),
   });
 
   // Templates de convite permitidos por tipo de destinatário
@@ -424,7 +462,7 @@ export function EmailBulkSendTab() {
     if (!templates) return [];
     
     // Para tipos de validação, só mostrar o template de validação
-    if (recipientType === "unverified_leaders" || recipientType === "unverified_contacts") {
+    if (recipientType === "unverified_leaders" || recipientType === "unverified_contacts" || recipientType === "coordinator_tree") {
       return templates.filter(t => t.slug === VERIFICATION_TEMPLATE);
     }
     
@@ -475,13 +513,13 @@ export function EmailBulkSendTab() {
       // Para templates de verificação, gerar código se necessário e link de verificação
       let verificationCode = (r as { verificationCode?: string | null }).verificationCode;
       
-      if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts")) {
+      if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts" || recipientType === "coordinator_tree")) {
         // Gerar código se não existir
         if (!verificationCode) {
           verificationCode = generateVerificationCode();
           
-          // Salvar código no banco
-          if (recipientType === "unverified_leaders") {
+          // Salvar código no banco - coordinator_tree e unverified_leaders são líderes
+          if (recipientType === "unverified_leaders" || recipientType === "coordinator_tree") {
             await supabase
               .from("lideres")
               .update({ verification_code: verificationCode })
@@ -494,8 +532,8 @@ export function EmailBulkSendTab() {
           }
         }
         
-        // Gerar link de verificação
-        const linkVerificacao = recipientType === "unverified_leaders"
+        // Gerar link de verificação - coordinator_tree e unverified_leaders usam link de líder
+        const linkVerificacao = (recipientType === "unverified_leaders" || recipientType === "coordinator_tree")
           ? `${baseUrl}/verificar-lider/${verificationCode}`
           : generateVerificationUrl(verificationCode);
         
@@ -623,7 +661,7 @@ export function EmailBulkSendTab() {
               markSent(recipient.to);
               
               // Atualizar verification_sent_at para tipos de validação
-              if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts")) {
+              if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts" || recipientType === "coordinator_tree")) {
                 if (recipient.recipientType === "leader") {
                   await supabase
                     .from("lideres")
@@ -760,9 +798,11 @@ export function EmailBulkSendTab() {
                   setSelectedSingleContact(null);
                   setSelectedSingleLeader(null);
                   setSingleContactSearch("");
+                  setCoordinatorSearch("");
+                  setSelectedCoordinator(null);
                   
                   // Auto-selecionar template de validação para tipos de validação
-                  if (v === "unverified_leaders" || v === "unverified_contacts") {
+                  if (v === "unverified_leaders" || v === "unverified_contacts" || v === "coordinator_tree") {
                     setSelectedTemplate(VERIFICATION_TEMPLATE);
                   } else {
                     setSelectedTemplate("");
@@ -844,8 +884,67 @@ export function EmailBulkSendTab() {
                     )}
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="coordinator_tree" id="coordinator_tree" />
+                  <Label htmlFor="coordinator_tree" className="flex items-center gap-2 cursor-pointer">
+                    <Network className="h-4 w-4 text-purple-500" />
+                    Árvore de Coordenador
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
+
+            {/* Busca de Coordenador para Árvore */}
+            {recipientType === "coordinator_tree" && (
+              <div className="space-y-2">
+                <Label>Buscar Coordenador</Label>
+                <Input
+                  placeholder="Digite o nome do coordenador..."
+                  value={coordinatorSearch}
+                  onChange={(e) => {
+                    setCoordinatorSearch(e.target.value);
+                    setSelectedCoordinator(null);
+                  }}
+                />
+                {coordinatorSearchResults && coordinatorSearchResults.length > 0 && !selectedCoordinator && (
+                  <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
+                    {coordinatorSearchResults.map((coordinator) => (
+                      <button
+                        key={coordinator.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedCoordinator(coordinator);
+                          setCoordinatorSearch(coordinator.nome_completo);
+                        }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <p className="font-medium">{coordinator.nome_completo}</p>
+                          <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                            {coordinator.unverified_count} não verificados
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {coordinator.total_in_tree} líderes na árvore
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedCoordinator && (
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="flex justify-between items-center">
+                      <p className="font-medium">{selectedCoordinator.nome_completo}</p>
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                        {selectedCoordinator.unverified_count} não verificados
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedCoordinator.total_in_tree} líderes na árvore
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Busca de Contato Único */}
             {recipientType === "single_contact" && (
