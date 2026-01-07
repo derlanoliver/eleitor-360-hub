@@ -5,6 +5,7 @@ import UserMenu from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
 import { SessionLogoutWarning } from "./SessionLogoutWarning";
 import { InactivityWarning } from "./InactivityWarning";
+import { WhatsAppDisconnectedAlert } from "./WhatsAppDisconnectedAlert";
 import { Menu } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -33,6 +34,9 @@ export function DashboardLayout({
             </SidebarTrigger>
             
             <div className="flex-1" />
+
+            {/* Alerta de WhatsApp desconectado */}
+            <WhatsAppDisconnectedAlert />
 
             {/* Notification Bell */}
             <NotificationBell />
