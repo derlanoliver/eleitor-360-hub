@@ -2,10 +2,11 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Mail, Send, History, FileText, Search } from "lucide-react";
+import { Mail, Send, History, FileText, Search, FileBarChart } from "lucide-react";
 import { EmailTemplatesTab } from "@/components/email/EmailTemplatesTab";
 import { EmailHistoryTab } from "@/components/email/EmailHistoryTab";
 import { EmailBulkSendTab } from "@/components/email/EmailBulkSendTab";
+import { EmailReportTab } from "@/components/email/EmailReportTab";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
@@ -67,7 +68,7 @@ const EmailMarketing = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="w-full grid grid-cols-3" data-tutorial="email-tabs">
+            <TabsList className="w-full grid grid-cols-4" data-tutorial="email-tabs">
               <TabsTrigger value="bulk" className="gap-2">
                 <Send className="h-4 w-4" />
                 <span className="hidden sm:inline">Envio em Massa</span>
@@ -79,6 +80,10 @@ const EmailMarketing = () => {
               <TabsTrigger value="history" className="gap-2">
                 <History className="h-4 w-4" />
                 <span className="hidden sm:inline">Histórico</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-2">
+                <FileBarChart className="h-4 w-4" />
+                <span className="hidden sm:inline">Relatórios</span>
               </TabsTrigger>
             </TabsList>
 
@@ -92,6 +97,10 @@ const EmailMarketing = () => {
 
             <TabsContent value="history">
               <EmailHistoryTab />
+            </TabsContent>
+
+            <TabsContent value="reports">
+              <EmailReportTab />
             </TabsContent>
           </Tabs>
         </div>
