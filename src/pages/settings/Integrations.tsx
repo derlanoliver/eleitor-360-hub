@@ -16,6 +16,8 @@ import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import { ZapiQRCodeDialog } from "@/components/settings/ZapiQRCodeDialog";
+import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
+import { ZapiConnectionIndicator } from "@/components/settings/ZapiConnectionIndicator";
 import type { Step } from "react-joyride";
 
 const integrationsTutorialSteps: Step[] = [
@@ -317,6 +319,15 @@ const Integrations = () => {
   const isSmsdevConfigured = !!smsdevApiKey;
   const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId && !!passkitTierId;
 
+  // Z-API connection status check
+  const { data: zapiStatus, isLoading: isCheckingZapi, refetch: refetchZapiStatus } = 
+    useZapiConnectionStatus(
+      settings?.zapi_instance_id || zapiInstanceId,
+      settings?.zapi_token || zapiToken,
+      settings?.zapi_client_token || zapiClientToken,
+      !!isZapiConfigured && zapiEnabled
+    );
+
   const enabledAutoMessagesCount = [
     waAutoVerificacao, waAutoCaptacao, waAutoPesquisa, waAutoEvento,
     waAutoLideranca, waAutoMembro, waAutoVisita, waAutoOptout, waAutoSmsFallback
@@ -560,7 +571,7 @@ const Integrations = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            <div className="flex flex-wrap gap-3 pt-4">
+            <div className="flex flex-wrap items-center gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={handleTestZapi}
@@ -571,6 +582,11 @@ const Integrations = () => {
                 ) : null}
                 Testar Conexão
               </Button>
+              <ZapiConnectionIndicator 
+                isConnected={zapiStatus?.connected || false}
+                isLoading={isCheckingZapi}
+                isConfigured={!!isZapiConfigured && zapiEnabled}
+              />
               <Button
                 variant="outline"
                 onClick={() => setQrCodeDialogOpen(true)}
@@ -1009,6 +1025,9 @@ const Integrations = () => {
         instanceId={zapiInstanceId}
         token={zapiToken}
         clientToken={zapiClientToken}
+        onConnected={() => {
+          refetchZapiStatus();
+        }}
       />
     </DashboardLayout>
   );
