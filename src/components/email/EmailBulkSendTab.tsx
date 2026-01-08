@@ -513,13 +513,16 @@ export function EmailBulkSendTab() {
       // Para templates de verificação, gerar código se necessário e link de verificação
       let verificationCode = (r as { verificationCode?: string | null }).verificationCode;
       
-      if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts" || recipientType === "coordinator_tree")) {
+      if (isVerificationTemplate) {
+        // Determinar se é líder ou contato
+        const isLeader = r.type === "leader";
+        
         // Gerar código se não existir
         if (!verificationCode) {
           verificationCode = generateVerificationCode();
           
-          // Salvar código no banco - coordinator_tree e unverified_leaders são líderes
-          if (recipientType === "unverified_leaders" || recipientType === "coordinator_tree") {
+          // Salvar código no banco
+          if (isLeader) {
             await supabase
               .from("lideres")
               .update({ verification_code: verificationCode })
@@ -532,13 +535,14 @@ export function EmailBulkSendTab() {
           }
         }
         
-        // Gerar link de verificação - coordinator_tree e unverified_leaders usam link de líder
-        const linkVerificacao = (recipientType === "unverified_leaders" || recipientType === "coordinator_tree")
+        // Gerar link de verificação baseado no tipo
+        const linkVerificacao = isLeader
           ? `${baseUrl}/verificar-lider/${verificationCode}`
           : generateVerificationUrl(verificationCode);
         
         variables.link_verificacao = linkVerificacao;
         variables.deputado_nome = organization?.nome || "Deputado";
+        variables.lider_nome = r.name; // Adiciona lider_nome que o template pode usar
       }
 
       if (isEventInviteTemplate && targetEvent) {
@@ -660,8 +664,8 @@ export function EmailBulkSendTab() {
               // Marcar como enviado para persistência
               markSent(recipient.to);
               
-              // Atualizar verification_sent_at para tipos de validação
-              if (isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts" || recipientType === "coordinator_tree")) {
+              // Atualizar verification_sent_at para templates de validação
+              if (isVerificationTemplate) {
                 if (recipient.recipientType === "leader") {
                   await supabase
                     .from("lideres")
