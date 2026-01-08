@@ -73,6 +73,19 @@ const generateSlugFromName = (name: string): string => {
     .replace(/^-|-$/g, '');
 };
 
+// Sanitize filename for Supabase storage (no spaces, special chars)
+const sanitizeFileName = (filename: string): string => {
+  const ext = filename.split('.').pop() || '';
+  const name = filename.replace(/\.[^/.]+$/, '');
+  const sanitized = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9.-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  return `${sanitized}.${ext}`;
+};
+
 type FormData = z.infer<typeof formSchema>;
 
 interface CreateFunnelDialogProps {
@@ -302,19 +315,19 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
 
       // Upload cover if changed
       if (coverFile) {
-        const path = `covers/${Date.now()}-${coverFile.name}`;
+        const path = `covers/${Date.now()}-${sanitizeFileName(coverFile.name)}`;
         cover_url = await uploadFunnelAsset(coverFile, path);
       }
 
       // Upload logo if changed
       if (logoFile) {
-        const path = `logos/${Date.now()}-${logoFile.name}`;
+        const path = `logos/${Date.now()}-${sanitizeFileName(logoFile.name)}`;
         logo_url = await uploadFunnelAsset(logoFile, path);
       }
 
       // Upload material if provided
       if (materialFile) {
-        const path = `materials/${Date.now()}-${materialFile.name}`;
+        const path = `materials/${Date.now()}-${sanitizeFileName(materialFile.name)}`;
         lead_magnet_url = await uploadFunnelAsset(materialFile, path);
       }
 
@@ -403,7 +416,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {editFunnel ? 'Editar Funil de Captação' : 'Novo Funil de Captação'}
@@ -411,8 +424,8 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="info">Informações</TabsTrigger>
                 <TabsTrigger value="landing">Landing Page</TabsTrigger>
@@ -420,7 +433,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
               </TabsList>
 
               {/* Tab: Informações */}
-              <TabsContent value="info" className="space-y-4 mt-4">
+              <TabsContent value="info" className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
                 {/* Material Upload Section */}
                 <div className="border rounded-lg p-4 bg-muted/30">
                   <h4 className="font-medium mb-3 flex items-center gap-2">
@@ -687,7 +700,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
               </TabsContent>
 
               {/* Tab: Landing Page */}
-              <TabsContent value="landing" className="space-y-4 mt-4">
+              <TabsContent value="landing" className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
                 {/* Cover Image */}
                 <div>
                   <Label>Imagem de Capa</Label>
@@ -847,7 +860,7 @@ export function CreateFunnelDialog({ open, onOpenChange, editFunnel }: CreateFun
               </TabsContent>
 
               {/* Tab: Página de Obrigado */}
-              <TabsContent value="obrigado" className="space-y-4 mt-4">
+              <TabsContent value="obrigado" className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
                 {renderFieldWithAiBadge('obrigado_titulo',
                   <FormField
                     control={form.control}
