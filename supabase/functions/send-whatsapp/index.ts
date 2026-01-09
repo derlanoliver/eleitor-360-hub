@@ -27,6 +27,87 @@ function replaceTemplateVariables(
   return result;
 }
 
+// Templates que usam variação com IA para evitar detecção de spam
+const ANTI_SPAM_TEMPLATES = [
+  'verificacao-sms-fallback',
+  'verificacao-cadastro',
+  'verificacao-codigo',
+];
+
+// Gerar variação de mensagem com IA para evitar detecção de spam
+async function generateMessageVariation(
+  baseMessage: string,
+  variables: Record<string, string>
+): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  // Primeiro substitui as variáveis para ter o template completo
+  const filledMessage = replaceTemplateVariables(baseMessage, variables);
+  
+  if (!LOVABLE_API_KEY) {
+    console.log("[send-whatsapp] LOVABLE_API_KEY não configurada, usando template original");
+    return filledMessage;
+  }
+  
+  try {
+    const nome = variables.nome || variables.name || "Amigo(a)";
+    const codigo = variables.codigo || variables.code || "";
+    
+    const prompt = `Você é um assistente que cria variações naturais de mensagens de WhatsApp.
+
+MENSAGEM ORIGINAL:
+${filledMessage}
+
+REGRAS OBRIGATÓRIAS:
+1. Mantenha a saudação usando o nome "${nome}"
+2. Mantenha o código de verificação "${codigo}" em destaque com *asteriscos*
+3. Explique que é um fallback após falha de SMS (se aplicável)
+4. Peça para responder com o código
+5. Use tom amigável e natural
+6. Varie a estrutura das frases, emojis (use diferentes do original) e palavras
+7. Mantenha entre 4-6 linhas
+8. NÃO use formatação markdown além de *negrito*
+9. NÃO repita a estrutura exata da mensagem original
+
+Gere UMA variação criativa mantendo a essência. Responda APENAS com a mensagem, sem explicações:`;
+
+    console.log("[send-whatsapp] Gerando variação com IA...");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0.95, // Alta criatividade para máxima variação
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[send-whatsapp] Erro ao gerar variação:", response.status, await response.text());
+      return filledMessage;
+    }
+
+    const data = await response.json();
+    const variation = data.choices?.[0]?.message?.content?.trim();
+    
+    if (variation && variation.length > 20) {
+      console.log("[send-whatsapp] Variação gerada com IA com sucesso");
+      return variation;
+    }
+    
+    console.log("[send-whatsapp] Variação vazia ou muito curta, usando original");
+    return filledMessage;
+  } catch (error) {
+    console.error("[send-whatsapp] Exceção ao gerar variação:", error);
+    return filledMessage;
+  }
+}
+
 // Templates públicos que podem ser enviados sem autenticação
 const PUBLIC_TEMPLATES = [
   'evento-inscricao-confirmada',
@@ -255,9 +336,15 @@ Deno.serve(async (req) => {
         );
       }
 
-      finalMessage = variables 
-        ? replaceTemplateVariables(template.mensagem, variables)
-        : template.mensagem;
+      // Gerar variação com IA para templates anti-spam
+      if (ANTI_SPAM_TEMPLATES.includes(templateSlug) && variables) {
+        console.log(`[send-whatsapp] Template '${templateSlug}' usa variação com IA anti-spam`);
+        finalMessage = await generateMessageVariation(template.mensagem, variables);
+      } else {
+        finalMessage = variables 
+          ? replaceTemplateVariables(template.mensagem, variables)
+          : template.mensagem;
+      }
     }
 
     if (!finalMessage) {
