@@ -271,6 +271,7 @@ const Campaigns = () => {
           .eq('is_active', true)
           .not('affiliate_token', 'is', null)
           .order('cadastros', { ascending: false })
+          .order('id', { ascending: true }) // Ordenação secundária para paginação determinística
           .range(from, to);
 
         if (error) {
