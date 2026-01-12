@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,6 +139,7 @@ const Campaigns = () => {
   
   const { toast } = useToast();
   const { restartTutorial } = useTutorial("campaigns", campaignsTutorialSteps);
+  const queryClient = useQueryClient();
   
   const { data: events = [] } = useEvents();
   const activeEvents = events.filter(e => e.status === 'active');
@@ -289,6 +291,16 @@ const Campaigns = () => {
 
       console.log(`[DEBUG Query v5] Total de líderes carregados: ${allLeaders.length}`);
       console.log(`[DEBUG Query v5] Busca concluída em ${Date.now() - startTime}ms`);
+      
+      // Debug: verificar amostra de nomes
+      console.log('[DEBUG Query v5] Amostra de nomes carregados:', 
+        allLeaders.slice(0, 10).map(l => l.nome_completo));
+      
+      // Debug: verificar se "Giselle de Andrade Garcia" está na lista
+      const giselleTest = allLeaders.find(l => 
+        l.nome_completo?.toLowerCase().includes('giselle de andrade garcia'));
+      console.log('[DEBUG Query v5] Giselle de Andrade Garcia encontrada:', !!giselleTest, giselleTest?.id);
+      
       console.log('[DEBUG Query v5] ========================================');
 
       return allLeaders.map(leader => ({
@@ -309,6 +321,8 @@ const Campaigns = () => {
     gcTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: 'always',
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Filtrar líderes por busca (nome, email, telefone)
@@ -327,16 +341,35 @@ const Campaigns = () => {
     
     console.log(`[DEBUG] Busca normalizada: "${search}"`);
     
-    return leaderLinks.filter((leader) => {
+    const filtered = leaderLinks.filter((leader) => {
       const normalizedName = normalizeString(leader.leaderName || "");
-      const matchesName = normalizedName.includes(search);
+      
+      // Busca normalizada (sem acentos)
+      const matchesNormalized = normalizedName.includes(search);
+      
+      // Fallback: busca exata (lowercase apenas, preserva acentos)
+      const matchesExact = (leader.leaderName || "").toLowerCase()
+        .includes(leaderSearchTerm.trim().toLowerCase());
+      
       const matchesEmail = (leader.leaderEmail || "").toLowerCase().includes(search);
       const matchesPhone = searchDigits.length >= 4 && 
         leader.leaderPhone?.replace(/\D/g, "").includes(searchDigits);
       
-      return matchesName || matchesEmail || matchesPhone;
+      return matchesNormalized || matchesExact || matchesEmail || matchesPhone;
     });
+    
+    console.log(`[DEBUG Filter] Resultados encontrados: ${filtered.length}`);
+    return filtered;
   }, [leaderLinks, leaderSearchTerm, isLoadingLeaders, isLeadersError, leadersError]);
+
+  // Handler para forçar recarga da lista de líderes
+  const handleRefreshLeaders = () => {
+    queryClient.invalidateQueries({ queryKey: ['leaders-with-links-v5'] });
+    toast({
+      title: "Atualizando lista...",
+      description: "Recarregando dados dos líderes."
+    });
+  };
 
   // Paginação
   const totalLeaderPages = Math.ceil(filteredLeaderLinks.length / leadersPerPage);
@@ -957,6 +990,16 @@ const Campaigns = () => {
             {/* Barra de ações para geração de PDFs */}
             {filteredLeaderLinks.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshLeaders}
+                  disabled={isLoadingLeaders}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingLeaders ? 'animate-spin' : ''}`} />
+                  Atualizar Lista
+                </Button>
+                
                 <Button
                   variant="outline"
                   onClick={generateAllLeadersPdf}
