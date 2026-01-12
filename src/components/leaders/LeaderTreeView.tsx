@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Crown, User, UserPlus, UserMinus, ChevronDown, ChevronRight, MoreVertical, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,27 @@ interface LeaderTreeViewProps {
 }
 
 export function LeaderTreeView({ tree, highlightLeaderId }: LeaderTreeViewProps) {
+  const handleHighlightedRef = useCallback((element: HTMLDivElement | null) => {
+    if (element) {
+      // Pequeno delay para garantir que a árvore renderizou completamente
+      setTimeout(() => {
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      }, 150);
+    }
+  }, []);
+
   return (
     <div className="p-4">
-      <TreeNode node={tree} isRoot highlightLeaderId={highlightLeaderId} />
+      <TreeNode 
+        node={tree} 
+        isRoot 
+        highlightLeaderId={highlightLeaderId}
+        onHighlightedNodeRef={handleHighlightedRef}
+        forceExpandAll={!!highlightLeaderId}
+      />
     </div>
   );
 }
@@ -39,14 +57,17 @@ interface TreeNodeProps {
   node: LeaderTreeNode;
   isRoot?: boolean;
   highlightLeaderId?: string | null;
+  onHighlightedNodeRef?: (element: HTMLDivElement | null) => void;
+  forceExpandAll?: boolean;
 }
 
-function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
+function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRef, forceExpandAll }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
   
   const removeFromTree = useRemoveFromTree();
   const promoteToCoordinator = usePromoteToCoordinatorWithSubordinates();
@@ -55,6 +76,20 @@ function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
   const hasChildren = node.children && node.children.length > 0;
   const level = node.hierarchy_level || 1;
   const isHighlighted = highlightLeaderId === node.id;
+
+  // Forçar expansão quando há highlight ativo
+  useEffect(() => {
+    if (forceExpandAll && highlightLeaderId) {
+      setIsExpanded(true);
+    }
+  }, [forceExpandAll, highlightLeaderId]);
+
+  // Quando este nó for o destacado, reportar a ref para scroll
+  useEffect(() => {
+    if (isHighlighted && nodeRef.current && onHighlightedNodeRef) {
+      onHighlightedNodeRef(nodeRef.current);
+    }
+  }, [isHighlighted, onHighlightedNodeRef]);
   
   const getLevelColor = (level: number) => {
     switch (level) {
@@ -103,7 +138,10 @@ function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
       )}
       
       {/* Node */}
-      <div className={`flex items-center gap-2 p-3 rounded-lg border ${getLevelColor(level)} mb-2 ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 animate-pulse' : ''}`}>
+      <div 
+        ref={nodeRef}
+        className={`flex items-center gap-2 p-3 rounded-lg border ${getLevelColor(level)} mb-2 ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 animate-pulse' : ''}`}
+      >
         {hasChildren && (
           <Button
             variant="ghost"
@@ -177,7 +215,13 @@ function TreeNode({ node, isRoot = false, highlightLeaderId }: TreeNodeProps) {
       {hasChildren && isExpanded && (
         <div className="ml-8 border-l-2 border-muted-foreground/20 pl-4">
           {node.children!.map((child) => (
-            <TreeNode key={child.id} node={child} highlightLeaderId={highlightLeaderId} />
+            <TreeNode 
+              key={child.id} 
+              node={child} 
+              highlightLeaderId={highlightLeaderId}
+              onHighlightedNodeRef={onHighlightedNodeRef}
+              forceExpandAll={forceExpandAll}
+            />
           ))}
         </div>
       )}
