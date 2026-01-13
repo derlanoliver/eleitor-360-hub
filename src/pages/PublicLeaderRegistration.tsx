@@ -173,6 +173,7 @@ export default function PublicLeaderRegistration() {
           leaderId: registrationResult.leader_id,
           phone: normalizedPhone,
         });
+        setIsSubmitting(false);
         return;
       }
 
