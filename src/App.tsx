@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TrackingProvider } from "./components/TrackingProvider";
 import { TutorialProvider } from "./contexts/TutorialContext";
@@ -73,6 +73,11 @@ import ShortUrlRedirect from "./pages/ShortUrlRedirect";
 
 const queryClient = new QueryClient();
 
+const CadastroRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/lider/cadastro${location.search}`} replace />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -98,6 +103,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
+            <Route path="/cadastro" element={<CadastroRedirect />} />
             <Route path="/cadastro/:leaderToken" element={<LeaderRegistrationForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />

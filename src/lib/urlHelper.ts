@@ -30,7 +30,8 @@ export function generateCampaignUrl(utmSource: string, utmMedium: string, utmCam
     utm_medium: utmMedium,
     utm_campaign: utmCampaign
   });
-  return `${baseUrl}/cadastro?${params.toString()}`;
+  // Campanhas sem token devem apontar para o formulário público
+  return `${baseUrl}/lider/cadastro?${params.toString()}`;
 }
 
 /**
