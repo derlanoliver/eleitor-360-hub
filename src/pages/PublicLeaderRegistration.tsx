@@ -81,29 +81,27 @@ export default function PublicLeaderRegistration() {
     
     setIsResending(true);
     try {
-      // Buscar dados atualizados do líder
-      const { data: leader, error: fetchError } = await supabase
-        .from("lideres")
-        .select("id, telefone, nome_completo, verification_code")
-        .eq("id", alreadyRegistered.leaderId)
-        .single();
+      // Buscar dados atualizados do líder via RPC SECURITY DEFINER
+      const { data: leaderData, error: fetchError } = await supabase
+        .rpc('public_get_leader_for_resend', { p_leader_id: alreadyRegistered.leaderId });
 
-      if (fetchError || !leader) {
+      if (fetchError) {
+        console.error("Erro ao buscar líder:", fetchError);
         throw new Error("Não foi possível encontrar o cadastro");
       }
 
-      // Gerar novo código se necessário
+      const leader = leaderData?.[0];
+      if (!leader) {
+        throw new Error("Não foi possível encontrar o cadastro");
+      }
+
+      // Gerar novo código se necessário via RPC SECURITY DEFINER
       let verificationCode = leader.verification_code;
       if (!verificationCode) {
-        const { data: newCode, error: codeError } = await supabase.rpc('generate_leader_verification_code');
+        const { data: newCode, error: codeError } = await supabase
+          .rpc('public_regenerate_leader_verification_code', { p_leader_id: leader.id });
         if (codeError) throw codeError;
         verificationCode = newCode;
-        
-        // Atualizar código no banco
-        await supabase
-          .from("lideres")
-          .update({ verification_code: newCode })
-          .eq("id", leader.id);
       }
 
       // Enviar SMS de verificação
@@ -144,85 +142,44 @@ export default function PublicLeaderRegistration() {
     try {
       const normalizedPhone = normalizePhoneToE164(data.telefone);
       const normalizedEmail = data.email.trim().toLowerCase();
+      const dataNascimentoISO = parseDateBR(data.data_nascimento);
 
-      // VERIFICAÇÃO PRÉVIA: Checar se já existe líder com este telefone ou email
-      const { data: existingLeader, error: checkError } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, is_verified, telefone, email")
-        .or(`telefone.eq.${normalizedPhone},email.eq.${normalizedEmail}`)
-        .maybeSingle();
+      // Usar RPC SECURITY DEFINER que faz tudo: verifica duplicidade e cria se não existir
+      const { data: result, error: rpcError } = await supabase
+        .rpc('public_create_leader_self_registration', {
+          p_nome: data.nome_completo.trim(),
+          p_telefone: normalizedPhone,
+          p_email: normalizedEmail || null,
+          p_cidade_id: data.cidade_id,
+          p_data_nascimento: dataNascimentoISO || null,
+          p_observacao: data.observacao.trim() || null,
+        });
 
-      if (checkError) {
-        console.error("Erro ao verificar cadastro existente:", checkError);
-        // Continuar com o fluxo normal se a verificação falhar
+      if (rpcError) {
+        console.error("Erro na RPC de cadastro:", rpcError);
+        throw new Error("Erro ao realizar cadastro. Tente novamente.");
       }
 
-      // Se encontrou líder existente
-      if (existingLeader) {
+      const registrationResult = result?.[0];
+      if (!registrationResult) {
+        throw new Error("Erro ao processar cadastro. Tente novamente.");
+      }
+
+      // Se já existe, mostrar tela apropriada
+      if (registrationResult.already_exists) {
         setAlreadyRegistered({
-          type: existingLeader.is_verified ? 'verified' : 'unverified',
-          name: existingLeader.nome_completo,
-          leaderId: existingLeader.id,
-          phone: existingLeader.telefone || normalizedPhone,
+          type: registrationResult.existing_is_verified ? 'verified' : 'unverified',
+          name: data.nome_completo.trim(),
+          leaderId: registrationResult.leader_id,
+          phone: normalizedPhone,
         });
         return;
       }
 
-      const dataNascimentoISO = parseDateBR(data.data_nascimento);
+      // Cadastro criado com sucesso - enviar SMS de verificação
+      const leaderId = registrationResult.leader_id;
+      const verificationCode = registrationResult.verification_code;
 
-      // Gerar código de verificação
-      const { data: verificationCode, error: codeError } = await supabase
-        .rpc('generate_leader_verification_code');
-      
-      if (codeError) throw codeError;
-
-      // Inserir líder com is_verified = false e verification_code
-      const { error } = await supabase.from("lideres").insert({
-        nome_completo: data.nome_completo.trim(),
-        email: normalizedEmail,
-        telefone: normalizedPhone,
-        cidade_id: data.cidade_id,
-        data_nascimento: dataNascimentoISO,
-        observacao: data.observacao.trim(),
-        is_active: true,
-        status: "active",
-        is_verified: false,
-        verification_code: verificationCode,
-      });
-
-      if (error) {
-        // Verificar se é erro de duplicidade (fallback)
-        if (error.code === '23505') {
-          // Tentar buscar o líder existente novamente
-          const { data: foundLeader } = await supabase
-            .from("lideres")
-            .select("id, nome_completo, is_verified, telefone")
-            .or(`telefone.eq.${normalizedPhone},email.eq.${normalizedEmail}`)
-            .maybeSingle();
-
-          if (foundLeader) {
-            setAlreadyRegistered({
-              type: foundLeader.is_verified ? 'verified' : 'unverified',
-              name: foundLeader.nome_completo,
-              leaderId: foundLeader.id,
-              phone: foundLeader.telefone || normalizedPhone,
-            });
-            return;
-          }
-        }
-        throw error;
-      }
-
-      // Get the created leader to obtain the id
-      const { data: createdLeader } = await supabase
-        .from("lideres")
-        .select("id")
-        .eq("verification_code", verificationCode)
-        .single();
-
-      const leaderId = createdLeader?.id;
-
-      // Enviar SMS de VERIFICAÇÃO (não o link de afiliado!)
       if (leaderId && verificationCode) {
         try {
           const linkVerificacao = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
@@ -248,7 +205,7 @@ export default function PublicLeaderRegistration() {
       }
 
       // Send informational email (opcional - não envia link de afiliado ainda)
-      if (leaderId && data.email) {
+      if (leaderId && normalizedEmail) {
         try {
           await supabase.functions.invoke('send-email', {
             body: {
