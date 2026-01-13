@@ -147,30 +147,41 @@ export default function LeaderRegistrationForm() {
         p_referring_leader_id: leader.id
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("RPC error:", error);
+        throw error;
+      }
 
       const leaderResult = result?.[0];
+      
+      // Se não retornou resultado, erro genérico
+      if (!leaderResult) {
+        throw new Error("Erro ao processar cadastro. Tente novamente.");
+      }
 
       // Já é líder ativo?
-      if (leaderResult?.is_already_leader) {
+      if (leaderResult.is_already_leader) {
         setIsAlreadyLeader(true);
         setIsSuccess(true);
+        setIsSubmitting(false);
         toast.info("Você já é um apoiador cadastrado!");
         return;
       }
 
       // Já está indicado por OUTRO líder - bloquear
-      if (leaderResult?.already_referred_by_other_leader) {
-        setOriginalLeaderName(leaderResult.original_leader_name || "outro líder");
+      if (leaderResult.already_referred_by_other_leader) {
+        setOriginalLeaderName(leaderResult.original_leader_name || "outro apoiador");
         setAlreadyReferredByOther(true);
         setIsSuccess(true);
+        setIsSubmitting(false);
         return;
       }
 
       // Hierarquia máxima atingida
-      if (leaderResult?.hierarchy_level_exceeded) {
+      if (leaderResult.hierarchy_level_exceeded) {
         setHierarchyLevelExceeded(true);
         setIsSuccess(true);
+        setIsSubmitting(false);
         toast.error("Nível máximo de hierarquia atingido.");
         return;
       }
@@ -230,9 +241,19 @@ export default function LeaderRegistrationForm() {
       }
 
       setIsSuccess(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar:", error);
-      toast.error("Erro ao realizar cadastro. Tente novamente.");
+      
+      // Verificar se o erro contém informação de duplicidade (fallback)
+      const errorMessage = error?.message?.toLowerCase() || '';
+      if (errorMessage.includes('already') || errorMessage.includes('duplicate') || error?.code === '23505') {
+        setIsAlreadyLeader(true);
+        setIsSuccess(true);
+        toast.info("Você já é um apoiador cadastrado!");
+        return;
+      }
+      
+      toast.error(error?.message || "Erro ao realizar cadastro. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
