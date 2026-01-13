@@ -22,6 +22,7 @@ export default function AffiliateForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [isExistingLeader, setIsExistingLeader] = useState(false);
   const [leader, setLeader] = useState<OfficeLeader | null>(null);
 
   const { data: temas = [], isLoading: temasLoading } = useTemas();
@@ -100,6 +101,7 @@ export default function AffiliateForm() {
 
       if (existingLeader) {
         toast.info(`${existingLeader.nome_completo}, você já é um apoiador cadastrado!`);
+        setIsExistingLeader(true);
         setSubmitted(true);
         setNeedsVerification(false);
         setSubmitting(false);
@@ -331,9 +333,6 @@ export default function AffiliateForm() {
   }
 
   if (submitted) {
-    // Verificar se é líder (não precisa de verificação e não houve criação de contato)
-    const isLeaderMessage = !needsVerification && !leader;
-    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -351,7 +350,7 @@ export default function AffiliateForm() {
                   <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <CardTitle className="text-green-600 dark:text-green-400">
-                  {isLeaderMessage ? "Você já é um Apoiador!" : "Cadastro Realizado!"}
+                  {isExistingLeader ? "Você já é um Apoiador!" : "Cadastro Realizado!"}
                 </CardTitle>
               </>
             )}
@@ -370,7 +369,7 @@ export default function AffiliateForm() {
               </div>
             ) : (
               <p className="text-center text-muted-foreground">
-                {isLeaderMessage 
+                {isExistingLeader 
                   ? "Identificamos que você já faz parte da nossa rede de apoiadores. Continue engajado!"
                   : "Obrigado por se cadastrar! Entraremos em contato em breve."
                 }
