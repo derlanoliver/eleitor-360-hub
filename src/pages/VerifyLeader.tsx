@@ -66,7 +66,7 @@ export default function VerifyLeader() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-8 pb-8 flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">Verificando seu cadastro de liderança...</p>
+            <p className="text-muted-foreground">Verificando seu cadastro de apoiador...</p>
           </CardContent>
         </Card>
       </div>
@@ -98,7 +98,7 @@ export default function VerifyLeader() {
                 <h1 className="text-2xl font-bold text-foreground">
                   {result.already_verified
                     ? "Cadastro Já Verificado!"
-                    : "Bem-vindo(a) à Nossa Rede de Lideranças!"}
+                    : "Bem-vindo(a) à Nossa Rede de Apoiadores!"}
                 </h1>
 
                 {result.nome && (
@@ -110,7 +110,7 @@ export default function VerifyLeader() {
                 {!result.already_verified ? (
                   <div className="space-y-4">
                     <p className="text-muted-foreground">
-                      Seu cadastro como liderança foi confirmado com sucesso!
+                      Seu cadastro como apoiador foi confirmado com sucesso!
                     </p>
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
