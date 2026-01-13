@@ -2614,6 +2614,15 @@ export type Database = {
           unverified_count: number
         }[]
       }
+      get_coordinators_with_unverified_count_sms: {
+        Args: { search_term?: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          total_in_tree: number
+          unverified_count: number
+        }[]
+      }
       get_leader_by_affiliate_token: {
         Args: { _token: string }
         Returns: {
@@ -2855,6 +2864,15 @@ export type Database = {
           email: string
           id: string
           nome_completo: string
+          verification_code: string
+        }[]
+      }
+      get_unverified_leaders_in_tree_sms: {
+        Args: { coordinator_id: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          telefone: string
           verification_code: string
         }[]
       }
