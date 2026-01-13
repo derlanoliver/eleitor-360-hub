@@ -75,6 +75,15 @@ const queryClient = new QueryClient();
 
 const CadastroRedirect = () => {
   const location = useLocation();
+
+  // Suporta variações comuns como "/cadastro/" (barra final)
+  // e garante que preservamos parâmetros UTM.
+  const pathname = location.pathname.replace(/\/+$/, "");
+  if (pathname !== "/cadastro") {
+    // Se por algum motivo cair aqui com subrota, não força redirect.
+    return null;
+  }
+
   return <Navigate to={`/lider/cadastro${location.search}`} replace />;
 };
 
@@ -103,7 +112,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/visita-gabinete/:visitId" element={<ScheduleVisit />} />
             <Route path="/affiliate/:leaderToken" element={<AffiliateForm />} />
-            <Route path="/cadastro" element={<CadastroRedirect />} />
+            <Route path="/cadastro/*" element={<CadastroRedirect />} />
             <Route path="/cadastro/:leaderToken" element={<LeaderRegistrationForm />} />
             <Route path="/eventos/:slug" element={<EventRegistration />} />
             <Route path="/captacao/:slug" element={<LeadCaptureLanding />} />
