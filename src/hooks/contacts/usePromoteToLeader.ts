@@ -20,34 +20,33 @@ export function usePromoteToLeader() {
 
   return useMutation({
     mutationFn: async ({ contact, actionBy }: PromoteToLeaderParams) => {
-      // 1. Gerar código de verificação
-      const { data: verificationCode, error: codeError } = await supabase
-        .rpc("generate_leader_verification_code");
+      // Usar a RPC SECURITY DEFINER que cria o líder
+      const { data: result, error: rpcError } = await supabase
+        .rpc('public_create_leader_self_registration', {
+          p_nome: contact.nome,
+          p_telefone: contact.telefone_norm,
+          p_email: contact.email || null,
+          p_cidade_id: contact.cidade_id,
+          p_data_nascimento: contact.data_nascimento || null,
+          p_observacao: null,
+        });
 
-      if (codeError) throw codeError;
+      if (rpcError) throw rpcError;
 
-      // 2. Criar líder com is_verified = false
-      const { data: leader, error: leaderError } = await supabase
-        .from("lideres")
-        .insert({
-          nome_completo: contact.nome,
-          telefone: contact.telefone_norm,
-          email: contact.email || null,
-          cidade_id: contact.cidade_id,
-          data_nascimento: contact.data_nascimento || null,
-          is_active: true,
-          status: "active",
-          cadastros: 0,
-          pontuacao_total: 0,
-          is_verified: false,
-          verification_code: verificationCode,
-        })
-        .select()
-        .single();
+      const registrationResult = result?.[0];
+      if (!registrationResult) {
+        throw new Error("Erro ao processar promoção a líder");
+      }
 
-      if (leaderError) throw leaderError;
+      // Se já existe como líder
+      if (registrationResult.already_exists) {
+        throw new Error("Este contato já está cadastrado como apoiador");
+      }
 
-      // 3. Registrar no histórico
+      const leaderId = registrationResult.leader_id;
+      const verificationCode = registrationResult.verification_code;
+
+      // Registrar no histórico
       const { error: logError } = await supabase
         .from("contact_activity_log")
         .insert({
@@ -55,8 +54,8 @@ export function usePromoteToLeader() {
           action: "promoted_to_leader",
           action_by: actionBy,
           details: {
-            leader_id: leader.id,
-            leader_name: leader.nome_completo,
+            leader_id: leaderId,
+            leader_name: contact.nome,
           },
         });
 
@@ -64,31 +63,33 @@ export function usePromoteToLeader() {
         console.error("Erro ao registrar histórico:", logError);
       }
 
-      // 4. Enviar SMS de VERIFICAÇÃO (não o link de afiliado ainda)
-      try {
-        const verificationLink = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
-        await supabase.functions.invoke("send-sms", {
-          body: {
-            phone: contact.telefone_norm,
-            templateSlug: "verificacao-lider-sms",
-            variables: {
-              nome: contact.nome,
-              link_verificacao: verificationLink,
+      // Enviar SMS de VERIFICAÇÃO
+      if (verificationCode) {
+        try {
+          const verificationLink = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
+          await supabase.functions.invoke("send-sms", {
+            body: {
+              phone: contact.telefone_norm,
+              templateSlug: "verificacao-lider-sms",
+              variables: {
+                nome: contact.nome,
+                link_verificacao: verificationLink,
+              },
             },
-          },
-        });
+          });
 
-        // Atualizar verification_sent_at
-        await supabase.rpc("update_leader_verification_sent", {
-          _leader_id: leader.id,
-        });
+          // Atualizar verification_sent_at
+          await supabase.rpc("update_leader_verification_sent", {
+            _leader_id: leaderId,
+          });
 
-        console.log("SMS de verificação enviado para novo líder");
-      } catch (smsError) {
-        console.error("Erro ao enviar SMS de verificação:", smsError);
+          console.log("SMS de verificação enviado para novo líder");
+        } catch (smsError) {
+          console.error("Erro ao enviar SMS de verificação:", smsError);
+        }
       }
 
-      // 5. Enviar email informativo (sem link de afiliado, apenas confirmando cadastro)
+      // Enviar email informativo (sem link de afiliado, apenas confirmando cadastro)
       if (contact.email) {
         try {
           await supabase.functions.invoke("send-email", {
@@ -107,7 +108,7 @@ export function usePromoteToLeader() {
         }
       }
 
-      return leader;
+      return { id: leaderId, nome_completo: contact.nome };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaders"] });
