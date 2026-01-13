@@ -82,6 +82,8 @@ export default function PublicLeaderRegistration() {
     setIsResending(true);
     try {
       // Buscar dados atualizados do líder via RPC SECURITY DEFINER
+      // IMPORTANTE: Esta função já retorna o código existente (nunca regenera)
+      // Se o código for null, a função gera um novo automaticamente
       const { data: leaderData, error: fetchError } = await supabase
         .rpc('public_get_leader_for_resend', { p_leader_id: alreadyRegistered.leaderId });
 
@@ -95,16 +97,14 @@ export default function PublicLeaderRegistration() {
         throw new Error("Não foi possível encontrar o cadastro");
       }
 
-      // Gerar novo código se necessário via RPC SECURITY DEFINER
-      let verificationCode = leader.verification_code;
+      // O código já vem da função - nunca regeneramos aqui para evitar
+      // invalidar links de SMS anteriores
+      const verificationCode = leader.verification_code;
       if (!verificationCode) {
-        const { data: newCode, error: codeError } = await supabase
-          .rpc('public_regenerate_leader_verification_code', { p_leader_id: leader.id });
-        if (codeError) throw codeError;
-        verificationCode = newCode;
+        throw new Error("Código de verificação não encontrado");
       }
 
-      // Enviar SMS de verificação
+      // Enviar SMS de verificação com o código EXISTENTE
       const linkVerificacao = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
       
       const { error: smsError } = await supabase.functions.invoke('send-sms', {
