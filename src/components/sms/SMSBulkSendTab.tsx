@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert, Clock } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert, Clock, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { generateVerificationUrl, getBaseUrl } from "@/lib/urlHelper";
 
-type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "sms_not_sent" | "waiting_verification";
+type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "sms_not_sent" | "waiting_verification" | "coordinator_tree";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
 
 interface SinglePerson {
@@ -62,6 +62,15 @@ export function SMSBulkSendTab() {
   const [singleSearch, setSingleSearch] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<SinglePerson | null>(null);
   
+  // Coordinator tree states
+  const [coordinatorSearch, setCoordinatorSearch] = useState("");
+  const [selectedCoordinator, setSelectedCoordinator] = useState<{
+    id: string;
+    nome_completo: string;
+    total_in_tree: number;
+    unverified_count: number;
+  } | null>(null);
+  
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
   const [currentBatch, setCurrentBatch] = useState(0);
@@ -74,6 +83,7 @@ export function SMSBulkSendTab() {
   const activeTemplates = templates?.filter((t) => t.is_active) || [];
   const selectedTemplateData = templates?.find((t) => t.slug === selectedTemplate);
   const isSingleSend = recipientType === "single_contact" || recipientType === "single_leader";
+  const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification" || recipientType === "coordinator_tree";
 
   // Search contacts (include verification_code for SMS verification links)
   const { data: contactSearchResults } = useQuery({
@@ -109,11 +119,24 @@ export function SMSBulkSendTab() {
     enabled: recipientType === "single_leader" && singleSearch.length >= 2 && !selectedPerson,
   });
 
+  // Search coordinators for tree selection
+  const { data: coordinatorSearchResults } = useQuery({
+    queryKey: ["coordinator-search-sms", coordinatorSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_coordinators_with_unverified_count_sms', {
+        search_term: coordinatorSearch
+      });
+      if (error) throw error;
+      return data as { id: string; nome_completo: string; total_in_tree: number; unverified_count: number }[];
+    },
+    enabled: recipientType === "coordinator_tree" && coordinatorSearch.length >= 2,
+  });
+
   const searchResults = recipientType === "single_contact" ? contactSearchResults : leaderSearchResults;
 
   // Fetch recipients based on type
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
-    queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id],
+    queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id, selectedCoordinator?.id],
     queryFn: async () => {
       if (isSingleSend && selectedPerson) {
         return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: selectedPerson.verification_code || null, affiliate_token: selectedPerson.affiliate_token || null }];
@@ -198,15 +221,31 @@ export function SMSBulkSendTab() {
           verification_code: l.verification_code,
           affiliate_token: null,
         }));
+      } else if (recipientType === "coordinator_tree" && selectedCoordinator) {
+        // Líderes não verificados na árvore do coordenador (com telefone)
+        const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree_sms', {
+          coordinator_id: selectedCoordinator.id
+        });
+        if (error) throw error;
+        return (data as { id: string; nome_completo: string; telefone: string; verification_code: string }[]).map((l) => ({
+          id: l.id,
+          nome: l.nome_completo,
+          phone: l.telefone,
+          email: null,
+          verification_code: l.verification_code,
+          affiliate_token: null,
+        }));
       }
       return [];
     },
-    enabled: isSingleSend ? !!selectedPerson : (recipientType !== "event" || !!selectedEvent),
+    enabled: isSingleSend 
+      ? !!selectedPerson 
+      : recipientType === "coordinator_tree" 
+        ? !!selectedCoordinator 
+        : (recipientType !== "event" || !!selectedEvent),
   });
 
   const handleSendBulk = async () => {
-    const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification";
-    
     if ((!selectedTemplate && !isVerificationType) || !recipients || recipients.length === 0) {
       toast.error("Selecione um template e verifique os destinatários");
       return;
@@ -273,8 +312,7 @@ export function SMSBulkSendTab() {
             variables.link_verificacao = generateVerificationUrl(verificationCode);
           }
 
-          // Use verification template for SMS not sent or waiting verification
-          const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification";
+          // Use verification template for verification types
           const templateToUse = isVerificationType 
             ? "verificacao-link-sms" 
             : selectedTemplate;
@@ -392,6 +430,8 @@ export function SMSBulkSendTab() {
                   setSelectedEvent("");
                   setSingleSearch("");
                   setSelectedPerson(null);
+                  setCoordinatorSearch("");
+                  setSelectedCoordinator(null);
                 }}
               >
                 <SelectTrigger>
@@ -438,6 +478,12 @@ export function SMSBulkSendTab() {
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" />
                       Líderes - Aguardando Verificação
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="coordinator_tree">
+                    <div className="flex items-center gap-2">
+                      <Network className="h-4 w-4" />
+                      Árvore de Coordenador
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -492,6 +538,75 @@ export function SMSBulkSendTab() {
                       <p className="text-sm text-muted-foreground">Nenhum resultado encontrado</p>
                     )}
                   </>
+                )}
+              </div>
+            )}
+
+            {recipientType === "coordinator_tree" && (
+              <div className="space-y-2">
+                <Label>Buscar Coordenador</Label>
+                <Input
+                  placeholder="Digite o nome do coordenador..."
+                  value={coordinatorSearch}
+                  onChange={(e) => {
+                    setCoordinatorSearch(e.target.value);
+                    setSelectedCoordinator(null);
+                  }}
+                />
+                {/* Lista de resultados */}
+                {coordinatorSearchResults && coordinatorSearchResults.length > 0 && !selectedCoordinator && (
+                  <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
+                    {coordinatorSearchResults.map((coordinator) => (
+                      <button
+                        key={coordinator.id}
+                        className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
+                        onClick={() => {
+                          setSelectedCoordinator(coordinator);
+                          setCoordinatorSearch(coordinator.nome_completo);
+                        }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <p className="font-medium">{coordinator.nome_completo}</p>
+                          <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                            {coordinator.unverified_count} não verificados
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {coordinator.total_in_tree} líderes na árvore
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {coordinatorSearch.length >= 2 && coordinatorSearchResults?.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Nenhum coordenador encontrado</p>
+                )}
+                {/* Coordenador selecionado */}
+                {selectedCoordinator && (
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="flex justify-between items-center">
+                      <p className="font-medium">{selectedCoordinator.nome_completo}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                          {selectedCoordinator.unverified_count} não verificados
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setSelectedCoordinator(null);
+                            setCoordinatorSearch("");
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedCoordinator.total_in_tree} líderes na árvore
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -615,10 +730,11 @@ export function SMSBulkSendTab() {
                   onClick={() => handleSendBulk()}
                   disabled={
                     isSending ||
-                    (!selectedTemplate && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification") ||
+                    (!selectedTemplate && !isVerificationType) ||
                     !recipients?.length ||
                     (recipientType === "event" && !selectedEvent) ||
-                    (isSingleSend && !selectedPerson)
+                    (isSingleSend && !selectedPerson) ||
+                    (recipientType === "coordinator_tree" && !selectedCoordinator)
                   }
                 >
                   {isSending ? (
@@ -630,7 +746,7 @@ export function SMSBulkSendTab() {
                     </>
                   )}
                 </Button>
-                {!isSingleSend && recipientType !== "sms_not_sent" && recipientType !== "waiting_verification" && (
+                {!isSingleSend && !isVerificationType && (
                   <Button
                     variant="outline"
                     onClick={() => setShowScheduleDialog(true)}
