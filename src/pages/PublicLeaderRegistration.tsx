@@ -73,8 +73,8 @@ export default function PublicLeaderRegistration() {
 
   const coverUrl = settings?.leader_form_cover_url || settings?.affiliate_form_cover_url;
   const logoUrl = settings?.leader_form_logo_url || settings?.affiliate_form_logo_url;
-  const title = settings?.leader_form_title || "Cadastro de Liderança";
-  const subtitle = settings?.leader_form_subtitle || "Faça parte da nossa rede de lideranças e contribua para transformar nossa região.";
+  const title = settings?.leader_form_title || "Cadastro de Apoiador";
+  const subtitle = settings?.leader_form_subtitle || "Faça parte da nossa rede de apoiadores e contribua para transformar nossa região.";
 
   async function handleResendVerification() {
     if (!alreadyRegistered) return;
@@ -315,7 +315,7 @@ export default function PublicLeaderRegistration() {
                     Você Já Está Cadastrado!
                   </h2>
                   <p className="text-muted-foreground mb-4">
-                    Olá, <strong>{alreadyRegistered.name}</strong>! Você já faz parte da nossa rede de lideranças.
+                    Olá, <strong>{alreadyRegistered.name}</strong>! Você já faz parte da nossa rede de apoiadores.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Seu cadastro já foi verificado e está ativo. Você pode continuar indicando apoiadores usando seu link exclusivo.
