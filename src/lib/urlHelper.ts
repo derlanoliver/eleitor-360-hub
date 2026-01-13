@@ -1,8 +1,12 @@
 /**
- * Retorna a URL base da aplicação
- * Fixada para app.rafaelprudente.com
+ * Retorna a URL base da aplicação.
+ * - No navegador: usa o domínio atual (funciona no preview e em domínio customizado)
+ * - Fallback: domínio de produção
  */
 export function getBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
   return "https://app.rafaelprudente.com";
 }
 
