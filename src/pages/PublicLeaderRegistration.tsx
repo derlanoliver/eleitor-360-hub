@@ -528,7 +528,7 @@ export default function PublicLeaderRegistration() {
                       <FormLabel>Observação / Motivação *</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Conte-nos um pouco sobre você e sua motivação para fazer parte da rede de lideranças..."
+                          placeholder="Conte-nos um pouco sobre você e sua motivação para fazer parte da rede de apoiadores..."
                           className="min-h-[100px]"
                           {...field}
                         />
