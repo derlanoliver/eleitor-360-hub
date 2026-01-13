@@ -99,7 +99,7 @@ export default function AffiliateForm() {
         .maybeSingle();
 
       if (existingLeader) {
-        toast.info(`${existingLeader.nome_completo}, você já é uma liderança cadastrada!`);
+        toast.info(`${existingLeader.nome_completo}, você já é um apoiador cadastrado!`);
         setSubmitted(true);
         setNeedsVerification(false);
         setSubmitting(false);
@@ -351,7 +351,7 @@ export default function AffiliateForm() {
                   <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <CardTitle className="text-green-600 dark:text-green-400">
-                  {isLeaderMessage ? "Você já é uma Liderança!" : "Cadastro Realizado!"}
+                  {isLeaderMessage ? "Você já é um Apoiador!" : "Cadastro Realizado!"}
                 </CardTitle>
               </>
             )}
@@ -371,7 +371,7 @@ export default function AffiliateForm() {
             ) : (
               <p className="text-center text-muted-foreground">
                 {isLeaderMessage 
-                  ? "Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!"
+                  ? "Identificamos que você já faz parte da nossa rede de apoiadores. Continue engajado!"
                   : "Obrigado por se cadastrar! Entraremos em contato em breve."
                 }
               </p>

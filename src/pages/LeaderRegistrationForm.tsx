@@ -155,7 +155,7 @@ export default function LeaderRegistrationForm() {
       if (leaderResult?.is_already_leader) {
         setIsAlreadyLeader(true);
         setIsSuccess(true);
-        toast.info("Você já é uma liderança cadastrada!");
+        toast.info("Você já é um apoiador cadastrado!");
         return;
       }
 
@@ -291,7 +291,7 @@ export default function LeaderRegistrationForm() {
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Limite de Hierarquia Atingido</h2>
                 <p className="text-muted-foreground mb-4">
-                  Não é possível adicionar mais níveis na estrutura de lideranças. 
+                  Não é possível adicionar mais níveis na estrutura de apoiadores. 
                   Entre em contato com a equipe para mais informações.
                 </p>
               </>
@@ -318,9 +318,9 @@ export default function LeaderRegistrationForm() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Você já é uma Liderança!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Você já é um Apoiador!</h2>
                 <p className="text-muted-foreground mb-4">
-                  Identificamos que você já faz parte da nossa rede de lideranças. Continue engajado!
+                  Identificamos que você já faz parte da nossa rede de apoiadores. Continue engajado!
                 </p>
               </>
             ) : null}
