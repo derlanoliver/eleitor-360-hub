@@ -2942,22 +2942,40 @@ export type Database = {
         Args: { _leader_id: string }
         Returns: Json
       }
-      public_create_leader_self_registration: {
-        Args: {
-          p_cidade_id?: string
-          p_data_nascimento?: string
-          p_email?: string
-          p_nome: string
-          p_observacao?: string
-          p_telefone: string
-        }
-        Returns: {
-          already_exists: boolean
-          existing_is_verified: boolean
-          leader_id: string
-          verification_code: string
-        }[]
-      }
+      public_create_leader_self_registration:
+        | {
+            Args: {
+              p_cidade_id?: string
+              p_data_nascimento?: string
+              p_email?: string
+              p_nome: string
+              p_observacao?: string
+              p_telefone: string
+            }
+            Returns: {
+              affiliate_token: string
+              already_exists: boolean
+              existing_is_verified: boolean
+              leader_id: string
+              verification_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_cidade_id?: string
+              p_data_nascimento?: string
+              p_email?: string
+              p_nome: string
+              p_observacao?: string
+              p_telefone: string
+            }
+            Returns: {
+              already_exists: boolean
+              existing_is_verified: boolean
+              leader_id: string
+              verification_code: string
+            }[]
+          }
       public_find_leader_by_phone_or_email: {
         Args: { p_email?: string; p_phone: string }
         Returns: {
@@ -2973,9 +2991,7 @@ export type Database = {
       public_get_leader_for_resend: {
         Args: { p_leader_id: string }
         Returns: {
-          email: string
           id: string
-          is_active: boolean
           is_verified: boolean
           nome_completo: string
           telefone: string
