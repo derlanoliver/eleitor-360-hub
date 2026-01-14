@@ -160,17 +160,31 @@ export default function PublicLeaderRegistration() {
         throw new Error("Erro ao realizar cadastro. Tente novamente.");
       }
 
-      const registrationResult = result?.[0];
+      const registrationResult = result?.[0] as {
+        leader_id: string | null;
+        verification_code: string | null;
+        already_exists: boolean;
+        is_verified: boolean;
+        error_message: string | null;
+      } | null;
+      
       if (!registrationResult) {
         throw new Error("Erro ao processar cadastro. Tente novamente.");
+      }
+
+      // Verificar erro específico de email duplicado
+      if (registrationResult.error_message) {
+        toast.error(registrationResult.error_message);
+        setIsSubmitting(false);
+        return;
       }
 
       // Se já existe, mostrar tela apropriada
       if (registrationResult.already_exists) {
         setAlreadyRegistered({
-          type: registrationResult.existing_is_verified ? 'verified' : 'unverified',
+          type: registrationResult.is_verified ? 'verified' : 'unverified',
           name: data.nome_completo.trim(),
-          leaderId: registrationResult.leader_id,
+          leaderId: registrationResult.leader_id!,
           phone: normalizedPhone,
         });
         setIsSubmitting(false);

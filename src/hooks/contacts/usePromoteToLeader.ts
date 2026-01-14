@@ -33,12 +33,24 @@ export function usePromoteToLeader() {
 
       if (rpcError) throw rpcError;
 
-      const registrationResult = result?.[0];
+      const registrationResult = result?.[0] as {
+        leader_id: string | null;
+        verification_code: string | null;
+        already_exists: boolean;
+        is_verified: boolean;
+        error_message: string | null;
+      } | null;
+      
       if (!registrationResult) {
         throw new Error("Erro ao processar promoção a líder");
       }
 
-      // Se já existe como líder
+      // Verificar erro específico de email duplicado
+      if (registrationResult.error_message) {
+        throw new Error(registrationResult.error_message);
+      }
+
+      // Se já existe como líder (por telefone)
       if (registrationResult.already_exists) {
         throw new Error("Este contato já está cadastrado como apoiador");
       }
