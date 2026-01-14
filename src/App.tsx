@@ -50,6 +50,7 @@ import PublicLeaderRegistration from "./pages/PublicLeaderRegistration";
 import LeaderFormSettings from "./pages/settings/LeaderFormSettings";
 import Gamification from "./pages/settings/Gamification";
 import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
+import Reports from "./pages/settings/Reports";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -348,6 +349,15 @@ const App = () => (
               <ProtectedRoute>
                 <Support />
               </ProtectedRoute>
+            } />
+            
+            {/* Reports - admin e atendente */}
+            <Route path="/settings/reports" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+                <DashboardLayout>
+                  <Reports />
+                </DashboardLayout>
+              </RoleProtectedRoute>
             } />
             
             {/* Admin Tickets - apenas super_admin */}
