@@ -693,6 +693,9 @@ export type Database = {
           resend_enabled: boolean | null
           resend_from_email: string | null
           resend_from_name: string | null
+          sms_active_provider: string | null
+          smsbarato_api_key: string | null
+          smsbarato_enabled: boolean | null
           smsdev_api_key: string | null
           smsdev_enabled: boolean | null
           updated_at: string
@@ -722,6 +725,9 @@ export type Database = {
           resend_enabled?: boolean | null
           resend_from_email?: string | null
           resend_from_name?: string | null
+          sms_active_provider?: string | null
+          smsbarato_api_key?: string | null
+          smsbarato_enabled?: boolean | null
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
@@ -751,6 +757,9 @@ export type Database = {
           resend_enabled?: boolean | null
           resend_from_email?: string | null
           resend_from_name?: string | null
+          sms_active_provider?: string | null
+          smsbarato_api_key?: string | null
+          smsbarato_enabled?: boolean | null
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
@@ -1762,6 +1771,7 @@ export type Database = {
           message_id: string | null
           next_retry_at: string | null
           phone: string
+          provider: string | null
           retry_count: number | null
           retry_history: Json | null
           sent_at: string | null
@@ -1781,6 +1791,7 @@ export type Database = {
           message_id?: string | null
           next_retry_at?: string | null
           phone: string
+          provider?: string | null
           retry_count?: number | null
           retry_history?: Json | null
           sent_at?: string | null
@@ -1800,6 +1811,7 @@ export type Database = {
           message_id?: string | null
           next_retry_at?: string | null
           phone?: string
+          provider?: string | null
           retry_count?: number | null
           retry_history?: Json | null
           sent_at?: string | null

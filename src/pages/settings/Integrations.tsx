@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle, Radio, Wallet, ArrowLeft, QrCode, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook } from "@/hooks/useIntegrationsSettings";
+import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook, useTestSmsbaratoConnection } from "@/hooks/useIntegrationsSettings";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
 import { useTutorial } from "@/hooks/useTutorial";
@@ -161,6 +162,7 @@ const Integrations = () => {
   const testZapiConnection = useTestZapiConnection();
   const testResendConnection = useTestResendConnection();
   const testSmsdevConnection = useTestSmsdevConnection();
+  const testSmsbaratoConnection = useTestSmsbaratoConnection();
   const testSmsdevWebhook = useTestSmsdevWebhook();
 
   // Z-API state
@@ -197,6 +199,12 @@ const Integrations = () => {
   const [showSmsdevKey, setShowSmsdevKey] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
 
+  // SMSBarato state
+  const [smsbaratoApiKey, setSmsbaratoApiKey] = useState("");
+  const [smsbaratoEnabled, setSmsbaratoEnabled] = useState(false);
+  const [showSmsbaratoKey, setShowSmsbaratoKey] = useState(false);
+  const [smsActiveProvider, setSmsActiveProvider] = useState<'smsdev' | 'smsbarato'>('smsdev');
+
   // PassKit state
   const [passkitApiToken, setPasskitApiToken] = useState("");
   const [passkitApiBaseUrl, setPasskitApiBaseUrl] = useState("https://api.pub1.passkit.io");
@@ -232,6 +240,10 @@ const Integrations = () => {
       setResendEnabled(settings.resend_enabled || false);
       setSmsdevApiKey(settings.smsdev_api_key || "");
       setSmsdevEnabled(settings.smsdev_enabled || false);
+      // SMSBarato
+      setSmsbaratoApiKey(settings.smsbarato_api_key || "");
+      setSmsbaratoEnabled(settings.smsbarato_enabled || false);
+      setSmsActiveProvider((settings.sms_active_provider as 'smsdev' | 'smsbarato') || 'smsdev');
       // PassKit
       setPasskitApiToken(settings.passkit_api_token || "");
       setPasskitApiBaseUrl(settings.passkit_api_base_url || "https://api.pub1.passkit.io");
@@ -282,6 +294,22 @@ const Integrations = () => {
     updateSettings.mutate({
       smsdev_api_key: smsdevApiKey || null,
       smsdev_enabled: smsdevEnabled,
+      sms_active_provider: smsActiveProvider,
+    });
+  };
+
+  const handleSaveSmsbarato = () => {
+    updateSettings.mutate({
+      smsbarato_api_key: smsbaratoApiKey || null,
+      smsbarato_enabled: smsbaratoEnabled,
+      sms_active_provider: smsActiveProvider,
+    });
+  };
+
+  const handleSaveActiveProvider = (provider: 'smsdev' | 'smsbarato') => {
+    setSmsActiveProvider(provider);
+    updateSettings.mutate({
+      sms_active_provider: provider,
     });
   };
 
@@ -314,9 +342,15 @@ const Integrations = () => {
     testSmsdevConnection.mutate(smsdevApiKey);
   };
 
+  const handleTestSmsbarato = () => {
+    if (!smsbaratoApiKey) return;
+    testSmsbaratoConnection.mutate(smsbaratoApiKey);
+  };
+
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
+  const isSmsbaratoConfigured = !!smsbaratoApiKey;
   const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId && !!passkitTierId;
 
   // Z-API connection status check
@@ -733,6 +767,63 @@ const Integrations = () => {
           </CardContent>
         </Card>
 
+        {/* SMS Provider Selector */}
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Smartphone className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Provedor SMS Ativo</CardTitle>
+                <CardDescription>
+                  Selecione qual provedor será usado para envio de SMS
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={smsActiveProvider}
+              onValueChange={(value: 'smsdev' | 'smsbarato') => handleSaveActiveProvider(value)}
+              className="flex flex-col sm:flex-row gap-4"
+            >
+              <div className="flex items-center space-x-3 border rounded-lg p-4 flex-1 cursor-pointer hover:bg-muted/50 transition-colors">
+                <RadioGroupItem value="smsdev" id="smsdev" disabled={!smsdevEnabled} />
+                <div className="flex-1">
+                  <Label htmlFor="smsdev" className="cursor-pointer flex items-center gap-2">
+                    <span className="font-medium">SMSDEV</span>
+                    {smsActiveProvider === 'smsdev' && (
+                      <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-xs">
+                        Ativo
+                      </Badge>
+                    )}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {smsdevEnabled ? "Habilitado e pronto para uso" : "Configure abaixo para habilitar"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 border rounded-lg p-4 flex-1 cursor-pointer hover:bg-muted/50 transition-colors">
+                <RadioGroupItem value="smsbarato" id="smsbarato" disabled={!smsbaratoEnabled} />
+                <div className="flex-1">
+                  <Label htmlFor="smsbarato" className="cursor-pointer flex items-center gap-2">
+                    <span className="font-medium">SMSBarato</span>
+                    {smsActiveProvider === 'smsbarato' && (
+                      <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-xs">
+                        Ativo
+                      </Badge>
+                    )}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {smsbaratoEnabled ? "Habilitado e pronto para uso" : "Configure abaixo para habilitar"}
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
         {/* SMSDEV SMS */}
         <Card>
           <CardHeader>
@@ -749,6 +840,12 @@ const Integrations = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {smsActiveProvider === 'smsdev' && smsdevEnabled && (
+                  <Badge variant="default" className="bg-primary hover:bg-primary/90">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Em uso
+                  </Badge>
+                )}
                 {isSmsdevConfigured ? (
                   smsdevEnabled ? (
                     <Badge variant="default" className="bg-green-500 hover:bg-green-600">
@@ -873,6 +970,109 @@ const Integrations = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* SMSBarato SMS */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Smartphone className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">SMSBarato - Envio de SMS</CardTitle>
+                  <CardDescription>
+                    Provedor SMS alternativo
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {smsActiveProvider === 'smsbarato' && smsbaratoEnabled && (
+                  <Badge variant="default" className="bg-primary hover:bg-primary/90">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Em uso
+                  </Badge>
+                )}
+                {isSmsbaratoConfigured ? (
+                  smsbaratoEnabled ? (
+                    <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Ativo
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">
+                      Configurado
+                    </Badge>
+                  )
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Não configurado
+                  </Badge>
+                )}
+                <Switch
+                  checked={smsbaratoEnabled}
+                  onCheckedChange={setSmsbaratoEnabled}
+                  disabled={!isSmsbaratoConfigured}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="smsbarato-key">API Key</Label>
+              <div className="relative">
+                <Input
+                  id="smsbarato-key"
+                  type={showSmsbaratoKey ? "text" : "password"}
+                  placeholder="Sua chave de API do SMSBarato"
+                  value={smsbaratoApiKey}
+                  onChange={(e) => setSmsbaratoApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowSmsbaratoKey(!showSmsbaratoKey)}
+                >
+                  {showSmsbaratoKey ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Obtenha em <a href="https://www.smsbarato.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline">smsbarato.com.br</a>
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={handleTestSmsbarato}
+                disabled={!smsbaratoApiKey || testSmsbaratoConnection.isPending}
+              >
+                {testSmsbaratoConnection.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Testar Conexão
+              </Button>
+              <Button
+                onClick={handleSaveSmsbarato}
+                disabled={updateSettings.isPending}
+              >
+                {updateSettings.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
 
         {/* PassKit - Carteira Digital */}
         <Card>
