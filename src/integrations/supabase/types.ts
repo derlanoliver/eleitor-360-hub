@@ -2989,7 +2989,8 @@ export type Database = {
             }
             Returns: {
               already_exists: boolean
-              existing_is_verified: boolean
+              error_message: string
+              is_verified: boolean
               leader_id: string
               verification_code: string
             }[]
