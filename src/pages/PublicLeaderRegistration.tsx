@@ -22,7 +22,7 @@ import {
 import { RegionSelect } from "@/components/office/RegionSelect";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -105,7 +105,8 @@ export default function PublicLeaderRegistration() {
       }
 
       // Enviar SMS de verificação com o código EXISTENTE
-      const linkVerificacao = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
+      // SEMPRE usa URL de produção (via função dedicada)
+      const linkVerificacao = generateLeaderVerificationUrl(verificationCode);
       
       const { error: smsError } = await supabase.functions.invoke('send-sms', {
         body: {
@@ -197,7 +198,8 @@ export default function PublicLeaderRegistration() {
 
       if (leaderId && verificationCode) {
         try {
-          const linkVerificacao = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
+          // SEMPRE usa URL de produção (via função dedicada)
+          const linkVerificacao = generateLeaderVerificationUrl(verificationCode);
 
           await supabase.functions.invoke('send-sms', {
             body: {

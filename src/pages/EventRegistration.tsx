@@ -15,7 +15,7 @@ import { isEventDeadlinePassed } from "@/lib/eventUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import QRCodeComponent from "qrcode";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { PRODUCTION_URL } from "@/lib/urlHelper";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -139,8 +139,8 @@ export default function EventRegistration() {
 
       // Page view tracking is now handled by the trigger/function
 
-      // Generate QR Code with full URL for check-in
-      const checkInUrl = `${getBaseUrl()}/checkin/${registration.qr_code}`;
+      // Generate QR Code with full URL for check-in (SEMPRE usa URL de produção)
+      const checkInUrl = `${PRODUCTION_URL}/checkin/${registration.qr_code}`;
       const qrData = await QRCodeComponent.toDataURL(checkInUrl, {
         width: 300,
         margin: 2,

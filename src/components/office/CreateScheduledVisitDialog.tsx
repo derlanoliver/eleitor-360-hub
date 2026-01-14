@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { generateVisitFormUrl } from "@/lib/urlHelper";
 
 interface CreateScheduledVisitDialogProps {
   open: boolean;
@@ -110,7 +110,8 @@ export function CreateScheduledVisitDialog({ open, onOpenChange, initialDate }: 
       
       const formattedDate = format(date, "dd/MM/yyyy", { locale: ptBR });
       const formattedTime = time;
-      const linkFormulario = `${getBaseUrl()}/visita-gabinete/${result.id}`;
+      // SEMPRE usa URL de produção (via função dedicada - enviado externamente via SMS)
+      const linkFormulario = generateVisitFormUrl(result.id);
 
       const { error: smsError } = await supabase.functions.invoke("send-sms", {
         body: {

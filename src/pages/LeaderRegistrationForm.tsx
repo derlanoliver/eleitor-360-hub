@@ -31,7 +31,7 @@ import { User, MapPin, Loader2, CheckCircle2, Crown, AlertTriangle } from "lucid
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 // Constante para identificar versão do código (debug)
@@ -191,7 +191,8 @@ export default function LeaderRegistrationForm() {
         setNewLeaderAffiliateToken(leaderResult.affiliate_token);
         setIsNewLeader(true);
 
-        const verificationLink = `${getBaseUrl()}/verificar-lider/${leaderResult.verification_code}`;
+        // SEMPRE usa URL de produção (via função dedicada)
+        const verificationLink = generateLeaderVerificationUrl(leaderResult.verification_code);
 
         // DEBUG: Identificar versão do código - CRÍTICO para debug
         console.log(`[LeaderRegistrationForm v${FORM_VERSION}] === INICIANDO ENVIO DE SMS DE VERIFICAÇÃO ===`);

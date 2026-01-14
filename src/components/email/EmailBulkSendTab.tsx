@@ -22,7 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl, generateVerificationUrl } from "@/lib/urlHelper";
+import { getProductionUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateUnsubscribeUrl, generateVerificationUrl, generateLeaderVerificationUrl } from "@/lib/urlHelper";
 import { toast } from "sonner";
 import { useBulkSendSession } from "@/hooks/useBulkSendSession";
 import { ResumeSessionAlert } from "@/components/bulk-send/ResumeSessionAlert";
@@ -499,7 +499,8 @@ export function EmailBulkSendTab() {
     let successCount = 0;
     let errorCount = 0;
 
-    const baseUrl = getBaseUrl();
+    // SEMPRE usa URL de produção para comunicações externas
+    const baseUrl = getProductionUrl();
 
     // Obter identificadores já enviados (para retomada)
     const sentIdentifiers = resumeMode || isResuming ? getSentIdentifiers() : new Set<string>();

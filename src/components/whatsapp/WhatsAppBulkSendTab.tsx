@@ -37,7 +37,7 @@ import {
 } from "@/hooks/useWhatsAppTemplates";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getBaseUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl } from "@/lib/urlHelper";
+import { getProductionUrl, generateEventAffiliateUrl, generateAffiliateUrl, generateLeaderReferralUrl, generateSurveyAffiliateUrl, generateLeaderVerificationUrl, generateVerificationUrl } from "@/lib/urlHelper";
 
 type RecipientType = "leaders" | "event_contacts" | "funnel_contacts" | "all_contacts" | "single_contact" | "single_leader" | "unverified_contacts";
 
@@ -429,7 +429,8 @@ export function WhatsAppBulkSendTab() {
     let successCount = 0;
     let errorCount = 0;
 
-    const baseUrl = getBaseUrl();
+    // SEMPRE usa URL de produção para comunicações externas
+    const baseUrl = getProductionUrl();
 
     try {
       const recipients = recipientsData.recipients as Record<string, unknown>[];
