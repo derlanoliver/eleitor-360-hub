@@ -22,7 +22,7 @@ import { useCreateScheduledMessages } from "@/hooks/useScheduledMessages";
 import { ScheduleMessageDialog } from "@/components/scheduling/ScheduleMessageDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { generateVerificationUrl, getBaseUrl } from "@/lib/urlHelper";
+import { generateVerificationUrl, generateLeaderReferralUrl, generateLeaderVerificationUrl, getProductionUrl } from "@/lib/urlHelper";
 
 type RecipientType = "contacts" | "leaders" | "event" | "single_contact" | "single_leader" | "sms_not_sent" | "waiting_verification" | "coordinator_tree";
 type BatchSize = "10" | "20" | "30" | "50" | "100" | "all";
@@ -277,9 +277,9 @@ export function SMSBulkSendTab() {
             email: recipient.email || "",
           };
 
-          // Add leader affiliate link if applicable
+          // Add leader affiliate link if applicable (SEMPRE usa URL de produção)
           if ((recipientType === "leaders" || recipientType === "single_leader") && recipient.affiliate_token) {
-            variables.link_indicacao = `${getBaseUrl()}/cadastro/${recipient.affiliate_token}`;
+            variables.link_indicacao = generateLeaderReferralUrl(recipient.affiliate_token);
           }
 
           // Add event variables if applicable
@@ -781,7 +781,8 @@ export function SMSBulkSendTab() {
             template_slug: selectedTemplate,
             variables: {
               nome: r.nome || "",
-              ...(r.affiliate_token ? { link_indicacao: `${getBaseUrl()}/cadastro/${r.affiliate_token}` } : {}),
+              // SEMPRE usa URL de produção para links de afiliado
+              ...(r.affiliate_token ? { link_indicacao: generateLeaderReferralUrl(r.affiliate_token) } : {}),
             },
             scheduled_for: scheduledFor.toISOString(),
             contact_id: recipientType === "contacts" || recipientType === "event" ? r.id : undefined,

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { generateLeaderVerificationUrl, generateLeaderReferralUrl } from "@/lib/urlHelper";
 
 // Enviar SMS de verificação para novo líder
 export function useSendLeaderVerificationSMS() {
@@ -19,7 +19,8 @@ export function useSendLeaderVerificationSMS() {
       leaderPhone: string;
       verificationCode: string;
     }) => {
-      const verificationLink = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
+      // SEMPRE usa URL de produção (via função dedicada)
+      const verificationLink = generateLeaderVerificationUrl(verificationCode);
 
       // Enviar SMS de verificação
       const { error: smsError } = await supabase.functions.invoke("send-sms", {
@@ -75,7 +76,8 @@ export function useResendLeaderVerificationSMS() {
       if (!leader.telefone) throw new Error("Líder não possui telefone cadastrado");
       if (!leader.verification_code) throw new Error("Líder não possui código de verificação");
 
-      const verificationLink = `${getBaseUrl()}/verificar-lider/${leader.verification_code}`;
+      // SEMPRE usa URL de produção (via função dedicada)
+      const verificationLink = generateLeaderVerificationUrl(leader.verification_code);
 
       // Enviar SMS de verificação
       const { error: smsError } = await supabase.functions.invoke("send-sms", {
@@ -169,7 +171,8 @@ export function useSendLeaderAffiliateLink() {
       leaderEmail?: string | null;
       affiliateToken: string;
     }) => {
-      const affiliateLink = `${getBaseUrl()}/cadastro/${affiliateToken}`;
+      // SEMPRE usa URL de produção (via função dedicada)
+      const affiliateLink = generateLeaderReferralUrl(affiliateToken);
 
       // Gerar QR Code
       const QRCode = (await import("qrcode")).default;

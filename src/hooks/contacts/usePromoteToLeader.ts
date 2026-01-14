@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { getBaseUrl } from "@/lib/urlHelper";
+import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
 
 interface PromoteToLeaderParams {
   contact: {
@@ -78,7 +78,8 @@ export function usePromoteToLeader() {
       // Enviar SMS de VERIFICAÇÃO
       if (verificationCode) {
         try {
-          const verificationLink = `${getBaseUrl()}/verificar-lider/${verificationCode}`;
+          // SEMPRE usa URL de produção (via função dedicada)
+          const verificationLink = generateLeaderVerificationUrl(verificationCode);
           await supabase.functions.invoke("send-sms", {
             body: {
               phone: contact.telefone_norm,
