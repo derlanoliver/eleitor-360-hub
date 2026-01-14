@@ -14,7 +14,8 @@ import {
   FileText,
   HelpCircle,
   Trophy,
-  MessageSquareText
+  MessageSquareText,
+  FileBarChart
 } from "lucide-react";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -155,6 +156,14 @@ const Settings = () => {
       href: "/settings/support",
       available: true,
       roles: ['super_admin', 'admin', 'atendente', 'checkin_operator'],
+    },
+    {
+      title: "Relatórios",
+      description: "Visualize relatórios consolidados de comunicações, eventos e líderes",
+      icon: FileBarChart,
+      href: "/settings/reports",
+      available: true,
+      roles: ['super_admin', 'admin', 'atendente'],
     },
   ];
 
