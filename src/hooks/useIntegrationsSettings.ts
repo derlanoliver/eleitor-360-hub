@@ -15,6 +15,10 @@ interface IntegrationsSettings {
   resend_enabled: boolean;
   smsdev_api_key: string | null;
   smsdev_enabled: boolean;
+  // SMSBarato
+  smsbarato_api_key: string | null;
+  smsbarato_enabled: boolean;
+  sms_active_provider: 'smsdev' | 'smsbarato';
   // PassKit
   passkit_api_token: string | null;
   passkit_api_base_url: string | null;
@@ -46,6 +50,10 @@ interface UpdateIntegrationsDTO {
   resend_enabled?: boolean;
   smsdev_api_key?: string | null;
   smsdev_enabled?: boolean;
+  // SMSBarato
+  smsbarato_api_key?: string | null;
+  smsbarato_enabled?: boolean;
+  sms_active_provider?: 'smsdev' | 'smsbarato';
   // PassKit
   passkit_api_token?: string | null;
   passkit_api_base_url?: string | null;
@@ -168,6 +176,36 @@ export function useTestSmsdevConnection() {
   return useMutation({
     mutationFn: async (apiKey: string) => {
       const { data, error } = await supabase.functions.invoke('test-smsdev-connection', {
+        body: { apiKey }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Conexão bem-sucedida",
+        description: data.description || `Saldo disponível: ${data.balance} SMS`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro na conexão",
+        description: error.message || "Verifique a API Key e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useTestSmsbaratoConnection() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (apiKey: string) => {
+      const { data, error } = await supabase.functions.invoke('test-smsbarato-connection', {
         body: { apiKey }
       });
 
