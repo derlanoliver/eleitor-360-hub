@@ -2960,41 +2960,23 @@ export type Database = {
         Args: { _leader_id: string }
         Returns: Json
       }
-      public_create_leader_self_registration:
-        | {
-            Args: {
-              p_cidade_id?: string
-              p_data_nascimento?: string
-              p_email?: string
-              p_nome: string
-              p_observacao?: string
-              p_telefone: string
-            }
-            Returns: {
-              affiliate_token: string
-              already_exists: boolean
-              existing_is_verified: boolean
-              leader_id: string
-              verification_code: string
-            }[]
-          }
-        | {
-            Args: {
-              p_cidade_id?: string
-              p_data_nascimento?: string
-              p_email?: string
-              p_nome: string
-              p_observacao?: string
-              p_telefone: string
-            }
-            Returns: {
-              already_exists: boolean
-              error_message: string
-              is_verified: boolean
-              leader_id: string
-              verification_code: string
-            }[]
-          }
+      public_create_leader_self_registration: {
+        Args: {
+          p_cidade_id?: string
+          p_data_nascimento?: string
+          p_email?: string
+          p_nome: string
+          p_observacao?: string
+          p_telefone: string
+        }
+        Returns: {
+          already_exists: boolean
+          error_message: string
+          is_verified: boolean
+          leader_id: string
+          verification_code: string
+        }[]
+      }
       public_find_leader_by_phone_or_email: {
         Args: { p_email?: string; p_phone: string }
         Returns: {
