@@ -2605,6 +2605,17 @@ export type Database = {
           total_pontos: number
         }[]
       }
+      get_coordinators_cadastros_report: {
+        Args: never
+        Returns: {
+          cidade_nome: string
+          id: string
+          nome_completo: string
+          pendentes: number
+          total_cadastros: number
+          verificados: number
+        }[]
+      }
       get_coordinators_with_unverified_count: {
         Args: { search_term?: string }
         Returns: {
