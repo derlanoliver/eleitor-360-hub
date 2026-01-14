@@ -1,13 +1,12 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileSpreadsheet, BarChart3, MessageSquare, Calendar, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, MessageSquare, Calendar, Users, Network } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useConsolidatedStats } from "@/hooks/reports/useConsolidatedStats";
 import { CommunicationReportTab } from "@/components/reports/CommunicationReportTab";
 import { EventsReportTab } from "@/components/reports/EventsReportTab";
 import { LeadersReportTab } from "@/components/reports/LeadersReportTab";
 import { OverviewReportTab } from "@/components/reports/OverviewReportTab";
+import { CoordinatorsReportTab } from "@/components/reports/CoordinatorsReportTab";
 
 const Reports = () => {
   const { data: stats, isLoading } = useConsolidatedStats();
@@ -20,7 +19,7 @@ const Reports = () => {
           Voltar para Configurações
         </Link>
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
             <BarChart3 className="h-5 w-5" />
           </div>
           <div>
@@ -33,7 +32,7 @@ const Reports = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Visão Geral</span>
@@ -49,6 +48,10 @@ const Reports = () => {
           <TabsTrigger value="leaders" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Líderes</span>
+          </TabsTrigger>
+          <TabsTrigger value="coordinators" className="flex items-center gap-2">
+            <Network className="h-4 w-4" />
+            <span className="hidden sm:inline">Coordenadores</span>
           </TabsTrigger>
         </TabsList>
 
@@ -66,6 +69,10 @@ const Reports = () => {
 
         <TabsContent value="leaders">
           <LeadersReportTab />
+        </TabsContent>
+
+        <TabsContent value="coordinators">
+          <CoordinatorsReportTab />
         </TabsContent>
       </Tabs>
     </div>
