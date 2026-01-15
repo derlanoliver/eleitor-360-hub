@@ -146,7 +146,8 @@ export function SMSBulkSendTab() {
           .from("office_contacts")
           .select("id, nome, telefone_norm, email")
           .eq("is_active", true)
-          .not("telefone_norm", "is", null);
+          .not("telefone_norm", "is", null)
+          .limit(10000);
         if (error) throw error;
         return data.map((c) => ({
           id: c.id,
@@ -161,7 +162,8 @@ export function SMSBulkSendTab() {
           .from("lideres")
           .select("id, nome_completo, telefone, email, affiliate_token")
           .eq("is_active", true)
-          .not("telefone", "is", null);
+          .not("telefone", "is", null)
+          .limit(10000);
         if (error) throw error;
         return data.map((l) => ({
           id: l.id,
@@ -193,7 +195,8 @@ export function SMSBulkSendTab() {
           .eq("is_active", true)
           .eq("is_verified", false)
           .not("telefone", "is", null)
-          .is("verification_sent_at", null);
+          .is("verification_sent_at", null)
+          .limit(10000);
         if (error) throw error;
         return data.map((l) => ({
           id: l.id,
@@ -211,7 +214,8 @@ export function SMSBulkSendTab() {
           .eq("is_active", true)
           .eq("is_verified", false)
           .not("telefone", "is", null)
-          .not("verification_sent_at", "is", null);
+          .not("verification_sent_at", "is", null)
+          .limit(10000);
         if (error) throw error;
         return data.map((l) => ({
           id: l.id,
