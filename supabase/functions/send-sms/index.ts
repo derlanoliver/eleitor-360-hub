@@ -75,31 +75,79 @@ async function sendViaSMSBarato(
   message: string,
   apiKey: string
 ): Promise<{ success: boolean; id?: string; error?: string; description?: string }> {
-  // SMSBarato API format
   const encodedMessage = encodeURIComponent(message);
-  const smsbaratoUrl = `https://www.smsbarato.com.br/api/enviar.php?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`;
+  
+  // Try multiple endpoint patterns
+  const endpoints = [
+    `https://api.smsbarato.com.br/v1/enviar?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
+    `https://smsbarato.com.br/api/enviar.php?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
+    `https://www.smsbarato.com.br/api/enviar.php?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
+  ];
 
   console.log("[send-sms] Sending via SMSBarato...");
   
-  const response = await fetch(smsbaratoUrl);
-  const result = await response.text();
+  let lastError = "";
   
-  console.log("[send-sms] SMSBarato response:", result);
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[send-sms] Trying SMSBarato endpoint...`);
+      
+      const response = await fetch(endpoint);
+      const result = await response.text();
+      
+      console.log("[send-sms] SMSBarato response:", result.substring(0, 200));
 
-  // SMSBarato returns a numeric ID on success or an error message
-  const messageId = parseInt(result, 10);
-  
-  if (!isNaN(messageId) && messageId > 0) {
-    return { 
-      success: true, 
-      id: result.trim(), 
-      description: "Mensagem enviada com sucesso" 
-    };
+      // Check if response is HTML (404 page)
+      if (result.includes("<!DOCTYPE html>") || result.includes("<html>")) {
+        lastError = "Endpoint indisponível";
+        continue;
+      }
+
+      // Try to parse as JSON
+      try {
+        const jsonResult = JSON.parse(result);
+        if (jsonResult.id || jsonResult.message_id) {
+          return { 
+            success: true, 
+            id: String(jsonResult.id || jsonResult.message_id), 
+            description: "Mensagem enviada com sucesso" 
+          };
+        }
+        if (jsonResult.erro || jsonResult.error) {
+          lastError = jsonResult.erro || jsonResult.error;
+          continue;
+        }
+      } catch {
+        // Not JSON, continue with legacy format
+      }
+
+      // SMSBarato legacy format returns a numeric ID on success
+      const messageId = parseInt(result.trim(), 10);
+      
+      if (!isNaN(messageId) && messageId > 0) {
+        return { 
+          success: true, 
+          id: result.trim(), 
+          description: "Mensagem enviada com sucesso" 
+        };
+      }
+      
+      // Check for error patterns
+      if (result.toLowerCase().includes("erro") || result.toLowerCase().includes("invalid")) {
+        lastError = result.trim();
+        continue;
+      }
+      
+      lastError = result.trim() || "Resposta inesperada";
+    } catch (fetchError) {
+      console.error("[send-sms] SMSBarato fetch error:", fetchError);
+      lastError = fetchError instanceof Error ? fetchError.message : "Erro de conexão";
+    }
   }
   
   return { 
     success: false, 
-    error: result || "Erro desconhecido SMSBarato" 
+    error: lastError || "Não foi possível conectar à API SMSBarato" 
   };
 }
 
