@@ -18,7 +18,11 @@ interface IntegrationsSettings {
   // SMSBarato
   smsbarato_api_key: string | null;
   smsbarato_enabled: boolean;
-  sms_active_provider: 'smsdev' | 'smsbarato';
+  // Disparopro
+  disparopro_usuario: string | null;
+  disparopro_senha: string | null;
+  disparopro_enabled: boolean;
+  sms_active_provider: 'smsdev' | 'smsbarato' | 'disparopro';
   // PassKit
   passkit_api_token: string | null;
   passkit_api_base_url: string | null;
@@ -53,7 +57,11 @@ interface UpdateIntegrationsDTO {
   // SMSBarato
   smsbarato_api_key?: string | null;
   smsbarato_enabled?: boolean;
-  sms_active_provider?: 'smsdev' | 'smsbarato';
+  // Disparopro
+  disparopro_usuario?: string | null;
+  disparopro_senha?: string | null;
+  disparopro_enabled?: boolean;
+  sms_active_provider?: 'smsdev' | 'smsbarato' | 'disparopro';
   // PassKit
   passkit_api_token?: string | null;
   passkit_api_base_url?: string | null;
@@ -248,6 +256,36 @@ export function useTestSmsdevWebhook() {
     onError: (error: Error) => {
       toast.error("Erro ao testar webhook", {
         description: error.message,
+      });
+    }
+  });
+}
+
+export function useTestDisparoproConnection() {
+  const { toast: toastHook } = useToast();
+
+  return useMutation({
+    mutationFn: async (credentials: { usuario: string; senha: string }) => {
+      const { data, error } = await supabase.functions.invoke('test-disparopro-connection', {
+        body: credentials
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
+    },
+    onSuccess: (data) => {
+      toastHook({
+        title: "Conexão bem-sucedida",
+        description: data.description || `Saldo disponível: ${data.balance} SMS`,
+      });
+    },
+    onError: (error) => {
+      toastHook({
+        title: "Erro na conexão",
+        description: error.message || "Verifique as credenciais e tente novamente.",
+        variant: "destructive",
       });
     }
   });

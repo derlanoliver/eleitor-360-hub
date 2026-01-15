@@ -683,6 +683,9 @@ export type Database = {
       integrations_settings: {
         Row: {
           created_at: string
+          disparopro_enabled: boolean | null
+          disparopro_senha: string | null
+          disparopro_usuario: string | null
           id: string
           passkit_api_base_url: string | null
           passkit_api_token: string | null
@@ -715,6 +718,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          disparopro_enabled?: boolean | null
+          disparopro_senha?: string | null
+          disparopro_usuario?: string | null
           id?: string
           passkit_api_base_url?: string | null
           passkit_api_token?: string | null
@@ -747,6 +753,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          disparopro_enabled?: boolean | null
+          disparopro_senha?: string | null
+          disparopro_usuario?: string | null
           id?: string
           passkit_api_base_url?: string | null
           passkit_api_token?: string | null

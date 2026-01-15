@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Loader2, MessageSquare, Mail, Link2, Eye, EyeOff, CheckCircle2, XCircle, Copy, Check, Smartphone, ChevronDown, Shield, Target, ClipboardList, CalendarCheck, Users, UserPlus, FileText, Ban, MessageCircle, Radio, Wallet, ArrowLeft, QrCode, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook, useTestSmsbaratoConnection } from "@/hooks/useIntegrationsSettings";
+import { useIntegrationsSettings, useUpdateIntegrationsSettings, useTestZapiConnection, useTestSmsdevConnection, useTestSmsdevWebhook, useTestSmsbaratoConnection, useTestDisparoproConnection } from "@/hooks/useIntegrationsSettings";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTestResendConnection } from "@/hooks/useEmailTemplates";
 import { toast } from "sonner";
@@ -163,6 +163,7 @@ const Integrations = () => {
   const testResendConnection = useTestResendConnection();
   const testSmsdevConnection = useTestSmsdevConnection();
   const testSmsbaratoConnection = useTestSmsbaratoConnection();
+  const testDisparoproConnection = useTestDisparoproConnection();
   const testSmsdevWebhook = useTestSmsdevWebhook();
 
   // Z-API state
@@ -203,7 +204,14 @@ const Integrations = () => {
   const [smsbaratoApiKey, setSmsbaratoApiKey] = useState("");
   const [smsbaratoEnabled, setSmsbaratoEnabled] = useState(false);
   const [showSmsbaratoKey, setShowSmsbaratoKey] = useState(false);
-  const [smsActiveProvider, setSmsActiveProvider] = useState<'smsdev' | 'smsbarato'>('smsdev');
+
+  // Disparopro state
+  const [disparoproUsuario, setDisparoproUsuario] = useState("");
+  const [disparoproSenha, setDisparoproSenha] = useState("");
+  const [disparoproEnabled, setDisparoproEnabled] = useState(false);
+  const [showDisparoproSenha, setShowDisparoproSenha] = useState(false);
+
+  const [smsActiveProvider, setSmsActiveProvider] = useState<'smsdev' | 'smsbarato' | 'disparopro'>('smsdev');
 
   // PassKit state
   const [passkitApiToken, setPasskitApiToken] = useState("");
@@ -243,7 +251,11 @@ const Integrations = () => {
       // SMSBarato
       setSmsbaratoApiKey(settings.smsbarato_api_key || "");
       setSmsbaratoEnabled(settings.smsbarato_enabled || false);
-      setSmsActiveProvider((settings.sms_active_provider as 'smsdev' | 'smsbarato') || 'smsdev');
+      // Disparopro
+      setDisparoproUsuario((settings as any).disparopro_usuario || "");
+      setDisparoproSenha((settings as any).disparopro_senha || "");
+      setDisparoproEnabled((settings as any).disparopro_enabled || false);
+      setSmsActiveProvider((settings.sms_active_provider as 'smsdev' | 'smsbarato' | 'disparopro') || 'smsdev');
       // PassKit
       setPasskitApiToken(settings.passkit_api_token || "");
       setPasskitApiBaseUrl(settings.passkit_api_base_url || "https://api.pub1.passkit.io");
@@ -306,11 +318,20 @@ const Integrations = () => {
     });
   };
 
-  const handleSaveActiveProvider = (provider: 'smsdev' | 'smsbarato') => {
+  const handleSaveDisparopro = () => {
+    updateSettings.mutate({
+      disparopro_usuario: disparoproUsuario || null,
+      disparopro_senha: disparoproSenha || null,
+      disparopro_enabled: disparoproEnabled,
+      sms_active_provider: smsActiveProvider,
+    } as any);
+  };
+
+  const handleSaveActiveProvider = (provider: 'smsdev' | 'smsbarato' | 'disparopro') => {
     setSmsActiveProvider(provider);
     updateSettings.mutate({
       sms_active_provider: provider,
-    });
+    } as any);
   };
 
   const handleSavePasskit = () => {
@@ -347,10 +368,16 @@ const Integrations = () => {
     testSmsbaratoConnection.mutate(smsbaratoApiKey);
   };
 
+  const handleTestDisparopro = () => {
+    if (!disparoproUsuario || !disparoproSenha) return;
+    testDisparoproConnection.mutate({ usuario: disparoproUsuario, senha: disparoproSenha });
+  };
+
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
   const isSmsbaratoConfigured = !!smsbaratoApiKey;
+  const isDisparoproConfigured = !!disparoproUsuario && !!disparoproSenha;
   const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId && !!passkitTierId;
 
   // Z-API connection status check
@@ -785,10 +812,10 @@ const Integrations = () => {
           <CardContent>
             <RadioGroup
               value={smsActiveProvider}
-              onValueChange={(value: 'smsdev' | 'smsbarato') => handleSaveActiveProvider(value)}
-              className="flex flex-col sm:flex-row gap-4"
+              onValueChange={(value: 'smsdev' | 'smsbarato' | 'disparopro') => handleSaveActiveProvider(value)}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4"
             >
-              <div className="flex items-center space-x-3 border rounded-lg p-4 flex-1 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors">
                 <RadioGroupItem value="smsdev" id="smsdev" disabled={!smsdevEnabled} />
                 <div className="flex-1">
                   <Label htmlFor="smsdev" className="cursor-pointer flex items-center gap-2">
@@ -804,7 +831,7 @@ const Integrations = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3 border rounded-lg p-4 flex-1 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors">
                 <RadioGroupItem value="smsbarato" id="smsbarato" disabled={!smsbaratoEnabled} />
                 <div className="flex-1">
                   <Label htmlFor="smsbarato" className="cursor-pointer flex items-center gap-2">
@@ -817,6 +844,22 @@ const Integrations = () => {
                   </Label>
                   <p className="text-xs text-muted-foreground mt-1">
                     {smsbaratoEnabled ? "Habilitado e pronto para uso" : "Configure abaixo para habilitar"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                <RadioGroupItem value="disparopro" id="disparopro" disabled={!disparoproEnabled} />
+                <div className="flex-1">
+                  <Label htmlFor="disparopro" className="cursor-pointer flex items-center gap-2">
+                    <span className="font-medium">Disparopro</span>
+                    {smsActiveProvider === 'disparopro' && (
+                      <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-xs">
+                        Ativo
+                      </Badge>
+                    )}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {disparoproEnabled ? "Habilitado e pronto para uso" : "Configure abaixo para habilitar"}
                   </p>
                 </div>
               </div>
@@ -1062,6 +1105,119 @@ const Integrations = () => {
               </Button>
               <Button
                 onClick={handleSaveSmsbarato}
+                disabled={updateSettings.isPending}
+              >
+                {updateSettings.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Disparopro SMS */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <Smartphone className="h-5 w-5 text-teal-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Disparopro - Envio de SMS</CardTitle>
+                  <CardDescription>
+                    Provedor SMS profissional
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {smsActiveProvider === 'disparopro' && disparoproEnabled && (
+                  <Badge variant="default" className="bg-primary hover:bg-primary/90">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Em uso
+                  </Badge>
+                )}
+                {isDisparoproConfigured ? (
+                  disparoproEnabled ? (
+                    <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Ativo
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">
+                      Configurado
+                    </Badge>
+                  )
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Não configurado
+                  </Badge>
+                )}
+                <Switch
+                  checked={disparoproEnabled}
+                  onCheckedChange={setDisparoproEnabled}
+                  disabled={!isDisparoproConfigured}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="disparopro-usuario">Usuário</Label>
+              <Input
+                id="disparopro-usuario"
+                type="text"
+                placeholder="Seu identificador de API (ex: 5c45b8e1c4e51)"
+                value={disparoproUsuario}
+                onChange={(e) => setDisparoproUsuario(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Obtenha em <a href="https://disparopro.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline">disparopro.com.br</a>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="disparopro-senha">Senha</Label>
+              <div className="relative">
+                <Input
+                  id="disparopro-senha"
+                  type={showDisparoproSenha ? "text" : "password"}
+                  placeholder="Sua senha de API"
+                  value={disparoproSenha}
+                  onChange={(e) => setDisparoproSenha(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowDisparoproSenha(!showDisparoproSenha)}
+                >
+                  {showDisparoproSenha ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={handleTestDisparopro}
+                disabled={!disparoproUsuario || !disparoproSenha || testDisparoproConnection.isPending}
+              >
+                {testDisparoproConnection.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Testar Conexão
+              </Button>
+              <Button
+                onClick={handleSaveDisparopro}
                 disabled={updateSettings.isPending}
               >
                 {updateSettings.isPending ? (
