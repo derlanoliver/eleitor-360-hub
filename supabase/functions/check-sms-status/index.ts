@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // SMSDEV status codes mapping
-const STATUS_MAP: Record<string, string> = {
+const SMSDEV_STATUS_MAP: Record<string, string> = {
   "0": "queued",
   "1": "sent",
   "2": "delivered",
@@ -26,6 +26,14 @@ const STATUS_MAP: Record<string, string> = {
   "OK": "sent",
 };
 
+// SMSBarato status codes mapping
+const SMSBARATO_STATUS_MAP: Record<string, string> = {
+  "N": "queued",     // Nova, aguardando envio
+  "R": "sent",       // Sendo enviada
+  "S": "delivered",  // Sucesso
+  "F": "failed",     // Falha
+};
+
 interface SMSMessage {
   id: string;
   message_id: string;
@@ -34,6 +42,7 @@ interface SMSMessage {
   message: string;
   retry_count: number | null;
   contact_id: string | null;
+  provider: string | null;
 }
 
 interface SMSDEVStatusResponse {
@@ -167,6 +176,95 @@ async function sendWhatsAppFallback(
   }
 }
 
+// Check status via SMSDEV API
+async function checkSMSDEVStatus(
+  messageId: string,
+  apiKey: string
+): Promise<{ success: boolean; status?: string; error?: string; description?: string }> {
+  const statusUrl = `https://api.smsdev.com.br/v1/dlr?key=${apiKey}&id=${messageId}`;
+  
+  const response = await fetch(statusUrl, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    return { success: false, error: `API error: ${response.status}` };
+  }
+
+  const statusData: SMSDEVStatusResponse = await response.json();
+  
+  let rawStatus: string | undefined;
+  if (statusData.situacao === "OK" && statusData.descricao) {
+    rawStatus = statusData.descricao;
+  } else {
+    rawStatus = statusData.situacao || statusData.status || statusData.codigo || statusData.descricao;
+  }
+  
+  if (!rawStatus) {
+    return { success: false, error: "No status in response" };
+  }
+
+  const normalizedStatus = rawStatus.toString().toUpperCase();
+  const mappedStatus = SMSDEV_STATUS_MAP[normalizedStatus] || SMSDEV_STATUS_MAP[rawStatus];
+  
+  if (!mappedStatus) {
+    return { success: false, error: `Unknown status: ${rawStatus}` };
+  }
+
+  return { 
+    success: true, 
+    status: mappedStatus, 
+    description: statusData.descricao || rawStatus 
+  };
+}
+
+// Check status via SMSBarato API
+async function checkSMSBaratoStatus(
+  messageId: string,
+  apiKey: string
+): Promise<{ success: boolean; status?: string; error?: string; description?: string }> {
+  const statusUrl = `https://sistema81.smsbarato.com.br/status?chave=${apiKey}&id=${messageId}`;
+  
+  console.log(`[check-sms-status] Checking SMSBarato status for ${messageId}`);
+  
+  const response = await fetch(statusUrl);
+  const result = await response.text();
+  
+  console.log(`[check-sms-status] SMSBarato status response: ${result}`);
+  
+  const trimmedResult = result.trim();
+  
+  // Verificar erros
+  if (trimmedResult === "ERRO2") {
+    return { success: false, error: "ID inválido" };
+  }
+  
+  if (trimmedResult === "ERRO") {
+    return { success: false, error: "ID não existe" };
+  }
+  
+  // Mapear status
+  const mappedStatus = SMSBARATO_STATUS_MAP[trimmedResult];
+  
+  if (!mappedStatus) {
+    return { success: false, error: `Unknown status: ${trimmedResult}` };
+  }
+
+  const descriptions: Record<string, string> = {
+    "N": "Mensagem nova, aguardando envio",
+    "R": "Mensagem sendo enviada",
+    "S": "Mensagem enviada com sucesso",
+    "F": "Envio falhou",
+  };
+
+  return { 
+    success: true, 
+    status: mappedStatus, 
+    description: descriptions[trimmedResult] || trimmedResult 
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -179,28 +277,40 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Get settings including WhatsApp fallback config
+    // 1. Get settings including WhatsApp fallback config and all SMS providers
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("smsdev_api_key, smsdev_enabled, zapi_enabled, wa_auto_sms_fallback_enabled")
+      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled, zapi_enabled, wa_auto_sms_fallback_enabled")
       .limit(1)
       .single();
 
-    if (settingsError || !settings?.smsdev_enabled || !settings?.smsdev_api_key) {
-      console.log("[check-sms-status] SMSDEV not enabled or API key not configured");
+    if (settingsError) {
+      console.error("[check-sms-status] Settings error:", settingsError);
       return new Response(
-        JSON.stringify({ success: false, error: "SMSDEV not enabled or API key not configured" }),
+        JSON.stringify({ success: false, error: "Failed to load settings" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const smsdevEnabled = settings?.smsdev_enabled && settings?.smsdev_api_key;
+    const smsbaratoEnabled = settings?.smsbarato_enabled && settings?.smsbarato_api_key;
+    
+    if (!smsdevEnabled && !smsbaratoEnabled) {
+      console.log("[check-sms-status] No SMS provider enabled");
+      return new Response(
+        JSON.stringify({ success: false, error: "No SMS provider enabled" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const whatsappFallbackEnabled = settings.zapi_enabled && settings.wa_auto_sms_fallback_enabled;
     console.log(`[check-sms-status] WhatsApp fallback enabled: ${whatsappFallbackEnabled}`);
+    console.log(`[check-sms-status] SMSDEV enabled: ${smsdevEnabled}, SMSBarato enabled: ${smsbaratoEnabled}`);
 
-    // 2. Get pending messages with retry_count and message content
+    // 2. Get pending messages with retry_count, message content, and provider
     const { data: pendingMessages, error: messagesError } = await supabase
       .from("sms_messages")
-      .select("id, message_id, phone, status, message, retry_count, contact_id")
+      .select("id, message_id, phone, status, message, retry_count, contact_id, provider")
       .in("status", ["queued", "sent"])
       .not("message_id", "is", null)
       .order("created_at", { ascending: false })
@@ -224,49 +334,40 @@ Deno.serve(async (req) => {
     let checkedCount = 0;
     let updatedCount = 0;
     let fallbackCount = 0;
-    const apiKey = settings.smsdev_api_key;
 
-    // 3. Check each message status
+    // 3. Check each message status based on provider
     for (const msg of pendingMessages as SMSMessage[]) {
       try {
-        const statusUrl = `https://api.smsdev.com.br/v1/dlr?key=${apiKey}&id=${msg.message_id}`;
-        console.log(`[check-sms-status] Checking status for message ${msg.message_id}`);
+        // Determine provider (default to smsdev for backward compatibility)
+        const provider = msg.provider || 'smsdev';
         
-        const response = await fetch(statusUrl, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-        });
-
-        checkedCount++;
-
-        if (!response.ok) {
-          console.log(`[check-sms-status] API error for message ${msg.message_id}: ${response.status}`);
-          continue;
-        }
-
-        const statusData: SMSDEVStatusResponse = await response.json();
-        console.log(`[check-sms-status] Status response for ${msg.message_id}:`, JSON.stringify(statusData));
-
-        // Extract status
-        let rawStatus: string | undefined;
-        if (statusData.situacao === "OK" && statusData.descricao) {
-          rawStatus = statusData.descricao;
+        let statusResult: { success: boolean; status?: string; error?: string; description?: string };
+        
+        if (provider === 'smsbarato') {
+          if (!smsbaratoEnabled) {
+            console.log(`[check-sms-status] SMSBarato not enabled, skipping message ${msg.message_id}`);
+            continue;
+          }
+          statusResult = await checkSMSBaratoStatus(msg.message_id, settings.smsbarato_api_key!);
         } else {
-          rawStatus = statusData.situacao || statusData.status || statusData.codigo || statusData.descricao;
+          // Default to SMSDEV
+          if (!smsdevEnabled) {
+            console.log(`[check-sms-status] SMSDEV not enabled, skipping message ${msg.message_id}`);
+            continue;
+          }
+          statusResult = await checkSMSDEVStatus(msg.message_id, settings.smsdev_api_key!);
         }
         
-        if (!rawStatus) {
-          console.log(`[check-sms-status] No status in response for message ${msg.message_id}`);
+        checkedCount++;
+        
+        console.log(`[check-sms-status] Status for ${msg.message_id} (${provider}):`, JSON.stringify(statusResult));
+
+        if (!statusResult.success || !statusResult.status) {
+          console.log(`[check-sms-status] Failed to get status for ${msg.message_id}: ${statusResult.error}`);
           continue;
         }
 
-        const normalizedStatus = rawStatus.toString().toUpperCase();
-        const mappedStatus = STATUS_MAP[normalizedStatus] || STATUS_MAP[rawStatus];
-        
-        if (!mappedStatus) {
-          console.log(`[check-sms-status] Unknown status ${rawStatus} for message ${msg.message_id}`);
-          continue;
-        }
+        const mappedStatus = statusResult.status;
 
         if (mappedStatus === msg.status) {
           console.log(`[check-sms-status] Status unchanged for message ${msg.message_id}: ${mappedStatus}`);
@@ -287,7 +388,7 @@ Deno.serve(async (req) => {
           updateData.delivered_at = new Date().toISOString();
           updateData.sent_at = updateData.sent_at || new Date().toISOString();
         } else if (mappedStatus === "failed") {
-          updateData.error_message = statusData.descricao || `Falha no envio (código: ${rawStatus})`;
+          updateData.error_message = statusResult.description || "Falha no envio";
           
           // 4. WhatsApp fallback for failed messages after 6 retries
           const retryCount = msg.retry_count || 0;
