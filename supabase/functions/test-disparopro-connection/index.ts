@@ -6,8 +6,7 @@ const corsHeaders = {
 };
 
 interface TestDisparoproRequest {
-  usuario: string;
-  senha: string;
+  token: string;
 }
 
 serve(async (req) => {
@@ -17,46 +16,51 @@ serve(async (req) => {
   }
 
   try {
-    const { usuario, senha }: TestDisparoproRequest = await req.json();
+    const { token }: TestDisparoproRequest = await req.json();
 
-    if (!usuario || !senha) {
+    if (!token) {
       return new Response(
-        JSON.stringify({ success: false, error: "Usuário e senha são obrigatórios" }),
+        JSON.stringify({ success: false, error: "Token é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("[test-disparopro-connection] Testing Disparopro connection...");
+    console.log("[test-disparopro-connection] Testing Disparopro connection with Bearer token...");
 
-    // Check balance to verify credentials are valid using Disparopro's own endpoint
-    const response = await fetch(
-      `https://disparopro.com.br/api/consulta_saldo.php?usuario=${encodeURIComponent(usuario)}&senha=${encodeURIComponent(senha)}`
-    );
-    const result = await response.text();
-
-    console.log("[test-disparopro-connection] Disparopro response:", result);
-
-    // Disparopro returns a numeric value (balance) on success or an error message
-    const balance = parseFloat(result);
+    // Check balance to verify token is valid using Disparopro's HTTPS API
+    const response = await fetch("https://apihttp.disparopro.com.br:8433/balance", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
     
-    if (!isNaN(balance) && balance >= 0) {
+    const result = await response.json();
+
+    console.log("[test-disparopro-connection] Disparopro response:", JSON.stringify(result));
+
+    // Disparopro API returns status 200 on success with balance in the response
+    if (response.ok && result.status === 200) {
       return new Response(
         JSON.stringify({
           success: true,
           data: {
             connected: true,
-            balance: balance,
-            description: `Saldo disponível: ${balance} SMS`,
+            balance: result.detail?.balance || result.balance || 0,
+            description: `Saldo disponível: ${result.detail?.balance || result.balance || 0} SMS`,
           },
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
-      // Check for common error messages
+      // Check for authentication errors
       let errorMessage = "Erro de conexão com Disparopro";
       
-      if (result.includes("900") || result.includes("ERRO") || result.includes("invalida")) {
-        errorMessage = "Credenciais inválidas - verifique usuário e senha";
+      if (response.status === 401 || response.status === 403) {
+        errorMessage = "Token inválido - verifique seu Bearer Token";
+      } else if (result.detail || result.message) {
+        errorMessage = result.detail || result.message;
       }
         
       return new Response(

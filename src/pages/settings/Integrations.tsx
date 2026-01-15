@@ -206,10 +206,9 @@ const Integrations = () => {
   const [showSmsbaratoKey, setShowSmsbaratoKey] = useState(false);
 
   // Disparopro state
-  const [disparoproUsuario, setDisparoproUsuario] = useState("");
-  const [disparoproSenha, setDisparoproSenha] = useState("");
+  const [disparoproToken, setDisparoproToken] = useState("");
   const [disparoproEnabled, setDisparoproEnabled] = useState(false);
-  const [showDisparoproSenha, setShowDisparoproSenha] = useState(false);
+  const [showDisparoproToken, setShowDisparoproToken] = useState(false);
 
   const [smsActiveProvider, setSmsActiveProvider] = useState<'smsdev' | 'smsbarato' | 'disparopro'>('smsdev');
 
@@ -252,9 +251,8 @@ const Integrations = () => {
       setSmsbaratoApiKey(settings.smsbarato_api_key || "");
       setSmsbaratoEnabled(settings.smsbarato_enabled || false);
       // Disparopro
-      setDisparoproUsuario((settings as any).disparopro_usuario || "");
-      setDisparoproSenha((settings as any).disparopro_senha || "");
-      setDisparoproEnabled((settings as any).disparopro_enabled || false);
+      setDisparoproToken(settings.disparopro_token || "");
+      setDisparoproEnabled(settings.disparopro_enabled || false);
       setSmsActiveProvider((settings.sms_active_provider as 'smsdev' | 'smsbarato' | 'disparopro') || 'smsdev');
       // PassKit
       setPasskitApiToken(settings.passkit_api_token || "");
@@ -320,11 +318,10 @@ const Integrations = () => {
 
   const handleSaveDisparopro = () => {
     updateSettings.mutate({
-      disparopro_usuario: disparoproUsuario || null,
-      disparopro_senha: disparoproSenha || null,
+      disparopro_token: disparoproToken || null,
       disparopro_enabled: disparoproEnabled,
       sms_active_provider: smsActiveProvider,
-    } as any);
+    });
   };
 
   const handleSaveActiveProvider = (provider: 'smsdev' | 'smsbarato' | 'disparopro') => {
@@ -369,15 +366,15 @@ const Integrations = () => {
   };
 
   const handleTestDisparopro = () => {
-    if (!disparoproUsuario || !disparoproSenha) return;
-    testDisparoproConnection.mutate({ usuario: disparoproUsuario, senha: disparoproSenha });
+    if (!disparoproToken) return;
+    testDisparoproConnection.mutate(disparoproToken);
   };
 
   const isZapiConfigured = zapiInstanceId && zapiToken;
   const isResendConfigured = resendApiKey && resendFromEmail;
   const isSmsdevConfigured = !!smsdevApiKey;
   const isSmsbaratoConfigured = !!smsbaratoApiKey;
-  const isDisparoproConfigured = !!disparoproUsuario && !!disparoproSenha;
+  const isDisparoproConfigured = !!disparoproToken;
   const isPasskitConfigured = !!passkitApiToken && !!passkitProgramId && !!passkitTierId;
 
   // Z-API connection status check
@@ -1165,28 +1162,14 @@ const Integrations = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="disparopro-usuario">Usuário</Label>
-              <Input
-                id="disparopro-usuario"
-                type="text"
-                placeholder="Seu identificador de API (ex: 5c45b8e1c4e51)"
-                value={disparoproUsuario}
-                onChange={(e) => setDisparoproUsuario(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Obtenha em <a href="https://disparopro.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline">disparopro.com.br</a>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="disparopro-senha">Senha</Label>
+              <Label htmlFor="disparopro-token">Bearer Token</Label>
               <div className="relative">
                 <Input
-                  id="disparopro-senha"
-                  type={showDisparoproSenha ? "text" : "password"}
-                  placeholder="Sua senha de API"
-                  value={disparoproSenha}
-                  onChange={(e) => setDisparoproSenha(e.target.value)}
+                  id="disparopro-token"
+                  type={showDisparoproToken ? "text" : "password"}
+                  placeholder="Seu Bearer Token da API HTTPS"
+                  value={disparoproToken}
+                  onChange={(e) => setDisparoproToken(e.target.value)}
                   className="pr-10"
                 />
                 <Button
@@ -1194,22 +1177,25 @@ const Integrations = () => {
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowDisparoproSenha(!showDisparoproSenha)}
+                  onClick={() => setShowDisparoproToken(!showDisparoproToken)}
                 >
-                  {showDisparoproSenha ? (
+                  {showDisparoproToken ? (
                     <EyeOff className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Eye className="h-4 w-4 text-muted-foreground" />
                   )}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Obtenha o token em <a href="https://disparopro.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline">disparopro.com.br</a> na seção "API HTTPS"
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={handleTestDisparopro}
-                disabled={!disparoproUsuario || !disparoproSenha || testDisparoproConnection.isPending}
+                disabled={!disparoproToken || testDisparoproConnection.isPending}
               >
                 {testDisparoproConnection.isPending ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
