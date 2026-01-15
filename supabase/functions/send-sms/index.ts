@@ -138,6 +138,19 @@ async function sendViaSMSBarato(
     };
   }
 
+  // ERRO3 / Link não autorizado (filtro anti-spam / domínio não autorizado)
+  if (
+    trimmedResult === "ERRO3" ||
+    /link\s+nao\s+autorizado/i.test(trimmedResult) ||
+    /nao\s+autorizado/i.test(trimmedResult)
+  ) {
+    return {
+      success: false,
+      error:
+        "Link não autorizado pelo provedor (ERRO3). Autorize o domínio do link no painel do provedor ou use outro provedor sem bloqueio de links.",
+    };
+  }
+
   // Retorno numérico positivo = ID do lote (sucesso)
   const messageId = parseInt(trimmedResult, 10);
   
@@ -297,6 +310,17 @@ serve(async (req) => {
     // Get message content
     let finalMessage = message || "";
 
+    // If message is provided directly (no template), apply a safe heuristic:
+    // - If it starts with a full name followed by a comma, keep only the first name.
+    //   Example: "Bruno Pereira da Silva, ..." -> "Bruno, ..."
+    if (!templateSlug && finalMessage) {
+      const m = finalMessage.match(/^([^,]{1,40}),\s*(.*)$/);
+      if (m) {
+        const firstName = getFirstName(m[1] || "");
+        finalMessage = `${firstName}, ${m[2]}`;
+      }
+    }
+
     if (templateSlug) {
       const { data: template, error: templateError } = await supabase
         .from("sms_templates")
@@ -315,6 +339,9 @@ serve(async (req) => {
 
       finalMessage = replaceTemplateVariables(template.mensagem, variables || {});
     }
+
+    // Enforce 160 character SMS limit for ALL messages (template or direct)
+    finalMessage = truncateToSMSLimit(finalMessage);
 
     // Normalize phone number
     const normalizedPhone = normalizePhone(phone);
@@ -344,12 +371,28 @@ serve(async (req) => {
 
     // Send SMS via the active provider
     let sendResult: { success: boolean; id?: string; error?: string; description?: string };
+    let usedProvider = activeProvider;
     
     try {
       if (activeProvider === 'smsdev') {
         sendResult = await sendViaSMSDev(normalizedPhone, finalMessage, settings.smsdev_api_key!);
       } else if (activeProvider === 'smsbarato') {
         sendResult = await sendViaSMSBarato(normalizedPhone, finalMessage, settings.smsbarato_api_key!);
+
+        // Fallback automático: se o provedor bloquear links (ERRO3 / não autorizado), tenta SMSDEV
+        if (
+          !sendResult.success &&
+          settings.smsdev_enabled &&
+          settings.smsdev_api_key &&
+          (sendResult.error || "").toLowerCase().includes("link não autorizado")
+        ) {
+          console.log("[send-sms] SMSBarato bloqueou link; tentando fallback via SMSDEV...");
+          const fallbackResult = await sendViaSMSDev(normalizedPhone, finalMessage, settings.smsdev_api_key);
+          if (fallbackResult.success) {
+            usedProvider = 'smsdev';
+            sendResult = fallbackResult;
+          }
+        }
       } else {
         sendResult = await sendViaDisparopro(normalizedPhone, finalMessage, settings.disparopro_token!);
       }
@@ -383,6 +426,7 @@ serve(async (req) => {
           message_id: sendResult.id,
           status: "queued",
           sent_at: new Date().toISOString(),
+          provider: usedProvider,
         })
         .eq("id", messageRecord.id);
 
@@ -406,6 +450,7 @@ serve(async (req) => {
         .update({
           status: "failed",
           error_message: sendResult.error || "Erro desconhecido",
+          provider: usedProvider,
         })
         .eq("id", messageRecord.id);
 
