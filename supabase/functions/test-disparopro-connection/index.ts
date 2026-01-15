@@ -28,10 +28,9 @@ serve(async (req) => {
 
     console.log("[test-disparopro-connection] Testing Disparopro connection...");
 
-    // Check balance to verify credentials are valid
-    // Disparopro API uses similar endpoints to SMSBarato
+    // Check balance to verify credentials are valid using Disparopro's own endpoint
     const response = await fetch(
-      `https://www.smsbarato.com.br/api/consulta_saldo.php?usuario=${encodeURIComponent(usuario)}&senha=${encodeURIComponent(senha)}`
+      `https://disparopro.com.br/api/consulta_saldo.php?usuario=${encodeURIComponent(usuario)}&senha=${encodeURIComponent(senha)}`
     );
     const result = await response.text();
 
