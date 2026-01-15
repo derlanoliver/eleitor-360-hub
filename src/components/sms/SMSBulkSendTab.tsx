@@ -108,13 +108,19 @@ export function SMSBulkSendTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lideres")
-        .select("id, nome_completo, telefone, affiliate_token")
+        .select("id, nome_completo, telefone, affiliate_token, verification_code")
         .eq("is_active", true)
         .not("telefone", "is", null)
         .ilike("nome_completo", `%${singleSearch}%`)
         .limit(10);
       if (error) throw error;
-      return data?.map((l) => ({ id: l.id, nome: l.nome_completo, phone: l.telefone!, affiliate_token: l.affiliate_token })) || [];
+      return data?.map((l) => ({
+        id: l.id,
+        nome: l.nome_completo,
+        phone: l.telefone!,
+        affiliate_token: l.affiliate_token,
+        verification_code: l.verification_code,
+      })) || [];
     },
     enabled: recipientType === "single_leader" && singleSearch.length >= 2 && !selectedPerson,
   });
@@ -180,7 +186,7 @@ export function SMSBulkSendTab() {
         }));
       } else if (recipientType === "leaders") {
         // Buscar líderes com paginação para ultrapassar limite de 1000
-        const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; affiliate_token: string | null }[] = [];
+        const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; affiliate_token: string | null; verification_code: string | null }[] = [];
         const pageSize = 1000;
         let page = 0;
         let hasMore = true;
@@ -191,7 +197,7 @@ export function SMSBulkSendTab() {
 
           const { data, error } = await supabase
             .from("lideres")
-            .select("id, nome_completo, telefone, email, affiliate_token")
+            .select("id, nome_completo, telefone, email, affiliate_token, verification_code")
             .eq("is_active", true)
             .not("telefone", "is", null)
             .range(from, to);
@@ -212,7 +218,7 @@ export function SMSBulkSendTab() {
           nome: l.nome_completo,
           phone: l.telefone,
           email: l.email,
-          verification_code: null,
+          verification_code: l.verification_code,
           affiliate_token: l.affiliate_token,
         }));
       } else if (recipientType === "event" && selectedEvent) {
@@ -381,42 +387,46 @@ export function SMSBulkSendTab() {
             }
           }
 
-          // Generate verification code if needed for SMS not sent recipients
+          // Decide template BEFORE building verification variables
+          // (this matters when user manually selects verification templates)
+          let templateToUse = selectedTemplate;
+          if (isVerificationType) {
+            const isLeaderType = recipientType === "sms_not_sent" ||
+                                 recipientType === "waiting_verification" ||
+                                 recipientType === "coordinator_tree";
+            templateToUse = isLeaderType ? "verificacao-lider-sms" : "verificacao-link-sms";
+          }
+
+          const isLeaderVerificationTemplate = templateToUse === "verificacao-lider-sms";
+          const isContactVerificationTemplate = templateToUse === "verificacao-link-sms";
+
+          // Generate verification code if the chosen template needs it
           let verificationCode = recipient.verification_code;
-          if ((recipientType === "sms_not_sent" || recipientType === "waiting_verification") && !verificationCode) {
+
+          if (isLeaderVerificationTemplate && !verificationCode) {
             // Generate a 5-character alphanumeric code
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            verificationCode = Array(5).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
-            
-            // Update the leader with the new verification code
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            verificationCode = Array(5)
+              .fill(0)
+              .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+              .join("");
+
+            // Persist on leader record (so link works and future resend uses same code)
             await supabase
               .from("lideres")
-              .update({ verification_code: verificationCode })
+              .update({
+                verification_code: verificationCode,
+                // mark as sent if it wasn't (helps downstream filters)
+                verification_sent_at: new Date().toISOString(),
+              })
               .eq("id", recipient.id);
           }
 
-          // Add verification link if recipient has verification_code
-          if (verificationCode) {
-            // Use leader verification URL for leader types, contact verification URL for contacts
-            const isLeaderVerification = recipientType === "sms_not_sent" || 
-                                          recipientType === "waiting_verification" || 
-                                          recipientType === "coordinator_tree" ||
-                                          recipientType === "leaders" ||
-                                          recipientType === "single_leader";
-            
-            variables.link_verificacao = isLeaderVerification 
+          // Add verification link when template expects it
+          if (verificationCode && (isLeaderVerificationTemplate || isContactVerificationTemplate)) {
+            variables.link_verificacao = isLeaderVerificationTemplate
               ? generateLeaderVerificationUrl(verificationCode)
               : generateVerificationUrl(verificationCode);
-          }
-
-          // Use appropriate verification template for verification types
-          // Leaders use "verificacao-lider-sms", contacts use "verificacao-link-sms"
-          let templateToUse = selectedTemplate;
-          if (isVerificationType) {
-            const isLeaderType = recipientType === "sms_not_sent" || 
-                                 recipientType === "waiting_verification" || 
-                                 recipientType === "coordinator_tree";
-            templateToUse = isLeaderType ? "verificacao-lider-sms" : "verificacao-link-sms";
           }
 
           const { error } = await supabase.functions.invoke("send-sms", {
