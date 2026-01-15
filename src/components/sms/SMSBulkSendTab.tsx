@@ -397,13 +397,27 @@ export function SMSBulkSendTab() {
 
           // Add verification link if recipient has verification_code
           if (verificationCode) {
-            variables.link_verificacao = generateVerificationUrl(verificationCode);
+            // Use leader verification URL for leader types, contact verification URL for contacts
+            const isLeaderVerification = recipientType === "sms_not_sent" || 
+                                          recipientType === "waiting_verification" || 
+                                          recipientType === "coordinator_tree" ||
+                                          recipientType === "leaders" ||
+                                          recipientType === "single_leader";
+            
+            variables.link_verificacao = isLeaderVerification 
+              ? generateLeaderVerificationUrl(verificationCode)
+              : generateVerificationUrl(verificationCode);
           }
 
-          // Use verification template for verification types
-          const templateToUse = isVerificationType 
-            ? "verificacao-link-sms" 
-            : selectedTemplate;
+          // Use appropriate verification template for verification types
+          // Leaders use "verificacao-lider-sms", contacts use "verificacao-link-sms"
+          let templateToUse = selectedTemplate;
+          if (isVerificationType) {
+            const isLeaderType = recipientType === "sms_not_sent" || 
+                                 recipientType === "waiting_verification" || 
+                                 recipientType === "coordinator_tree";
+            templateToUse = isLeaderType ? "verificacao-lider-sms" : "verificacao-link-sms";
+          }
 
           const { error } = await supabase.functions.invoke("send-sms", {
             body: {
