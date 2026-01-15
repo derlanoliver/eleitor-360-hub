@@ -121,14 +121,31 @@ export function useDeleteSMSTemplate() {
   });
 }
 
+// Extract only the first name from a full name
+function getFirstName(fullName: string): string {
+  if (!fullName) return "";
+  return fullName.trim().split(/\s+/)[0];
+}
+
+// Truncate text to SMS limit (160 characters)
+function truncateToSMSLimit(message: string, limit: number = 160): string {
+  if (!message) return "";
+  if (message.length <= limit) return message;
+  return message.substring(0, limit - 3) + "...";
+}
+
 // Helper function to replace variables in template message
+// Uses first name only for 'nome' variable and enforces 160 char limit
 export function replaceTemplateVariables(
   mensagem: string,
   variables: Record<string, string>
 ): string {
   let result = mensagem;
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`{{${key}}}`, "g"), value);
+    // For 'nome' variable, use only first name
+    const finalValue = key === "nome" ? getFirstName(value) : value;
+    result = result.replace(new RegExp(`{{${key}}}`, "g"), finalValue || "");
   }
-  return result;
+  // Enforce 160 character SMS limit
+  return truncateToSMSLimit(result);
 }

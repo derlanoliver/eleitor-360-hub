@@ -14,12 +14,28 @@ interface SendSMSRequest {
   contactId?: string;
 }
 
+// Extract only the first name from a full name
+function getFirstName(fullName: string): string {
+  if (!fullName) return "";
+  return fullName.trim().split(/\s+/)[0];
+}
+
+// Truncate text to SMS limit (160 characters)
+function truncateToSMSLimit(message: string, limit: number = 160): string {
+  if (!message) return "";
+  if (message.length <= limit) return message;
+  return message.substring(0, limit - 3) + "...";
+}
+
 function replaceTemplateVariables(message: string, variables: Record<string, string>): string {
   let result = message;
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`{{${key}}}`, "g"), value || "");
+    // For 'nome' variable, use only the first name to save characters
+    const finalValue = key === "nome" ? getFirstName(value) : value;
+    result = result.replace(new RegExp(`{{${key}}}`, "g"), finalValue || "");
   }
-  return result;
+  // Ensure the final message respects the 160 character limit
+  return truncateToSMSLimit(result);
 }
 
 function normalizePhone(phone: string): string {
