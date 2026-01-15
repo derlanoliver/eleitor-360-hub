@@ -119,7 +119,7 @@ async function sendViaDisparopro(
     codificacao: "8", // 16-bits to support accents
   });
 
-  const disparoproUrl = `https://www.smsbarato.com.br/api/enviar.php?${params.toString()}`;
+  const disparoproUrl = `https://disparopro.com.br/api/enviar.php?${params.toString()}`;
 
   console.log("[send-sms] Sending via Disparopro...");
   
