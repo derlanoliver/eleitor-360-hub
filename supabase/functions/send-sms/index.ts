@@ -103,53 +103,51 @@ async function sendViaSMSBarato(
   };
 }
 
-// Send SMS via Disparopro API
+// Send SMS via Disparopro API (Bearer Token)
 async function sendViaDisparopro(
   phone: string,
   message: string,
-  usuario: string,
-  senha: string
+  token: string
 ): Promise<{ success: boolean; id?: string; error?: string; description?: string }> {
-  // Disparopro API uses usuario/senha authentication with codificacao for encoding
-  const params = new URLSearchParams({
-    usuario,
-    senha,
-    numero: phone,
-    mensagem: message,
-    codificacao: "8", // 16-bits to support accents
+  console.log("[send-sms] Sending via Disparopro with Bearer token...");
+  
+  const response = await fetch("https://apihttp.disparopro.com.br:8433/mt", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      numero: phone,
+      mensagem: message,
+    }),
   });
-
-  const disparoproUrl = `https://disparopro.com.br/api/enviar.php?${params.toString()}`;
-
-  console.log("[send-sms] Sending via Disparopro...");
   
-  const response = await fetch(disparoproUrl);
-  const result = await response.text();
+  const result = await response.json();
   
-  console.log("[send-sms] Disparopro response:", result);
+  console.log("[send-sms] Disparopro response:", JSON.stringify(result));
 
-  // Disparopro returns a numeric ID on success or an error code
-  const messageId = parseInt(result, 10);
-  
-  if (!isNaN(messageId) && messageId > 0) {
+  // Disparopro API returns status 200 with message ID on success
+  if (response.ok && result.status === 200) {
     return { 
       success: true, 
-      id: result.trim(), 
+      id: result.detail?.id || result.id || "sent", 
       description: "Mensagem enviada com sucesso" 
     };
   }
   
-  // Map error codes
-  const errorMap: Record<string, string> = {
-    "900": "Erro de autenticação - verifique usuário e senha",
-    "010": "Mensagem vazia",
-    "013": "Número de telefone incorreto",
-    "990": "Limite da conta atingido"
-  };
+  // Map error responses
+  let errorMessage = "Erro desconhecido Disparopro";
+  
+  if (response.status === 401 || response.status === 403) {
+    errorMessage = "Erro de autenticação - verifique o token";
+  } else if (result.detail || result.message) {
+    errorMessage = result.detail || result.message;
+  }
   
   return { 
     success: false, 
-    error: errorMap[result.trim()] || result || "Erro desconhecido Disparopro" 
+    error: errorMessage 
   };
 }
 
@@ -186,7 +184,7 @@ serve(async (req) => {
     // Get SMS settings including active provider
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled, disparopro_usuario, disparopro_senha, disparopro_enabled, sms_active_provider")
+      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled, disparopro_token, disparopro_enabled, sms_active_provider")
       .limit(1)
       .single();
 
@@ -236,9 +234,9 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (!settings.disparopro_usuario || !settings.disparopro_senha) {
+      if (!settings.disparopro_token) {
         return new Response(
-          JSON.stringify({ success: false, error: "Credenciais Disparopro não configuradas" }),
+          JSON.stringify({ success: false, error: "Token Disparopro não configurado" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -301,7 +299,7 @@ serve(async (req) => {
       } else if (activeProvider === 'smsbarato') {
         sendResult = await sendViaSMSBarato(normalizedPhone, finalMessage, settings.smsbarato_api_key!);
       } else {
-        sendResult = await sendViaDisparopro(normalizedPhone, finalMessage, settings.disparopro_usuario!, settings.disparopro_senha!);
+        sendResult = await sendViaDisparopro(normalizedPhone, finalMessage, settings.disparopro_token!);
       }
     } catch (fetchError) {
       console.error("[send-sms] Fetch error:", fetchError);

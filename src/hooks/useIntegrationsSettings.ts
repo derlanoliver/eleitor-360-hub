@@ -19,8 +19,7 @@ interface IntegrationsSettings {
   smsbarato_api_key: string | null;
   smsbarato_enabled: boolean;
   // Disparopro
-  disparopro_usuario: string | null;
-  disparopro_senha: string | null;
+  disparopro_token: string | null;
   disparopro_enabled: boolean;
   sms_active_provider: 'smsdev' | 'smsbarato' | 'disparopro';
   // PassKit
@@ -58,8 +57,7 @@ interface UpdateIntegrationsDTO {
   smsbarato_api_key?: string | null;
   smsbarato_enabled?: boolean;
   // Disparopro
-  disparopro_usuario?: string | null;
-  disparopro_senha?: string | null;
+  disparopro_token?: string | null;
   disparopro_enabled?: boolean;
   sms_active_provider?: 'smsdev' | 'smsbarato' | 'disparopro';
   // PassKit
@@ -265,9 +263,9 @@ export function useTestDisparoproConnection() {
   const { toast: toastHook } = useToast();
 
   return useMutation({
-    mutationFn: async (credentials: { usuario: string; senha: string }) => {
+    mutationFn: async (token: string) => {
       const { data, error } = await supabase.functions.invoke('test-disparopro-connection', {
-        body: credentials
+        body: { token }
       });
 
       if (error) throw error;
@@ -284,7 +282,7 @@ export function useTestDisparoproConnection() {
     onError: (error) => {
       toastHook({
         title: "Erro na conexão",
-        description: error.message || "Verifique as credenciais e tente novamente.",
+        description: error.message || "Verifique o token e tente novamente.",
         variant: "destructive",
       });
     }
