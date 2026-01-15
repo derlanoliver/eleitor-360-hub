@@ -142,14 +142,35 @@ export function SMSBulkSendTab() {
         return [{ id: selectedPerson.id, nome: selectedPerson.nome, phone: selectedPerson.phone, email: null, verification_code: selectedPerson.verification_code || null, affiliate_token: selectedPerson.affiliate_token || null }];
       }
       if (recipientType === "contacts") {
-        const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, telefone_norm, email")
-          .eq("is_active", true)
-          .not("telefone_norm", "is", null)
-          .limit(10000);
-        if (error) throw error;
-        return data.map((c) => ({
+        // Buscar contatos com paginação para ultrapassar limite de 1000
+        const allData: { id: string; nome: string; telefone_norm: string; email: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase
+            .from("office_contacts")
+            .select("id, nome, telefone_norm, email")
+            .eq("is_active", true)
+            .not("telefone_norm", "is", null)
+            .range(from, to);
+          
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allData.push(...data);
+            hasMore = data.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData.map((c) => ({
           id: c.id,
           nome: c.nome,
           phone: c.telefone_norm,
@@ -158,14 +179,35 @@ export function SMSBulkSendTab() {
           affiliate_token: null,
         }));
       } else if (recipientType === "leaders") {
-        const { data, error } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, telefone, email, affiliate_token")
-          .eq("is_active", true)
-          .not("telefone", "is", null)
-          .limit(10000);
-        if (error) throw error;
-        return data.map((l) => ({
+        // Buscar líderes com paginação para ultrapassar limite de 1000
+        const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; affiliate_token: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase
+            .from("lideres")
+            .select("id, nome_completo, telefone, email, affiliate_token")
+            .eq("is_active", true)
+            .not("telefone", "is", null)
+            .range(from, to);
+          
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allData.push(...data);
+            hasMore = data.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData.map((l) => ({
           id: l.id,
           nome: l.nome_completo,
           phone: l.telefone,
@@ -189,16 +231,37 @@ export function SMSBulkSendTab() {
         }));
       } else if (recipientType === "sms_not_sent") {
         // Líderes que NUNCA receberam SMS de verificação (verification_sent_at IS NULL)
-        const { data, error } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, telefone, email, verification_code")
-          .eq("is_active", true)
-          .eq("is_verified", false)
-          .not("telefone", "is", null)
-          .is("verification_sent_at", null)
-          .limit(10000);
-        if (error) throw error;
-        return data.map((l) => ({
+        // Buscar com paginação para ultrapassar limite de 1000
+        const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; verification_code: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase
+            .from("lideres")
+            .select("id, nome_completo, telefone, email, verification_code")
+            .eq("is_active", true)
+            .eq("is_verified", false)
+            .not("telefone", "is", null)
+            .is("verification_sent_at", null)
+            .range(from, to);
+          
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allData.push(...data);
+            hasMore = data.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData.map((l) => ({
           id: l.id,
           nome: l.nome_completo,
           phone: l.telefone,
@@ -208,16 +271,37 @@ export function SMSBulkSendTab() {
         }));
       } else if (recipientType === "waiting_verification") {
         // Líderes que já receberam SMS mas ainda não verificaram
-        const { data, error } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, telefone, email, verification_code")
-          .eq("is_active", true)
-          .eq("is_verified", false)
-          .not("telefone", "is", null)
-          .not("verification_sent_at", "is", null)
-          .limit(10000);
-        if (error) throw error;
-        return data.map((l) => ({
+        // Buscar com paginação para ultrapassar limite de 1000
+        const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; verification_code: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase
+            .from("lideres")
+            .select("id, nome_completo, telefone, email, verification_code")
+            .eq("is_active", true)
+            .eq("is_verified", false)
+            .not("telefone", "is", null)
+            .not("verification_sent_at", "is", null)
+            .range(from, to);
+          
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allData.push(...data);
+            hasMore = data.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData.map((l) => ({
           id: l.id,
           nome: l.nome_completo,
           phone: l.telefone,
