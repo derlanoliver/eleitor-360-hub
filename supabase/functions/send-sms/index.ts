@@ -77,77 +77,65 @@ async function sendViaSMSBarato(
 ): Promise<{ success: boolean; id?: string; error?: string; description?: string }> {
   const encodedMessage = encodeURIComponent(message);
   
-  // Try multiple endpoint patterns
-  const endpoints = [
-    `https://api.smsbarato.com.br/v1/enviar?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
-    `https://smsbarato.com.br/api/enviar.php?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
-    `https://www.smsbarato.com.br/api/enviar.php?chave=${apiKey}&numero=${phone}&mensagem=${encodedMessage}`,
-  ];
+  // Endpoint correto conforme documentação SMSBarato
+  const endpoint = `https://sistema81.smsbarato.com.br/send?chave=${apiKey}&dest=${phone}&text=${encodedMessage}`;
 
   console.log("[send-sms] Sending via SMSBarato...");
+  console.log("[send-sms] Endpoint:", endpoint.replace(apiKey, '***'));
   
-  let lastError = "";
+  const response = await fetch(endpoint);
+  const result = await response.text();
   
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`[send-sms] Trying SMSBarato endpoint...`);
-      
-      const response = await fetch(endpoint);
-      const result = await response.text();
-      
-      console.log("[send-sms] SMSBarato response:", result.substring(0, 200));
+  console.log("[send-sms] SMSBarato response:", result.substring(0, 200));
 
-      // Check if response is HTML (404 page)
-      if (result.includes("<!DOCTYPE html>") || result.includes("<html>")) {
-        lastError = "Endpoint indisponível";
-        continue;
-      }
+  // Check if response is HTML (error page)
+  if (result.includes("<!DOCTYPE html>") || result.includes("<html>")) {
+    return { 
+      success: false, 
+      error: "Endpoint indisponível" 
+    };
+  }
 
-      // Try to parse as JSON
-      try {
-        const jsonResult = JSON.parse(result);
-        if (jsonResult.id || jsonResult.message_id) {
-          return { 
-            success: true, 
-            id: String(jsonResult.id || jsonResult.message_id), 
-            description: "Mensagem enviada com sucesso" 
-          };
-        }
-        if (jsonResult.erro || jsonResult.error) {
-          lastError = jsonResult.erro || jsonResult.error;
-          continue;
-        }
-      } catch {
-        // Not JSON, continue with legacy format
-      }
+  const trimmedResult = result.trim();
+  
+  // Código 900 = erro de autenticação
+  if (trimmedResult === "900") {
+    return { 
+      success: false, 
+      error: "Erro de autenticação - API Key inválida (código 900)" 
+    };
+  }
+  
+  // Código 010 = mensagem vazia
+  if (trimmedResult === "010") {
+    return { 
+      success: false, 
+      error: "Mensagem vazia (código 010)" 
+    };
+  }
+  
+  // Código 013 = número incorreto
+  if (trimmedResult === "013") {
+    return { 
+      success: false, 
+      error: "Número de telefone incorreto (código 013)" 
+    };
+  }
 
-      // SMSBarato legacy format returns a numeric ID on success
-      const messageId = parseInt(result.trim(), 10);
-      
-      if (!isNaN(messageId) && messageId > 0) {
-        return { 
-          success: true, 
-          id: result.trim(), 
-          description: "Mensagem enviada com sucesso" 
-        };
-      }
-      
-      // Check for error patterns
-      if (result.toLowerCase().includes("erro") || result.toLowerCase().includes("invalid")) {
-        lastError = result.trim();
-        continue;
-      }
-      
-      lastError = result.trim() || "Resposta inesperada";
-    } catch (fetchError) {
-      console.error("[send-sms] SMSBarato fetch error:", fetchError);
-      lastError = fetchError instanceof Error ? fetchError.message : "Erro de conexão";
-    }
+  // Retorno numérico positivo = ID do lote (sucesso)
+  const messageId = parseInt(trimmedResult, 10);
+  
+  if (!isNaN(messageId) && messageId > 0) {
+    return { 
+      success: true, 
+      id: trimmedResult, 
+      description: "Mensagem enviada com sucesso" 
+    };
   }
   
   return { 
     success: false, 
-    error: lastError || "Não foi possível conectar à API SMSBarato" 
+    error: `Resposta inesperada da API: ${trimmedResult}` 
   };
 }
 

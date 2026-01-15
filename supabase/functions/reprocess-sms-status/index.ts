@@ -5,7 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const STATUS_MAP: Record<string, string> = {
+// SMSDEV status codes mapping
+const SMSDEV_STATUS_MAP: Record<string, string> = {
   "0": "queued",
   "1": "sent",
   "2": "delivered",
@@ -25,11 +26,20 @@ const STATUS_MAP: Record<string, string> = {
   "OK": "sent",
 };
 
+// SMSBarato status codes mapping
+const SMSBARATO_STATUS_MAP: Record<string, string> = {
+  "N": "queued",     // Nova, aguardando envio
+  "R": "sent",       // Sendo enviada
+  "S": "delivered",  // Sucesso
+  "F": "failed",     // Falha
+};
+
 interface SMSMessageRow {
   id: string;
   message_id: string | null;
   status: string;
   created_at: string;
+  provider: string | null;
 }
 
 interface SMSDEVStatusResponse {
@@ -44,6 +54,77 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Check status via SMSDEV API
+async function checkSMSDEVStatus(
+  messageId: string,
+  apiKey: string
+): Promise<{ success: boolean; status?: string; description?: string }> {
+  const statusUrl = `https://api.smsdev.com.br/v1/dlr?key=${apiKey}&id=${messageId}`;
+
+  const response = await fetch(statusUrl, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    return { success: false };
+  }
+
+  const statusData: SMSDEVStatusResponse = await response.json();
+
+  let rawStatus: string | undefined;
+  if (statusData.situacao === "OK" && statusData.descricao) {
+    rawStatus = statusData.descricao;
+  } else {
+    rawStatus = statusData.situacao || statusData.status || statusData.codigo || statusData.descricao;
+  }
+
+  if (!rawStatus) return { success: false };
+
+  const normalizedStatus = rawStatus.toString().toUpperCase();
+  const mappedStatus = SMSDEV_STATUS_MAP[normalizedStatus] || SMSDEV_STATUS_MAP[rawStatus];
+
+  if (!mappedStatus) {
+    console.log(`[reprocess-sms-status] Unknown SMSDEV status '${rawStatus}'`);
+    return { success: false };
+  }
+
+  return { success: true, status: mappedStatus, description: statusData.descricao };
+}
+
+// Check status via SMSBarato API
+async function checkSMSBaratoStatus(
+  messageId: string,
+  apiKey: string
+): Promise<{ success: boolean; status?: string; description?: string }> {
+  const statusUrl = `https://sistema81.smsbarato.com.br/status?chave=${apiKey}&id=${messageId}`;
+
+  const response = await fetch(statusUrl);
+  const result = await response.text();
+  const trimmedResult = result.trim();
+
+  // Verificar erros
+  if (trimmedResult === "ERRO2" || trimmedResult === "ERRO") {
+    return { success: false };
+  }
+
+  const mappedStatus = SMSBARATO_STATUS_MAP[trimmedResult];
+
+  if (!mappedStatus) {
+    console.log(`[reprocess-sms-status] Unknown SMSBarato status '${trimmedResult}'`);
+    return { success: false };
+  }
+
+  const descriptions: Record<string, string> = {
+    "N": "Mensagem nova, aguardando envio",
+    "R": "Mensagem sendo enviada",
+    "S": "Mensagem enviada com sucesso",
+    "F": "Envio falhou",
+  };
+
+  return { success: true, status: mappedStatus, description: descriptions[trimmedResult] };
 }
 
 Deno.serve(async (req) => {
@@ -64,16 +145,27 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Get settings for all SMS providers
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("smsdev_api_key, smsdev_enabled")
+      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled")
       .limit(1)
       .single();
 
-    if (settingsError || !settings?.smsdev_enabled || !settings?.smsdev_api_key) {
-      console.log("[reprocess-sms-status] SMSDEV not enabled or API key not configured", settingsError);
-      return json({ success: false, error: "SMSDEV not enabled or API key not configured" }, 200);
+    if (settingsError) {
+      console.log("[reprocess-sms-status] Settings error:", settingsError);
+      return json({ success: false, error: "Failed to load settings" }, 500);
     }
+
+    const smsdevEnabled = settings?.smsdev_enabled && settings?.smsdev_api_key;
+    const smsbaratoEnabled = settings?.smsbarato_enabled && settings?.smsbarato_api_key;
+
+    if (!smsdevEnabled && !smsbaratoEnabled) {
+      console.log("[reprocess-sms-status] No SMS provider enabled");
+      return json({ success: false, error: "No SMS provider enabled" }, 200);
+    }
+
+    console.log(`[reprocess-sms-status] SMSDEV enabled: ${smsdevEnabled}, SMSBarato enabled: ${smsbaratoEnabled}`);
 
     const cutoff = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
 
@@ -87,7 +179,7 @@ Deno.serve(async (req) => {
 
       const { data: page, error: pageError } = await supabase
         .from("sms_messages")
-        .select("id, message_id, status, created_at")
+        .select("id, message_id, status, created_at, provider")
         .in("status", ["queued", "sent", "pending"])
         .not("message_id", "is", null)
         .gte("created_at", cutoff)
@@ -125,36 +217,25 @@ Deno.serve(async (req) => {
     const processOne = async (msg: SMSMessageRow) => {
       if (!msg.message_id) return { checked: 0, updated: 0 };
 
-      const statusUrl = `https://api.smsdev.com.br/v1/dlr?key=${settings.smsdev_api_key}&id=${msg.message_id}`;
-
-      const response = await fetch(statusUrl, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      });
-
-      if (!response.ok) {
-        console.log(`[reprocess-sms-status] API error for ${msg.message_id}: ${response.status}`);
-        return { checked: 1, updated: 0 };
-      }
-
-      const statusData: SMSDEVStatusResponse = await response.json();
-
-      let rawStatus: string | undefined;
-      if (statusData.situacao === "OK" && statusData.descricao) {
-        rawStatus = statusData.descricao;
+      // Determine provider (default to smsdev for backward compatibility)
+      const provider = msg.provider || 'smsdev';
+      
+      let statusResult: { success: boolean; status?: string; description?: string };
+      
+      if (provider === 'smsbarato') {
+        if (!smsbaratoEnabled) return { checked: 0, updated: 0 };
+        statusResult = await checkSMSBaratoStatus(msg.message_id, settings.smsbarato_api_key!);
       } else {
-        rawStatus = statusData.situacao || statusData.status || statusData.codigo || statusData.descricao;
+        // Default to SMSDEV
+        if (!smsdevEnabled) return { checked: 0, updated: 0 };
+        statusResult = await checkSMSDEVStatus(msg.message_id, settings.smsdev_api_key!);
       }
 
-      if (!rawStatus) return { checked: 1, updated: 0 };
-
-      const normalizedStatus = rawStatus.toString().toUpperCase();
-      const mappedStatus = STATUS_MAP[normalizedStatus] || STATUS_MAP[rawStatus];
-
-      if (!mappedStatus) {
-        console.log(`[reprocess-sms-status] Unknown status '${rawStatus}' for ${msg.message_id}`);
+      if (!statusResult.success || !statusResult.status) {
         return { checked: 1, updated: 0 };
       }
+
+      const mappedStatus = statusResult.status;
 
       if (mappedStatus === msg.status) return { checked: 1, updated: 0 };
 
@@ -169,7 +250,7 @@ Deno.serve(async (req) => {
         updateData.delivered_at = new Date().toISOString();
         updateData.sent_at = new Date().toISOString();
       } else if (mappedStatus === "failed") {
-        updateData.error_message = statusData.descricao || `Falha no envio (código: ${rawStatus})`;
+        updateData.error_message = statusResult.description || "Falha no envio";
       }
 
       const { error: updateError } = await supabase
