@@ -103,6 +103,56 @@ async function sendViaSMSBarato(
   };
 }
 
+// Send SMS via Disparopro API
+async function sendViaDisparopro(
+  phone: string,
+  message: string,
+  usuario: string,
+  senha: string
+): Promise<{ success: boolean; id?: string; error?: string; description?: string }> {
+  // Disparopro API uses usuario/senha authentication with codificacao for encoding
+  const params = new URLSearchParams({
+    usuario,
+    senha,
+    numero: phone,
+    mensagem: message,
+    codificacao: "8", // 16-bits to support accents
+  });
+
+  const disparoproUrl = `https://www.smsbarato.com.br/api/enviar.php?${params.toString()}`;
+
+  console.log("[send-sms] Sending via Disparopro...");
+  
+  const response = await fetch(disparoproUrl);
+  const result = await response.text();
+  
+  console.log("[send-sms] Disparopro response:", result);
+
+  // Disparopro returns a numeric ID on success or an error code
+  const messageId = parseInt(result, 10);
+  
+  if (!isNaN(messageId) && messageId > 0) {
+    return { 
+      success: true, 
+      id: result.trim(), 
+      description: "Mensagem enviada com sucesso" 
+    };
+  }
+  
+  // Map error codes
+  const errorMap: Record<string, string> = {
+    "900": "Erro de autenticação - verifique usuário e senha",
+    "010": "Mensagem vazia",
+    "013": "Número de telefone incorreto",
+    "990": "Limite da conta atingido"
+  };
+  
+  return { 
+    success: false, 
+    error: errorMap[result.trim()] || result || "Erro desconhecido Disparopro" 
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -136,7 +186,7 @@ serve(async (req) => {
     // Get SMS settings including active provider
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
-      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled, sms_active_provider")
+      .select("smsdev_api_key, smsdev_enabled, smsbarato_api_key, smsbarato_enabled, disparopro_usuario, disparopro_senha, disparopro_enabled, sms_active_provider")
       .limit(1)
       .single();
 
@@ -176,6 +226,19 @@ serve(async (req) => {
       if (!settings.smsbarato_api_key) {
         return new Response(
           JSON.stringify({ success: false, error: "API Key SMSBarato não configurada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (activeProvider === 'disparopro') {
+      if (!settings.disparopro_enabled) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Integração Disparopro não está habilitada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!settings.disparopro_usuario || !settings.disparopro_senha) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Credenciais Disparopro não configuradas" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -235,8 +298,10 @@ serve(async (req) => {
     try {
       if (activeProvider === 'smsdev') {
         sendResult = await sendViaSMSDev(normalizedPhone, finalMessage, settings.smsdev_api_key!);
-      } else {
+      } else if (activeProvider === 'smsbarato') {
         sendResult = await sendViaSMSBarato(normalizedPhone, finalMessage, settings.smsbarato_api_key!);
+      } else {
+        sendResult = await sendViaDisparopro(normalizedPhone, finalMessage, settings.disparopro_usuario!, settings.disparopro_senha!);
       }
     } catch (fetchError) {
       console.error("[send-sms] Fetch error:", fetchError);
