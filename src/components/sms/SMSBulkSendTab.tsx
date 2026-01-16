@@ -278,6 +278,10 @@ export function SMSBulkSendTab() {
       } else if (recipientType === "waiting_verification") {
         // Líderes que já receberam SMS mas ainda não verificaram
         // Buscar com paginação para ultrapassar limite de 1000
+        // Excluir líderes que já receberam SMS de verificação hoje (deduplicação diária)
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        
         const allData: { id: string; nome_completo: string; telefone: string | null; email: string | null; verification_code: string | null }[] = [];
         const pageSize = 1000;
         let page = 0;
@@ -294,6 +298,7 @@ export function SMSBulkSendTab() {
             .eq("is_verified", false)
             .not("telefone", "is", null)
             .not("verification_sent_at", "is", null)
+            .lt("verification_sent_at", todayStart.toISOString()) // Exclui quem já recebeu hoje
             .range(from, to);
           
           if (error) throw error;
