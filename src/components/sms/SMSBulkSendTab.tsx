@@ -409,12 +409,15 @@ export function SMSBulkSendTab() {
 
           // Decide template BEFORE building verification variables
           // (this matters when user manually selects verification templates)
+          // Check recipient type for leader types before the isVerificationType narrowing
+          const currentIsLeaderType = recipientType === "leaders" ||
+                                      recipientType === "single_leader" ||
+                                      recipientType === "sms_not_sent" ||
+                                      recipientType === "waiting_verification" ||
+                                      recipientType === "coordinator_tree";
           let templateToUse = selectedTemplate;
           if (isVerificationType) {
-            const isLeaderType = recipientType === "sms_not_sent" ||
-                                 recipientType === "waiting_verification" ||
-                                 recipientType === "coordinator_tree";
-            templateToUse = isLeaderType ? "verificacao-lider-sms" : "verificacao-link-sms";
+            templateToUse = currentIsLeaderType ? "verificacao-lider-sms" : "verificacao-link-sms";
           }
 
           const isLeaderVerificationTemplate = templateToUse === "verificacao-lider-sms";
