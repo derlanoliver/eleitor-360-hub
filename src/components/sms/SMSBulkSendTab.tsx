@@ -429,11 +429,23 @@ export function SMSBulkSendTab() {
               : generateVerificationUrl(verificationCode);
           }
 
+          // Determine if recipient is a leader type (to pass leaderId for backend fallback)
+          const isLeaderRecipient = recipientType === "leaders" || 
+                                    recipientType === "single_leader" || 
+                                    recipientType === "sms_not_sent" || 
+                                    recipientType === "waiting_verification" || 
+                                    recipientType === "coordinator_tree";
+
+          const isContactRecipient = recipientType === "contacts" || recipientType === "single_contact";
+
           const { error } = await supabase.functions.invoke("send-sms", {
             body: {
               phone: recipient.phone,
               templateSlug: templateToUse,
               variables,
+              // Pass leaderId or contactId to enable backend fallback for verification templates
+              ...(isLeaderRecipient && { leaderId: recipient.id }),
+              ...(isContactRecipient && { contactId: recipient.id }),
             },
           });
 
