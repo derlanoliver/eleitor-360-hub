@@ -12,6 +12,18 @@ interface SendSMSRequest {
   templateSlug?: string;
   variables?: Record<string, string>;
   contactId?: string;
+  leaderId?: string;
+}
+
+// Production URL for verification links
+const PRODUCTION_URL = "https://rafael-prudente.lovable.app";
+
+function generateLeaderVerificationUrl(verificationCode: string): string {
+  return `${PRODUCTION_URL}/verificar-lider/${verificationCode}`;
+}
+
+function generateContactVerificationUrl(verificationCode: string): string {
+  return `${PRODUCTION_URL}/verificar-contato/${verificationCode}`;
 }
 
 // Extract only the first name from a full name
@@ -227,7 +239,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { phone, message, templateSlug, variables, contactId }: SendSMSRequest = await req.json();
+    const { phone, message, templateSlug, variables, contactId, leaderId }: SendSMSRequest = await req.json();
 
     console.log("[send-sms] Request received:", { phone, templateSlug, hasMessage: !!message });
 
@@ -337,7 +349,117 @@ serve(async (req) => {
         );
       }
 
-      finalMessage = replaceTemplateVariables(template.mensagem, variables || {});
+      // Create a mutable copy of variables for fallback injection
+      const finalVariables = { ...(variables || {}) };
+
+      // FALLBACK: If template is leader verification and link_verificacao is missing, generate it
+      if (templateSlug === "verificacao-lider-sms" && !finalVariables.link_verificacao && leaderId) {
+        console.log("[send-sms] Fallback: generating link_verificacao for leader", leaderId);
+        
+        // Fetch leader to get/generate verification_code
+        const { data: leader, error: leaderError } = await supabase
+          .from("lideres")
+          .select("id, verification_code, nome_completo")
+          .eq("id", leaderId)
+          .single();
+
+        if (!leaderError && leader) {
+          let verificationCode = leader.verification_code;
+
+          // Generate new code if missing
+          if (!verificationCode) {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            verificationCode = Array(5)
+              .fill(0)
+              .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+              .join("");
+
+            // Persist code
+            await supabase
+              .from("lideres")
+              .update({
+                verification_code: verificationCode,
+                verification_sent_at: new Date().toISOString(),
+              })
+              .eq("id", leaderId);
+
+            console.log("[send-sms] Generated new verification_code for leader:", leaderId);
+          }
+
+          finalVariables.link_verificacao = generateLeaderVerificationUrl(verificationCode);
+          
+          // Also ensure nome is available
+          if (!finalVariables.nome && leader.nome_completo) {
+            finalVariables.nome = leader.nome_completo;
+          }
+          
+          console.log("[send-sms] Injected link_verificacao:", finalVariables.link_verificacao);
+        } else {
+          console.error("[send-sms] Could not fetch leader for fallback:", leaderError);
+        }
+      }
+
+      // FALLBACK: If template is contact verification and link_verificacao is missing, generate it
+      if (templateSlug === "verificacao-link-sms" && !finalVariables.link_verificacao && contactId) {
+        console.log("[send-sms] Fallback: generating link_verificacao for contact", contactId);
+        
+        // Fetch contact to get/generate verification_code
+        const { data: contact, error: contactError } = await supabase
+          .from("office_contacts")
+          .select("id, verification_code, nome")
+          .eq("id", contactId)
+          .single();
+
+        if (!contactError && contact) {
+          let verificationCode = contact.verification_code;
+
+          // Generate new code if missing
+          if (!verificationCode) {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            verificationCode = Array(5)
+              .fill(0)
+              .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+              .join("");
+
+            // Persist code
+            await supabase
+              .from("office_contacts")
+              .update({
+                verification_code: verificationCode,
+                verification_sent_at: new Date().toISOString(),
+              })
+              .eq("id", contactId);
+
+            console.log("[send-sms] Generated new verification_code for contact:", contactId);
+          }
+
+          finalVariables.link_verificacao = generateContactVerificationUrl(verificationCode);
+          
+          // Also ensure nome is available
+          if (!finalVariables.nome && contact.nome) {
+            finalVariables.nome = contact.nome;
+          }
+          
+          console.log("[send-sms] Injected link_verificacao:", finalVariables.link_verificacao);
+        } else {
+          console.error("[send-sms] Could not fetch contact for fallback:", contactError);
+        }
+      }
+
+      // Validate: if template still has unreplaced {{link_verificacao}}, block sending
+      const templateHasLinkVar = template.mensagem.includes("{{link_verificacao}}");
+      if (templateHasLinkVar && !finalVariables.link_verificacao) {
+        console.error("[send-sms] BLOCKED: template requires link_verificacao but it's missing");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Template requer link_verificacao mas não foi possível gerá-lo. Verifique se leaderId ou contactId foi informado." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      finalMessage = replaceTemplateVariables(template.mensagem, finalVariables);
     }
 
     // Enforce 160 character SMS limit for ALL messages (template or direct)
