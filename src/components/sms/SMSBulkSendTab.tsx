@@ -422,7 +422,19 @@ export function SMSBulkSendTab() {
     if (!recipients || !recentRecipientPhones || recentRecipientPhones.size === 0) {
       return { count: 0, percentage: 0 };
     }
-    const duplicateCount = recipients.filter(r => r.phone && recentRecipientPhones.has(r.phone)).length;
+    
+    // Função para normalizar telefone (remover +55 e outros caracteres não numéricos)
+    const normalizePhone = (phone: string | null): string => {
+      if (!phone) return "";
+      return phone.replace(/^\+55/, "").replace(/\D/g, "");
+    };
+    
+    const duplicateCount = recipients.filter(r => {
+      if (!r.phone) return false;
+      const normalizedPhone = normalizePhone(r.phone);
+      return recentRecipientPhones.has(normalizedPhone);
+    }).length;
+    
     const percentage = recipients.length > 0 ? Math.round((duplicateCount / recipients.length) * 100) : 0;
     return { count: duplicateCount, percentage };
   }, [recipients, recentRecipientPhones]);
