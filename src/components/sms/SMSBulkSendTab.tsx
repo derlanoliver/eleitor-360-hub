@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert, Clock, Network } from "lucide-react";
+import { Send, Users, Calendar, Filter, MessageSquare, AlertCircle, User, UserCheck, X, ShieldCheck, ShieldAlert, Clock, Network, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -141,6 +141,64 @@ export function SMSBulkSendTab() {
   const searchResults = recipientType === "single_contact" ? contactSearchResults : leaderSearchResults;
 
   // Fetch recipients based on type
+  // Query para buscar telefones que já receberam SMS nos últimos 7 dias com o mesmo padrão de mensagem
+  const { data: recentRecipientPhones } = useQuery({
+    queryKey: ["sms-recent-recipients-7days", recipientType, selectedTemplate],
+    queryFn: async () => {
+      // Calcular data de 7 dias atrás
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      // Determinar padrão de mensagem baseado no tipo de destinatário
+      let messagePattern = "";
+      if (recipientType === "waiting_verification" || recipientType === "sms_not_sent" || recipientType === "coordinator_tree") {
+        messagePattern = "%verificar-lider%"; // Padrão para verificação de líderes
+      } else if (selectedTemplate) {
+        // Buscar o template selecionado para extrair palavras-chave
+        const template = templates?.find(t => t.slug === selectedTemplate);
+        if (template) {
+          // Usa as primeiras palavras da mensagem como padrão
+          const firstWords = template.mensagem.substring(0, 30);
+          messagePattern = `%${firstWords}%`;
+        }
+      }
+      
+      if (!messagePattern) return new Set<string>();
+      
+      // Buscar telefones com paginação
+      const allPhones: string[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+          .from("sms_messages")
+          .select("phone")
+          .eq("direction", "outgoing")
+          .gte("created_at", sevenDaysAgo.toISOString())
+          .ilike("message", messagePattern)
+          .range(from, to);
+        
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allPhones.push(...data.map(m => m.phone));
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return new Set(allPhones);
+    },
+    enabled: !!(recipientType && (isVerificationType || selectedTemplate)),
+  });
+
   const { data: recipients, isLoading: loadingRecipients } = useQuery({
     queryKey: ["sms-recipients", recipientType, selectedEvent, selectedPerson?.id, selectedCoordinator?.id],
     queryFn: async () => {
@@ -358,6 +416,16 @@ export function SMSBulkSendTab() {
         ? !!selectedCoordinator 
         : (recipientType !== "event" || !!selectedEvent),
   });
+
+  // Calcular quantidade de duplicatas - destinatários que já receberam a mesma mensagem nos últimos 7 dias
+  const duplicateInfo = useMemo(() => {
+    if (!recipients || !recentRecipientPhones || recentRecipientPhones.size === 0) {
+      return { count: 0, percentage: 0 };
+    }
+    const duplicateCount = recipients.filter(r => r.phone && recentRecipientPhones.has(r.phone)).length;
+    const percentage = recipients.length > 0 ? Math.round((duplicateCount / recipients.length) * 100) : 0;
+    return { count: duplicateCount, percentage };
+  }, [recipients, recentRecipientPhones]);
 
   const handleSendBulk = async () => {
     if ((!selectedTemplate && !isVerificationType) || !recipients || recipients.length === 0) {
@@ -851,6 +919,15 @@ export function SMSBulkSendTab() {
                 </div>
                 <Progress value={sendProgress} />
               </div>
+            )}
+
+            {duplicateInfo.count > 0 && (
+              <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/30">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  <strong>{duplicateInfo.count.toLocaleString('pt-BR')}</strong> de {recipients?.length.toLocaleString('pt-BR')} destinatários ({duplicateInfo.percentage}%) já receberam esta mensagem nos últimos 7 dias.
+                </AlertDescription>
+              </Alert>
             )}
 
             <Alert>
