@@ -12,6 +12,7 @@ import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
 import { RegionBoundaryLayer } from "@/components/maps/RegionBoundaryLayer";
+import { getRACenter, getRAZoomLevel } from "@/data/maps/df-ra-boundaries";
 import "leaflet/dist/leaflet.css";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -416,13 +417,32 @@ export default function StrategicMap() {
   }, [selectedRegion, cities]);
 
   const mapCenter = useMemo<[number, number]>(() => {
-    if (selectedCity && selectedCity.latitude && selectedCity.longitude) {
+    if (selectedRegion === "all") return DF_CENTER;
+    
+    // Priority: use boundary coordinates (source of truth for polygons)
+    if (selectedCity?.codigo_ra) {
+      const boundaryCenter = getRACenter(selectedCity.codigo_ra);
+      if (boundaryCenter) return boundaryCenter;
+    }
+    
+    // Fallback: use database coordinates
+    if (selectedCity?.latitude && selectedCity?.longitude) {
       return [selectedCity.latitude, selectedCity.longitude];
     }
+    
     return DF_CENTER;
-  }, [selectedCity]);
+  }, [selectedRegion, selectedCity]);
 
-  const mapZoom = selectedRegion === "all" ? DF_ZOOM : CITY_ZOOM;
+  const mapZoom = useMemo(() => {
+    if (selectedRegion === "all") return DF_ZOOM;
+    
+    // Use dynamic zoom based on RA size
+    if (selectedCity?.codigo_ra) {
+      return getRAZoomLevel(selectedCity.codigo_ra);
+    }
+    
+    return CITY_ZOOM;
+  }, [selectedRegion, selectedCity]);
 
   // Sort cities for dropdown
   const sortedCities = useMemo(() => {

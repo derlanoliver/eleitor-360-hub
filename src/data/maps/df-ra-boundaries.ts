@@ -119,3 +119,21 @@ export function getBoundaryByCode(codigoRA: string): RABoundary | undefined {
 export function getBoundaryByName(nome: string): RABoundary | undefined {
   return dfRABoundaries.find((b) => b.nome === nome);
 }
+
+// Get RA center coordinates by codigo_ra
+export function getRACenter(codigoRA: string): [number, number] | null {
+  const ra = raData.find((r) => r.codigo_ra === codigoRA);
+  return ra ? [ra.lat, ra.lng] : null;
+}
+
+// Get appropriate zoom level based on RA size
+export function getRAZoomLevel(codigoRA: string): number {
+  const ra = raData.find((r) => r.codigo_ra === codigoRA);
+  if (!ra) return 13;
+  
+  // Zoom based on RA radius
+  if (ra.radius >= 5) return 11;      // Large RAs
+  if (ra.radius >= 3) return 12;      // Medium RAs
+  if (ra.radius >= 2) return 13;      // Small RAs
+  return 14;                          // Very small RAs
+}
