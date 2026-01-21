@@ -11,6 +11,7 @@ import { Map as MapIcon, Users, UserCheck, Flame, MapPin, Link2, Navigation, Cro
 import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps/useStrategicMapData";
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
+import { RegionBoundaryLayer } from "@/components/maps/RegionBoundaryLayer";
 import "leaflet/dist/leaflet.css";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -408,15 +409,18 @@ export default function StrategicMap() {
     return leaders.filter(l => l.parent_leader_id).length;
   }, [leaders]);
 
-  // Get map center based on selected region
+  // Get map center and selected region info
+  const selectedCity = useMemo(() => {
+    if (selectedRegion === "all") return null;
+    return cities.find(c => c.id === selectedRegion) || null;
+  }, [selectedRegion, cities]);
+
   const mapCenter = useMemo<[number, number]>(() => {
-    if (selectedRegion === "all") return DF_CENTER;
-    const city = cities.find(c => c.id === selectedRegion);
-    if (city && city.latitude && city.longitude) {
-      return [city.latitude, city.longitude];
+    if (selectedCity && selectedCity.latitude && selectedCity.longitude) {
+      return [selectedCity.latitude, selectedCity.longitude];
     }
     return DF_CENTER;
-  }, [selectedRegion, cities]);
+  }, [selectedCity]);
 
   const mapZoom = selectedRegion === "all" ? DF_ZOOM : CITY_ZOOM;
 
@@ -634,6 +638,13 @@ export default function StrategicMap() {
                 url={currentStyle.url}
               />
 
+              {/* Region Boundary Layer */}
+              <RegionBoundaryLayer
+                selectedRegionCode={selectedCity?.codigo_ra || null}
+                selectedRegionName={selectedCity?.nome || null}
+                enabled={selectedRegion !== "all"}
+              />
+
               {/* Heatmap Layer */}
               <HeatmapLayer contacts={contacts} enabled={showHeatmap} />
 
@@ -742,7 +753,7 @@ export default function StrategicMap() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-xl">👑</span>
               <span>Coordenador</span>
@@ -766,6 +777,10 @@ export default function StrategicMap() {
             <div className="flex items-center gap-2">
               <div className="w-6 h-3 rounded bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 opacity-50" />
               <span>Mapa de calor</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-3 border-2 border-dashed border-primary bg-primary/10 rounded" />
+              <span>Limite da RA</span>
             </div>
           </div>
         </CardContent>
