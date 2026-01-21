@@ -57,15 +57,31 @@ export function useLeaderTree(coordinatorId: string | null) {
     queryFn: async () => {
       if (!coordinatorId) return null;
 
-      const { data, error } = await supabase.rpc("get_leader_tree", {
-        _leader_id: coordinatorId,
-      });
+      // RPCs via PostgREST can be capped (commonly 1000 rows). Large trees
+      // need paging to avoid missing deeper levels.
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+      const allNodes: LeaderTreeNode[] = [];
 
-      if (error) throw error;
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
 
-      // Convert flat list to tree structure
-      const nodes = data as LeaderTreeNode[];
-      return buildTree(nodes, coordinatorId);
+        const { data, error } = await supabase
+          .rpc("get_leader_tree", { _leader_id: coordinatorId })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const batch = (data as LeaderTreeNode[]) || [];
+        allNodes.push(...batch);
+
+        hasMore = batch.length === pageSize;
+        page++;
+      }
+
+      return buildTree(allNodes, coordinatorId);
     },
     enabled: !!coordinatorId,
   });
