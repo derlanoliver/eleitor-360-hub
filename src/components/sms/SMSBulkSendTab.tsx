@@ -710,7 +710,7 @@ export function SMSBulkSendTab() {
                   <SelectItem value="coordinator_tree">
                     <div className="flex items-center gap-2">
                       <Network className="h-4 w-4" />
-                      Árvore de Coordenador
+                      Árvore de Líder
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -771,9 +771,9 @@ export function SMSBulkSendTab() {
 
             {recipientType === "coordinator_tree" && (
               <div className="space-y-2">
-                <Label>Buscar Coordenador</Label>
+                <Label>Buscar Líder com Subordinados</Label>
                 <Input
-                  placeholder="Digite o nome do coordenador..."
+                  placeholder="Digite o nome do líder..."
                   value={coordinatorSearch}
                   onChange={(e) => {
                     setCoordinatorSearch(e.target.value);
@@ -806,7 +806,7 @@ export function SMSBulkSendTab() {
                   </div>
                 )}
                 {coordinatorSearch.length >= 2 && coordinatorSearchResults?.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhum coordenador encontrado</p>
+                  <p className="text-sm text-muted-foreground">Nenhum líder com subordinados encontrado</p>
                 )}
                 {/* Coordenador selecionado */}
                 {selectedCoordinator && (
