@@ -36,6 +36,7 @@ type CreateRegistrationData = {
   utm_medium?: string;
   utm_campaign?: string;
   utm_content?: string;
+  data_nascimento?: string;
 };
 
 export function useCreateRegistration() {
@@ -55,16 +56,26 @@ export function useCreateRegistration() {
         _utm_medium: data.utm_medium || null,
         _utm_campaign: data.utm_campaign || null,
         _utm_content: data.utm_content || null,
+        _data_nascimento: data.data_nascimento || null,
       });
 
       if (error) throw error;
       
-      // RPC returns array, get first result
-      const registration = Array.isArray(result) ? result[0] : result;
-      if (!registration) throw new Error("Erro ao criar inscrição");
+      // RPC returns array with id and created_at, fetch the full registration for qr_code
+      const resultRow = Array.isArray(result) ? result[0] : result;
+      if (!resultRow) throw new Error("Erro ao criar inscrição");
+      
+      // Fetch the full registration to get the qr_code
+      const { data: fullRegistration, error: fetchError } = await supabase
+        .from("event_registrations")
+        .select("id, qr_code, checked_in")
+        .eq("id", resultRow.id)
+        .single();
+      
+      if (fetchError) throw fetchError;
       
       return {
-        ...registration,
+        ...fullRegistration,
         event_id: data.event_id,
         nome: data.nome,
         email: data.email,

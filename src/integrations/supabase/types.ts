@@ -535,6 +535,7 @@ export type Database = {
           cidade_id: string | null
           contact_id: string | null
           created_at: string | null
+          data_nascimento: string | null
           email: string
           event_id: string
           id: string
@@ -553,6 +554,7 @@ export type Database = {
           cidade_id?: string | null
           contact_id?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           email: string
           event_id: string
           id?: string
@@ -571,6 +573,7 @@ export type Database = {
           cidade_id?: string | null
           contact_id?: string | null
           created_at?: string | null
+          data_nascimento?: string | null
           email?: string
           event_id?: string
           id?: string
@@ -2543,25 +2546,45 @@ export type Database = {
         Returns: boolean
       }
       checkin_visit_by_qr: { Args: { _qr_code: string }; Returns: boolean }
-      create_event_registration: {
-        Args: {
-          _cidade_id?: string
-          _email: string
-          _event_id: string
-          _leader_id?: string
-          _nome: string
-          _utm_campaign?: string
-          _utm_content?: string
-          _utm_medium?: string
-          _utm_source?: string
-          _whatsapp: string
-        }
-        Returns: {
-          checked_in: boolean
-          id: string
-          qr_code: string
-        }[]
-      }
+      create_event_registration:
+        | {
+            Args: {
+              _cidade_id?: string
+              _email: string
+              _event_id: string
+              _leader_id?: string
+              _nome: string
+              _utm_campaign?: string
+              _utm_content?: string
+              _utm_medium?: string
+              _utm_source?: string
+              _whatsapp: string
+            }
+            Returns: {
+              checked_in: boolean
+              id: string
+              qr_code: string
+            }[]
+          }
+        | {
+            Args: {
+              _cidade_id?: string
+              _data_nascimento?: string
+              _email: string
+              _event_id: string
+              _leader_id?: string
+              _nome: string
+              _utm_campaign?: string
+              _utm_content?: string
+              _utm_medium?: string
+              _utm_source?: string
+              _whatsapp: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+            }[]
+          }
       create_leader_from_public_form:
         | {
             Args: {
