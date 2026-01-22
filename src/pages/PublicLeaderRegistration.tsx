@@ -363,7 +363,7 @@ export default function PublicLeaderRegistration() {
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Cadastro Realizado!
+                Falta Apenas uma Etapa!
               </h2>
               <p className="text-muted-foreground mb-4">
                 Enviamos um SMS para confirmar seu telefone.

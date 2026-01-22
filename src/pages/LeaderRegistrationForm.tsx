@@ -322,7 +322,7 @@ export default function LeaderRegistrationForm() {
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Crown className="h-8 w-8 text-amber-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Cadastro Realizado!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Falta Apenas uma Etapa!</h2>
                 <p className="text-muted-foreground mb-4">
                   Enviamos um <strong>SMS de verificação</strong> para seu celular. 
                   Clique no link para confirmar seu cadastro e receber seu link exclusivo de indicação.
