@@ -85,8 +85,12 @@ serve(async (req) => {
       );
     }
 
-    // Format phone number (remove non-digits)
-    const cleanPhone = telefone.replace(/\D/g, '');
+    // Format phone number (remove non-digits and country code 55)
+    let cleanPhone = telefone.replace(/\D/g, '');
+    // Remove country code 55 if present (API expects phone without it)
+    if (cleanPhone.startsWith('55') && cleanPhone.length > 11) {
+      cleanPhone = cleanPhone.substring(2);
+    }
 
     // Build URL with parameters
     const url = new URL('https://sistema81.smsbarato.com.br/sendwa');
@@ -130,7 +134,6 @@ serve(async (req) => {
         message: templateMessage,
         status: isSuccess ? 'sent' : 'failed',
         direction: 'outgoing',
-        leader_id: leaderId,
         template_slug: `official-${template}`,
         sent_at: new Date().toISOString(),
         error_message: isSuccess ? null : responseText,
