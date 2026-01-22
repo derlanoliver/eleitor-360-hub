@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.send-event-photos]
 verify_jwt = false
+
+[functions.send-whatsapp-official]
+verify_jwt = false

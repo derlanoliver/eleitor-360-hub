@@ -2856,6 +2856,15 @@ export type Database = {
               verified_at: string
             }[]
           }
+      get_leaders_in_tree_whatsapp: {
+        Args: { leader_id: string }
+        Returns: {
+          affiliate_token: string
+          id: string
+          nome_completo: string
+          telefone: string
+        }[]
+      }
       get_leaders_ranking_count: {
         Args: { p_region?: string }
         Returns: number
@@ -2884,6 +2893,16 @@ export type Database = {
           nome_completo: string
           pontuacao_total: number
           telefone: string
+        }[]
+      }
+      get_leaders_with_tree_count_whatsapp: {
+        Args: never
+        Returns: {
+          id: string
+          nome_completo: string
+          telefone: string
+          total_in_tree: number
+          unverified_in_tree: number
         }[]
       }
       get_public_form_settings: {
@@ -2944,6 +2963,15 @@ export type Database = {
       }
       get_unverified_leaders_in_tree_sms: {
         Args: { coordinator_id: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          telefone: string
+          verification_code: string
+        }[]
+      }
+      get_unverified_leaders_in_tree_whatsapp: {
+        Args: { leader_id: string }
         Returns: {
           id: string
           nome_completo: string
