@@ -110,7 +110,12 @@ serve(async (req) => {
       url.searchParams.append('prm[]', verificationCode!);
     }
 
-    console.log(`[send-whatsapp-official] Sending to ${cleanPhone} with template ${template}`);
+    // Log request details without exposing API key
+    const safeUrl = new URL(url.toString());
+    safeUrl.searchParams.set('chave', '***');
+    console.log(
+      `[send-whatsapp-official] Sending to ${cleanPhone} (len=${cleanPhone.length}) template=${template} url=${safeUrl.toString()}`
+    );
 
     // Make the API call
     const response = await fetch(url.toString());
@@ -143,14 +148,21 @@ serve(async (req) => {
       console.error('[send-whatsapp-official] Failed to log message:', insertError);
     }
 
+    // IMPORTANT: Return 200 even on API failures so the frontend can handle gracefully
+    // (Supabase client treats non-2xx as an exception-like error, which can lead to blank screens)
     if (!isSuccess) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: `API error: ${responseText}`,
-          apiResponse: responseText 
+          apiResponse: responseText,
+          debug: {
+            dest: cleanPhone,
+            destLength: cleanPhone.length,
+            template,
+          },
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
