@@ -231,24 +231,33 @@ async function checkSMSBaratoStatus(
   const response = await fetch(statusUrl);
   const result = await response.text();
   
-  console.log(`[check-sms-status] SMSBarato status response: ${result}`);
-  
   const trimmedResult = result.trim();
+  console.log(`[check-sms-status] SMSBarato raw response: "${trimmedResult}"`);
   
-  // Verificar erros
-  if (trimmedResult === "ERRO2") {
-    return { success: false, error: "ID inválido" };
-  }
-  
-  if (trimmedResult === "ERRO") {
+  // Verificar erros (resposta começa com "ERRO")
+  if (trimmedResult.startsWith("ERRO")) {
+    if (trimmedResult === "ERRO2" || trimmedResult.startsWith("ERRO2")) {
+      return { success: false, error: "ID inválido" };
+    }
     return { success: false, error: "ID não existe" };
   }
   
+  // SMSBarato retorna formato: "S 2026-01-22 18:00:18" (status + timestamp)
+  // Extrair apenas o primeiro caractere (código de status: N, R, S, F)
+  const statusCode = trimmedResult.charAt(0).toUpperCase();
+  
   // Mapear status
-  const mappedStatus = SMSBARATO_STATUS_MAP[trimmedResult];
+  const mappedStatus = SMSBARATO_STATUS_MAP[statusCode];
   
   if (!mappedStatus) {
-    return { success: false, error: `Unknown status: ${trimmedResult}` };
+    console.log(`[check-sms-status] Unknown SMSBarato status code: "${statusCode}" from response: "${trimmedResult}"`);
+    return { success: false, error: `Unknown status: ${statusCode}` };
+  }
+
+  // Extrair timestamp se presente (para logs)
+  const timestampMatch = trimmedResult.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+  if (timestampMatch) {
+    console.log(`[check-sms-status] SMSBarato status: ${statusCode} = ${mappedStatus}, timestamp: ${timestampMatch[1]}`);
   }
 
   const descriptions: Record<string, string> = {
@@ -261,7 +270,7 @@ async function checkSMSBaratoStatus(
   return { 
     success: true, 
     status: mappedStatus, 
-    description: descriptions[trimmedResult] || trimmedResult 
+    description: descriptions[statusCode] || trimmedResult 
   };
 }
 

@@ -105,15 +105,21 @@ async function checkSMSBaratoStatus(
   const result = await response.text();
   const trimmedResult = result.trim();
 
-  // Verificar erros
-  if (trimmedResult === "ERRO2" || trimmedResult === "ERRO") {
+  console.log(`[reprocess-sms-status] SMSBarato raw response: "${trimmedResult}"`);
+
+  // Verificar erros (resposta começa com "ERRO")
+  if (trimmedResult.startsWith("ERRO")) {
     return { success: false };
   }
 
-  const mappedStatus = SMSBARATO_STATUS_MAP[trimmedResult];
+  // SMSBarato retorna formato: "S 2026-01-22 18:00:18" (status + timestamp)
+  // Extrair apenas o primeiro caractere (código de status: N, R, S, F)
+  const statusCode = trimmedResult.charAt(0).toUpperCase();
+
+  const mappedStatus = SMSBARATO_STATUS_MAP[statusCode];
 
   if (!mappedStatus) {
-    console.log(`[reprocess-sms-status] Unknown SMSBarato status '${trimmedResult}'`);
+    console.log(`[reprocess-sms-status] Unknown SMSBarato status code '${statusCode}' from response: "${trimmedResult}"`);
     return { success: false };
   }
 
@@ -124,7 +130,7 @@ async function checkSMSBaratoStatus(
     "F": "Envio falhou",
   };
 
-  return { success: true, status: mappedStatus, description: descriptions[trimmedResult] };
+  return { success: true, status: mappedStatus, description: descriptions[statusCode] };
 }
 
 Deno.serve(async (req) => {
