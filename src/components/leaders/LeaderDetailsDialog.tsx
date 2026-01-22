@@ -1179,16 +1179,53 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           }
                         });
 
-                        // Calcular verificados e não verificados por líder
-                        const statsPerLeader = new Map<string, { verified: number; notVerified: number }>();
+                        // Primeiro: criar mapa de contatos DIRETOS por líder
+                        const directContactsPerLeader = new Map<string, { verified: number; notVerified: number }>();
                         allContacts.forEach((c: any) => {
-                          const current = statsPerLeader.get(c.source_id) || { verified: 0, notVerified: 0 };
+                          const current = directContactsPerLeader.get(c.source_id) || { verified: 0, notVerified: 0 };
                           if (c.is_verified) {
                             current.verified++;
                           } else {
                             current.notVerified++;
                           }
-                          statsPerLeader.set(c.source_id, current);
+                          directContactsPerLeader.set(c.source_id, current);
+                        });
+
+                        // Função recursiva para calcular stats de toda a sub-árvore de um líder
+                        const subtreeStatsCache = new Map<string, { verified: number; notVerified: number }>();
+                        
+                        const calculateSubtreeStats = (leaderId: string): { verified: number; notVerified: number } => {
+                          // Verificar cache para evitar recálculo
+                          if (subtreeStatsCache.has(leaderId)) {
+                            return subtreeStatsCache.get(leaderId)!;
+                          }
+                          
+                          // Stats próprios (contatos indicados diretamente por este líder)
+                          const ownStats = directContactsPerLeader.get(leaderId) || { verified: 0, notVerified: 0 };
+                          
+                          // Buscar subordinados diretos
+                          const directChildren = leaders.filter((l: any) => l.parent_leader_id === leaderId && l.id !== leaderId);
+                          
+                          // Somar stats de todos os subordinados (recursivamente)
+                          let totalVerified = ownStats.verified;
+                          let totalNotVerified = ownStats.notVerified;
+                          
+                          for (const child of directChildren) {
+                            const childStats = calculateSubtreeStats(child.id);
+                            totalVerified += childStats.verified;
+                            totalNotVerified += childStats.notVerified;
+                          }
+                          
+                          const result = { verified: totalVerified, notVerified: totalNotVerified };
+                          subtreeStatsCache.set(leaderId, result);
+                          return result;
+                        };
+
+                        // Calcular stats agregados para cada líder no relatório
+                        const statsPerLeader = new Map<string, { verified: number; notVerified: number }>();
+                        leadersForReport.forEach((l: any) => {
+                          const subtreeStats = calculateSubtreeStats(l.id);
+                          statsPerLeader.set(l.id, subtreeStats);
                         });
 
                         // 4. Gerar PDF
