@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import jsPDF from "jspdf";
 
 import { 
   User, Users, Calendar, MessageSquare, Trophy, History, 
@@ -91,6 +92,7 @@ const visitStatusLabels: Record<string, string> = {
 export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [loadingDetailedReport, setLoadingDetailedReport] = useState(false);
   const [includeAllLevels, setIncludeAllLevels] = useState(true);
   const [generatingPass, setGeneratingPass] = useState(false);
   
@@ -1064,6 +1066,236 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     </Label>
                   </div>
                   
+                  {/* Botão de Relatório Detalhado (PDF) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={loadingDetailedReport}
+                    onClick={async () => {
+                      setLoadingDetailedReport(true);
+                      try {
+                        // 1. Buscar toda a árvore de líderes subordinados COM PAGINAÇÃO
+                        const allTreeData: any[] = [];
+                        const rpcPageSize = 1000;
+                        let rpcPage = 0;
+                        let hasMoreTreeData = true;
+
+                        while (hasMoreTreeData) {
+                          const from = rpcPage * rpcPageSize;
+                          const to = from + rpcPageSize - 1;
+
+                          const { data: pageData, error: pageError } = await supabase
+                            .rpc("get_leader_tree", { _leader_id: leader.id })
+                            .range(from, to);
+
+                          if (pageError) throw pageError;
+
+                          if (pageData && pageData.length > 0) {
+                            allTreeData.push(...pageData);
+                            hasMoreTreeData = pageData.length === rpcPageSize;
+                            rpcPage++;
+                          } else {
+                            hasMoreTreeData = false;
+                          }
+                        }
+
+                        // Filtrar apenas líderes ativos
+                        const leaders = allTreeData.filter((l: any) => l.is_active === true);
+                        const leaderIds = leaders.map((l: any) => l.id);
+
+                        if (leaderIds.length === 0) {
+                          toast.info("Nenhum líder encontrado na árvore.");
+                          setLoadingDetailedReport(false);
+                          return;
+                        }
+
+                        // 2. Buscar TODOS os contatos indicados por estes líderes (verificados e não verificados)
+                        const chunkSize = 200;
+                        const leaderIdChunks: string[][] = [];
+                        for (let i = 0; i < leaderIds.length; i += chunkSize) {
+                          leaderIdChunks.push(leaderIds.slice(i, i + chunkSize));
+                        }
+
+                        const allContacts: any[] = [];
+                        const pageSize = 1000;
+
+                        for (const chunk of leaderIdChunks) {
+                          let page = 0;
+                          let hasMore = true;
+
+                          while (hasMore) {
+                            const from = page * pageSize;
+                            const to = from + pageSize - 1;
+
+                            const { data: contactsData, error: contactsError } = await supabase
+                              .from("office_contacts")
+                              .select("id, source_id, is_verified")
+                              .eq("source_type", "lider")
+                              .in("source_id", chunk)
+                              .eq("is_active", true)
+                              .range(from, to);
+
+                            if (contactsError) throw contactsError;
+
+                            if (contactsData && contactsData.length > 0) {
+                              allContacts.push(...contactsData);
+                              hasMore = contactsData.length === pageSize;
+                              page++;
+                            } else {
+                              hasMore = false;
+                            }
+                          }
+                        }
+
+                        // 3. Calcular estatísticas por líder
+                        const baseLevel = leader.hierarchy_level || 1;
+                        const directSubordinateLevel = baseLevel + 1;
+
+                        // Filtrar líderes para o relatório baseado na opção selecionada
+                        const sortLeadersHierarchically = (allLeaders: any[], parentId: string): any[] => {
+                          const result: any[] = [];
+                          const children = allLeaders.filter((l: any) => l.parent_leader_id === parentId && l.id !== parentId);
+                          
+                          for (const child of children) {
+                            result.push(child);
+                            result.push(...sortLeadersHierarchically(allLeaders, child.id));
+                          }
+                          
+                          return result;
+                        };
+
+                        const sortedLeaders = sortLeadersHierarchically(leaders, leader.id);
+
+                        const leadersForReport = includeAllLevels
+                          ? sortedLeaders
+                          : sortedLeaders.filter((l: any) => l.hierarchy_level === directSubordinateLevel);
+
+                        // Criar mapa de subordinados diretos por líder
+                        const subordinatesCount = new Map<string, number>();
+                        leaders.forEach((l: any) => {
+                          if (l.parent_leader_id) {
+                            const count = subordinatesCount.get(l.parent_leader_id) || 0;
+                            subordinatesCount.set(l.parent_leader_id, count + 1);
+                          }
+                        });
+
+                        // Calcular verificados e não verificados por líder
+                        const statsPerLeader = new Map<string, { verified: number; notVerified: number }>();
+                        allContacts.forEach((c: any) => {
+                          const current = statsPerLeader.get(c.source_id) || { verified: 0, notVerified: 0 };
+                          if (c.is_verified) {
+                            current.verified++;
+                          } else {
+                            current.notVerified++;
+                          }
+                          statsPerLeader.set(c.source_id, current);
+                        });
+
+                        // 4. Gerar PDF
+                        const doc = new jsPDF();
+                        const pageWidth = doc.internal.pageSize.getWidth();
+
+                        // Cabeçalho
+                        doc.setFontSize(14);
+                        doc.setFont("helvetica", "bold");
+                        doc.text(`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`, pageWidth / 2, 15, { align: "center" });
+                        
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, 22, { align: "center" });
+                        
+                        const filterLabel = includeAllLevels ? "Todos os níveis" : "Apenas liderados diretos";
+                        doc.text(`Filtro: ${filterLabel}`, pageWidth / 2, 28, { align: "center" });
+
+                        // Colunas da tabela
+                        const cols = [
+                          { header: "N°", x: 10, width: 12 },
+                          { header: "Nome", x: 22, width: 65 },
+                          { header: "Telefone", x: 87, width: 35 },
+                          { header: "ÁRVORE", x: 122, width: 22 },
+                          { header: "VERIFICADOS", x: 144, width: 28 },
+                          { header: "NÃO VERIFICADOS", x: 172, width: 35 }
+                        ];
+
+                        let yPos = 40;
+                        const rowHeight = 7;
+                        const headerHeight = 8;
+
+                        // Função para desenhar cabeçalho da tabela
+                        const drawTableHeader = () => {
+                          doc.setFillColor(240, 240, 240);
+                          doc.rect(10, yPos - 5, pageWidth - 20, headerHeight, "F");
+                          
+                          doc.setFontSize(8);
+                          doc.setFont("helvetica", "bold");
+                          doc.setTextColor(0, 0, 0);
+                          
+                          cols.forEach((col) => {
+                            doc.text(col.header, col.x + 1, yPos);
+                          });
+                          
+                          yPos += headerHeight;
+                        };
+
+                        drawTableHeader();
+
+                        // Dados
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(8);
+
+                        leadersForReport.forEach((l: any, index: number) => {
+                          // Verificar se precisa nova página
+                          if (yPos > 275) {
+                            doc.addPage();
+                            yPos = 20;
+                            drawTableHeader();
+                          }
+
+                          const arvoreCount = subordinatesCount.get(l.id) || 0;
+                          const stats = statsPerLeader.get(l.id) || { verified: 0, notVerified: 0 };
+                          const phone = l.telefone ? formatPhone(l.telefone) : "";
+
+                          // N°
+                          doc.setTextColor(0, 0, 0);
+                          doc.text(String(index + 1), cols[0].x + 1, yPos);
+
+                          // Nome (truncar se muito longo)
+                          const nome = l.nome_completo.length > 35 ? l.nome_completo.substring(0, 32) + "..." : l.nome_completo;
+                          doc.text(nome, cols[1].x + 1, yPos);
+
+                          // Telefone
+                          doc.text(phone, cols[2].x + 1, yPos);
+
+                          // ÁRVORE
+                          doc.text(String(arvoreCount), cols[3].x + 10, yPos);
+
+                          // VERIFICADOS (vermelho)
+                          doc.setTextColor(200, 0, 0);
+                          doc.text(String(stats.verified), cols[4].x + 12, yPos);
+
+                          // NÃO VERIFICADOS (vermelho)
+                          doc.text(String(stats.notVerified), cols[5].x + 15, yPos);
+
+                          yPos += rowHeight;
+                        });
+
+                        // Salvar
+                        const fileName = `Relatorio_Arvore_${leader.nome_completo.replace(/\s+/g, "_")}.pdf`;
+                        doc.save(fileName);
+
+                        toast.success(`Relatório detalhado exportado com ${leadersForReport.length} líderes`);
+                      } catch (error) {
+                        console.error("Erro ao gerar relatório detalhado:", error);
+                        toast.error("Erro ao gerar relatório detalhado.");
+                      } finally {
+                        setLoadingDetailedReport(false);
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    {loadingDetailedReport ? "Gerando PDF..." : "Relatório Detalhado"}
+                  </Button>
+
                   {/* Botão de Relatório de Pendentes */}
                 <Button
                   size="sm"
