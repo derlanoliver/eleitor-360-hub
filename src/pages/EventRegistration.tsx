@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { sendVerificationMessage, sendVerificationSMS, addPendingMessage } from "@/hooks/contacts/useContactVerification";
 import { useEventCategories, getCategoryColor } from "@/hooks/events/useEventCategories";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
+import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 export default function EventRegistration() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -38,7 +39,9 @@ export default function EventRegistration() {
     email: "",
     whatsapp: "",
     cidade_id: "",
+    data_nascimento: "",
   });
+  const [dataNascimentoDisplay, setDataNascimentoDisplay] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -135,6 +138,7 @@ export default function EventRegistration() {
         utm_medium: searchParams.get("utm_medium") || undefined,
         utm_campaign: searchParams.get("utm_campaign") || undefined,
         utm_content: searchParams.get("utm_content") || undefined,
+        data_nascimento: formData.data_nascimento || undefined,
       });
 
       // Page view tracking is now handled by the trigger/function
@@ -651,6 +655,22 @@ export default function EventRegistration() {
                         value: city.id,
                         label: city.nome,
                       })) || []}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                    <MaskedDateInput
+                      id="data_nascimento"
+                      value={dataNascimentoDisplay}
+                      onChange={(value) => {
+                        setDataNascimentoDisplay(value);
+                        if (value.length === 10 && isValidDateBR(value) && isNotFutureDate(value)) {
+                          setFormData({ ...formData, data_nascimento: parseDateBR(value) || "" });
+                        } else if (value === "") {
+                          setFormData({ ...formData, data_nascimento: "" });
+                        }
+                      }}
                     />
                   </div>
 
