@@ -1109,45 +1109,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           return;
                         }
 
-                        // 2. Buscar TODOS os contatos indicados por estes líderes (verificados e não verificados)
-                        const chunkSize = 200;
-                        const leaderIdChunks: string[][] = [];
-                        for (let i = 0; i < leaderIds.length; i += chunkSize) {
-                          leaderIdChunks.push(leaderIds.slice(i, i + chunkSize));
-                        }
-
-                        const allContacts: any[] = [];
-                        const pageSize = 1000;
-
-                        for (const chunk of leaderIdChunks) {
-                          let page = 0;
-                          let hasMore = true;
-
-                          while (hasMore) {
-                            const from = page * pageSize;
-                            const to = from + pageSize - 1;
-
-                            const { data: contactsData, error: contactsError } = await supabase
-                              .from("office_contacts")
-                              .select("id, source_id, is_verified")
-                              .eq("source_type", "lider")
-                              .in("source_id", chunk)
-                              .eq("is_active", true)
-                              .range(from, to);
-
-                            if (contactsError) throw contactsError;
-
-                            if (contactsData && contactsData.length > 0) {
-                              allContacts.push(...contactsData);
-                              hasMore = contactsData.length === pageSize;
-                              page++;
-                            } else {
-                              hasMore = false;
-                            }
-                          }
-                        }
-
-                        // 3. Calcular estatísticas por líder
+                        // 2. Calcular estatísticas por líder (verificação de LÍDERES, não contatos)
                         const baseLevel = leader.hierarchy_level || 1;
                         const directSubordinateLevel = baseLevel + 1;
 
@@ -1179,39 +1141,31 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           }
                         });
 
-                        // Primeiro: criar mapa de contatos DIRETOS por líder
-                        const directContactsPerLeader = new Map<string, { verified: number; notVerified: number }>();
-                        allContacts.forEach((c: any) => {
-                          const current = directContactsPerLeader.get(c.source_id) || { verified: 0, notVerified: 0 };
-                          if (c.is_verified) {
-                            current.verified++;
-                          } else {
-                            current.notVerified++;
-                          }
-                          directContactsPerLeader.set(c.source_id, current);
-                        });
-
-                        // Função recursiva para calcular stats de toda a sub-árvore de um líder
+                        // Função recursiva para calcular líderes verificados/não verificados na sub-árvore
                         const subtreeStatsCache = new Map<string, { verified: number; notVerified: number }>();
                         
-                        const calculateSubtreeStats = (leaderId: string): { verified: number; notVerified: number } => {
-                          // Verificar cache para evitar recálculo
+                        const calculateSubtreeLeaderStats = (leaderId: string): { verified: number; notVerified: number } => {
                           if (subtreeStatsCache.has(leaderId)) {
                             return subtreeStatsCache.get(leaderId)!;
                           }
                           
-                          // Stats próprios (contatos indicados diretamente por este líder)
-                          const ownStats = directContactsPerLeader.get(leaderId) || { verified: 0, notVerified: 0 };
-                          
-                          // Buscar subordinados diretos
+                          // Buscar subordinados diretos deste líder
                           const directChildren = leaders.filter((l: any) => l.parent_leader_id === leaderId && l.id !== leaderId);
                           
-                          // Somar stats de todos os subordinados (recursivamente)
-                          let totalVerified = ownStats.verified;
-                          let totalNotVerified = ownStats.notVerified;
+                          let totalVerified = 0;
+                          let totalNotVerified = 0;
                           
+                          // Contar cada subordinado direto + sua sub-árvore
                           for (const child of directChildren) {
-                            const childStats = calculateSubtreeStats(child.id);
+                            // Contar o próprio subordinado baseado em is_verified
+                            if (child.is_verified === true) {
+                              totalVerified++;
+                            } else {
+                              totalNotVerified++;
+                            }
+                            
+                            // Somar stats da sub-árvore do subordinado (recursivamente)
+                            const childStats = calculateSubtreeLeaderStats(child.id);
                             totalVerified += childStats.verified;
                             totalNotVerified += childStats.notVerified;
                           }
@@ -1224,7 +1178,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         // Calcular stats agregados para cada líder no relatório
                         const statsPerLeader = new Map<string, { verified: number; notVerified: number }>();
                         leadersForReport.forEach((l: any) => {
-                          const subtreeStats = calculateSubtreeStats(l.id);
+                          const subtreeStats = calculateSubtreeLeaderStats(l.id);
                           statsPerLeader.set(l.id, subtreeStats);
                         });
 
