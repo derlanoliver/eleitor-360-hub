@@ -37,6 +37,7 @@ type CreateRegistrationData = {
   utm_campaign?: string;
   utm_content?: string;
   data_nascimento?: string;
+  endereco?: string;
 };
 
 export function useCreateRegistration() {
@@ -57,6 +58,7 @@ export function useCreateRegistration() {
         _utm_campaign: data.utm_campaign || null,
         _utm_content: data.utm_content || null,
         _data_nascimento: data.data_nascimento || null,
+        _endereco: data.endereco || null,
       });
 
       if (error) throw error;

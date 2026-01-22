@@ -537,6 +537,7 @@ export type Database = {
           created_at: string | null
           data_nascimento: string | null
           email: string
+          endereco: string | null
           event_id: string
           id: string
           leader_id: string | null
@@ -556,6 +557,7 @@ export type Database = {
           created_at?: string | null
           data_nascimento?: string | null
           email: string
+          endereco?: string | null
           event_id: string
           id?: string
           leader_id?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           created_at?: string | null
           data_nascimento?: string | null
           email?: string
+          endereco?: string | null
           event_id?: string
           id?: string
           leader_id?: string | null
@@ -2571,6 +2574,26 @@ export type Database = {
               _cidade_id?: string
               _data_nascimento?: string
               _email: string
+              _event_id: string
+              _leader_id?: string
+              _nome: string
+              _utm_campaign?: string
+              _utm_content?: string
+              _utm_medium?: string
+              _utm_source?: string
+              _whatsapp: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+            }[]
+          }
+        | {
+            Args: {
+              _cidade_id?: string
+              _data_nascimento?: string
+              _email: string
+              _endereco?: string
               _event_id: string
               _leader_id?: string
               _nome: string

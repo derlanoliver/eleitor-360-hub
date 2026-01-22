@@ -40,6 +40,7 @@ export default function EventRegistration() {
     whatsapp: "",
     cidade_id: "",
     data_nascimento: "",
+    endereco: "",
   });
   const [dataNascimentoDisplay, setDataNascimentoDisplay] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
@@ -139,6 +140,7 @@ export default function EventRegistration() {
         utm_campaign: searchParams.get("utm_campaign") || undefined,
         utm_content: searchParams.get("utm_content") || undefined,
         data_nascimento: formData.data_nascimento || undefined,
+        endereco: formData.endereco || undefined,
       });
 
       // Page view tracking is now handled by the trigger/function
@@ -671,6 +673,17 @@ export default function EventRegistration() {
                           setFormData({ ...formData, data_nascimento: "" });
                         }
                       }}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="endereco">Endereço</Label>
+                    <Input
+                      id="endereco"
+                      value={formData.endereco}
+                      onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                      placeholder="Rua, número, bairro, cidade-UF, CEP"
+                      maxLength={500}
                     />
                   </div>
 
