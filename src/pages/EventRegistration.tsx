@@ -90,44 +90,11 @@ export default function EventRegistration() {
     
     if (!event) return;
 
+    const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
+    const hasLeaderRef = !!leader;
+
     try {
-      const normalizedPhone = normalizePhoneToE164(formData.whatsapp);
-      const hasLeaderRef = !!leader;
-
-      // Verificar se a pessoa já é um líder cadastrado (por telefone ou email)
-      const { data: existingLeader } = await supabase
-        .from("lideres")
-        .select("id, nome_completo")
-        .or(`telefone.eq.${normalizedPhone},email.eq.${formData.email.trim().toLowerCase()}`)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      const isLeader = !!existingLeader;
-
-      // Se tem referência de líder, verificar se contato existe e está verificado
-      let existingContact = null;
-      let needsVerificationCheck = false;
-
-      if (hasLeaderRef && !isLeader) {
-        const { data: contactData } = await supabase
-          .from("office_contacts")
-          .select("id, nome, is_verified, verification_code, source_type, source_id, pending_messages")
-          .eq("telefone_norm", normalizedPhone)
-          .maybeSingle();
-
-        existingContact = contactData;
-
-        // Se contato existe e não está verificado (e veio de líder), precisa verificar
-        if (existingContact && !existingContact.is_verified && existingContact.source_type === 'lider') {
-          needsVerificationCheck = true;
-        }
-        // Se é novo contato via líder, também precisa verificar
-        if (!existingContact) {
-          needsVerificationCheck = true;
-        }
-      }
-
-      // Criar registro do evento
+      // ========== STEP 1: Criar registro do evento (crítico) ==========
       const registration = await createRegistration.mutateAsync({
         event_id: event.id,
         nome: formData.nome,
@@ -143,197 +110,294 @@ export default function EventRegistration() {
         endereco: formData.endereco || undefined,
       });
 
-      // Page view tracking is now handled by the trigger/function
-
-      // Generate QR Code with full URL for check-in (SEMPRE usa URL de produção)
+      // ========== STEP 2: Gerar QR Code (com fallback) ==========
       const checkInUrl = `${PRODUCTION_URL}/checkin/${registration.qr_code}`;
-      const qrData = await QRCodeComponent.toDataURL(checkInUrl, {
-        width: 300,
-        margin: 2,
+      const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkInUrl)}`;
+      
+      // Tentar gerar QR localmente, fallback para URL externa
+      try {
+        const qrData = await QRCodeComponent.toDataURL(checkInUrl, {
+          width: 300,
+          margin: 2,
+        });
+        setQrCodeUrl(qrData);
+      } catch (qrError) {
+        console.warn('Local QR generation failed, using fallback URL:', qrError);
+        setQrCodeUrl(qrCodeImageUrl);
+      }
+
+      // ========== STEP 3: SETAR SUCESSO IMEDIATAMENTE ==========
+      // Isso garante que a tela de confirmação apareça mesmo que os efeitos colaterais falhem
+      setRegistrationSuccess(true);
+
+      // ========== STEP 4: Efeitos colaterais (best-effort, não bloqueiam UI) ==========
+      runPostRegistrationSideEffects({
+        normalizedPhone,
+        hasLeaderRef,
+        checkInUrl,
+        qrCodeImageUrl,
+        registration,
       });
-      setQrCodeUrl(qrData);
 
-      // QR Code URL para email (usando QR Server API - gratuita e funcional)
-      const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkInUrl)}`;
+    } catch (error) {
+      // Apenas erros na criação do registro chegam aqui
+      console.error("Error creating registration:", error);
+    }
+  };
 
-      // Track Lead event
+  // Função separada para efeitos colaterais - não bloqueia a UI
+  const runPostRegistrationSideEffects = async ({
+    normalizedPhone,
+    hasLeaderRef,
+    checkInUrl,
+    qrCodeImageUrl,
+    registration,
+  }: {
+    normalizedPhone: string;
+    hasLeaderRef: boolean;
+    checkInUrl: string;
+    qrCodeImageUrl: string;
+    registration: { id: string; qr_code: string };
+  }) => {
+    if (!event) return;
+
+    const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
+
+    // Track Lead event (best-effort)
+    try {
       trackLead({ 
         content_name: `evento_${event.slug}`,
         value: 1
       });
       
-      // Push to GTM dataLayer
       pushToDataLayer('lead', { 
         source: 'evento',
         event_id: event.id,
         event_name: event.name,
         event_categories: event.categories
       });
+    } catch (trackingError) {
+      console.warn('Tracking failed:', trackingError);
+    }
 
-      const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
-
-      // Se tem referência de líder e precisa verificar
-      if (hasLeaderRef && needsVerificationCheck) {
-        // Buscar contato atualizado (pode ter sido criado pelo createRegistration)
-        const { data: contactForVerification } = await supabase
-          .from("office_contacts")
-          .select("id, is_verified, verification_code, pending_messages")
-          .eq("telefone_norm", normalizedPhone)
-          .single();
-
-        if (contactForVerification && !contactForVerification.is_verified) {
-          // Armazenar mensagens de confirmação como pendentes (WhatsApp e Email)
-          let pendingMessages = addPendingMessage(
-            contactForVerification.pending_messages || [],
-            'evento-inscricao-confirmada',
-            {
-              nome: formData.nome,
-              evento_nome: event.name,
-              evento_data: eventDate,
-              evento_hora: event.time,
-              evento_local: event.location,
-            }
-          );
-          
-          // Adicionar email pendente também
-          pendingMessages = addPendingMessage(
-            pendingMessages,
-            'email:evento-cadastro-confirmado',
-            {
-              nome: formData.nome,
-              evento_nome: event.name,
-              evento_data: eventDate,
-              evento_hora: event.time,
-              evento_local: event.location,
-              evento_endereco: event.address || event.location,
-              evento_descricao: event.description || '',
-              qr_code_url: qrCodeImageUrl,
-              email: formData.email,
-              eventId: event.id,
-            }
-          );
-
-          await supabase
-            .from("office_contacts")
-            .update({ pending_messages: JSON.parse(JSON.stringify(pendingMessages)) })
-            .eq("id", contactForVerification.id);
-
-          // Gerar código se não tiver
-          let verificationCode = contactForVerification.verification_code;
-          if (!verificationCode) {
-            const { data: newCode } = await supabase.rpc("generate_verification_code");
-            verificationCode = newCode;
-            
-            await supabase
-              .from("office_contacts")
-              .update({ 
-                verification_code: verificationCode,
-                source_type: 'lider',
-                source_id: leader!.id,
-              })
-              .eq("id", contactForVerification.id);
-          }
-
-          // Enviar mensagem de verificação
-          await sendVerificationMessage({
-            contactId: contactForVerification.id,
-            contactName: formData.nome,
-            contactPhone: normalizedPhone,
-            leaderName: leader!.nome_completo,
-            verificationCode,
-          });
-
-          setNeedsVerification(true);
-        }
-      } else {
-        // Sem referência de líder OU contato já verificado - enviar confirmação normalmente
-        // Buscar contact_id pelo telefone normalizado
-        const { data: contactForMessaging } = await supabase
-          .from("office_contacts")
-          .select("id, is_verified, verification_code")
-          .eq("telefone_norm", normalizedPhone)
+    // Verificar se precisa de verificação (para contatos indicados por líder)
+    let needsVerificationCheck = false;
+    
+    if (hasLeaderRef) {
+      try {
+        // Verificar se é líder
+        const { data: existingLeader } = await supabase
+          .from("lideres")
+          .select("id")
+          .or(`telefone.eq.${normalizedPhone},email.eq.${formData.email.trim().toLowerCase()}`)
+          .eq("is_active", true)
           .maybeSingle();
 
-        const contactIdForMessaging = contactForMessaging?.id;
+        if (!existingLeader) {
+          // Buscar contato para verificar status
+          const { data: contactData } = await supabase
+            .from("office_contacts")
+            .select("id, is_verified, verification_code, source_type, pending_messages")
+            .eq("telefone_norm", normalizedPhone)
+            .maybeSingle();
 
-        try {
-          await supabase.functions.invoke('send-whatsapp', {
-            body: {
-              phone: normalizedPhone,
-              templateSlug: 'evento-inscricao-confirmada',
-              variables: {
-                nome: formData.nome,
-                evento_nome: event.name,
-                evento_data: eventDate,
-                evento_hora: event.time,
-                evento_local: event.location,
-                evento_endereco: event.address || event.location,
-              },
-              contactId: contactIdForMessaging,
-              imageUrl: qrCodeImageUrl, // Enviar QR Code como imagem
-            },
-          });
-        } catch (whatsappError) {
-          console.error('Error sending WhatsApp confirmation:', whatsappError);
-        }
+          if (contactData && !contactData.is_verified && contactData.source_type === 'lider') {
+            needsVerificationCheck = true;
+          } else if (!contactData) {
+            needsVerificationCheck = true;
+          }
 
-        // Enviar email de confirmação
-        try {
-          await supabase.functions.invoke('send-email', {
-            body: {
-              templateSlug: 'evento-cadastro-confirmado',
-              to: formData.email,
-              toName: formData.nome,
-              variables: {
-                nome: formData.nome,
-                evento_nome: event.name,
-                evento_data: eventDate,
-                evento_hora: event.time,
-                evento_local: event.location,
-                evento_endereco: event.address || event.location,
-                evento_descricao: event.description || '',
-                qr_code_url: qrCodeImageUrl,
-              },
-              contactId: contactIdForMessaging,
-              eventId: event.id,
-            },
-          });
-        } catch (emailError) {
-          console.error('Error sending email confirmation:', emailError);
-        }
-
-        // Se contato não está verificado, enviar SMS de verificação em background
-        if (contactForMessaging && !contactForMessaging.is_verified) {
-          try {
-            let verificationCode = contactForMessaging.verification_code;
-            
-            // Gerar código se não tiver
-            if (!verificationCode) {
-              const { data: newCode } = await supabase.rpc("generate_verification_code");
-              verificationCode = newCode;
-              
-              await supabase
-                .from("office_contacts")
-                .update({ verification_code: verificationCode })
-                .eq("id", contactForMessaging.id);
-            }
-            
-            // Enviar SMS em background (não bloqueia fluxo e não altera tela de sucesso)
-            sendVerificationSMS({
-              contactId: contactForMessaging.id,
-              contactName: formData.nome,
-              contactPhone: normalizedPhone,
-              verificationCode: verificationCode,
-            });
-          } catch (smsError) {
-            console.error('Error sending verification SMS:', smsError);
+          if (needsVerificationCheck && contactData) {
+            await handleVerificationFlow(contactData, normalizedPhone, eventDate, qrCodeImageUrl);
           }
         }
+      } catch (verificationError) {
+        console.warn('Verification check failed:', verificationError);
+      }
+    }
+
+    // Se não precisa de verificação, enviar mensagens de confirmação
+    if (!needsVerificationCheck) {
+      await sendConfirmationMessages(normalizedPhone, eventDate, qrCodeImageUrl);
+    }
+  };
+
+  // Fluxo de verificação para contatos indicados por líder
+  const handleVerificationFlow = async (
+    contact: { id: string; is_verified: boolean; verification_code: string | null; pending_messages: unknown },
+    normalizedPhone: string,
+    eventDate: string,
+    qrCodeImageUrl: string
+  ) => {
+    if (!event || !leader) return;
+
+    try {
+      // Armazenar mensagens pendentes
+      let pendingMessages = addPendingMessage(
+        (contact.pending_messages as Array<{ template_slug: string; variables: Record<string, unknown> }>) || [],
+        'evento-inscricao-confirmada',
+        {
+          nome: formData.nome,
+          evento_nome: event.name,
+          evento_data: eventDate,
+          evento_hora: event.time,
+          evento_local: event.location,
+        }
+      );
+      
+      pendingMessages = addPendingMessage(
+        pendingMessages,
+        'email:evento-cadastro-confirmado',
+        {
+          nome: formData.nome,
+          evento_nome: event.name,
+          evento_data: eventDate,
+          evento_hora: event.time,
+          evento_local: event.location,
+          evento_endereco: event.address || event.location,
+          evento_descricao: event.description || '',
+          qr_code_url: qrCodeImageUrl,
+          email: formData.email,
+          eventId: event.id,
+        }
+      );
+
+      await supabase
+        .from("office_contacts")
+        .update({ pending_messages: JSON.parse(JSON.stringify(pendingMessages)) })
+        .eq("id", contact.id);
+
+      // Gerar código se não tiver
+      let verificationCode = contact.verification_code;
+      if (!verificationCode) {
+        const { data: newCode } = await supabase.rpc("generate_verification_code");
+        verificationCode = newCode;
+        
+        await supabase
+          .from("office_contacts")
+          .update({ 
+            verification_code: verificationCode,
+            source_type: 'lider',
+            source_id: leader.id,
+          })
+          .eq("id", contact.id);
       }
 
-      setRegistrationSuccess(true);
+      // Enviar mensagem de verificação
+      await sendVerificationMessage({
+        contactId: contact.id,
+        contactName: formData.nome,
+        contactPhone: normalizedPhone,
+        leaderName: leader.nome_completo,
+        verificationCode: verificationCode || '',
+      });
+
+      setNeedsVerification(true);
     } catch (error) {
-      console.error("Error creating registration:", error);
+      console.warn('Verification flow failed:', error);
+    }
+  };
+
+  // Enviar mensagens de confirmação (WhatsApp, Email, SMS)
+  const sendConfirmationMessages = async (
+    normalizedPhone: string,
+    eventDate: string,
+    qrCodeImageUrl: string
+  ) => {
+    if (!event) return;
+
+    // Buscar contact_id (opcional, não bloqueia)
+    let contactId: string | undefined;
+    let contactVerified = true;
+    let verificationCode: string | null = null;
+
+    try {
+      const { data: contact } = await supabase
+        .from("office_contacts")
+        .select("id, is_verified, verification_code")
+        .eq("telefone_norm", normalizedPhone)
+        .maybeSingle();
+      
+      contactId = contact?.id;
+      contactVerified = contact?.is_verified ?? true;
+      verificationCode = contact?.verification_code ?? null;
+    } catch (contactError) {
+      console.warn('Contact lookup failed:', contactError);
+    }
+
+    // Enviar WhatsApp (independente)
+    try {
+      await supabase.functions.invoke('send-whatsapp', {
+        body: {
+          phone: normalizedPhone,
+          templateSlug: 'evento-inscricao-confirmada',
+          variables: {
+            nome: formData.nome,
+            evento_nome: event.name,
+            evento_data: eventDate,
+            evento_hora: event.time,
+            evento_local: event.location,
+            evento_endereco: event.address || event.location,
+          },
+          contactId,
+          imageUrl: qrCodeImageUrl,
+        },
+      });
+    } catch (whatsappError) {
+      console.warn('WhatsApp confirmation failed:', whatsappError);
+    }
+
+    // Enviar Email (independente)
+    try {
+      await supabase.functions.invoke('send-email', {
+        body: {
+          templateSlug: 'evento-cadastro-confirmado',
+          to: formData.email,
+          toName: formData.nome,
+          variables: {
+            nome: formData.nome,
+            evento_nome: event.name,
+            evento_data: eventDate,
+            evento_hora: event.time,
+            evento_local: event.location,
+            evento_endereco: event.address || event.location,
+            evento_descricao: event.description || '',
+            qr_code_url: qrCodeImageUrl,
+          },
+          contactId,
+          eventId: event.id,
+        },
+      });
+    } catch (emailError) {
+      console.warn('Email confirmation failed:', emailError);
+    }
+
+    // Enviar SMS de verificação se contato não está verificado (independente)
+    if (contactId && !contactVerified) {
+      try {
+        let code = verificationCode;
+        
+        if (!code) {
+          const { data: newCode } = await supabase.rpc("generate_verification_code");
+          code = newCode;
+          
+          await supabase
+            .from("office_contacts")
+            .update({ verification_code: code })
+            .eq("id", contactId);
+        }
+        
+        if (code) {
+          sendVerificationSMS({
+            contactId,
+            contactName: formData.nome,
+            contactPhone: normalizedPhone,
+            verificationCode: code,
+          });
+        }
+      } catch (smsError) {
+        console.warn('Verification SMS failed:', smsError);
+      }
     }
   };
 
