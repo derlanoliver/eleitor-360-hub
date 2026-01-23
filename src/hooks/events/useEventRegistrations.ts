@@ -45,7 +45,7 @@ export function useCreateRegistration() {
 
   return useMutation({
     mutationFn: async (data: CreateRegistrationData) => {
-      // Use SECURITY DEFINER RPC function to avoid RLS issues
+      // Use SECURITY DEFINER RPC function - now returns qr_code directly
       const { data: result, error } = await supabase.rpc('create_event_registration', {
         _event_id: data.event_id,
         _nome: data.nome,
@@ -63,21 +63,17 @@ export function useCreateRegistration() {
 
       if (error) throw error;
       
-      // RPC returns array with id and created_at, fetch the full registration for qr_code
+      // RPC now returns id, created_at, and qr_code directly
       const resultRow = Array.isArray(result) ? result[0] : result;
       if (!resultRow) throw new Error("Erro ao criar inscrição");
       
-      // Fetch the full registration to get the qr_code
-      const { data: fullRegistration, error: fetchError } = await supabase
-        .from("event_registrations")
-        .select("id, qr_code, checked_in")
-        .eq("id", resultRow.id)
-        .single();
-      
-      if (fetchError) throw fetchError;
+      // Type assertion since types.ts may not be updated yet
+      const row = resultRow as { id: string; created_at: string; qr_code: string };
       
       return {
-        ...fullRegistration,
+        id: row.id,
+        qr_code: row.qr_code,
+        checked_in: false,
         event_id: data.event_id,
         nome: data.nome,
         email: data.email,
