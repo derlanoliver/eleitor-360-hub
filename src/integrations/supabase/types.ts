@@ -2606,6 +2606,7 @@ export type Database = {
             Returns: {
               created_at: string
               id: string
+              qr_code: string
             }[]
           }
       create_leader_from_public_form:
