@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PRODUCTION_URL = "https://app.rafaelprudente.com";
+
 interface ShortenUrlRequest {
   url: string;
   customCode?: string;
@@ -55,11 +57,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (existingUrl) {
       console.log("shorten-url: URL already exists with code:", existingUrl.code);
-      const baseUrl = Deno.env.get("SITE_URL") || supabaseUrl.replace(".supabase.co", "");
       return new Response(
         JSON.stringify({ 
           code: existingUrl.code,
-          shortUrl: `${baseUrl}/s/${existingUrl.code}`,
+          shortUrl: `${PRODUCTION_URL}/s/${existingUrl.code}`,
           isNew: false
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -90,9 +91,8 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log("shorten-url: Successfully created short URL with code:", code);
       
-      // Build the short URL - SEMPRE usar URL de produção
-      const siteUrl = "https://app.rafaelprudente.com";
-      const shortUrl = `${siteUrl}/s/${code}`;
+      // Build the short URL usando constante de produção
+      const shortUrl = `${PRODUCTION_URL}/s/${code}`;
 
       return new Response(
         JSON.stringify({ 
