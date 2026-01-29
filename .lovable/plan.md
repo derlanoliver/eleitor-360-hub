@@ -1,135 +1,82 @@
 
 
-## Encurtar Link do Material por Região para SMS
+## Corrigir Permissão para Edição de Templates SMS
 
-### Resumo
-Encurtar automaticamente os links de materiais (PDFs do Google Drive, etc.) para um formato amigável usando a URL principal `app.rafaelprudente.com/s/{código}` antes de enviar via SMS.
+### Problema Identificado
 
-### Problema Atual
+A edição de templates SMS não está sendo salva no banco de dados devido a uma **política RLS restritiva**.
 
-Os links de materiais enviados por SMS são muito longos:
-```
-https://drive.google.com/file/d/1a2b3c4d5e/view?usp=sharing
-```
-**70+ caracteres** - consome metade do limite de 160 caracteres do SMS.
+| Situação | Valor |
+|----------|-------|
+| Role do usuário | `super_admin` |
+| Role exigida pela política | `admin` (exato) |
+| Resultado | UPDATE bloqueado silenciosamente |
+
+A política `sms_templates_modify` usa a função `has_role(auth.uid(), 'admin')` que faz comparação exata, não reconhecendo que `super_admin` deveria ter as mesmas permissões.
 
 ### Solução
 
-Transformar automaticamente em:
-```
-https://app.rafaelprudente.com/s/AbC123
-```
-**38 caracteres** - economia de 30+ caracteres por SMS!
-
-### Fluxo
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         FLUXO DE ENCURTAMENTO                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. Usuário seleciona material no dropdown                                   │
-│     (URL longa: https://drive.google.com/file/d/1abc.../view)               │
-│                                                                              │
-│  2. Sistema detecta que template usa {{link_material}}                       │
-│                                                                              │
-│  3. Antes de enviar cada SMS:                                               │
-│     → Chama edge function shorten-url                                       │
-│     → Recebe código curto (ex: "AbC123")                                    │
-│     → Monta link: https://app.rafaelprudente.com/s/AbC123                   │
-│                                                                              │
-│  4. SMS enviado com link curto                                              │
-│     "João, temos um material especial! Acesse: app.rafaelprudente.com/s/X" │
-│                                                                              │
-│  5. Destinatário clica → redireciona para URL original do Google Drive      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Otimização
-
-O mesmo link do material será encurtado UMA VEZ e reutilizado para todos os destinatários do lote, economizando chamadas à API.
+Atualizar a política RLS da tabela `sms_templates` para permitir que tanto `admin` quanto `super_admin` possam modificar templates.
 
 ---
 
 ## Seção Técnica
 
-### Arquivos a Modificar
+### Migração SQL
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/shorten-url/index.ts` | Corrigir para usar URL de produção |
-| `src/components/sms/SMSBulkSendTab.tsx` | Encurtar link antes do envio |
+```sql
+-- Remover política antiga
+DROP POLICY IF EXISTS sms_templates_modify ON sms_templates;
 
-### 1. Corrigir Edge Function (shorten-url)
-
-Alterar a linha 94 para usar a URL de produção:
-
-```typescript
-// Antes (ERRADO - URL de preview)
-const siteUrl = "https://eydqducvsddckhyatcux.lovableproject.com";
-
-// Depois (CORRETO - URL de produção)
-const siteUrl = "https://app.rafaelprudente.com";
+-- Criar nova política que aceita admin OU super_admin
+CREATE POLICY sms_templates_modify ON sms_templates
+FOR ALL
+TO public
+USING (
+  has_role(auth.uid(), 'admin'::app_role) OR 
+  has_role(auth.uid(), 'super_admin'::app_role)
+)
+WITH CHECK (
+  has_role(auth.uid(), 'admin'::app_role) OR 
+  has_role(auth.uid(), 'super_admin'::app_role)
+);
 ```
 
-### 2. Modificar SMSBulkSendTab
+### Alternativa (Melhor Prática)
 
-**2.1 Adicionar função para encurtar URL:**
+Criar uma função auxiliar que verifica se o usuário é administrador (qualquer tipo):
 
-```typescript
-const shortenUrl = async (url: string): Promise<string> => {
-  try {
-    const { data, error } = await supabase.functions.invoke("shorten-url", {
-      body: { url },
-    });
-    
-    if (error) throw error;
-    return data.shortUrl;
-  } catch (err) {
-    console.error("Erro ao encurtar URL:", err);
-    // Fallback: retorna URL original se falhar
-    return url;
-  }
-};
+```sql
+CREATE OR REPLACE FUNCTION is_admin(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_roles
+    WHERE user_id = _user_id 
+    AND role IN ('admin', 'super_admin')
+  )
+$$;
 ```
 
-**2.2 Encurtar link ANTES do loop de envio:**
+E depois atualizar a política:
 
-Na função `handleSendBulk`, antes do loop de destinatários:
+```sql
+DROP POLICY IF EXISTS sms_templates_modify ON sms_templates;
 
-```typescript
-// Encurtar link do material uma vez (reutilizado para todos os destinatários)
-let shortenedMaterialUrl = "";
-if (templateRequiresMaterial && selectedMaterialUrl) {
-  toast.info("Encurtando link do material...");
-  shortenedMaterialUrl = await shortenUrl(selectedMaterialUrl);
-  console.log("Link encurtado:", shortenedMaterialUrl);
-}
-```
-
-**2.3 Usar o link encurtado nas variáveis:**
-
-```typescript
-const variables: Record<string, string> = {
-  nome: recipient.nome || "",
-  email: recipient.email || "",
-  // Usar link encurtado quando disponível
-  ...(shortenedMaterialUrl && { link_material: shortenedMaterialUrl }),
-};
+CREATE POLICY sms_templates_modify ON sms_templates
+FOR ALL
+TO public
+USING (is_admin(auth.uid()))
+WITH CHECK (is_admin(auth.uid()));
 ```
 
 ### Resultado Esperado
 
-| Antes | Depois |
-|-------|--------|
-| `https://drive.google.com/file/d/1a2b3c4d5e6f7g8h/view?usp=sharing` | `https://app.rafaelprudente.com/s/AbC123` |
-| ~70 caracteres | ~38 caracteres |
-
-### Benefícios
-
-- **Economia de caracteres**: ~30+ caracteres por SMS
-- **Link amigável**: Usa domínio principal da aplicação
-- **Tracking**: A tabela `short_urls` registra cliques
-- **Único encurtamento**: O mesmo link é reutilizado (não cria duplicatas)
+Após a migração:
+- Usuários com role `admin` podem editar templates
+- Usuários com role `super_admin` também podem editar templates
+- As edições serão persistidas corretamente no banco
 
