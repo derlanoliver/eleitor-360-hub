@@ -1,96 +1,124 @@
 
 
-## Corrigir URL de Produção para Links Encurtados Existentes
+## Adicionar Data/Hora de Inscrição e Check-in na Lista de Inscritos
 
-### Problema Identificado
+### Alterações Planejadas
 
-Quando um link de material **já foi encurtado anteriormente** (já existe na tabela `short_urls`), o sistema retorna uma URL inválida:
+A lista de inscritos será aprimorada para mostrar claramente:
+- **Data e hora da inscrição** - quando a pessoa se inscreveu no evento
+- **Horário do check-in** - quando a pessoa fez o check-in (se aplicável)
 
-| Cenário | URL Retornada | Status |
-|---------|---------------|--------|
-| URL nova | `https://app.rafaelprudente.com/s/AbC123` | ✅ Correto |
-| URL existente | `https://eydqducvsddckhyatcux/s/CSjlyR` | ❌ Incorreto |
+### O Que Será Alterado
 
-O código na edge function usa a URL de produção apenas para URLs **novas**, mas para URLs **existentes** usa uma variável de ambiente que não está configurada corretamente.
+| Local | Alteração |
+|-------|-----------|
+| PDF de inscritos | Adicionar coluna "Inscrito em" com data/hora |
+| PDF de check-in | Diferenciar "Inscrito em" e "Check-in às" |
+| Lista na interface | Exibir data de inscrição e horário do check-in |
 
-### Causa Raiz
+### Visualização Final
 
-Na edge function `shorten-url/index.ts`, linhas 56-66:
-
-```typescript
-if (existingUrl) {
-  const baseUrl = Deno.env.get("SITE_URL") || supabaseUrl.replace(".supabase.co", "");  // ← PROBLEMA
-  return new Response(
-    JSON.stringify({ 
-      shortUrl: `${baseUrl}/s/${existingUrl.code}`,  // ← Gera URL inválida
-    }),
-    ...
-  );
-}
+**Na lista de cards:**
+```
+┌─────────────────────────────────────────────────┐
+│ Maria Silva                                      │
+│ maria@email.com                        Check-in │
+│                                          feito  │
+│ Inscrito em: 25/01/2026 às 14:30                │
+│ Check-in: 29/01/2026 às 09:15                   │
+└─────────────────────────────────────────────────┘
 ```
 
-### Solução
-
-Usar a URL de produção fixa em **ambos os casos** (URL nova e existente):
-
-```typescript
-const PRODUCTION_URL = "https://app.rafaelprudente.com";
-
-// No caso de URL existente:
-if (existingUrl) {
-  return new Response(
-    JSON.stringify({ 
-      shortUrl: `${PRODUCTION_URL}/s/${existingUrl.code}`,  // ← CORRIGIDO
-    }),
-    ...
-  );
-}
-
-// No caso de URL nova (já está correto, mas vamos usar a constante):
-const shortUrl = `${PRODUCTION_URL}/s/${code}`;
+**No PDF:**
+```
+# | Nome          | WhatsApp      | Email           | Cidade  | Inscrito em   | Check-in
+1 | Maria Silva   | 61999...      | maria@...       | Brasília| 25/01 14:30   | 09:15
 ```
 
 ---
 
 ## Seção Técnica
 
-### Arquivo a Modificar
+### Arquivo: `src/pages/Events.tsx`
 
-**`supabase/functions/shorten-url/index.ts`**
+#### 1. PDF de Lista de Inscritos (função `handleGenerateRegistrationsPDF`)
 
-### Alterações
+Atualizar o header da tabela para incluir "Inscrito em":
 
-1. Adicionar constante de URL de produção no topo do arquivo:
 ```typescript
-const PRODUCTION_URL = "https://app.rafaelprudente.com";
+// Header atual (linha ~205-208)
+pdf.text("Nome", 22, y);
+pdf.text("WhatsApp", 82, y);
+pdf.text("Email", 115, y);
+pdf.text("Cidade", 160, y);
+
+// Adicionar:
+pdf.text("Inscrito", 175, y);  // Nova coluna
 ```
 
-2. Corrigir linha 58 (caso URL existente):
-```typescript
-// Antes (ERRADO)
-const baseUrl = Deno.env.get("SITE_URL") || supabaseUrl.replace(".supabase.co", "");
-shortUrl: `${baseUrl}/s/${existingUrl.code}`
+Atualizar renderização das linhas para incluir data de inscrição:
 
-// Depois (CORRETO)
-shortUrl: `${PRODUCTION_URL}/s/${existingUrl.code}`
+```typescript
+// Adicionar na renderização de cada linha:
+if (reg.created_at) {
+  const inscricaoDate = format(new Date(reg.created_at), "dd/MM HH:mm", { locale: ptBR });
+  pdf.text(inscricaoDate, 175, y);
+}
 ```
 
-3. Atualizar linha 94-95 (caso URL nova) para usar a mesma constante:
-```typescript
-// Antes
-const siteUrl = "https://app.rafaelprudente.com";
-const shortUrl = `${siteUrl}/s/${code}`;
+#### 2. Lista de Cards na Interface (componente `EventCheckInManagement`)
 
-// Depois
-const shortUrl = `${PRODUCTION_URL}/s/${code}`;
+Modificar o card de cada inscrito (linhas ~1459-1471) para exibir as datas:
+
+```tsx
+<Card key={reg.id}>
+  <CardContent className="p-4">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <p className="font-medium">{reg.nome}</p>
+        <p className="text-sm text-muted-foreground">{reg.email}</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+          <span>
+            Inscrito em: {format(new Date(reg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </span>
+          {reg.checked_in && reg.checked_in_at && (
+            <span className="text-green-600">
+              Check-in: {format(new Date(reg.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          )}
+        </div>
+      </div>
+      <Badge>...</Badge>
+    </div>
+  </CardContent>
+</Card>
 ```
 
-### Resultado Esperado
+#### 3. PDF de Check-in (função `handleExportCheckInPDF`)
 
-| Cenário | URL Retornada |
-|---------|---------------|
-| URL nova | `https://app.rafaelprudente.com/s/AbC123` |
-| URL existente | `https://app.rafaelprudente.com/s/CSjlyR` |
+Ajustar para mostrar ambas as datas:
 
-Após a correção, todos os links encurtados usarão consistentemente a URL principal do sistema.
+```typescript
+// Header
+pdf.text("Nome", 26, yPos);
+pdf.text("WhatsApp", 85, yPos);
+pdf.text("Email", 125, yPos);
+pdf.text("Inscrito", 168, yPos);   // Data de inscrição
+pdf.text("Check-in", 190, yPos);   // Hora do check-in
+
+// Linhas
+const inscricaoTime = format(new Date(reg.created_at), "dd/MM HH:mm");
+pdf.text(inscricaoTime, 168, yPos);
+
+if (reg.checked_in_at) {
+  const checkTime = format(new Date(reg.checked_in_at), "HH:mm");
+  pdf.text(checkTime, 192, yPos);
+}
+```
+
+### Resultado
+
+- O PDF mostrará data e hora de inscrição para todos os inscritos
+- A seção de check-ins realizados mostrará também o horário do check-in
+- A interface web mostrará as informações de forma clara e organizada
 
