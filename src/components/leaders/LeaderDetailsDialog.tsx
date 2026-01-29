@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 
 import { 
   User, Users, Calendar, MessageSquare, Trophy, History, 
@@ -1182,97 +1182,60 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           statsPerLeader.set(l.id, subtreeStats);
                         });
 
-                        // 4. Gerar PDF
-                        const doc = new jsPDF();
-                        const pageWidth = doc.internal.pageSize.getWidth();
-
-                        // Cabeçalho
-                        doc.setFontSize(14);
-                        doc.setFont("helvetica", "bold");
-                        doc.text(`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`, pageWidth / 2, 15, { align: "center" });
-                        
-                        doc.setFontSize(10);
-                        doc.setFont("helvetica", "normal");
-                        doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, 22, { align: "center" });
-                        
+                        // 4. Gerar Excel
                         const filterLabel = includeAllLevels ? "Todos os níveis" : "Apenas liderados diretos";
-                        doc.text(`Filtro: ${filterLabel}`, pageWidth / 2, 28, { align: "center" });
-
-                        // Colunas da tabela
-                        const cols = [
-                          { header: "N°", x: 10, width: 12 },
-                          { header: "Nome", x: 22, width: 65 },
-                          { header: "Telefone", x: 87, width: 35 },
-                          { header: "ÁRVORE", x: 122, width: 22 },
-                          { header: "VERIFICADOS", x: 144, width: 28 },
-                          { header: "NÃO VERIFICADOS", x: 172, width: 35 }
+                        
+                        // Criar dados para a planilha
+                        const excelData: any[][] = [
+                          [`RELATÓRIO DE ÁRVORE - ${leader.nome_completo}`],
+                          [`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`],
+                          [`Filtro: ${filterLabel}`],
+                          [], // Linha vazia
+                          ["N°", "Nome", "Telefone", "Árvore", "Verificados", "Não Verificados"] // Cabeçalho
                         ];
-
-                        let yPos = 40;
-                        const rowHeight = 7;
-                        const headerHeight = 8;
-
-                        // Função para desenhar cabeçalho da tabela
-                        const drawTableHeader = () => {
-                          doc.setFillColor(240, 240, 240);
-                          doc.rect(10, yPos - 5, pageWidth - 20, headerHeight, "F");
-                          
-                          doc.setFontSize(8);
-                          doc.setFont("helvetica", "bold");
-                          doc.setTextColor(0, 0, 0);
-                          
-                          cols.forEach((col) => {
-                            doc.text(col.header, col.x + 1, yPos);
-                          });
-                          
-                          yPos += headerHeight;
-                        };
-
-                        drawTableHeader();
-
-                        // Dados
-                        doc.setFont("helvetica", "normal");
-                        doc.setFontSize(8);
-
+                        
+                        // Adicionar dados dos líderes
                         leadersForReport.forEach((l: any, index: number) => {
-                          // Verificar se precisa nova página
-                          if (yPos > 275) {
-                            doc.addPage();
-                            yPos = 20;
-                            drawTableHeader();
-                          }
-
                           const arvoreCount = subordinatesCount.get(l.id) || 0;
                           const stats = statsPerLeader.get(l.id) || { verified: 0, notVerified: 0 };
                           const phone = l.telefone ? formatPhone(l.telefone) : "";
-
-                          // N°
-                          doc.setTextColor(0, 0, 0);
-                          doc.text(String(index + 1), cols[0].x + 1, yPos);
-
-                          // Nome (truncar se muito longo)
-                          const nome = l.nome_completo.length > 35 ? l.nome_completo.substring(0, 32) + "..." : l.nome_completo;
-                          doc.text(nome, cols[1].x + 1, yPos);
-
-                          // Telefone
-                          doc.text(phone, cols[2].x + 1, yPos);
-
-                          // ÁRVORE
-                          doc.text(String(arvoreCount), cols[3].x + 10, yPos);
-
-                          // VERIFICADOS (vermelho)
-                          doc.setTextColor(200, 0, 0);
-                          doc.text(String(stats.verified), cols[4].x + 12, yPos);
-
-                          // NÃO VERIFICADOS (vermelho)
-                          doc.text(String(stats.notVerified), cols[5].x + 15, yPos);
-
-                          yPos += rowHeight;
+                          
+                          excelData.push([
+                            index + 1,
+                            l.nome_completo,
+                            phone,
+                            arvoreCount,
+                            stats.verified,
+                            stats.notVerified
+                          ]);
                         });
-
-                        // Salvar
-                        const fileName = `Relatorio_Arvore_${leader.nome_completo.replace(/\s+/g, "_")}.pdf`;
-                        doc.save(fileName);
+                        
+                        // Criar workbook e worksheet
+                        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+                        
+                        // Configurar larguras das colunas
+                        worksheet["!cols"] = [
+                          { wch: 6 },  // N°
+                          { wch: 40 }, // Nome
+                          { wch: 18 }, // Telefone
+                          { wch: 10 }, // Árvore
+                          { wch: 12 }, // Verificados
+                          { wch: 16 }  // Não Verificados
+                        ];
+                        
+                        // Mesclar células do cabeçalho
+                        worksheet["!merges"] = [
+                          { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // Título
+                          { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } }, // Data
+                          { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } }  // Filtro
+                        ];
+                        
+                        const workbook = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
+                        
+                        // Salvar arquivo
+                        const fileName = `Relatorio_Arvore_${leader.nome_completo.replace(/\s+/g, "_")}.xlsx`;
+                        XLSX.writeFile(workbook, fileName);
 
                         toast.success(`Relatório detalhado exportado com ${leadersForReport.length} líderes`);
                       } catch (error) {
@@ -1284,7 +1247,7 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                     }}
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    {loadingDetailedReport ? "Gerando PDF..." : "Relatório Detalhado"}
+                    {loadingDetailedReport ? "Gerando Excel..." : "Relatório Detalhado"}
                   </Button>
 
                   {/* Botão de Relatório de Pendentes */}
