@@ -20,6 +20,7 @@ import { useSMSTemplates, replaceTemplateVariables } from "@/hooks/useSMSTemplat
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateScheduledMessages } from "@/hooks/useScheduledMessages";
 import { ScheduleMessageDialog } from "@/components/scheduling/ScheduleMessageDialog";
+import { useRegionMaterials } from "@/hooks/useRegionMaterials";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { generateVerificationUrl, generateLeaderReferralUrl, generateLeaderVerificationUrl, getProductionUrl } from "@/lib/urlHelper";
@@ -51,9 +52,11 @@ function getRandomDelay(): number {
 export function SMSBulkSendTab() {
   const { data: templates } = useSMSTemplates();
   const { data: events } = useEvents();
+  const { data: regionMaterials } = useRegionMaterials();
   const createScheduledMessages = useCreateScheduledMessages();
   
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [selectedMaterialUrl, setSelectedMaterialUrl] = useState<string>("");
   const [recipientType, setRecipientType] = useState<RecipientType>("contacts");
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [batchSize, setBatchSize] = useState<BatchSize>("20");
@@ -84,6 +87,10 @@ export function SMSBulkSendTab() {
   const selectedTemplateData = templates?.find((t) => t.slug === selectedTemplate);
   const isSingleSend = recipientType === "single_contact" || recipientType === "single_leader";
   const isVerificationType = recipientType === "sms_not_sent" || recipientType === "waiting_verification" || recipientType === "coordinator_tree";
+
+  // Verificar se o template requer seleção de material
+  const templateRequiresMaterial = selectedTemplate === "material-regiao-sms" || 
+    (selectedTemplateData?.variaveis as string[] | null)?.includes("link_material");
 
   // Search contacts (include verification_code for SMS verification links)
   const { data: contactSearchResults } = useQuery({
@@ -445,6 +452,12 @@ export function SMSBulkSendTab() {
       return;
     }
 
+    // Validar seleção de material quando necessário
+    if (templateRequiresMaterial && !selectedMaterialUrl) {
+      toast.error("Selecione um material para enviar");
+      return;
+    }
+
     setIsSending(true);
     setWaitingForConfirmation(false);
     setSentCount(0);
@@ -469,6 +482,8 @@ export function SMSBulkSendTab() {
           const variables: Record<string, string> = {
             nome: recipient.nome || "",
             email: recipient.email || "",
+            // Adicionar link do material quando selecionado
+            ...(selectedMaterialUrl && { link_material: selectedMaterialUrl }),
           };
 
           // Add leader affiliate link if applicable (SEMPRE usa URL de produção)
@@ -622,7 +637,13 @@ export function SMSBulkSendTab() {
             {recipientType !== "sms_not_sent" && recipientType !== "waiting_verification" && (
               <div className="space-y-2">
                 <Label>Template SMS</Label>
-                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                <Select 
+                  value={selectedTemplate} 
+                  onValueChange={(v) => {
+                    setSelectedTemplate(v);
+                    setSelectedMaterialUrl(""); // Limpar material ao trocar template
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um template" />
                   </SelectTrigger>
@@ -630,6 +651,25 @@ export function SMSBulkSendTab() {
                     {activeTemplates.map((template) => (
                       <SelectItem key={template.slug} value={template.slug}>
                         {template.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Seletor de Material - aparece quando template usa {{link_material}} */}
+            {templateRequiresMaterial && (
+              <div className="space-y-2">
+                <Label>Material (Link)</Label>
+                <Select value={selectedMaterialUrl} onValueChange={setSelectedMaterialUrl}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o material" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regionMaterials?.filter(m => m.is_active).map((material) => (
+                      <SelectItem key={material.id} value={material.material_url}>
+                        {material.material_name} - {material.office_cities?.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
