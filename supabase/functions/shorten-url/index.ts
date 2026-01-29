@@ -90,8 +90,8 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log("shorten-url: Successfully created short URL with code:", code);
       
-      // Build the short URL - use the actual site URL
-      const siteUrl = "https://eydqducvsddckhyatcux.lovableproject.com";
+      // Build the short URL - SEMPRE usar URL de produção
+      const siteUrl = "https://app.rafaelprudente.com";
       const shortUrl = `${siteUrl}/s/${code}`;
 
       return new Response(
