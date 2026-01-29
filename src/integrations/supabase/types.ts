@@ -697,6 +697,7 @@ export type Database = {
           passkit_enabled: boolean | null
           passkit_program_id: string | null
           passkit_tier_id: string | null
+          region_material_default_delay_minutes: number | null
           resend_api_key: string | null
           resend_enabled: boolean | null
           resend_from_email: string | null
@@ -731,6 +732,7 @@ export type Database = {
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
           passkit_tier_id?: string | null
+          region_material_default_delay_minutes?: number | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null
@@ -765,6 +767,7 @@ export type Database = {
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
           passkit_tier_id?: string | null
+          region_material_default_delay_minutes?: number | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
           resend_from_email?: string | null
@@ -1672,6 +1675,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      region_materials: {
+        Row: {
+          city_id: string
+          created_at: string | null
+          delay_minutes: number | null
+          id: string
+          is_active: boolean | null
+          material_name: string
+          material_url: string
+          sms_template_slug: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city_id: string
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          material_name: string
+          material_url: string
+          sms_template_slug?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city_id?: string
+          created_at?: string | null
+          delay_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          material_name?: string
+          material_url?: string
+          sms_template_slug?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "region_materials_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: true
+            referencedRelation: "office_cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scheduled_messages: {
         Row: {

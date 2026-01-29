@@ -15,7 +15,8 @@ import {
   HelpCircle,
   Trophy,
   MessageSquareText,
-  FileBarChart
+  FileBarChart,
+  FolderOpen
 } from "lucide-react";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -114,6 +115,14 @@ const Settings = () => {
       description: "Configure o chatbot para atender líderes automaticamente",
       icon: MessageSquareText,
       href: "/settings/whatsapp-chatbot",
+      available: true,
+      roles: ['super_admin', 'admin'],
+    },
+    {
+      title: "Materiais por Região",
+      description: "Configure materiais exclusivos para cada RA enviados após verificação",
+      icon: FolderOpen,
+      href: "/settings/region-materials",
       available: true,
       roles: ['super_admin', 'admin'],
     },

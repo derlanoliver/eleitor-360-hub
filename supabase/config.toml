@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.send-whatsapp-official]
 verify_jwt = false
+
+[functions.schedule-region-material]
+verify_jwt = false

@@ -38,6 +38,8 @@ interface IntegrationsSettings {
   wa_auto_visita_enabled: boolean;
   wa_auto_optout_enabled: boolean;
   wa_auto_sms_fallback_enabled: boolean;
+  // Materiais por Região
+  region_material_default_delay_minutes: number;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +74,8 @@ interface UpdateIntegrationsDTO {
   wa_auto_pesquisa_enabled?: boolean;
   wa_auto_evento_enabled?: boolean;
   wa_auto_lideranca_enabled?: boolean;
+  // Materiais por Região
+  region_material_default_delay_minutes?: number;
   wa_auto_membro_enabled?: boolean;
   wa_auto_visita_enabled?: boolean;
   wa_auto_optout_enabled?: boolean;
