@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, QrCode, Copy, MessageCircle, Link2 } from "lucide-react";
+import { Download, Copy, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import QRCode from 'qrcode';
 import { generateEventRegistrationUrl } from "@/lib/urlHelper";
@@ -30,34 +30,18 @@ const generateTrackingCode = (eventId: string, eventName: string) => {
   return `${eventPrefix}${eventIdShort}${random}${timestamp.substring(0, 4).toUpperCase()}`;
 };
 
-// Função para formatar nome do evento para URL
-const formatEventSlug = (eventName: string) => {
-  return eventName
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-    .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
-    .replace(/\s+/g, '-') // Substitui espaços por hífens
-    .replace(/-+/g, '-') // Remove hífens duplos
-    .replace(/^-|-$/g, ''); // Remove hífens do início e fim
-};
-
 const EventQRCode = ({ event }: EventQRCodeProps) => {
   const [trackingCode] = useState(() => generateTrackingCode(event.id, event.name));
-  const [whatsappQR, setWhatsappQR] = useState<string>("");
-  const [registrationQR, setRegistrationQR] = useState<string>("");
+  const [eventQR, setEventQR] = useState<string>("");
   const { toast } = useToast();
 
-  // URLs
-  const whatsappMessage = encodeURIComponent(`#${trackingCode} - Quero me cadastrar para o Evento ${event.name}`);
-  const whatsappURL = `https://wa.me/5561987654321?text=${whatsappMessage}`;
-  const registrationURL = generateEventRegistrationUrl(event.slug, event.id, trackingCode);
+  // URL do evento
+  const eventURL = generateEventRegistrationUrl(event.slug, event.id, trackingCode);
 
   useEffect(() => {
-    // Gerar QR Codes
-    const generateQRCodes = async () => {
+    const generateQRCode = async () => {
       try {
-        const whatsappQRData = await QRCode.toDataURL(whatsappURL, {
+        const qrData = await QRCode.toDataURL(eventURL, {
           width: 256,
           margin: 2,
           color: {
@@ -66,33 +50,22 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
           }
         });
 
-        const registrationQRData = await QRCode.toDataURL(registrationURL, {
-          width: 256,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        });
-
-        setWhatsappQR(whatsappQRData);
-        setRegistrationQR(registrationQRData);
+        setEventQR(qrData);
       } catch (error) {
-        console.error('Erro ao gerar QR codes:', error);
+        console.error('Erro ao gerar QR code:', error);
       }
     };
 
-    generateQRCodes();
-  }, [whatsappURL, registrationURL]);
+    generateQRCode();
+  }, [eventURL]);
 
-  const downloadQRCode = async (type: 'whatsapp' | 'registration') => {
+  const downloadQRCode = async () => {
     try {
-      const url = type === 'whatsapp' ? whatsappURL : registrationURL;
       const eventIdShort = event.id.substring(0, 8);
-      const filename = `qr-${type}-evento-${eventIdShort}-${trackingCode}`;
+      const filename = `qr-evento-${eventIdShort}-${trackingCode}`;
       
       // Gerar QR code em alta definição
-      const qrDataURL = await QRCode.toDataURL(url, {
+      const qrDataURL = await QRCode.toDataURL(eventURL, {
         width: 1024,
         margin: 4,
         color: {
@@ -109,7 +82,7 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
 
       toast({
         title: "QR Code baixado!",
-        description: `QR Code de ${type === 'whatsapp' ? 'WhatsApp' : 'cadastro'} salvo em alta definição.`
+        description: "QR Code do evento salvo em alta definição."
       });
     } catch (error) {
       toast({
@@ -120,22 +93,22 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
     }
   };
 
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(eventURL);
     toast({
       title: "Link copiado!",
-      description: `Link de ${type} copiado para a área de transferência.`
+      description: "Link do evento copiado para a área de transferência."
     });
   };
 
   return (
     <div className="w-full space-y-3">
-      {/* QR Code WhatsApp */}
+      {/* QR Code do Evento */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center text-sm">
-            <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
-            QR Code WhatsApp
+            <Link2 className="h-4 w-4 mr-2 text-blue-600" />
+            QR Code do Evento
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -145,11 +118,11 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
             </Badge>
           </div>
           
-          {whatsappQR && (
+          {eventQR && (
             <div className="bg-white p-3 rounded-lg border text-center">
               <img 
-                src={whatsappQR} 
-                alt="QR Code WhatsApp" 
+                src={eventQR} 
+                alt="QR Code do Evento" 
                 className="w-24 h-24 mx-auto"
               />
             </div>
@@ -158,7 +131,7 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => downloadQRCode('whatsapp')}
+            onClick={downloadQRCode}
             className="w-full text-xs"
           >
             <Download className="h-3 w-3 mr-2" />
@@ -171,10 +144,10 @@ const EventQRCode = ({ event }: EventQRCodeProps) => {
       <Button
         variant="secondary"
         size="sm"
-        onClick={() => copyToClipboard(registrationURL, 'cadastro')}
+        onClick={copyToClipboard}
         className="w-full text-xs"
       >
-        <Link2 className="h-3 w-3 mr-2" />
+        <Copy className="h-3 w-3 mr-2" />
         Copiar Link
       </Button>
     </div>
