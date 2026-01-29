@@ -446,6 +446,22 @@ export function SMSBulkSendTab() {
     return { count: duplicateCount, percentage };
   }, [recipients, recentRecipientPhones]);
 
+  // Função para encurtar URL usando a edge function
+  const shortenUrl = async (url: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase.functions.invoke("shorten-url", {
+        body: { url },
+      });
+      
+      if (error) throw error;
+      return data.shortUrl;
+    } catch (err) {
+      console.error("Erro ao encurtar URL:", err);
+      // Fallback: retorna URL original se falhar
+      return url;
+    }
+  };
+
   const handleSendBulk = async () => {
     if ((!selectedTemplate && !isVerificationType) || !recipients || recipients.length === 0) {
       toast.error("Selecione um template e verifique os destinatários");
@@ -461,6 +477,14 @@ export function SMSBulkSendTab() {
     setIsSending(true);
     setWaitingForConfirmation(false);
     setSentCount(0);
+    
+    // Encurtar link do material uma vez (reutilizado para todos os destinatários)
+    let shortenedMaterialUrl = "";
+    if (templateRequiresMaterial && selectedMaterialUrl) {
+      toast.info("Encurtando link do material...");
+      shortenedMaterialUrl = await shortenUrl(selectedMaterialUrl);
+      console.log("Link encurtado:", shortenedMaterialUrl);
+    }
     
     const batchSizeNum = batchSize === "all" ? recipients.length : parseInt(batchSize);
     const batches = Math.ceil(recipients.length / batchSizeNum);
@@ -482,8 +506,8 @@ export function SMSBulkSendTab() {
           const variables: Record<string, string> = {
             nome: recipient.nome || "",
             email: recipient.email || "",
-            // Adicionar link do material quando selecionado
-            ...(selectedMaterialUrl && { link_material: selectedMaterialUrl }),
+            // Usar link encurtado quando disponível
+            ...(shortenedMaterialUrl && { link_material: shortenedMaterialUrl }),
           };
 
           // Add leader affiliate link if applicable (SEMPRE usa URL de produção)
