@@ -1,82 +1,96 @@
 
 
-## Corrigir Permissão para Edição de Templates SMS
+## Corrigir URL de Produção para Links Encurtados Existentes
 
 ### Problema Identificado
 
-A edição de templates SMS não está sendo salva no banco de dados devido a uma **política RLS restritiva**.
+Quando um link de material **já foi encurtado anteriormente** (já existe na tabela `short_urls`), o sistema retorna uma URL inválida:
 
-| Situação | Valor |
-|----------|-------|
-| Role do usuário | `super_admin` |
-| Role exigida pela política | `admin` (exato) |
-| Resultado | UPDATE bloqueado silenciosamente |
+| Cenário | URL Retornada | Status |
+|---------|---------------|--------|
+| URL nova | `https://app.rafaelprudente.com/s/AbC123` | ✅ Correto |
+| URL existente | `https://eydqducvsddckhyatcux/s/CSjlyR` | ❌ Incorreto |
 
-A política `sms_templates_modify` usa a função `has_role(auth.uid(), 'admin')` que faz comparação exata, não reconhecendo que `super_admin` deveria ter as mesmas permissões.
+O código na edge function usa a URL de produção apenas para URLs **novas**, mas para URLs **existentes** usa uma variável de ambiente que não está configurada corretamente.
+
+### Causa Raiz
+
+Na edge function `shorten-url/index.ts`, linhas 56-66:
+
+```typescript
+if (existingUrl) {
+  const baseUrl = Deno.env.get("SITE_URL") || supabaseUrl.replace(".supabase.co", "");  // ← PROBLEMA
+  return new Response(
+    JSON.stringify({ 
+      shortUrl: `${baseUrl}/s/${existingUrl.code}`,  // ← Gera URL inválida
+    }),
+    ...
+  );
+}
+```
 
 ### Solução
 
-Atualizar a política RLS da tabela `sms_templates` para permitir que tanto `admin` quanto `super_admin` possam modificar templates.
+Usar a URL de produção fixa em **ambos os casos** (URL nova e existente):
+
+```typescript
+const PRODUCTION_URL = "https://app.rafaelprudente.com";
+
+// No caso de URL existente:
+if (existingUrl) {
+  return new Response(
+    JSON.stringify({ 
+      shortUrl: `${PRODUCTION_URL}/s/${existingUrl.code}`,  // ← CORRIGIDO
+    }),
+    ...
+  );
+}
+
+// No caso de URL nova (já está correto, mas vamos usar a constante):
+const shortUrl = `${PRODUCTION_URL}/s/${code}`;
+```
 
 ---
 
 ## Seção Técnica
 
-### Migração SQL
+### Arquivo a Modificar
 
-```sql
--- Remover política antiga
-DROP POLICY IF EXISTS sms_templates_modify ON sms_templates;
+**`supabase/functions/shorten-url/index.ts`**
 
--- Criar nova política que aceita admin OU super_admin
-CREATE POLICY sms_templates_modify ON sms_templates
-FOR ALL
-TO public
-USING (
-  has_role(auth.uid(), 'admin'::app_role) OR 
-  has_role(auth.uid(), 'super_admin'::app_role)
-)
-WITH CHECK (
-  has_role(auth.uid(), 'admin'::app_role) OR 
-  has_role(auth.uid(), 'super_admin'::app_role)
-);
+### Alterações
+
+1. Adicionar constante de URL de produção no topo do arquivo:
+```typescript
+const PRODUCTION_URL = "https://app.rafaelprudente.com";
 ```
 
-### Alternativa (Melhor Prática)
+2. Corrigir linha 58 (caso URL existente):
+```typescript
+// Antes (ERRADO)
+const baseUrl = Deno.env.get("SITE_URL") || supabaseUrl.replace(".supabase.co", "");
+shortUrl: `${baseUrl}/s/${existingUrl.code}`
 
-Criar uma função auxiliar que verifica se o usuário é administrador (qualquer tipo):
-
-```sql
-CREATE OR REPLACE FUNCTION is_admin(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_id = _user_id 
-    AND role IN ('admin', 'super_admin')
-  )
-$$;
+// Depois (CORRETO)
+shortUrl: `${PRODUCTION_URL}/s/${existingUrl.code}`
 ```
 
-E depois atualizar a política:
+3. Atualizar linha 94-95 (caso URL nova) para usar a mesma constante:
+```typescript
+// Antes
+const siteUrl = "https://app.rafaelprudente.com";
+const shortUrl = `${siteUrl}/s/${code}`;
 
-```sql
-DROP POLICY IF EXISTS sms_templates_modify ON sms_templates;
-
-CREATE POLICY sms_templates_modify ON sms_templates
-FOR ALL
-TO public
-USING (is_admin(auth.uid()))
-WITH CHECK (is_admin(auth.uid()));
+// Depois
+const shortUrl = `${PRODUCTION_URL}/s/${code}`;
 ```
 
 ### Resultado Esperado
 
-Após a migração:
-- Usuários com role `admin` podem editar templates
-- Usuários com role `super_admin` também podem editar templates
-- As edições serão persistidas corretamente no banco
+| Cenário | URL Retornada |
+|---------|---------------|
+| URL nova | `https://app.rafaelprudente.com/s/AbC123` |
+| URL existente | `https://app.rafaelprudente.com/s/CSjlyR` |
+
+Após a correção, todos os links encurtados usarão consistentemente a URL principal do sistema.
 
