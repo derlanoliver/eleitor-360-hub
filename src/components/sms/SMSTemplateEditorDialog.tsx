@@ -58,7 +58,7 @@ export function SMSTemplateEditorDialog({
   onOpenChange,
   templateId,
 }: SMSTemplateEditorDialogProps) {
-  const { data: templates } = useSMSTemplates();
+  const { data: templates, refetch } = useSMSTemplates();
   const updateTemplate = useUpdateSMSTemplate();
   const createTemplate = useCreateSMSTemplate();
   
@@ -124,6 +124,8 @@ export function SMSTemplateEditorDialog({
         variaveis: detectedVariables,
       });
     }
+    // Force refetch to ensure UI is updated everywhere
+    await refetch();
     onOpenChange(false);
   };
 
