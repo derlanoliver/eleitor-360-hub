@@ -1,88 +1,70 @@
 
 
-## Corrigir QR Code do Evento - WhatsApp → Link Principal
+## Adicionar Template "Material Região" no Envio em Massa de SMS
 
 ### Resumo
-Alterar o componente `EventQRCode` para exibir o QR Code que leva diretamente para o link de cadastro do evento, ao invés do QR Code do WhatsApp.
+Criar o template SMS `material-regiao-sms` no banco de dados para que ele apareça no seletor de templates da aba "Envio em Massa" do SMS Marketing.
 
 ### Situação Atual
 
-O componente `EventQRCode.tsx` gera **dois** QR Codes:
-1. **WhatsApp** (`whatsappQR`) - Exibido na interface ✓
-2. **Cadastro** (`registrationQR`) - Apenas usado no botão "Copiar Link" ✗
+O template `material-regiao-sms` foi referenciado no código da edge function `schedule-region-material`, mas **não existe** na tabela `sms_templates`. Por isso, ele não aparece na lista de templates disponíveis.
 
-A interface mostra o QR do WhatsApp com ícone verde e título "QR Code WhatsApp", mas o usuário precisa que seja o link direto do evento.
+A aba de Envio em Massa busca todos os templates via hook `useSMSTemplates()` e filtra por `is_active: true`.
 
-### Mudança Proposta
+### Solução
 
-Substituir a exibição do QR Code WhatsApp pelo QR Code de cadastro do evento:
+Inserir o template diretamente no banco de dados com os seguintes dados:
 
-| Antes | Depois |
-|-------|--------|
-| QR Code → WhatsApp | QR Code → Link do Evento |
-| Ícone: MessageCircle (verde) | Ícone: Link2 (azul) |
-| Título: "QR Code WhatsApp" | Título: "QR Code do Evento" |
-| Download: `qr-whatsapp-evento-...` | Download: `qr-evento-...` |
+| Campo | Valor |
+|-------|-------|
+| slug | `material-regiao-sms` |
+| nome | `Material Região (padrão)` |
+| categoria | `materiais` |
+| mensagem | `{{nome}}, temos um material especial para você! Acesse: {{link_material}}` |
+| variaveis | `["nome", "link_material"]` |
+| is_active | `true` |
 
-### URL do QR Code
+### Resultado Esperado
 
-O QR Code levará para:
-```
-https://app.rafaelprudente.com/eventos/{slug}?utm_source=qr&utm_medium=offline&utm_campaign=evento_{id}&utm_content={tracking}
-```
+Após a migração:
+- O template aparecerá no dropdown "Template SMS" da aba Envio em Massa
+- Será agrupado na categoria "materiais"
+- Poderá ser usado para envios manuais além do agendamento automático
 
 ---
 
 ## Seção Técnica
 
-### Arquivo a Modificar
+### Migração SQL
 
-**`src/components/EventQRCode.tsx`**
-
-### Alterações
-
-1. **Remover estados e código do WhatsApp**:
-   - Remover `whatsappQR` state
-   - Remover `whatsappURL` e `whatsappMessage` 
-   - Simplificar `generateQRCodes` para gerar apenas o QR de registro
-
-2. **Atualizar a interface**:
-   - Trocar ícone de `MessageCircle` para `Link2`
-   - Trocar título de "QR Code WhatsApp" para "QR Code do Evento"
-   - Usar `registrationQR` no lugar de `whatsappQR`
-   - Atualizar alt text da imagem
-   - Atualizar função de download para usar `'registration'`
-
-3. **Simplificar a função de download**:
-   - Renomear para apenas baixar o QR de registro
-   - Atualizar nome do arquivo para `qr-evento-{id}-{tracking}.png`
-
-### Código Simplificado
-
-```tsx
-// Estado simplificado
-const [eventQR, setEventQR] = useState<string>("");
-
-// Apenas uma URL
-const eventURL = generateEventRegistrationUrl(event.slug, event.id, trackingCode);
-
-// Gerar apenas um QR Code
-useEffect(() => {
-  const generateQRCode = async () => {
-    const qrData = await QRCode.toDataURL(eventURL, { ... });
-    setEventQR(qrData);
-  };
-  generateQRCode();
-}, [eventURL]);
-
-// Interface com ícone Link2 e título "QR Code do Evento"
+```sql
+INSERT INTO public.sms_templates (
+  slug,
+  nome,
+  mensagem,
+  categoria,
+  variaveis,
+  is_active
+) VALUES (
+  'material-regiao-sms',
+  'Material Região (padrão)',
+  '{{nome}}, temos um material especial para você! Acesse: {{link_material}}',
+  'materiais',
+  ARRAY['nome', 'link_material'],
+  true
+);
 ```
 
-### Resultado Esperado
+### Arquivos Afetados
 
-O modal de QR Code exibirá:
-- Título: "QR Code do Evento" com ícone de link
-- QR Code que leva diretamente para a página de cadastro do evento
-- Botão "Baixar QR Code" que salva em alta resolução
-- Botão "Copiar Link" mantido
+Nenhum arquivo de código precisa ser alterado - apenas a inserção no banco de dados.
+
+### Variáveis do Template
+
+| Variável | Descrição | Fonte |
+|----------|-----------|-------|
+| `{{nome}}` | Primeiro nome do destinatário | Truncado automaticamente pelo sistema |
+| `{{link_material}}` | URL do material da região | Vem da tabela `region_materials.material_url` |
+
+**Nota:** A variável `{{regiao}}` foi omitida do template padrão para economia de caracteres (limite de 160), mas pode ser adicionada posteriormente se necessário.
 
