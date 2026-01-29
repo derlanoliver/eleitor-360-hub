@@ -232,6 +232,19 @@ async function processLeader(
     console.log(`[processLeader] No email for ${leader.nome_completo}, skipping Email`);
   }
 
+  // Schedule region material after successful communication
+  if (smsSent || emailSent) {
+    try {
+      console.log(`[processLeader] Scheduling region material for ${leader.nome_completo}`);
+      await supabase.functions.invoke("schedule-region-material", {
+        body: { leader_id: leader.id },
+      });
+    } catch (e) {
+      console.error(`[processLeader] Error scheduling region material:`, e);
+      // Don't add to errors - this is a non-critical operation
+    }
+  }
+
   return {
     leader_id: leader.id,
     nome: leader.nome_completo,

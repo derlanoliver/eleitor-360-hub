@@ -51,6 +51,7 @@ import LeaderFormSettings from "./pages/settings/LeaderFormSettings";
 import Gamification from "./pages/settings/Gamification";
 import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
 import Reports from "./pages/settings/Reports";
+import RegionMaterials from "./pages/settings/RegionMaterials";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -330,6 +331,13 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <WhatsAppChatbot />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/settings/region-materials" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <RegionMaterials />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />
