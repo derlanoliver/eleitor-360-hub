@@ -1,128 +1,135 @@
 
 
-## Adicionar Seletor de Material no Envio em Massa de SMS
+## Encurtar Link do Material por Região para SMS
 
 ### Resumo
-Quando o template "Material Região (padrão)" for selecionado na aba de Envio em Massa, exibir um dropdown para escolher qual material (link) será enviado. O link do material selecionado será usado na variável `{{link_material}}` do template.
+Encurtar automaticamente os links de materiais (PDFs do Google Drive, etc.) para um formato amigável usando a URL principal `app.rafaelprudente.com/s/{código}` antes de enviar via SMS.
 
-### Fluxo Proposto
+### Problema Atual
+
+Os links de materiais enviados por SMS são muito longos:
+```
+https://drive.google.com/file/d/1a2b3c4d5e/view?usp=sharing
+```
+**70+ caracteres** - consome metade do limite de 160 caracteres do SMS.
+
+### Solução
+
+Transformar automaticamente em:
+```
+https://app.rafaelprudente.com/s/AbC123
+```
+**38 caracteres** - economia de 30+ caracteres por SMS!
+
+### Fluxo
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            FLUXO DE SELEÇÃO                                  │
+│                         FLUXO DE ENCURTAMENTO                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. Usuário seleciona template "Material Região (padrão)"                    │
+│  1. Usuário seleciona material no dropdown                                   │
+│     (URL longa: https://drive.google.com/file/d/1abc.../view)               │
 │                                                                              │
-│  2. Sistema exibe novo dropdown:                                             │
-│     ┌─────────────────────────────────────────┐                              │
-│     │ Material (Link)                          │                              │
-│     │ ┌─────────────────────────────────────┐ │                              │
-│     │ │ Selecione o material...             │ │                              │
-│     │ └─────────────────────────────────────┘ │                              │
-│     │   • Guia de Liderança - Taguatinga      │                              │
-│     │   • Material do Plano Piloto            │                              │
-│     │   • Cartilha Ceilândia                  │                              │
-│     └─────────────────────────────────────────┘                              │
+│  2. Sistema detecta que template usa {{link_material}}                       │
 │                                                                              │
-│  3. Ao enviar, variável {{link_material}} = URL do material selecionado      │
+│  3. Antes de enviar cada SMS:                                               │
+│     → Chama edge function shorten-url                                       │
+│     → Recebe código curto (ex: "AbC123")                                    │
+│     → Monta link: https://app.rafaelprudente.com/s/AbC123                   │
+│                                                                              │
+│  4. SMS enviado com link curto                                              │
+│     "João, temos um material especial! Acesse: app.rafaelprudente.com/s/X" │
+│                                                                              │
+│  5. Destinatário clica → redireciona para URL original do Google Drive      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Interface
+### Otimização
 
-Novo campo condicional que aparece quando:
-- Template selecionado é `material-regiao-sms`
-- OU template contém a variável `{{link_material}}`
-
-O dropdown listará todos os materiais cadastrados em `region_materials`:
-- Nome: `{nome_material} - {nome_regiao}` (ex: "Guia de Liderança - Taguatinga")
-- Valor: URL do material
+O mesmo link do material será encurtado UMA VEZ e reutilizado para todos os destinatários do lote, economizando chamadas à API.
 
 ---
 
 ## Seção Técnica
 
-### Arquivo a Modificar
+### Arquivos a Modificar
 
-**`src/components/sms/SMSBulkSendTab.tsx`**
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/shorten-url/index.ts` | Corrigir para usar URL de produção |
+| `src/components/sms/SMSBulkSendTab.tsx` | Encurtar link antes do envio |
 
-### Alterações
+### 1. Corrigir Edge Function (shorten-url)
 
-1. **Importar hook de materiais**:
-```tsx
-import { useRegionMaterials } from "@/hooks/useRegionMaterials";
+Alterar a linha 94 para usar a URL de produção:
+
+```typescript
+// Antes (ERRADO - URL de preview)
+const siteUrl = "https://eydqducvsddckhyatcux.lovableproject.com";
+
+// Depois (CORRETO - URL de produção)
+const siteUrl = "https://app.rafaelprudente.com";
 ```
 
-2. **Adicionar estado para material selecionado**:
-```tsx
-const [selectedMaterialUrl, setSelectedMaterialUrl] = useState<string>("");
-```
+### 2. Modificar SMSBulkSendTab
 
-3. **Buscar materiais**:
-```tsx
-const { data: regionMaterials } = useRegionMaterials();
-```
+**2.1 Adicionar função para encurtar URL:**
 
-4. **Verificar se template requer material**:
-```tsx
-const templateRequiresMaterial = selectedTemplate === "material-regiao-sms" || 
-  selectedTemplateData?.variaveis?.includes("link_material");
-```
-
-5. **Renderizar seletor condicional** (após o seletor de template):
-```tsx
-{templateRequiresMaterial && (
-  <div className="space-y-2">
-    <Label>Material (Link)</Label>
-    <Select value={selectedMaterialUrl} onValueChange={setSelectedMaterialUrl}>
-      <SelectTrigger>
-        <SelectValue placeholder="Selecione o material" />
-      </SelectTrigger>
-      <SelectContent>
-        {regionMaterials?.filter(m => m.is_active).map((material) => (
-          <SelectItem key={material.id} value={material.material_url}>
-            {material.material_name} - {material.office_cities?.nome}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-)}
-```
-
-6. **Passar link do material nas variáveis** (na função `handleSendBulk`):
-```tsx
-const variables: Record<string, string> = {
-  nome: recipient.nome || "",
-  email: recipient.email || "",
-  // Adicionar link do material quando selecionado
-  ...(selectedMaterialUrl && { link_material: selectedMaterialUrl }),
+```typescript
+const shortenUrl = async (url: string): Promise<string> => {
+  try {
+    const { data, error } = await supabase.functions.invoke("shorten-url", {
+      body: { url },
+    });
+    
+    if (error) throw error;
+    return data.shortUrl;
+  } catch (err) {
+    console.error("Erro ao encurtar URL:", err);
+    // Fallback: retorna URL original se falhar
+    return url;
+  }
 };
 ```
 
-7. **Validar seleção antes de enviar**:
-```tsx
-if (templateRequiresMaterial && !selectedMaterialUrl) {
-  toast.error("Selecione um material para enviar");
-  return;
+**2.2 Encurtar link ANTES do loop de envio:**
+
+Na função `handleSendBulk`, antes do loop de destinatários:
+
+```typescript
+// Encurtar link do material uma vez (reutilizado para todos os destinatários)
+let shortenedMaterialUrl = "";
+if (templateRequiresMaterial && selectedMaterialUrl) {
+  toast.info("Encurtando link do material...");
+  shortenedMaterialUrl = await shortenUrl(selectedMaterialUrl);
+  console.log("Link encurtado:", shortenedMaterialUrl);
 }
 ```
 
-8. **Limpar seleção ao trocar template**:
-```tsx
-// No onChange do Select de template:
-onValueChange={(v) => {
-  setSelectedTemplate(v);
-  setSelectedMaterialUrl(""); // Limpar material ao trocar template
-}}
+**2.3 Usar o link encurtado nas variáveis:**
+
+```typescript
+const variables: Record<string, string> = {
+  nome: recipient.nome || "",
+  email: recipient.email || "",
+  // Usar link encurtado quando disponível
+  ...(shortenedMaterialUrl && { link_material: shortenedMaterialUrl }),
+};
 ```
 
 ### Resultado Esperado
 
-- Ao selecionar o template "Material Região (padrão)", aparece um dropdown com todos os materiais cadastrados
-- O usuário escolhe qual material será enviado
-- O sistema usa a URL do material na variável `{{link_material}}`
-- Se não selecionar um material, o envio é bloqueado com mensagem de erro
+| Antes | Depois |
+|-------|--------|
+| `https://drive.google.com/file/d/1a2b3c4d5e6f7g8h/view?usp=sharing` | `https://app.rafaelprudente.com/s/AbC123` |
+| ~70 caracteres | ~38 caracteres |
+
+### Benefícios
+
+- **Economia de caracteres**: ~30+ caracteres por SMS
+- **Link amigável**: Usa domínio principal da aplicação
+- **Tracking**: A tabela `short_urls` registra cliques
+- **Único encurtamento**: O mesmo link é reutilizado (não cria duplicatas)
 
