@@ -198,16 +198,17 @@ const Events = () => {
       let y = 48;
 
       // Função para renderizar header de tabela
-      const renderTableHeader = (includeTime: boolean) => {
+      const renderTableHeader = (isCheckedIn: boolean) => {
         pdf.setFontSize(9);
         pdf.setFont("helvetica", "bold");
         pdf.text("#", 12, y);
         pdf.text("Nome", 22, y);
-        pdf.text("WhatsApp", 82, y);
-        pdf.text("Email", 115, y);
-        pdf.text("Cidade", 160, y);
-        if (includeTime) {
-          pdf.text("Horário", 188, y);
+        pdf.text("WhatsApp", 72, y);
+        pdf.text("Email", 105, y);
+        pdf.text("Cidade", 138, y);
+        pdf.text("Inscrito em", 165, y);
+        if (isCheckedIn) {
+          pdf.text("Check-in", 188, y);
         }
         pdf.line(10, y + 2, pageWidth - 10, y + 2);
         pdf.setFont("helvetica", "normal");
@@ -215,7 +216,7 @@ const Events = () => {
       };
 
       // Função para renderizar seção
-      const renderSection = (title: string, items: any[], includeTime: boolean) => {
+      const renderSection = (title: string, items: any[], isCheckedIn: boolean) => {
         if (items.length === 0) return;
 
         // Verificar se precisa de nova página para o título da seção
@@ -233,7 +234,7 @@ const Events = () => {
         y += 10;
 
         // Header da tabela
-        renderTableHeader(includeTime);
+        renderTableHeader(isCheckedIn);
 
         // Linhas de dados
         items.forEach((reg: any, index: number) => {
@@ -241,18 +242,27 @@ const Events = () => {
             pdf.addPage();
             y = 20;
             // Repetir header na nova página
-            renderTableHeader(includeTime);
+            renderTableHeader(isCheckedIn);
           }
           
           pdf.setFontSize(9);
           pdf.setFont("helvetica", "normal");
           pdf.text(String(index + 1), 12, y);
-          pdf.text((reg.nome || "-").substring(0, 28), 22, y);
-          pdf.text((reg.whatsapp || "-").substring(0, 15), 82, y);
-          pdf.text((reg.email || "-").substring(0, 22), 115, y);
-          pdf.text(((reg.cidade as any)?.nome || "-").substring(0, 14), 160, y);
+          pdf.text((reg.nome || "-").substring(0, 24), 22, y);
+          pdf.text((reg.whatsapp || "-").substring(0, 14), 72, y);
+          pdf.text((reg.email || "-").substring(0, 18), 105, y);
+          pdf.text(((reg.cidade as any)?.nome || "-").substring(0, 12), 138, y);
           
-          if (includeTime && reg.checked_in_at) {
+          // Data de inscrição
+          if (reg.created_at) {
+            const inscricaoDate = format(new Date(reg.created_at), "dd/MM HH:mm", { locale: ptBR });
+            pdf.text(inscricaoDate, 165, y);
+          } else {
+            pdf.text("-", 165, y);
+          }
+          
+          // Horário do check-in
+          if (isCheckedIn && reg.checked_in_at) {
             const checkTime = format(new Date(reg.checked_in_at), "HH:mm", { locale: ptBR });
             pdf.text(checkTime, 190, y);
           }
@@ -1354,8 +1364,12 @@ function CheckInSection({ events }: { events: any[] }) {
       doc.rect(14, yPos - 4, pageWidth - 28, 8, "F");
       doc.text("#", 16, yPos);
       doc.text("Nome", 26, yPos);
-      doc.text("WhatsApp", 100, yPos);
-      doc.text("Email", 140, yPos);
+      doc.text("WhatsApp", 80, yPos);
+      doc.text("Email", 115, yPos);
+      doc.text("Inscrito em", 155, yPos);
+      if (isCheckedIn) {
+        doc.text("Check-in", 185, yPos);
+      }
       yPos += 6;
 
       // Table rows
@@ -1371,9 +1385,24 @@ function CheckInSection({ events }: { events: any[] }) {
         doc.rect(14, yPos - 4, pageWidth - 28, 7, "F");
 
         doc.text(String(index + 1), 16, yPos);
-        doc.text(reg.nome?.substring(0, 35) || "", 26, yPos);
-        doc.text(reg.whatsapp?.substring(0, 18) || "", 100, yPos);
-        doc.text(reg.email?.substring(0, 30) || "", 140, yPos);
+        doc.text(reg.nome?.substring(0, 26) || "", 26, yPos);
+        doc.text(reg.whatsapp?.substring(0, 14) || "", 80, yPos);
+        doc.text(reg.email?.substring(0, 22) || "", 115, yPos);
+        
+        // Data de inscrição
+        if (reg.created_at) {
+          const inscricaoDate = format(new Date(reg.created_at), "dd/MM HH:mm", { locale: ptBR });
+          doc.text(inscricaoDate, 155, yPos);
+        } else {
+          doc.text("-", 155, yPos);
+        }
+        
+        // Horário do check-in
+        if (isCheckedIn && reg.checked_in_at) {
+          const checkTime = format(new Date(reg.checked_in_at), "HH:mm", { locale: ptBR });
+          doc.text(checkTime, 187, yPos);
+        }
+        
         yPos += 7;
       });
 
@@ -1459,9 +1488,21 @@ function CheckInSection({ events }: { events: any[] }) {
             <Card key={reg.id}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium">{reg.nome}</p>
                     <p className="text-sm text-muted-foreground">{reg.email}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                      {reg.created_at && (
+                        <span>
+                          Inscrito em: {format(new Date(reg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      )}
+                      {reg.checked_in && reg.checked_in_at && (
+                        <span className="text-green-600">
+                          Check-in: {format(new Date(reg.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Badge variant={reg.checked_in ? "default" : "secondary"} className={reg.checked_in ? "bg-green-500" : ""}>
                     {reg.checked_in ? "Check-in feito" : "Aguardando"}
