@@ -1,70 +1,128 @@
 
 
-## Adicionar Template "Material Região" no Envio em Massa de SMS
+## Adicionar Seletor de Material no Envio em Massa de SMS
 
 ### Resumo
-Criar o template SMS `material-regiao-sms` no banco de dados para que ele apareça no seletor de templates da aba "Envio em Massa" do SMS Marketing.
+Quando o template "Material Região (padrão)" for selecionado na aba de Envio em Massa, exibir um dropdown para escolher qual material (link) será enviado. O link do material selecionado será usado na variável `{{link_material}}` do template.
 
-### Situação Atual
+### Fluxo Proposto
 
-O template `material-regiao-sms` foi referenciado no código da edge function `schedule-region-material`, mas **não existe** na tabela `sms_templates`. Por isso, ele não aparece na lista de templates disponíveis.
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            FLUXO DE SELEÇÃO                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Usuário seleciona template "Material Região (padrão)"                    │
+│                                                                              │
+│  2. Sistema exibe novo dropdown:                                             │
+│     ┌─────────────────────────────────────────┐                              │
+│     │ Material (Link)                          │                              │
+│     │ ┌─────────────────────────────────────┐ │                              │
+│     │ │ Selecione o material...             │ │                              │
+│     │ └─────────────────────────────────────┘ │                              │
+│     │   • Guia de Liderança - Taguatinga      │                              │
+│     │   • Material do Plano Piloto            │                              │
+│     │   • Cartilha Ceilândia                  │                              │
+│     └─────────────────────────────────────────┘                              │
+│                                                                              │
+│  3. Ao enviar, variável {{link_material}} = URL do material selecionado      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-A aba de Envio em Massa busca todos os templates via hook `useSMSTemplates()` e filtra por `is_active: true`.
+### Interface
 
-### Solução
+Novo campo condicional que aparece quando:
+- Template selecionado é `material-regiao-sms`
+- OU template contém a variável `{{link_material}}`
 
-Inserir o template diretamente no banco de dados com os seguintes dados:
-
-| Campo | Valor |
-|-------|-------|
-| slug | `material-regiao-sms` |
-| nome | `Material Região (padrão)` |
-| categoria | `materiais` |
-| mensagem | `{{nome}}, temos um material especial para você! Acesse: {{link_material}}` |
-| variaveis | `["nome", "link_material"]` |
-| is_active | `true` |
-
-### Resultado Esperado
-
-Após a migração:
-- O template aparecerá no dropdown "Template SMS" da aba Envio em Massa
-- Será agrupado na categoria "materiais"
-- Poderá ser usado para envios manuais além do agendamento automático
+O dropdown listará todos os materiais cadastrados em `region_materials`:
+- Nome: `{nome_material} - {nome_regiao}` (ex: "Guia de Liderança - Taguatinga")
+- Valor: URL do material
 
 ---
 
 ## Seção Técnica
 
-### Migração SQL
+### Arquivo a Modificar
 
-```sql
-INSERT INTO public.sms_templates (
-  slug,
-  nome,
-  mensagem,
-  categoria,
-  variaveis,
-  is_active
-) VALUES (
-  'material-regiao-sms',
-  'Material Região (padrão)',
-  '{{nome}}, temos um material especial para você! Acesse: {{link_material}}',
-  'materiais',
-  ARRAY['nome', 'link_material'],
-  true
-);
+**`src/components/sms/SMSBulkSendTab.tsx`**
+
+### Alterações
+
+1. **Importar hook de materiais**:
+```tsx
+import { useRegionMaterials } from "@/hooks/useRegionMaterials";
 ```
 
-### Arquivos Afetados
+2. **Adicionar estado para material selecionado**:
+```tsx
+const [selectedMaterialUrl, setSelectedMaterialUrl] = useState<string>("");
+```
 
-Nenhum arquivo de código precisa ser alterado - apenas a inserção no banco de dados.
+3. **Buscar materiais**:
+```tsx
+const { data: regionMaterials } = useRegionMaterials();
+```
 
-### Variáveis do Template
+4. **Verificar se template requer material**:
+```tsx
+const templateRequiresMaterial = selectedTemplate === "material-regiao-sms" || 
+  selectedTemplateData?.variaveis?.includes("link_material");
+```
 
-| Variável | Descrição | Fonte |
-|----------|-----------|-------|
-| `{{nome}}` | Primeiro nome do destinatário | Truncado automaticamente pelo sistema |
-| `{{link_material}}` | URL do material da região | Vem da tabela `region_materials.material_url` |
+5. **Renderizar seletor condicional** (após o seletor de template):
+```tsx
+{templateRequiresMaterial && (
+  <div className="space-y-2">
+    <Label>Material (Link)</Label>
+    <Select value={selectedMaterialUrl} onValueChange={setSelectedMaterialUrl}>
+      <SelectTrigger>
+        <SelectValue placeholder="Selecione o material" />
+      </SelectTrigger>
+      <SelectContent>
+        {regionMaterials?.filter(m => m.is_active).map((material) => (
+          <SelectItem key={material.id} value={material.material_url}>
+            {material.material_name} - {material.office_cities?.nome}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+)}
+```
 
-**Nota:** A variável `{{regiao}}` foi omitida do template padrão para economia de caracteres (limite de 160), mas pode ser adicionada posteriormente se necessário.
+6. **Passar link do material nas variáveis** (na função `handleSendBulk`):
+```tsx
+const variables: Record<string, string> = {
+  nome: recipient.nome || "",
+  email: recipient.email || "",
+  // Adicionar link do material quando selecionado
+  ...(selectedMaterialUrl && { link_material: selectedMaterialUrl }),
+};
+```
+
+7. **Validar seleção antes de enviar**:
+```tsx
+if (templateRequiresMaterial && !selectedMaterialUrl) {
+  toast.error("Selecione um material para enviar");
+  return;
+}
+```
+
+8. **Limpar seleção ao trocar template**:
+```tsx
+// No onChange do Select de template:
+onValueChange={(v) => {
+  setSelectedTemplate(v);
+  setSelectedMaterialUrl(""); // Limpar material ao trocar template
+}}
+```
+
+### Resultado Esperado
+
+- Ao selecionar o template "Material Região (padrão)", aparece um dropdown com todos os materiais cadastrados
+- O usuário escolhe qual material será enviado
+- O sistema usa a URL do material na variável `{{link_material}}`
+- Se não selecionar um material, o envio é bloqueado com mensagem de erro
 
