@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LeaderAutocomplete } from "@/components/office/LeaderAutocomplete";
-import { Copy, Download, QrCode as QrCodeIcon, FileText } from "lucide-react";
+import { Copy, Download, QrCode as QrCodeIcon, FileText, Crown } from "lucide-react";
 import { generateEventAffiliateUrl } from "@/lib/urlHelper";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeComponent from "qrcode";
@@ -26,6 +26,7 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
   const [affiliateUrl, setAffiliateUrl] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isGeneratingCoordinatorsPdf, setIsGeneratingCoordinatorsPdf] = useState(false);
   const { toast } = useToast();
 
   const handleGenerateLink = async () => {
@@ -220,6 +221,102 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
     }
   };
 
+  const handleGeneratePdfForCoordinators = async () => {
+    setIsGeneratingCoordinatorsPdf(true);
+    try {
+      const { data: coordinators, error } = await supabase
+        .from("lideres")
+        .select("id, nome_completo, affiliate_token, cidade:office_cities(nome)")
+        .eq("is_active", true)
+        .eq("is_coordinator", true)
+        .not("affiliate_token", "is", null)
+        .order("nome_completo");
+
+      if (error) throw error;
+      if (!coordinators || coordinators.length === 0) {
+        toast({
+          title: "Nenhum coordenador encontrado",
+          description: "Não há coordenadores ativos com token de afiliado.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Links do Evento: ${event.name}`, margin, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Total de coordenadores: ${coordinators.length}`, margin, yPosition);
+      yPosition += 15;
+
+      for (let i = 0; i < coordinators.length; i++) {
+        const coordinator = coordinators[i];
+        const url = generateEventAffiliateUrl(event.slug, coordinator.affiliate_token!);
+        
+        if (yPosition > pageHeight - 80) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        const qrDataUrl = await QRCodeComponent.toDataURL(url, {
+          width: 200,
+          margin: 1,
+        });
+
+        pdf.addImage(qrDataUrl, "PNG", margin, yPosition, 40, 40);
+
+        const textX = margin + 45;
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Coordenador: ${coordinator.nome_completo}`, textX, yPosition + 5);
+        
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        if (coordinator.cidade) {
+          pdf.text(`Cidade: ${coordinator.cidade.nome}`, textX, yPosition + 12);
+        }
+        
+        pdf.setFontSize(8);
+        pdf.setTextColor(100);
+        pdf.text(url, textX, yPosition + 20, { maxWidth: pageWidth - textX - margin });
+        pdf.setTextColor(0);
+
+        yPosition += 50;
+
+        if (i < coordinators.length - 1) {
+          pdf.setDrawColor(200);
+          pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+          yPosition += 10;
+        }
+      }
+
+      pdf.save(`links-coordenadores-${event.slug}.pdf`);
+      
+      toast({
+        title: "PDF gerado!",
+        description: `PDF com links de ${coordinators.length} coordenadores foi baixado.`
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o PDF com os links.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingCoordinatorsPdf(false);
+    }
+  };
+
   const handleClose = () => {
     setSelectedLeaderId("");
     setAffiliateUrl("");
@@ -251,6 +348,18 @@ export function EventAffiliateDialog({ event, open, onOpenChange }: EventAffilia
             >
               <FileText className="h-4 w-4 mr-2" />
               {isGeneratingPdf ? "Gerando PDF..." : "Gerar PDF para Todos os Líderes"}
+            </Button>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleGeneratePdfForCoordinators} 
+              variant="outline" 
+              className="flex-1"
+              disabled={isGeneratingCoordinatorsPdf}
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {isGeneratingCoordinatorsPdf ? "Gerando PDF..." : "Gerar PDF para Coordenadores"}
             </Button>
           </div>
 
