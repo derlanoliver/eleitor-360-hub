@@ -1,124 +1,141 @@
 
 
-## Adicionar Data/Hora de Inscrição e Check-in na Lista de Inscritos
+## Adicionar Opção de PDF Somente para Coordenadores
 
-### Alterações Planejadas
+### O Que Será Implementado
 
-A lista de inscritos será aprimorada para mostrar claramente:
-- **Data e hora da inscrição** - quando a pessoa se inscreveu no evento
-- **Horário do check-in** - quando a pessoa fez o check-in (se aplicável)
+Será adicionado um novo botão na modal de links do líder que permite gerar um PDF contendo **somente os links dos coordenadores** do evento.
 
-### O Que Será Alterado
+### Alterações na Interface
 
-| Local | Alteração |
-|-------|-----------|
-| PDF de inscritos | Adicionar coluna "Inscrito em" com data/hora |
-| PDF de check-in | Diferenciar "Inscrito em" e "Check-in às" |
-| Lista na interface | Exibir data de inscrição e horário do check-in |
+| Elemento | Descrição |
+|----------|-----------|
+| Novo botão | "Gerar PDF para Coordenadores" |
+| Ícone | Crown (coroa) para diferenciar dos líderes |
+| Estado de loading | Indicador separado para geração do PDF |
 
-### Visualização Final
+### Visualização
 
-**Na lista de cards:**
 ```
-┌─────────────────────────────────────────────────┐
-│ Maria Silva                                      │
-│ maria@email.com                        Check-in │
-│                                          feito  │
-│ Inscrito em: 25/01/2026 às 14:30                │
-│ Check-in: 29/01/2026 às 09:15                   │
-└─────────────────────────────────────────────────┘
-```
-
-**No PDF:**
-```
-# | Nome          | WhatsApp      | Email           | Cidade  | Inscrito em   | Check-in
-1 | Maria Silva   | 61999...      | maria@...       | Brasília| 25/01 14:30   | 09:15
+┌─────────────────────────────────────────────────────────┐
+│  Gerar Link do Líder                               [X]  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Selecione o líder que receberá o link...               │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 📄 Gerar PDF para Todos os Líderes             │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 👑 Gerar PDF para Coordenadores                │ ← NOVO
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│  Líder: [________________▼]                             │
+│                                                         │
+│  [ Gerar Link do Líder ]                                │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Seção Técnica
 
-### Arquivo: `src/pages/Events.tsx`
+### Arquivo: `src/components/events/EventAffiliateDialog.tsx`
 
-#### 1. PDF de Lista de Inscritos (função `handleGenerateRegistrationsPDF`)
-
-Atualizar o header da tabela para incluir "Inscrito em":
+#### 1. Importar ícone Crown
 
 ```typescript
-// Header atual (linha ~205-208)
-pdf.text("Nome", 22, y);
-pdf.text("WhatsApp", 82, y);
-pdf.text("Email", 115, y);
-pdf.text("Cidade", 160, y);
-
-// Adicionar:
-pdf.text("Inscrito", 175, y);  // Nova coluna
+import { Copy, Download, QrCode as QrCodeIcon, FileText, Crown } from "lucide-react";
 ```
 
-Atualizar renderização das linhas para incluir data de inscrição:
+#### 2. Adicionar estado para loading do PDF de coordenadores
 
 ```typescript
-// Adicionar na renderização de cada linha:
-if (reg.created_at) {
-  const inscricaoDate = format(new Date(reg.created_at), "dd/MM HH:mm", { locale: ptBR });
-  pdf.text(inscricaoDate, 175, y);
-}
+const [isGeneratingCoordinatorsPdf, setIsGeneratingCoordinatorsPdf] = useState(false);
 ```
 
-#### 2. Lista de Cards na Interface (componente `EventCheckInManagement`)
+#### 3. Criar função `handleGeneratePdfForCoordinators`
 
-Modificar o card de cada inscrito (linhas ~1459-1471) para exibir as datas:
+Nova função baseada em `handleGeneratePdfForAll`, mas com filtro adicional:
+
+```typescript
+const handleGeneratePdfForCoordinators = async () => {
+  setIsGeneratingCoordinatorsPdf(true);
+  try {
+    // Buscar apenas coordenadores ativos com affiliate_token
+    const { data: coordinators, error } = await supabase
+      .from("lideres")
+      .select("id, nome_completo, affiliate_token, cidade:office_cities(nome)")
+      .eq("is_active", true)
+      .eq("is_coordinator", true)  // ← FILTRO ADICIONAL
+      .not("affiliate_token", "is", null)
+      .order("nome_completo");
+
+    if (error) throw error;
+    if (!coordinators || coordinators.length === 0) {
+      toast({
+        title: "Nenhum coordenador encontrado",
+        description: "Não há coordenadores ativos com token de afiliado.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Criar PDF (mesma lógica de handleGeneratePdfForAll)
+    const pdf = new jsPDF();
+    // ... gerar conteúdo ...
+
+    // Download com nome diferenciado
+    pdf.save(`links-coordenadores-${event.slug}.pdf`);
+    
+    toast({
+      title: "PDF gerado!",
+      description: `PDF com links de ${coordinators.length} coordenadores foi baixado.`
+    });
+  } catch (error) {
+    // ... tratamento de erro ...
+  } finally {
+    setIsGeneratingCoordinatorsPdf(false);
+  }
+};
+```
+
+#### 4. Adicionar botão na interface
+
+Adicionar abaixo do botão existente de "Gerar PDF para Todos os Líderes":
 
 ```tsx
-<Card key={reg.id}>
-  <CardContent className="p-4">
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <p className="font-medium">{reg.nome}</p>
-        <p className="text-sm text-muted-foreground">{reg.email}</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-          <span>
-            Inscrito em: {format(new Date(reg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-          </span>
-          {reg.checked_in && reg.checked_in_at && (
-            <span className="text-green-600">
-              Check-in: {format(new Date(reg.checked_in_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </span>
-          )}
-        </div>
-      </div>
-      <Badge>...</Badge>
-    </div>
-  </CardContent>
-</Card>
+<div className="flex gap-2">
+  <Button 
+    onClick={handleGeneratePdfForAll} 
+    variant="outline" 
+    className="flex-1"
+    disabled={isGeneratingPdf}
+  >
+    <FileText className="h-4 w-4 mr-2" />
+    {isGeneratingPdf ? "Gerando PDF..." : "Gerar PDF para Todos os Líderes"}
+  </Button>
+</div>
+
+{/* NOVO BOTÃO */}
+<div className="flex gap-2">
+  <Button 
+    onClick={handleGeneratePdfForCoordinators} 
+    variant="outline" 
+    className="flex-1"
+    disabled={isGeneratingCoordinatorsPdf}
+  >
+    <Crown className="h-4 w-4 mr-2" />
+    {isGeneratingCoordinatorsPdf ? "Gerando PDF..." : "Gerar PDF para Coordenadores"}
+  </Button>
+</div>
 ```
 
-#### 3. PDF de Check-in (função `handleExportCheckInPDF`)
+### Resultado Esperado
 
-Ajustar para mostrar ambas as datas:
-
-```typescript
-// Header
-pdf.text("Nome", 26, yPos);
-pdf.text("WhatsApp", 85, yPos);
-pdf.text("Email", 125, yPos);
-pdf.text("Inscrito", 168, yPos);   // Data de inscrição
-pdf.text("Check-in", 190, yPos);   // Hora do check-in
-
-// Linhas
-const inscricaoTime = format(new Date(reg.created_at), "dd/MM HH:mm");
-pdf.text(inscricaoTime, 168, yPos);
-
-if (reg.checked_in_at) {
-  const checkTime = format(new Date(reg.checked_in_at), "HH:mm");
-  pdf.text(checkTime, 192, yPos);
-}
-```
-
-### Resultado
-
-- O PDF mostrará data e hora de inscrição para todos os inscritos
-- A seção de check-ins realizados mostrará também o horário do check-in
-- A interface web mostrará as informações de forma clara e organizada
+- Novo botão com ícone de coroa para gerar PDF apenas de coordenadores
+- PDF gerado com nome `links-coordenadores-{slug}.pdf` para diferenciação
+- Mensagem de sucesso informando a quantidade de coordenadores incluídos
+- Loading state independente para não bloquear o outro botão
 
