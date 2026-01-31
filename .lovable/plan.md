@@ -1,143 +1,175 @@
 
 
-## Correção da Validação de Prazo de 4 Horas na Inscrição de Eventos
+## Prazo de Inscrição Configurável por Evento
 
-### Problema Identificado
+### O Que Será Implementado
 
-A função `create_event_registration` no backend **perdeu a validação de prazo de 4 horas** quando foi atualizada para incluir os novos campos `data_nascimento` e `endereco`.
+Cada evento terá seu próprio prazo de encerramento de inscrições, configurável no momento da criação ou edição. O valor padrão será **4 horas** após o início do evento, mas poderá ser alterado conforme necessidade.
 
-| Migração | Data | O que aconteceu |
-|----------|------|-----------------|
-| `20251210211013` | Dez/2025 | ✅ Tinha validação de 4h |
-| `20260122131942` | Jan/2026 | ❌ Removeu a validação |
-| `20260123123242` | Jan/2026 | ❌ Manteve sem validação |
+### Alterações na Interface
 
-### O Que Será Corrigido
+| Local | Alteração |
+|-------|-----------|
+| Formulário de criação | Novo campo "Prazo de inscrição" |
+| Formulário de edição | Mesmo campo para editar |
+| Valor padrão | 4 horas (mantém comportamento atual) |
 
-A função RPC será atualizada para:
-1. Verificar se o evento existe e está ativo
-2. Calcular o prazo limite (data/hora do evento + 4 horas)
-3. Bloquear inscrições após o prazo com mensagem clara
-4. Manter todas as funcionalidades existentes (verificação de duplicatas, novos campos, retorno do QR Code)
-
-### Fluxo de Validação
+### Opções de Prazo
 
 ```
-Inscrição recebida
-       ↓
-Evento existe e está ativo?
-       ↓ SIM
-Passou 4 horas do evento?
-       ↓ NÃO
-Já está inscrito (email/telefone)?
-       ↓ NÃO
-✅ Criar inscrição
+┌─────────────────────────────────────────────────┐
+│  Prazo para inscrições                          │
+│  ┌─────────────────────────────────────────┐    │
+│  │ 4 horas após o início do evento       ▼│    │
+│  └─────────────────────────────────────────┘    │
+│                                                 │
+│  Opções:                                        │
+│  • 1 hora após o início                         │
+│  • 2 horas após o início                        │
+│  • 4 horas após o início (padrão)               │
+│  • 8 horas após o início                        │
+│  • 24 horas após o início                       │
+│  • Sem limite (inscrições sempre abertas)       │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Seção Técnica
 
-### Nova Migração SQL
+### 1. Migração SQL
 
-A migração criará uma nova versão da função `create_event_registration`:
+Adicionar coluna na tabela `events` e atualizar a função RPC:
 
 ```sql
-CREATE OR REPLACE FUNCTION create_event_registration(
-  _event_id uuid,
-  _nome text,
-  _email text,
-  _whatsapp text,
-  _cidade_id uuid DEFAULT NULL,
-  _leader_id uuid DEFAULT NULL,
-  _utm_source text DEFAULT NULL,
-  _utm_medium text DEFAULT NULL,
-  _utm_campaign text DEFAULT NULL,
-  _utm_content text DEFAULT NULL,
-  _data_nascimento date DEFAULT NULL,
-  _endereco text DEFAULT NULL
-)
-RETURNS TABLE(id uuid, created_at timestamptz, qr_code text)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
+-- Adicionar coluna de prazo (em horas, NULL = sem limite)
+ALTER TABLE events ADD COLUMN registration_deadline_hours integer DEFAULT 4;
+
+-- Atualizar função RPC para usar prazo configurável
+CREATE OR REPLACE FUNCTION create_event_registration(...)
 AS $$
 DECLARE
-  _new_id uuid;
-  _created_at timestamptz;
-  _qr_code text;
-  _normalized_phone text;
-  _event_datetime timestamp with time zone;
-  _deadline timestamp with time zone;
+  ...
+  _deadline_hours integer;
 BEGIN
-  -- 1. Verificar se o evento existe e está ativo
-  SELECT (e.date + e.time)::timestamp with time zone
-  INTO _event_datetime
+  -- Buscar evento e prazo configurado
+  SELECT (e.date + e.time)::timestamp with time zone, e.registration_deadline_hours
+  INTO _event_datetime, _deadline_hours
   FROM events e
   WHERE e.id = _event_id AND e.status = 'active';
   
-  IF _event_datetime IS NULL THEN
-    RAISE EXCEPTION 'Evento não encontrado ou não está ativo.';
+  -- Verificar prazo se configurado (NULL = sem limite)
+  IF _deadline_hours IS NOT NULL THEN
+    _deadline := _event_datetime + (_deadline_hours || ' hours')::interval;
+    IF now() > _deadline THEN
+      RAISE EXCEPTION 'O prazo para inscrições neste evento foi encerrado.';
+    END IF;
   END IF;
   
-  -- 2. Verificar se já passou 4 horas do horário do evento
-  _deadline := _event_datetime + interval '4 hours';
-  IF now() > _deadline THEN
-    RAISE EXCEPTION 'O prazo para inscrições neste evento foi encerrado.';
-  END IF;
-
-  -- 3. Normalizar telefone para comparação (apenas dígitos)
-  _normalized_phone := regexp_replace(_whatsapp, '[^0-9]', '', 'g');
-  
-  -- 4. Verificar se já existe inscrição por email OU telefone neste evento
-  IF EXISTS (
-    SELECT 1 FROM event_registrations er
-    WHERE er.event_id = _event_id 
-    AND (
-      lower(er.email) = lower(_email) 
-      OR regexp_replace(er.whatsapp, '[^0-9]', '', 'g') = _normalized_phone
-    )
-  ) THEN
-    RAISE EXCEPTION 'Você já está inscrito neste evento.';
-  END IF;
-
-  -- 5. Inserir registro (trigger gera qr_code automaticamente)
-  INSERT INTO event_registrations (
-    event_id, nome, email, whatsapp, cidade_id, leader_id,
-    utm_source, utm_medium, utm_campaign, utm_content,
-    data_nascimento, endereco
-  )
-  VALUES (
-    _event_id, _nome, _email, _whatsapp, _cidade_id, _leader_id,
-    _utm_source, _utm_medium, _utm_campaign, _utm_content,
-    _data_nascimento, _endereco
-  )
-  RETURNING event_registrations.id, event_registrations.created_at, event_registrations.qr_code
-  INTO _new_id, _created_at, _qr_code;
-  
-  RETURN QUERY SELECT _new_id, _created_at, _qr_code;
+  -- resto do código...
 END;
 $$;
 ```
 
-### Validações Mantidas
+### 2. Atualizar Hooks
 
-| Validação | Mensagem de Erro |
-|-----------|------------------|
-| Evento inexistente/inativo | "Evento não encontrado ou não está ativo." |
-| Prazo expirado (4h após evento) | "O prazo para inscrições neste evento foi encerrado." |
-| Duplicata por email/telefone | "Você já está inscrito neste evento." |
+**`src/hooks/events/useCreateEvent.ts`:**
+```typescript
+type CreateEventData = {
+  ...
+  registration_deadline_hours?: number | null;
+};
 
-### Campos Suportados
+// No insert:
+registration_deadline_hours: data.registration_deadline_hours ?? 4,
+```
 
-A função mantém suporte para todos os campos:
-- Campos obrigatórios: `event_id`, `nome`, `email`, `whatsapp`
-- Campos opcionais: `cidade_id`, `leader_id`, UTM params, `data_nascimento`, `endereco`
+**`src/hooks/events/useUpdateEvent.ts`:**
+```typescript
+type UpdateEventData = {
+  ...
+  registration_deadline_hours?: number | null;
+};
+```
 
-### Retorno
+### 3. Atualizar `src/lib/eventUtils.ts`
 
-A função continua retornando:
-- `id` - UUID da inscrição criada
-- `created_at` - Timestamp da criação
-- `qr_code` - Código QR gerado automaticamente
+```typescript
+export function isEventDeadlinePassed(
+  eventDate: string, 
+  eventTime: string, 
+  deadlineHours: number | null = 4
+): boolean {
+  // Sem limite se null
+  if (deadlineHours === null) return false;
+  
+  const eventDateTime = new Date(`${eventDate}T${eventTime}`);
+  const deadline = new Date(eventDateTime.getTime() + (deadlineHours * 60 * 60 * 1000));
+  return new Date() > deadline;
+}
+```
+
+### 4. Atualizar Formulário em `src/pages/Events.tsx`
+
+**Estado do novo evento:**
+```typescript
+const [newEvent, setNewEvent] = useState({
+  ...
+  registration_deadline_hours: 4 as number | null,
+});
+```
+
+**Novo campo no formulário:**
+```tsx
+<div>
+  <Label htmlFor="deadline">Prazo para inscrições</Label>
+  <Select 
+    value={String(newEvent.registration_deadline_hours ?? "null")} 
+    onValueChange={(v) => setNewEvent({ 
+      ...newEvent, 
+      registration_deadline_hours: v === "null" ? null : parseInt(v) 
+    })}
+  >
+    <SelectTrigger>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="1">1 hora após o início</SelectItem>
+      <SelectItem value="2">2 horas após o início</SelectItem>
+      <SelectItem value="4">4 horas após o início (padrão)</SelectItem>
+      <SelectItem value="8">8 horas após o início</SelectItem>
+      <SelectItem value="24">24 horas após o início</SelectItem>
+      <SelectItem value="null">Sem limite</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+```
+
+### 5. Atualizar Páginas Públicas
+
+**`src/pages/EventRegistration.tsx`:**
+```typescript
+const isRegistrationClosed = isEventDeadlinePassed(
+  event.date, 
+  event.time, 
+  event.registration_deadline_hours
+);
+```
+
+**`src/pages/EventCheckin.tsx`:**
+```typescript
+// Similar, usar registration_deadline_hours do evento
+```
+
+### Arquivos Modificados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| Nova migração SQL | Adicionar coluna e atualizar RPC |
+| `src/lib/eventUtils.ts` | Aceitar parâmetro de horas |
+| `src/hooks/events/useCreateEvent.ts` | Adicionar campo |
+| `src/hooks/events/useUpdateEvent.ts` | Adicionar campo |
+| `src/pages/Events.tsx` | Formulário de criação/edição |
+| `src/pages/EventRegistration.tsx` | Usar prazo do evento |
+| `src/pages/EventCheckin.tsx` | Usar prazo do evento |
 
