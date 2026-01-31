@@ -14,6 +14,7 @@ export function isEventDeadlinePassed(
   if (deadlineHours === null) return false;
   
   const eventDateTime = new Date(`${eventDate}T${eventTime}`);
-  const deadline = new Date(eventDateTime.getTime() + (deadlineHours * 60 * 60 * 1000));
+  // Prazo é ANTES do evento (subtração)
+  const deadline = new Date(eventDateTime.getTime() - (deadlineHours * 60 * 60 * 1000));
   return new Date() > deadline;
 }

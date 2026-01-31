@@ -638,11 +638,11 @@ const Events = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="1">1 hora após o início</SelectItem>
-                          <SelectItem value="2">2 horas após o início</SelectItem>
-                          <SelectItem value="4">4 horas após o início (padrão)</SelectItem>
-                          <SelectItem value="8">8 horas após o início</SelectItem>
-                          <SelectItem value="24">24 horas após o início</SelectItem>
+                          <SelectItem value="1">1 hora antes do início</SelectItem>
+                          <SelectItem value="2">2 horas antes do início</SelectItem>
+                          <SelectItem value="4">4 horas antes do início (padrão)</SelectItem>
+                          <SelectItem value="8">8 horas antes do início</SelectItem>
+                          <SelectItem value="24">24 horas antes do início</SelectItem>
                           <SelectItem value="null">Sem limite</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1127,11 +1127,11 @@ const Events = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 hora após o início</SelectItem>
-                        <SelectItem value="2">2 horas após o início</SelectItem>
-                        <SelectItem value="4">4 horas após o início (padrão)</SelectItem>
-                        <SelectItem value="8">8 horas após o início</SelectItem>
-                        <SelectItem value="24">24 horas após o início</SelectItem>
+                        <SelectItem value="1">1 hora antes do início</SelectItem>
+                        <SelectItem value="2">2 horas antes do início</SelectItem>
+                        <SelectItem value="4">4 horas antes do início (padrão)</SelectItem>
+                        <SelectItem value="8">8 horas antes do início</SelectItem>
+                        <SelectItem value="24">24 horas antes do início</SelectItem>
                         <SelectItem value="null">Sem limite</SelectItem>
                       </SelectContent>
                     </Select>
