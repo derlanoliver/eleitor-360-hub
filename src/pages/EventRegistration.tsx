@@ -457,8 +457,12 @@ export default function EventRegistration() {
     );
   }
 
-  // Verificar se já passou 4 horas do horário do evento
-  const isRegistrationClosed = isEventDeadlinePassed(event.date, event.time);
+  // Verificar se já passou o prazo configurado para inscrições
+  const isRegistrationClosed = isEventDeadlinePassed(
+    event.date, 
+    event.time, 
+    event.registration_deadline_hours
+  );
 
   if (isRegistrationClosed) {
     return (

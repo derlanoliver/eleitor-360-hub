@@ -15,6 +15,7 @@ type CreateEventData = {
   region: string;
   coverImage?: File;
   show_registrations_count?: boolean;
+  registration_deadline_hours?: number | null;
 };
 
 export function useCreateEvent() {
@@ -58,6 +59,7 @@ export function useCreateEvent() {
           region: data.region,
           cover_image_url: coverImageUrl,
           show_registrations_count: data.show_registrations_count ?? true,
+          registration_deadline_hours: data.registration_deadline_hours ?? 4,
         })
         .select()
         .single();

@@ -117,9 +117,13 @@ export default function EventCheckin() {
 
   const isCheckedIn = registration.checked_in;
   
-  // Verificar se já passou 4 horas do horário do evento
+  // Verificar se já passou o prazo configurado para check-in
   const isCheckinClosed = registration.event_date && registration.event_time 
-    ? isEventDeadlinePassed(registration.event_date, registration.event_time)
+    ? isEventDeadlinePassed(
+        registration.event_date, 
+        registration.event_time, 
+        registration.event_registration_deadline_hours
+      )
     : false;
 
   // Se o prazo de check-in passou, mostrar mensagem

@@ -17,6 +17,7 @@ type UpdateEventData = {
   status?: 'active' | 'completed' | 'cancelled';
   coverImage?: File;
   show_registrations_count?: boolean;
+  registration_deadline_hours?: number | null;
 };
 
 export function useUpdateEvent() {

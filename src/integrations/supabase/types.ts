@@ -635,6 +635,7 @@ export type Database = {
           location: string
           name: string
           region: string
+          registration_deadline_hours: number | null
           registrations_count: number | null
           show_registrations_count: boolean
           slug: string
@@ -656,6 +657,7 @@ export type Database = {
           location: string
           name: string
           region: string
+          registration_deadline_hours?: number | null
           registrations_count?: number | null
           show_registrations_count?: boolean
           slug: string
@@ -677,6 +679,7 @@ export type Database = {
           location?: string
           name?: string
           region?: string
+          registration_deadline_hours?: number | null
           registrations_count?: number | null
           show_registrations_count?: boolean
           slug?: string
@@ -2975,6 +2978,7 @@ export type Database = {
           event_id: string
           event_location: string
           event_name: string
+          event_registration_deadline_hours: number
           event_time: string
           id: string
           nome: string
