@@ -1,141 +1,143 @@
 
 
-## Adicionar Opção de PDF Somente para Coordenadores
+## Correção da Validação de Prazo de 4 Horas na Inscrição de Eventos
 
-### O Que Será Implementado
+### Problema Identificado
 
-Será adicionado um novo botão na modal de links do líder que permite gerar um PDF contendo **somente os links dos coordenadores** do evento.
+A função `create_event_registration` no backend **perdeu a validação de prazo de 4 horas** quando foi atualizada para incluir os novos campos `data_nascimento` e `endereco`.
 
-### Alterações na Interface
+| Migração | Data | O que aconteceu |
+|----------|------|-----------------|
+| `20251210211013` | Dez/2025 | ✅ Tinha validação de 4h |
+| `20260122131942` | Jan/2026 | ❌ Removeu a validação |
+| `20260123123242` | Jan/2026 | ❌ Manteve sem validação |
 
-| Elemento | Descrição |
-|----------|-----------|
-| Novo botão | "Gerar PDF para Coordenadores" |
-| Ícone | Crown (coroa) para diferenciar dos líderes |
-| Estado de loading | Indicador separado para geração do PDF |
+### O Que Será Corrigido
 
-### Visualização
+A função RPC será atualizada para:
+1. Verificar se o evento existe e está ativo
+2. Calcular o prazo limite (data/hora do evento + 4 horas)
+3. Bloquear inscrições após o prazo com mensagem clara
+4. Manter todas as funcionalidades existentes (verificação de duplicatas, novos campos, retorno do QR Code)
+
+### Fluxo de Validação
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Gerar Link do Líder                               [X]  │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Selecione o líder que receberá o link...               │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ 📄 Gerar PDF para Todos os Líderes             │    │
-│  └─────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ 👑 Gerar PDF para Coordenadores                │ ← NOVO
-│  └─────────────────────────────────────────────────┘    │
-│                                                         │
-│  Líder: [________________▼]                             │
-│                                                         │
-│  [ Gerar Link do Líder ]                                │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+Inscrição recebida
+       ↓
+Evento existe e está ativo?
+       ↓ SIM
+Passou 4 horas do evento?
+       ↓ NÃO
+Já está inscrito (email/telefone)?
+       ↓ NÃO
+✅ Criar inscrição
 ```
 
 ---
 
 ## Seção Técnica
 
-### Arquivo: `src/components/events/EventAffiliateDialog.tsx`
+### Nova Migração SQL
 
-#### 1. Importar ícone Crown
+A migração criará uma nova versão da função `create_event_registration`:
 
-```typescript
-import { Copy, Download, QrCode as QrCodeIcon, FileText, Crown } from "lucide-react";
+```sql
+CREATE OR REPLACE FUNCTION create_event_registration(
+  _event_id uuid,
+  _nome text,
+  _email text,
+  _whatsapp text,
+  _cidade_id uuid DEFAULT NULL,
+  _leader_id uuid DEFAULT NULL,
+  _utm_source text DEFAULT NULL,
+  _utm_medium text DEFAULT NULL,
+  _utm_campaign text DEFAULT NULL,
+  _utm_content text DEFAULT NULL,
+  _data_nascimento date DEFAULT NULL,
+  _endereco text DEFAULT NULL
+)
+RETURNS TABLE(id uuid, created_at timestamptz, qr_code text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _new_id uuid;
+  _created_at timestamptz;
+  _qr_code text;
+  _normalized_phone text;
+  _event_datetime timestamp with time zone;
+  _deadline timestamp with time zone;
+BEGIN
+  -- 1. Verificar se o evento existe e está ativo
+  SELECT (e.date + e.time)::timestamp with time zone
+  INTO _event_datetime
+  FROM events e
+  WHERE e.id = _event_id AND e.status = 'active';
+  
+  IF _event_datetime IS NULL THEN
+    RAISE EXCEPTION 'Evento não encontrado ou não está ativo.';
+  END IF;
+  
+  -- 2. Verificar se já passou 4 horas do horário do evento
+  _deadline := _event_datetime + interval '4 hours';
+  IF now() > _deadline THEN
+    RAISE EXCEPTION 'O prazo para inscrições neste evento foi encerrado.';
+  END IF;
+
+  -- 3. Normalizar telefone para comparação (apenas dígitos)
+  _normalized_phone := regexp_replace(_whatsapp, '[^0-9]', '', 'g');
+  
+  -- 4. Verificar se já existe inscrição por email OU telefone neste evento
+  IF EXISTS (
+    SELECT 1 FROM event_registrations er
+    WHERE er.event_id = _event_id 
+    AND (
+      lower(er.email) = lower(_email) 
+      OR regexp_replace(er.whatsapp, '[^0-9]', '', 'g') = _normalized_phone
+    )
+  ) THEN
+    RAISE EXCEPTION 'Você já está inscrito neste evento.';
+  END IF;
+
+  -- 5. Inserir registro (trigger gera qr_code automaticamente)
+  INSERT INTO event_registrations (
+    event_id, nome, email, whatsapp, cidade_id, leader_id,
+    utm_source, utm_medium, utm_campaign, utm_content,
+    data_nascimento, endereco
+  )
+  VALUES (
+    _event_id, _nome, _email, _whatsapp, _cidade_id, _leader_id,
+    _utm_source, _utm_medium, _utm_campaign, _utm_content,
+    _data_nascimento, _endereco
+  )
+  RETURNING event_registrations.id, event_registrations.created_at, event_registrations.qr_code
+  INTO _new_id, _created_at, _qr_code;
+  
+  RETURN QUERY SELECT _new_id, _created_at, _qr_code;
+END;
+$$;
 ```
 
-#### 2. Adicionar estado para loading do PDF de coordenadores
+### Validações Mantidas
 
-```typescript
-const [isGeneratingCoordinatorsPdf, setIsGeneratingCoordinatorsPdf] = useState(false);
-```
+| Validação | Mensagem de Erro |
+|-----------|------------------|
+| Evento inexistente/inativo | "Evento não encontrado ou não está ativo." |
+| Prazo expirado (4h após evento) | "O prazo para inscrições neste evento foi encerrado." |
+| Duplicata por email/telefone | "Você já está inscrito neste evento." |
 
-#### 3. Criar função `handleGeneratePdfForCoordinators`
+### Campos Suportados
 
-Nova função baseada em `handleGeneratePdfForAll`, mas com filtro adicional:
+A função mantém suporte para todos os campos:
+- Campos obrigatórios: `event_id`, `nome`, `email`, `whatsapp`
+- Campos opcionais: `cidade_id`, `leader_id`, UTM params, `data_nascimento`, `endereco`
 
-```typescript
-const handleGeneratePdfForCoordinators = async () => {
-  setIsGeneratingCoordinatorsPdf(true);
-  try {
-    // Buscar apenas coordenadores ativos com affiliate_token
-    const { data: coordinators, error } = await supabase
-      .from("lideres")
-      .select("id, nome_completo, affiliate_token, cidade:office_cities(nome)")
-      .eq("is_active", true)
-      .eq("is_coordinator", true)  // ← FILTRO ADICIONAL
-      .not("affiliate_token", "is", null)
-      .order("nome_completo");
+### Retorno
 
-    if (error) throw error;
-    if (!coordinators || coordinators.length === 0) {
-      toast({
-        title: "Nenhum coordenador encontrado",
-        description: "Não há coordenadores ativos com token de afiliado.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Criar PDF (mesma lógica de handleGeneratePdfForAll)
-    const pdf = new jsPDF();
-    // ... gerar conteúdo ...
-
-    // Download com nome diferenciado
-    pdf.save(`links-coordenadores-${event.slug}.pdf`);
-    
-    toast({
-      title: "PDF gerado!",
-      description: `PDF com links de ${coordinators.length} coordenadores foi baixado.`
-    });
-  } catch (error) {
-    // ... tratamento de erro ...
-  } finally {
-    setIsGeneratingCoordinatorsPdf(false);
-  }
-};
-```
-
-#### 4. Adicionar botão na interface
-
-Adicionar abaixo do botão existente de "Gerar PDF para Todos os Líderes":
-
-```tsx
-<div className="flex gap-2">
-  <Button 
-    onClick={handleGeneratePdfForAll} 
-    variant="outline" 
-    className="flex-1"
-    disabled={isGeneratingPdf}
-  >
-    <FileText className="h-4 w-4 mr-2" />
-    {isGeneratingPdf ? "Gerando PDF..." : "Gerar PDF para Todos os Líderes"}
-  </Button>
-</div>
-
-{/* NOVO BOTÃO */}
-<div className="flex gap-2">
-  <Button 
-    onClick={handleGeneratePdfForCoordinators} 
-    variant="outline" 
-    className="flex-1"
-    disabled={isGeneratingCoordinatorsPdf}
-  >
-    <Crown className="h-4 w-4 mr-2" />
-    {isGeneratingCoordinatorsPdf ? "Gerando PDF..." : "Gerar PDF para Coordenadores"}
-  </Button>
-</div>
-```
-
-### Resultado Esperado
-
-- Novo botão com ícone de coroa para gerar PDF apenas de coordenadores
-- PDF gerado com nome `links-coordenadores-{slug}.pdf` para diferenciação
-- Mensagem de sucesso informando a quantidade de coordenadores incluídos
-- Loading state independente para não bloquear o outro botão
+A função continua retornando:
+- `id` - UUID da inscrição criada
+- `created_at` - Timestamp da criação
+- `qr_code` - Código QR gerado automaticamente
 
