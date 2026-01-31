@@ -2659,6 +2659,28 @@ export type Database = {
               qr_code: string
             }[]
           }
+        | {
+            Args: {
+              _cidade_id?: string
+              _data_nascimento?: string
+              _email: string
+              _endereco?: string
+              _event_id: string
+              _leader_token?: string
+              _nome: string
+              _utm_campaign?: string
+              _utm_content?: string
+              _utm_medium?: string
+              _utm_source?: string
+              _whatsapp: string
+            }
+            Returns: {
+              contact_id: string
+              is_new: boolean
+              qr_code: string
+              registration_id: string
+            }[]
+          }
       create_leader_from_public_form:
         | {
             Args: {
