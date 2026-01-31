@@ -14,6 +14,7 @@ interface RegistrationByQR {
   event_location: string;
   event_address: string | null;
   event_category: string;
+  event_registration_deadline_hours: number | null;
 }
 
 export function useRegistrationByQR(qrCode: string) {

@@ -142,7 +142,8 @@ const Events = () => {
     categories: [] as string[],
     region: "",
     coverImage: null as File | null,
-    show_registrations_count: true
+    show_registrations_count: true,
+    registration_deadline_hours: 4 as number | null
   });
 
   const { toast } = useToast();
@@ -333,7 +334,8 @@ const Events = () => {
         categories: newEvent.categories,
         region: newEvent.region,
         coverImage: newEvent.coverImage || undefined,
-        show_registrations_count: newEvent.show_registrations_count
+        show_registrations_count: newEvent.show_registrations_count,
+        registration_deadline_hours: newEvent.registration_deadline_hours
       });
       
       setNewEvent({ 
@@ -348,7 +350,8 @@ const Events = () => {
         categories: [], 
         region: "",
         coverImage: null,
-        show_registrations_count: true
+        show_registrations_count: true,
+        registration_deadline_hours: 4
       });
       setIsCreateDialogOpen(false);
     } catch (error) {
@@ -374,7 +377,8 @@ const Events = () => {
         region: editingEvent.region,
         status: editingEvent.status,
         coverImage: editingEvent.coverImage || undefined,
-        show_registrations_count: editingEvent.show_registrations_count
+        show_registrations_count: editingEvent.show_registrations_count,
+        registration_deadline_hours: editingEvent.registration_deadline_hours
       });
       
       setEditingEvent(null);
@@ -619,6 +623,32 @@ const Events = () => {
                         checked={newEvent.show_registrations_count}
                         onCheckedChange={(checked) => setNewEvent({ ...newEvent, show_registrations_count: checked })}
                       />
+                    </div>
+
+                    <div className="col-span-2">
+                      <Label>Prazo para inscrições</Label>
+                      <Select 
+                        value={String(newEvent.registration_deadline_hours ?? "null")} 
+                        onValueChange={(v) => setNewEvent({ 
+                          ...newEvent, 
+                          registration_deadline_hours: v === "null" ? null : parseInt(v) 
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 hora após o início</SelectItem>
+                          <SelectItem value="2">2 horas após o início</SelectItem>
+                          <SelectItem value="4">4 horas após o início (padrão)</SelectItem>
+                          <SelectItem value="8">8 horas após o início</SelectItem>
+                          <SelectItem value="24">24 horas após o início</SelectItem>
+                          <SelectItem value="null">Sem limite</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Define até quando as inscrições ficam abertas após o horário do evento
+                      </p>
                     </div>
                   </div>
 
@@ -1082,6 +1112,32 @@ const Events = () => {
                       checked={editingEvent.show_registrations_count ?? true}
                       onCheckedChange={(checked) => setEditingEvent({ ...editingEvent, show_registrations_count: checked })}
                     />
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>Prazo para inscrições</Label>
+                    <Select 
+                      value={String(editingEvent.registration_deadline_hours ?? "null")} 
+                      onValueChange={(v) => setEditingEvent({ 
+                        ...editingEvent, 
+                        registration_deadline_hours: v === "null" ? null : parseInt(v) 
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 hora após o início</SelectItem>
+                        <SelectItem value="2">2 horas após o início</SelectItem>
+                        <SelectItem value="4">4 horas após o início (padrão)</SelectItem>
+                        <SelectItem value="8">8 horas após o início</SelectItem>
+                        <SelectItem value="24">24 horas após o início</SelectItem>
+                        <SelectItem value="null">Sem limite</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Define até quando as inscrições ficam abertas após o horário do evento
+                    </p>
                   </div>
                 </div>
 
