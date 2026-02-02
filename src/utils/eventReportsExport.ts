@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
+import { EventDetailedReport } from "@/hooks/reports/useEventDetailedReport";
 
 interface EventExportData {
   events: any[];
@@ -184,4 +185,81 @@ export function exportReportsToPdf(data: {
   // Download
   const fileName = `relatorio-eventos-${format(new Date(), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
+}
+
+/**
+ * Exporta relatório detalhado de um evento específico
+ */
+export function exportEventDetailedReport(report: EventDetailedReport, eventName: string) {
+  const workbook = XLSX.utils.book_new();
+  const safeEventName = eventName.replace(/[^a-zA-Z0-9\s]/g, '').substring(0, 20);
+
+  // Aba 1: Resumo
+  const summaryData = [
+    ["Relatório Detalhado do Evento"],
+    ["Evento", eventName],
+    ["Gerado em", format(new Date(), "dd/MM/yyyy HH:mm")],
+    [],
+    ["Métrica", "Valor"],
+    ["Total de Inscritos", report.totalRegistrations],
+    ["Total de Check-ins", report.totalCheckins],
+    ["Ausentes", report.totalAbsent],
+    ["Taxa de Conversão", `${report.conversionRate.toFixed(1)}%`],
+    [],
+    ["Perfil dos Participantes"],
+    ["Contatos", report.profileBreakdown.contacts],
+    ["Líderes", report.profileBreakdown.leaders],
+    ["Coordenadores", report.profileBreakdown.coordinators],
+    [],
+    ["Recorrência"],
+    ["Primeira vez no sistema", report.recurrenceStats.firstTimers],
+    ["Participaram de outros eventos", report.recurrenceStats.recurring],
+    ["Média de eventos por participante", report.recurrenceStats.averageEventsPerParticipant.toFixed(1)],
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
+
+  // Aba 2: Por Cidade
+  const citiesData = report.citiesBreakdown.map((city) => ({
+    Cidade: city.cityName,
+    Inscritos: city.registrations,
+    "Check-ins": city.checkins,
+    Ausentes: city.absents,
+    "Taxa de Conversão": `${city.conversionRate.toFixed(1)}%`,
+  }));
+  const citiesSheet = XLSX.utils.json_to_sheet(citiesData);
+  XLSX.utils.book_append_sheet(workbook, citiesSheet, "Por Cidade");
+
+  // Aba 3: Lista Completa
+  const registrationsData = report.registrations.map((reg) => ({
+    Nome: reg.nome,
+    Email: reg.email,
+    WhatsApp: reg.whatsapp,
+    Cidade: reg.cityName || "Não informada",
+    Status: reg.checkedIn ? "Check-in realizado" : "Ausente",
+    "Check-in em": reg.checkedInAt ? format(new Date(reg.checkedInAt), "dd/MM/yyyy HH:mm") : "",
+    Perfil: reg.profileType === 'coordinator' ? 'Coordenador' : reg.profileType === 'leader' ? 'Líder' : 'Contato',
+    "Outros Eventos": reg.otherEventsCount,
+    "Nomes dos Eventos": reg.otherEventNames.join("; "),
+    "Inscrito em": reg.createdAt ? format(new Date(reg.createdAt), "dd/MM/yyyy HH:mm") : "",
+  }));
+  const registrationsSheet = XLSX.utils.json_to_sheet(registrationsData);
+  XLSX.utils.book_append_sheet(workbook, registrationsSheet, "Lista Completa");
+
+  // Aba 4: Top Recorrentes
+  if (report.recurrenceStats.topRecurring.length > 0) {
+    const recurringData = report.recurrenceStats.topRecurring.map((p, idx) => ({
+      Posição: idx + 1,
+      Nome: p.nome,
+      Email: p.email,
+      "Total de Eventos": p.eventsCount,
+      "Eventos Anteriores": p.eventNames.join("; "),
+    }));
+    const recurringSheet = XLSX.utils.json_to_sheet(recurringData);
+    XLSX.utils.book_append_sheet(workbook, recurringSheet, "Top Recorrentes");
+  }
+
+  // Download
+  const fileName = `relatorio-${safeEventName}-${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
 }
