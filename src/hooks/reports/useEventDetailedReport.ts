@@ -50,6 +50,8 @@ export interface EventDetailedReport {
     createdAt: string;
     profileType: 'contact' | 'leader' | 'coordinator';
     leaderId: string | null;
+    parentLeaderId: string | null;
+    parentLeaderName: string | null;
     otherEventsCount: number;
     otherEventNames: string[];
   }[];
@@ -102,23 +104,28 @@ export function useEventDetailedReport(eventId: string | null) {
         };
       }
 
-      // Buscar todos os líderes para classificação
+      // Buscar todos os líderes para classificação (incluindo parent_leader_id e nome)
       const { data: leaders } = await supabase
         .from('lideres')
-        .select('id, email, telefone, is_coordinator');
+        .select('id, email, telefone, is_coordinator, parent_leader_id, nome_completo');
 
       // Criar maps para lookup rápido
-      const leadersByEmail = new Map<string, { id: string; is_coordinator: boolean }>();
-      const leadersByPhone = new Map<string, { id: string; is_coordinator: boolean }>();
+      const leadersByEmail = new Map<string, { id: string; is_coordinator: boolean; parent_leader_id: string | null }>();
+      const leadersByPhone = new Map<string, { id: string; is_coordinator: boolean; parent_leader_id: string | null }>();
+      const leadersById = new Map<string, { nome_completo: string; is_coordinator: boolean }>();
       
       leaders?.forEach(l => {
+        leadersById.set(l.id, { 
+          nome_completo: l.nome_completo, 
+          is_coordinator: l.is_coordinator || false 
+        });
         if (l.email) {
-          leadersByEmail.set(l.email.toLowerCase(), { id: l.id, is_coordinator: l.is_coordinator || false });
+          leadersByEmail.set(l.email.toLowerCase(), { id: l.id, is_coordinator: l.is_coordinator || false, parent_leader_id: l.parent_leader_id });
         }
         if (l.telefone) {
           const normalized = normalizePhone(l.telefone);
           if (normalized.length >= 8) {
-            leadersByPhone.set(normalized, { id: l.id, is_coordinator: l.is_coordinator || false });
+            leadersByPhone.set(normalized, { id: l.id, is_coordinator: l.is_coordinator || false, parent_leader_id: l.parent_leader_id });
           }
         }
       });
@@ -154,6 +161,8 @@ export function useEventDetailedReport(eventId: string | null) {
         // Classificar perfil
         let profileType: 'contact' | 'leader' | 'coordinator' = 'contact';
         let matchedLeaderId: string | null = null;
+        let parentLeaderId: string | null = null;
+        let parentLeaderName: string | null = null;
 
         const emailMatch = leadersByEmail.get(emailLower);
         const phoneMatch = leadersByPhone.get(phoneNormalized);
@@ -162,6 +171,13 @@ export function useEventDetailedReport(eventId: string | null) {
         if (match) {
           matchedLeaderId = match.id;
           profileType = match.is_coordinator ? 'coordinator' : 'leader';
+          
+          // Buscar líder superior
+          if (match.parent_leader_id) {
+            parentLeaderId = match.parent_leader_id;
+            const parentInfo = leadersById.get(match.parent_leader_id);
+            parentLeaderName = parentInfo?.nome_completo || null;
+          }
         }
 
         // Buscar outros eventos
@@ -181,6 +197,8 @@ export function useEventDetailedReport(eventId: string | null) {
           createdAt: reg.created_at || '',
           profileType,
           leaderId: matchedLeaderId || reg.leader_id,
+          parentLeaderId,
+          parentLeaderName,
           otherEventsCount: otherEvents.length,
           otherEventNames: otherEvents.map(e => e.name)
         };
