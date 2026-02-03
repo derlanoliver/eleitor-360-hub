@@ -1,268 +1,157 @@
 
-## Relatório Detalhado por Evento
+
+## Exibir Líder Superior dos Participantes
 
 ### O Que Será Implementado
 
-Um novo sistema de relatórios na aba "Eventos" (Configurações > Relatórios) que permite selecionar um evento específico e visualizar um panorama completo com:
+Para cada inscrito classificado como **Líder** ou **Coordenador**, o sistema mostrará quem é o líder direto acima dele na hierarquia.
 
-| Categoria | Informações |
-|-----------|-------------|
-| **Origem Geográfica** | De onde são os inscritos e check-ins (por cidade) |
-| **Taxas de Comparecimento** | Taxa de check-in, taxa de não comparecimento |
-| **Perfil dos Participantes** | Se são líderes, coordenadores ou contatos comuns |
-| **Recorrência** | Participação em outros eventos do sistema |
+### Alterações na Interface
 
-### Nova Interface
+| Local | Alteração |
+|-------|-----------|
+| Tabela de inscritos | Nova coluna "Líder Superior" |
+| Exportação Excel | Coluna adicional com nome do líder superior |
+
+### Visual da Tabela Atualizada
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Eventos                                                                    │
-│  ┌──────────────────────────────┐  ┌────────────────┐                       │
-│  │ Selecione um evento        ▼ │  │ 🔄 Atualizar   │  📥 Exportar Excel    │
-│  └──────────────────────────────┘  └────────────────┘                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  📊 PAINEL GERAL (quando nenhum evento selecionado - atual)                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  📋 RELATÓRIO DO EVENTO (quando evento selecionado)                         │
-│                                                                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
-│  │ Inscritos   │ │ Check-ins   │ │ Ausentes    │ │ Taxa Conv.  │           │
-│  │    120      │ │     95      │ │     25      │ │   79.2%     │           │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘           │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │ 📍 ORIGEM DOS PARTICIPANTES                                             ││
-│  │                                                                         ││
-│  │ Cidade          │ Inscritos │ Check-ins │ Ausentes │ Taxa Conv.        ││
-│  │ ────────────────│───────────│───────────│──────────│───────────        ││
-│  │ Taguatinga      │    45     │    38     │    7     │   84.4%           ││
-│  │ Ceilândia       │    30     │    25     │    5     │   83.3%           ││
-│  │ Samambaia       │    25     │    18     │    7     │   72.0%           ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │ 👥 PERFIL DOS PARTICIPANTES                                             ││
-│  │                                                                         ││
-│  │ [Gráfico Pizza]                                                         ││
-│  │ • Contatos comuns: 65 (54.2%)                                           ││
-│  │ • Líderes: 45 (37.5%)                                                   ││
-│  │ • Coordenadores: 10 (8.3%)                                              ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │ 🔄 RECORRÊNCIA DE PARTICIPAÇÃO                                          ││
-│  │                                                                         ││
-│  │ • Primeira vez neste tipo de evento: 80 (66.7%)                         ││
-│  │ • Já participaram de outros eventos: 40 (33.3%)                         ││
-│  │ • Média de eventos por participante: 2.3                                ││
-│  │                                                                         ││
-│  │ Top Participantes Recorrentes:                                          ││
-│  │ 1. João Silva - 5 eventos (Reuniões, Encontros)                         ││
-│  │ 2. Maria Santos - 4 eventos (Reuniões)                                  ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │ 📋 LISTA DETALHADA DE INSCRITOS                                         ││
-│  │                                                                         ││
-│  │ Nome        │ Cidade    │ Status  │ Perfil      │ Outros Eventos       ││
-│  │ ────────────│───────────│─────────│─────────────│──────────────        ││
-│  │ João Silva  │ Taguatinga│ ✅ Check│ Líder       │ 5 eventos            ││
-│  │ Maria Costa │ Ceilândia │ ❌ Ausen│ Coordenador │ 3 eventos            ││
-│  │ Pedro Alves │ Samambaia │ ✅ Check│ Contato     │ Primeira vez         ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ LISTA DETALHADA DE INSCRITOS                                                             │
+├───────────────┬────────────┬──────────┬─────────────┬────────────────┬─────────────────┤
+│ Nome          │ Cidade     │ Status   │ Perfil      │ Líder Superior │ Outros Eventos  │
+├───────────────┼────────────┼──────────┼─────────────┼────────────────┼─────────────────┤
+│ João Silva    │ Taguatinga │ ✅ Check │ Líder       │ Maria Costa    │ 5 eventos       │
+│ Maria Costa   │ Ceilândia  │ ❌ Ausen │ Coordenador │ -              │ 3 eventos       │
+│ Pedro Alves   │ Samambaia  │ ✅ Check │ Contato     │ -              │ Primeira vez    │
+│ Ana Souza     │ Planaltina │ ✅ Check │ Líder       │ João Silva     │ 2 eventos       │
+└───────────────┴────────────┴──────────┴─────────────┴────────────────┴─────────────────┘
 ```
+
+**Regras:**
+- Se for **Contato comum**: não exibe nada (traço ou vazio)
+- Se for **Líder**: exibe o nome do `parent_leader` (líder ou coordenador acima)
+- Se for **Coordenador**: não tem líder acima (topo da hierarquia), exibe traço
 
 ---
 
-## Seção Tecnica
+## Seção Técnica
 
-### 1. Novo Hook: `useEventDetailedReport.ts`
+### 1. Atualizar Interface `EventDetailedReport`
 
-Este hook buscara todas as informacoes detalhadas de um evento especifico:
+Adicionar campos para o líder superior:
 
 ```typescript
 // src/hooks/reports/useEventDetailedReport.ts
-interface EventDetailedReport {
-  // Metricas gerais
-  totalRegistrations: number;
-  totalCheckins: number;
-  totalAbsent: number;
-  conversionRate: number;
+registrations: {
+  // ... campos existentes ...
+  profileType: 'contact' | 'leader' | 'coordinator';
+  leaderId: string | null;
   
-  // Origem geografica
-  citiesBreakdown: {
-    cityId: string;
-    cityName: string;
-    registrations: number;
-    checkins: number;
-    absents: number;
-    conversionRate: number;
-  }[];
+  // NOVOS CAMPOS
+  parentLeaderId: string | null;
+  parentLeaderName: string | null;
   
-  // Perfil dos participantes
-  profileBreakdown: {
-    contacts: number;
-    leaders: number;
-    coordinators: number;
-  };
-  
-  // Recorrencia
-  recurrenceStats: {
-    firstTimers: number;
-    recurring: number;
-    averageEventsPerParticipant: number;
-  };
-  
-  // Lista detalhada
-  registrations: {
-    id: string;
-    nome: string;
-    email: string;
-    whatsapp: string;
-    cityName: string | null;
-    checkedIn: boolean;
-    checkedInAt: string | null;
-    createdAt: string;
-    profileType: 'contact' | 'leader' | 'coordinator';
-    otherEventsCount: number;
-    otherEventNames: string[];
-  }[];
-}
+  otherEventsCount: number;
+  otherEventNames: string[];
+}[];
 ```
 
-**Logica de classificacao de perfil:**
-1. Buscar o email/telefone do inscrito na tabela `lideres`
-2. Se encontrar e `is_coordinator = true` -> Coordenador
-3. Se encontrar e `is_coordinator = false` -> Lider
-4. Se nao encontrar -> Contato comum
+### 2. Atualizar Hook `useEventDetailedReport.ts`
 
-**Logica de recorrencia:**
-1. Buscar todas as inscricoes do mesmo email/telefone em outros eventos
-2. Contar quantos eventos distintos participou
-3. Listar os nomes dos eventos
-
-### 2. Atualizar `EventsReportTab.tsx`
-
-Adicionar um Select para escolher o evento e renderizar condicionalmente:
-- Se nenhum evento selecionado: mostra o painel geral (atual)
-- Se evento selecionado: mostra o relatorio detalhado
+Modificar a query de líderes para incluir `parent_leader_id` e nome:
 
 ```typescript
-// Estado
-const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+// Buscar todos os líderes COM parent_leader_id e nome
+const { data: leaders } = await supabase
+  .from('lideres')
+  .select('id, email, telefone, is_coordinator, parent_leader_id, nome_completo');
 
-// Buscar lista de eventos para o Select
-const { data: eventsList } = useQuery({
-  queryKey: ['events_list_for_report'],
-  queryFn: async () => {
-    const { data } = await supabase
-      .from('events')
-      .select('id, name, date')
-      .order('date', { ascending: false });
-    return data;
-  }
+// Criar map de líderes por ID para lookup do nome do parent
+const leadersById = new Map<string, { nome_completo: string; is_coordinator: boolean }>();
+leaders?.forEach(l => {
+  leadersById.set(l.id, { 
+    nome_completo: l.nome_completo, 
+    is_coordinator: l.is_coordinator || false 
+  });
 });
 
-// Usar hook de relatorio detalhado quando evento selecionado
-const { data: eventReport } = useEventDetailedReport(selectedEventId);
-```
+// No processamento de cada registro:
+let parentLeaderId: string | null = null;
+let parentLeaderName: string | null = null;
 
-### 3. Novo Componente: `EventDetailedReportPanel.tsx`
-
-Componente que renderiza o painel completo do relatorio:
-
-```typescript
-// src/components/reports/EventDetailedReportPanel.tsx
-interface Props {
-  report: EventDetailedReport;
-  eventName: string;
-}
-```
-
-Secoes:
-1. **Cards de KPIs**: Inscritos, Check-ins, Ausentes, Taxa
-2. **Tabela de Cidades**: Origem geografica com barras de progresso
-3. **Grafico de Perfil**: PieChart com contatos/lideres/coordenadores
-4. **Card de Recorrencia**: Estatisticas e top participantes
-5. **Tabela Completa**: Lista paginada de todos os inscritos
-
-### 4. Exportacao Excel
-
-Atualizar `eventReportsExport.ts` para incluir:
-
-```typescript
-export function exportEventDetailedReport(data: EventDetailedReport, eventName: string) {
-  const workbook = XLSX.utils.book_new();
+if (match) {
+  matchedLeaderId = match.id;
+  profileType = match.is_coordinator ? 'coordinator' : 'leader';
   
-  // Aba 1: Resumo
-  // Aba 2: Por Cidade
-  // Aba 3: Perfil dos Participantes
-  // Aba 4: Lista Completa com todas as colunas
+  // Buscar líder superior
+  const matchedLeader = leaders?.find(l => l.id === match.id);
+  if (matchedLeader?.parent_leader_id) {
+    parentLeaderId = matchedLeader.parent_leader_id;
+    const parentInfo = leadersById.get(matchedLeader.parent_leader_id);
+    parentLeaderName = parentInfo?.nome_completo || null;
+  }
 }
+
+return {
+  // ... outros campos ...
+  parentLeaderId,
+  parentLeaderName,
+};
 ```
 
-### 5. Consultas SQL Otimizadas
+### 3. Atualizar Componente `EventDetailedReportPanel.tsx`
 
-Para classificar perfil (RPC ou query otimizada):
+Adicionar coluna na tabela:
 
-```sql
--- Buscar inscricoes com join em lideres para classificacao
-SELECT 
-  er.*,
-  oc.nome as cidade_nome,
-  l.id as matched_leader_id,
-  l.is_coordinator,
-  CASE 
-    WHEN l.id IS NOT NULL AND l.is_coordinator THEN 'coordinator'
-    WHEN l.id IS NOT NULL THEN 'leader'
-    ELSE 'contact'
-  END as profile_type
-FROM event_registrations er
-LEFT JOIN office_cities oc ON er.cidade_id = oc.id
-LEFT JOIN lideres l ON (
-  lower(l.email) = lower(er.email)
-  OR l.telefone LIKE '%' || RIGHT(REGEXP_REPLACE(er.whatsapp, '[^0-9]', '', 'g'), 8) || '%'
-)
-WHERE er.event_id = $1;
+```tsx
+<TableHeader>
+  <TableRow>
+    <TableHead>Nome</TableHead>
+    <TableHead>Cidade</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Perfil</TableHead>
+    <TableHead>Líder Superior</TableHead>  {/* NOVA COLUNA */}
+    <TableHead>Outros Eventos</TableHead>
+    <TableHead>Inscrito em</TableHead>
+  </TableRow>
+</TableHeader>
+
+// Na célula:
+<TableCell>
+  {reg.profileType !== 'contact' && reg.parentLeaderName ? (
+    <span className="text-sm">{reg.parentLeaderName}</span>
+  ) : (
+    <span className="text-muted-foreground">-</span>
+  )}
+</TableCell>
 ```
 
-Para recorrencia:
+### 4. Atualizar Exportação Excel
 
-```sql
--- Buscar outros eventos do mesmo email
-SELECT DISTINCT e.id, e.name
-FROM event_registrations er
-JOIN events e ON er.event_id = e.id
-WHERE lower(er.email) = lower($1)
-AND er.event_id != $2;
+Em `eventReportsExport.ts`, adicionar a nova coluna:
+
+```typescript
+// Na aba de lista completa
+const registrationsData = data.registrations.map(reg => ({
+  Nome: reg.nome,
+  Email: reg.email,
+  WhatsApp: reg.whatsapp,
+  Cidade: reg.cityName || 'N/A',
+  Status: reg.checkedIn ? 'Check-in' : 'Ausente',
+  Perfil: reg.profileType === 'coordinator' ? 'Coordenador' : 
+          reg.profileType === 'leader' ? 'Líder' : 'Contato',
+  'Líder Superior': reg.parentLeaderName || '-',  // NOVA COLUNA
+  'Outros Eventos': reg.otherEventsCount,
+  'Inscrito em': reg.createdAt
+}));
 ```
 
-### Arquivos a Criar/Modificar
+### Arquivos Modificados
 
-| Arquivo | Acao |
-|---------|------|
-| `src/hooks/reports/useEventDetailedReport.ts` | Criar - Hook principal |
-| `src/components/reports/EventDetailedReportPanel.tsx` | Criar - Componente do painel |
-| `src/components/reports/EventsReportTab.tsx` | Modificar - Adicionar seletor de evento |
-| `src/utils/eventReportsExport.ts` | Modificar - Adicionar exportacao detalhada |
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/hooks/reports/useEventDetailedReport.ts` | Adicionar parentLeaderId/parentLeaderName |
+| `src/components/reports/EventDetailedReportPanel.tsx` | Nova coluna na tabela |
+| `src/utils/eventReportsExport.ts` | Nova coluna no Excel |
 
-### Fluxo de Dados
-
-```
-EventsReportTab
-    |
-    +-- Select evento --> null: mostra painel geral
-    |                 --> eventId: busca useEventDetailedReport
-    |
-    +-- useEventDetailedReport(eventId)
-            |
-            +-- Buscar inscricoes do evento
-            +-- JOIN com office_cities (origem)
-            +-- JOIN com lideres (classificacao)
-            +-- Subquery para recorrencia
-            |
-            +-- Retorna EventDetailedReport
-                    |
-                    +-- EventDetailedReportPanel renderiza
-```
