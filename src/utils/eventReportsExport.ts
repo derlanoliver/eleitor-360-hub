@@ -239,6 +239,7 @@ export function exportEventDetailedReport(report: EventDetailedReport, eventName
     Status: reg.checkedIn ? "Check-in realizado" : "Ausente",
     "Check-in em": reg.checkedInAt ? format(new Date(reg.checkedInAt), "dd/MM/yyyy HH:mm") : "",
     Perfil: reg.profileType === 'coordinator' ? 'Coordenador' : reg.profileType === 'leader' ? 'Líder' : 'Contato',
+    "Líder Superior": reg.parentLeaderName || "-",
     "Outros Eventos": reg.otherEventsCount,
     "Nomes dos Eventos": reg.otherEventNames.join("; "),
     "Inscrito em": reg.createdAt ? format(new Date(reg.createdAt), "dd/MM/yyyy HH:mm") : "",

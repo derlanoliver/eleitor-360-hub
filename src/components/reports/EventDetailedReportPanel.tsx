@@ -275,6 +275,7 @@ export function EventDetailedReportPanel({ report, eventName, isLoading }: Props
                   <TableHead>Cidade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Perfil</TableHead>
+                  <TableHead>Líder Superior</TableHead>
                   <TableHead>Outros Eventos</TableHead>
                   <TableHead>Inscrito em</TableHead>
                 </TableRow>
@@ -303,6 +304,13 @@ export function EventDetailedReportPanel({ report, eventName, isLoading }: Props
                       )}
                     </TableCell>
                     <TableCell>{getProfileBadge(reg.profileType)}</TableCell>
+                    <TableCell>
+                      {reg.profileType !== 'contact' && reg.parentLeaderName ? (
+                        <span className="text-sm">{reg.parentLeaderName}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {reg.otherEventsCount > 0 ? (
                         <div>
