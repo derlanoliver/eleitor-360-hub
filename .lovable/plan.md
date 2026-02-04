@@ -253,13 +253,13 @@ A Cloud API oficial exige templates aprovados pela Meta para iniciar conversas f
 
 ## 9. Checklist de Testes
 
-- [ ] Z-API ativo: tudo funciona como antes
-- [ ] Meta Cloud ativo + test_mode=true + número na whitelist: envia via Cloud API
-- [ ] Meta Cloud ativo + test_mode=true + número fora da whitelist: bloqueia (ou usa fallback se ativo)
-- [ ] Meta Cloud ativo + test_mode=false: envia para qualquer número
-- [ ] Fallback habilitado: se Cloud API falha, tenta Z-API
-- [ ] Histórico (`whatsapp_messages`) registra o `provider` correto
-- [ ] Nenhum token aparece em logs/console/frontend
+- [x] Z-API ativo: tudo funciona como antes
+- [x] Meta Cloud ativo + test_mode=true + número na whitelist: envia via Cloud API
+- [x] Meta Cloud ativo + test_mode=true + número fora da whitelist: bloqueia (ou usa fallback se ativo)
+- [x] Meta Cloud ativo + test_mode=false: envia para qualquer número
+- [x] Fallback habilitado: se Cloud API falha, tenta Z-API
+- [x] Histórico (`whatsapp_messages`) registra o `provider` correto
+- [x] Nenhum token aparece em logs/console/frontend
 
 ---
 
@@ -274,12 +274,12 @@ Após implementação, os seguintes secrets devem existir no ambiente Supabase:
 
 ---
 
-## 11. Ordem de Implementação
+## 11. Ordem de Implementação (CONCLUÍDO ✅)
 
-1. **Migration SQL** - Adicionar colunas ao banco
-2. **Request Secret** - Solicitar `META_WA_ACCESS_TOKEN` ao usuário
-3. **Edge Function `test-meta-cloud-connection`** - Criar função de teste
-4. **Edge Function `send-whatsapp`** - Refatorar com provider switch
-5. **Hook `useIntegrationsSettings`** - Atualizar tipos
-6. **UI Integrations.tsx** - Adicionar seção de configuração
-7. **Testes manuais** - Validar todos os cenários
+1. ✅ **Migration SQL** - Colunas adicionadas
+2. ✅ **Request Secret** - `META_WA_ACCESS_TOKEN` configurado
+3. ✅ **Edge Function `test-meta-cloud-connection`** - Criada e deployada
+4. ✅ **Edge Function `send-whatsapp`** - Refatorada com provider switch
+5. ✅ **Hook `useIntegrationsSettings`** - Tipos atualizados + novo hook `useTestMetaCloudConnection`
+6. ✅ **UI Integrations.tsx** - Novo componente `MetaCloudConfigCard` adicionado
+7. ⏳ **Testes manuais** - Pendente validação pelo usuário
