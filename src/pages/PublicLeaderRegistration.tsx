@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, RefreshCw, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOfficeCitiesByType } from "@/hooks/office/useOfficeCities";
 import { usePublicFormSettings } from "@/hooks/usePublicFormSettings";
+import { useIntegrationsSettings } from "@/hooks/useIntegrationsSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,14 +48,23 @@ interface AlreadyRegisteredState {
   phone: string;
 }
 
+interface SuccessState {
+  leaderId: string;
+  verificationCode: string;
+  phone: string;
+  name: string;
+}
+
 export default function PublicLeaderRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successData, setSuccessData] = useState<SuccessState | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState<AlreadyRegisteredState | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const { data: cities } = useOfficeCitiesByType();
   const { data: settings } = usePublicFormSettings();
+  const { data: integrationSettings } = useIntegrationsSettings();
 
   const activeCities = cities?.filter((c) => c.status === "active") || [];
 
@@ -192,38 +202,72 @@ export default function PublicLeaderRegistration() {
         return;
       }
 
-      // Cadastro criado com sucesso - enviar SMS de verificação
+      // Cadastro criado com sucesso
       const leaderId = registrationResult.leader_id;
       const verificationCode = registrationResult.verification_code;
 
+      // Verificar se deve usar verificação via WhatsApp (pausa SMS)
+      const useWhatsAppVerification = 
+        integrationSettings?.verification_wa_enabled && 
+        integrationSettings?.verification_method === 'whatsapp_consent';
+
       if (leaderId && verificationCode) {
-        try {
-          // SEMPRE usa URL de produção (via função dedicada)
-          const linkVerificacao = generateLeaderVerificationUrl(verificationCode);
+        // SMS de verificação: apenas se NÃO estiver usando WhatsApp Consent
+        if (!useWhatsAppVerification) {
+          try {
+            // SEMPRE usa URL de produção (via função dedicada)
+            const linkVerificacao = generateLeaderVerificationUrl(verificationCode);
 
-          await supabase.functions.invoke('send-sms', {
-            body: {
-              phone: normalizedPhone,
-              templateSlug: 'verificacao-lider-sms',
-              variables: {
-                nome: data.nome_completo,
-                link_verificacao: linkVerificacao,
+            await supabase.functions.invoke('send-sms', {
+              body: {
+                phone: normalizedPhone,
+                templateSlug: 'verificacao-lider-sms',
+                variables: {
+                  nome: data.nome_completo,
+                  link_verificacao: linkVerificacao,
+                },
+                leaderId: leaderId,
               },
-              leaderId: leaderId,
-            },
-          });
+            });
 
-          // Atualizar verification_sent_at
-          await supabase.rpc('update_leader_verification_sent', { _leader_id: leaderId });
-        } catch (smsError) {
-          console.error('Error sending verification SMS:', smsError);
-          // Don't fail the submission if SMS fails
+            // Atualizar verification_sent_at
+            await supabase.rpc('update_leader_verification_sent', { _leader_id: leaderId });
+          } catch (smsError) {
+            console.error('Error sending verification SMS:', smsError);
+            // Don't fail the submission if SMS fails
+          }
         }
+
+        // Se usando WhatsApp, criar verificação na tabela contact_verifications
+        if (useWhatsAppVerification) {
+          try {
+            // Usar type assertion para RPC que ainda não está nos tipos
+            await (supabase.rpc as any)('create_whatsapp_verification', {
+              _contact_type: 'leader',
+              _contact_id: leaderId,
+              _phone: normalizedPhone,
+            });
+          } catch (waError) {
+            console.error('Error creating WhatsApp verification:', waError);
+          }
+        }
+
+        // Salvar dados para exibir na tela de sucesso
+        setSuccessData({
+          leaderId,
+          verificationCode,
+          phone: normalizedPhone,
+          name: data.nome_completo.trim(),
+        });
       }
 
-      // Send informational email (opcional - não envia link de afiliado ainda)
+      // Email de boas-vindas: SEMPRE envia (mesmo com WhatsApp ativo)
       if (leaderId && normalizedEmail) {
         try {
+          const mensagem = useWhatsAppVerification 
+            ? 'Seu cadastro foi recebido! Verifique pelo WhatsApp para ativar seu link de indicação.'
+            : 'Seu cadastro foi recebido! Você receberá um SMS para confirmar seu telefone e ativar seu link de indicação.';
+
           await supabase.functions.invoke('send-email', {
             body: {
               to: normalizedEmail,
@@ -231,7 +275,7 @@ export default function PublicLeaderRegistration() {
               templateSlug: 'lideranca-boas-vindas',
               variables: {
                 nome: data.nome_completo,
-                mensagem: 'Seu cadastro foi recebido! Você receberá um SMS para confirmar seu telefone e ativar seu link de indicação.',
+                mensagem,
               },
               leaderId: leaderId,
             },
@@ -350,6 +394,35 @@ export default function PublicLeaderRegistration() {
     );
   }
 
+  // Verificar se WhatsApp está ativo para exibir botão
+  const useWhatsAppVerification = 
+    integrationSettings?.verification_wa_enabled && 
+    integrationSettings?.verification_method === 'whatsapp_consent';
+
+  // Verificar elegibilidade para WhatsApp (modo teste)
+  const isWhatsAppEligible = (() => {
+    if (!useWhatsAppVerification) return false;
+    if (!integrationSettings?.verification_wa_test_mode) return true; // Produção: todos elegíveis
+    
+    // Modo teste: verificar whitelist
+    const whitelist = integrationSettings?.verification_wa_whitelist || [];
+    const phone = successData?.phone || '';
+    return whitelist.some(w => phone.includes(w.replace(/\D/g, '')) || w.includes(phone.replace(/\D/g, '')));
+  })();
+
+  const handleOpenWhatsApp = () => {
+    if (!successData || !integrationSettings) return;
+    
+    const keyword = integrationSettings.verification_wa_keyword || 'CONFIRMAR';
+    const zapiPhone = integrationSettings.verification_wa_zapi_phone || '';
+    const token = successData.verificationCode;
+    
+    const message = `${keyword} ${token}`;
+    const url = `https://wa.me/${zapiPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    
+    window.open(url, '_blank');
+  };
+
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-background">
@@ -362,15 +435,44 @@ export default function PublicLeaderRegistration() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Falta Apenas uma Etapa!
-              </h2>
-              <p className="text-muted-foreground mb-4">
-                Enviamos um SMS para confirmar seu telefone.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Clique no link do SMS para ativar seu link de indicação e começar a cadastrar apoiadores.
-              </p>
+              
+              {isWhatsAppEligible ? (
+                // Fluxo WhatsApp
+                <>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
+                    Verifique seu Cadastro!
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Para ativar seu link de indicação, confirme pelo WhatsApp:
+                  </p>
+                  
+                  <Button 
+                    onClick={handleOpenWhatsApp}
+                    className="w-full bg-green-600 hover:bg-green-700 mb-4"
+                    size="lg"
+                  >
+                    <MessageSquare className="mr-2 h-5 w-5" />
+                    Verificar pelo WhatsApp
+                  </Button>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Você também receberá um email com mais informações.
+                  </p>
+                </>
+              ) : (
+                // Fluxo SMS (atual)
+                <>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
+                    Falta Apenas uma Etapa!
+                  </h2>
+                  <p className="text-muted-foreground mb-4">
+                    Enviamos um SMS para confirmar seu telefone.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Clique no link do SMS para ativar seu link de indicação e começar a cadastrar apoiadores.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -40,6 +40,13 @@ interface IntegrationsSettings {
   wa_auto_sms_fallback_enabled: boolean;
   // Materiais por Região
   region_material_default_delay_minutes: number;
+  // Verificação via WhatsApp
+  verification_method: 'link' | 'whatsapp_consent';
+  verification_wa_enabled: boolean;
+  verification_wa_test_mode: boolean;
+  verification_wa_whitelist: string[];
+  verification_wa_keyword: string;
+  verification_wa_zapi_phone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +87,13 @@ interface UpdateIntegrationsDTO {
   wa_auto_visita_enabled?: boolean;
   wa_auto_optout_enabled?: boolean;
   wa_auto_sms_fallback_enabled?: boolean;
+  // Verificação via WhatsApp
+  verification_method?: 'link' | 'whatsapp_consent';
+  verification_wa_enabled?: boolean;
+  verification_wa_test_mode?: boolean;
+  verification_wa_whitelist?: string[];
+  verification_wa_keyword?: string;
+  verification_wa_zapi_phone?: string | null;
 }
 
 export function useIntegrationsSettings() {
