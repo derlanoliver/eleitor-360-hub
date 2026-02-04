@@ -19,6 +19,7 @@ import { TutorialButton } from "@/components/TutorialButton";
 import { ZapiQRCodeDialog } from "@/components/settings/ZapiQRCodeDialog";
 import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
 import { ZapiConnectionIndicator } from "@/components/settings/ZapiConnectionIndicator";
+import { VerificationSettingsCard } from "@/components/settings/VerificationSettingsCard";
 import type { Step } from "react-joyride";
 
 const integrationsTutorialSteps: Step[] = [
@@ -1358,6 +1359,9 @@ const Integrations = () => {
 
         {/* GreatPages Webhook */}
         <GreatPagesWebhookCard />
+
+        {/* Verificação de Cadastro */}
+        <VerificationSettingsCard />
       </div>
 
       {/* Z-API QR Code Reconnect Dialog */}

@@ -44,6 +44,10 @@ interface IntegrationSettings {
   resend_from_name: string | null;
   wa_auto_verificacao_enabled: boolean | null;
   wa_auto_optout_enabled: boolean | null;
+  // Campos de verificação WhatsApp
+  verification_method: string | null;
+  verification_wa_enabled: boolean | null;
+  verification_wa_keyword: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -208,7 +212,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   // Get integration settings to check category toggles
   const { data: settings } = await supabase
     .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled, wa_auto_verificacao_enabled, wa_auto_optout_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name")
+    .select("zapi_instance_id, zapi_token, zapi_enabled, wa_auto_verificacao_enabled, wa_auto_optout_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name, verification_method, verification_wa_enabled, verification_wa_keyword")
     .limit(1)
     .single();
 
