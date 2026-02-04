@@ -1,285 +1,251 @@
 
-## Plano: Adicionar WhatsApp Cloud API (Meta) como Opção ao Z-API
 
-### Visão Geral
+## Plano: Migrar Aba "API Oficial" para Usar Cloud API da Meta
 
-Implementar suporte à API oficial do WhatsApp Business (Cloud API) da Meta como provedor alternativo ao Z-API existente, com toggle de seleção, modo teste e fallback configurável.
+### Situação Atual
 
----
+| Componente | Função | Provedor |
+|------------|--------|----------|
+| `WhatsAppOfficialApiTab` | `send-whatsapp-official` | SMSBarato |
+| Templates usados | `bemvindo1`, `confirmar1` | Via SMSBarato |
 
-## 1. Alterações no Banco de Dados
+### Objetivo
 
-### 1.1 Novas Colunas na Tabela `integrations_settings`
-
-```sql
--- Configurações do WhatsApp Cloud API (Meta)
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  whatsapp_provider_active TEXT DEFAULT 'zapi' CHECK (whatsapp_provider_active IN ('zapi', 'meta_cloud'));
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_enabled BOOLEAN DEFAULT false;
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_test_mode BOOLEAN DEFAULT true;
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_whitelist JSONB DEFAULT '[]'::jsonb;
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_phone_number_id TEXT;
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_waba_id TEXT;
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_api_version TEXT DEFAULT 'v20.0';
-
-ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
-  meta_cloud_fallback_enabled BOOLEAN DEFAULT false;
-```
-
-### 1.2 Nova Coluna na Tabela `whatsapp_messages`
-
-```sql
--- Rastrear qual provedor enviou a mensagem
-ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS 
-  provider TEXT DEFAULT 'zapi';
-
--- Adicionar campo para ID único de cliente (idempotência)
-ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS 
-  client_message_id TEXT;
-
--- Índice para idempotência
-CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_messages_client_id 
-  ON whatsapp_messages(client_message_id) WHERE client_message_id IS NOT NULL;
-```
+Migrar a aba "API Oficial" para usar a **Cloud API da Meta** (`send-whatsapp`) com suporte a templates estruturados.
 
 ---
 
-## 2. Gerenciamento de Secrets
+## 1. Atualizar Edge Function `send-whatsapp`
 
-### 2.1 Secrets Necessários (Supabase Secrets)
-
-O Access Token da Meta **NÃO** será armazenado no banco. Deve ser configurado como secret:
-
-| Secret | Descrição |
-|--------|-----------|
-| `META_WA_ACCESS_TOKEN` | Token permanente via System User (obrigatório) |
-| `META_APP_SECRET` | Para validação de webhooks (opcional, futuro) |
-
-### 2.2 Aviso na UI
-
-Exibir mensagem clara:
-> "O Access Token deve ser configurado como secret no ambiente. Não será armazenado no banco de dados por segurança."
-
----
-
-## 3. Edge Function: `send-whatsapp` (Atualização)
-
-### 3.1 Novo Fluxo com Abstração de Provedor
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                      send-whatsapp                               │
-├─────────────────────────────────────────────────────────────────┤
-│  1. Receber request (phone, message, templateSlug, etc.)        │
-│  2. Carregar integrations_settings                               │
-│  3. Determinar provedor:                                         │
-│     - Se providerOverride → usar override (admin)                │
-│     - Senão → usar whatsapp_provider_active                      │
-│  4. Se meta_cloud:                                               │
-│     - Se test_mode → verificar whitelist                         │
-│     - Construir request Graph API                                │
-│     - Enviar para https://graph.facebook.com/{version}/{id}     │
-│  5. Se zapi:                                                     │
-│     - Usar implementação atual                                   │
-│  6. Registrar em whatsapp_messages com provider                  │
-│  7. Se falhou E fallback habilitado:                             │
-│     - Tentar provedor alternativo                                │
-│     - Registrar tentativa                                        │
-│  8. Retornar { success, providerUsed, message_id, error? }      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 Estrutura do Request para Graph API
+### 1.1 Adicionar Tipagens para Templates da Meta
 
 ```typescript
-// URL: https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages
-// Headers:
-//   Authorization: Bearer {META_WA_ACCESS_TOKEN}
-//   Content-Type: application/json
-
-// Body para texto simples:
-{
-  "messaging_product": "whatsapp",
-  "recipient_type": "individual",
-  "to": "+5511999999999",
-  "type": "text",
-  "text": { "body": "Mensagem aqui" }
+interface MetaTemplateComponent {
+  type: 'header' | 'body' | 'button';
+  parameters?: Array<{
+    type: 'text' | 'currency' | 'date_time' | 'image' | 'document' | 'video';
+    text?: string;
+  }>;
 }
 
-// Body para template (preparar estrutura):
-{
-  "messaging_product": "whatsapp",
-  "to": "+5511999999999",
-  "type": "template",
-  "template": {
-    "name": "nome_do_template",
-    "language": { "code": "pt_BR" },
-    "components": [...]
-  }
+interface MetaTemplatePayload {
+  name: string;
+  language: { code: string };
+  components?: MetaTemplateComponent[];
 }
 ```
 
-### 3.3 Tipagens para Payload
+### 1.2 Adicionar Parâmetro de Template no Request
 
 ```typescript
-type WhatsAppOutgoingPayload = 
-  | { kind: 'text'; body: string }
-  | { kind: 'template'; name: string; language: string; components?: any[] };
-```
-
----
-
-## 4. Nova Edge Function: `test-meta-cloud-connection`
-
-Criar função para testar a conexão com a Cloud API:
-
-```typescript
-// Endpoint: GET https://graph.facebook.com/{version}/{phoneNumberId}
-// Verifica se o token é válido e retorna info do número
-```
-
----
-
-## 5. Atualização do Frontend
-
-### 5.1 Arquivo: `src/pages/settings/Integrations.tsx`
-
-Adicionar nova seção após Z-API:
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🟢 WhatsApp Cloud API (Meta Oficial)                            │
-│ ─────────────────────────────────────────────────────────────── │
-│ Provedor Ativo: ○ Z-API  ● WhatsApp Cloud API                   │
-│ ─────────────────────────────────────────────────────────────── │
-│ Phone Number ID: [___________________________]                   │
-│ WABA ID: [___________________________] (opcional)                │
-│ Versão da API: [ v20.0 ▼ ]                                      │
-│                                                                  │
-│ ⚠️ O Access Token deve ser configurado como secret              │
-│    no ambiente (META_WA_ACCESS_TOKEN).                          │
-│                                                                  │
-│ [✓] Modo Teste                                                  │
-│ Whitelist (números E.164):                                       │
-│ [+5511999999999, +5521888888888]                                │
-│                                                                  │
-│ [ ] Habilitar fallback (tentar outro provedor se falhar)        │
-│                                                                  │
-│ [Testar Conexão]  [Salvar]                                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 5.2 Arquivo: `src/hooks/useIntegrationsSettings.ts`
-
-Adicionar novos campos à interface:
-
-```typescript
-interface IntegrationsSettings {
+interface SendWhatsAppRequest {
   // ... campos existentes ...
-  
-  // WhatsApp Cloud API (Meta)
-  whatsapp_provider_active: 'zapi' | 'meta_cloud';
-  meta_cloud_enabled: boolean;
-  meta_cloud_test_mode: boolean;
-  meta_cloud_whitelist: string[];
-  meta_cloud_phone_number_id: string | null;
-  meta_cloud_waba_id: string | null;
-  meta_cloud_api_version: string;
-  meta_cloud_fallback_enabled: boolean;
+  metaTemplate?: {
+    name: string;
+    language?: string;
+    components?: MetaTemplateComponent[];
+  };
 }
 ```
 
-Adicionar hook `useTestMetaCloudConnection()`.
+### 1.3 Atualizar `sendViaMetaCloud` para Suportar Templates
+
+```typescript
+async function sendViaMetaCloud(
+  settings: IntegrationSettings,
+  phone: string,
+  message: string,
+  metaTemplate?: MetaTemplatePayload  // NOVO PARÂMETRO
+): Promise<SendResult> {
+  // ... validações existentes ...
+
+  let body: object;
+
+  if (metaTemplate) {
+    // Enviar como template estruturado
+    body = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: formattedPhone,
+      type: "template",
+      template: metaTemplate,
+    };
+    console.log(`[send-whatsapp] Sending Meta template: ${metaTemplate.name}`);
+  } else {
+    // Enviar como texto livre
+    body = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: formattedPhone,
+      type: "text",
+      text: { body: message },
+    };
+  }
+
+  // ... resto da função ...
+}
+```
+
+### 1.4 Chamar com Template quando fornecido
+
+```typescript
+// Na seção de envio
+if (activeProvider === 'meta_cloud') {
+  result = await sendViaMetaCloud(
+    typedSettings, 
+    cleanPhone, 
+    finalMessage,
+    requestBody.metaTemplate  // Passar template se existir
+  );
+}
+```
 
 ---
 
-## 6. Plano de Rollout Seguro
+## 2. Atualizar `WhatsAppOfficialApiTab.tsx`
 
-### 6.1 Fase 1: Modo Teste (Padrão)
+### 2.1 Verificar Configuração da Meta Cloud
 
-| Configuração | Valor |
-|--------------|-------|
-| `meta_cloud_enabled` | `true` |
-| `meta_cloud_test_mode` | `true` |
-| `whatsapp_provider_active` | `meta_cloud` |
-| `meta_cloud_whitelist` | `["+55XXXXXXXXXXX"]` |
+Mudar de verificar `smsbarato_enabled` para verificar `meta_cloud_enabled`:
 
-Comportamento: Apenas números na whitelist recebem via Cloud API. Outros recebem via Z-API.
+```typescript
+const { data: settings } = useQuery({
+  queryKey: ["integrations_settings_meta_cloud"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("integrations_settings")
+      .select("meta_cloud_enabled, meta_cloud_phone_number_id, whatsapp_provider_active")
+      .limit(1)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+});
 
-### 6.2 Fase 2: Produção
+const isConfigured = settings?.meta_cloud_enabled && 
+                     settings?.meta_cloud_phone_number_id;
+```
 
-| Configuração | Valor |
-|--------------|-------|
-| `meta_cloud_test_mode` | `false` |
+### 2.2 Atualizar Função de Envio
 
-Comportamento: Todos os envios usam Cloud API.
+Trocar chamada de `send-whatsapp-official` para `send-whatsapp`:
+
+```typescript
+const handleSend = async () => {
+  // ... validações ...
+
+  for (const recipient of recipients) {
+    // Construir template para Meta Cloud API
+    const metaTemplate = {
+      name: selectedTemplate,  // 'bemvindo1' ou 'confirmar1'
+      language: { code: 'pt_BR' },
+      components: selectedTemplate === 'bemvindo1' 
+        ? [
+            {
+              type: 'body' as const,
+              parameters: [
+                { type: 'text' as const, text: recipient.nome_completo.split(' ')[0] },
+                { type: 'text' as const, text: recipient.affiliate_token },
+              ],
+            },
+          ]
+        : [
+            {
+              type: 'body' as const,
+              parameters: [
+                { type: 'text' as const, text: recipient.nome_completo.split(' ')[0] },
+                { type: 'text' as const, text: 'sua conta' },
+                { type: 'text' as const, text: recipient.verification_code },
+              ],
+            },
+          ],
+    };
+
+    const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+      body: {
+        phone: recipient.telefone,
+        message: `[Template: ${selectedTemplate}]`,  // Fallback message for logging
+        metaTemplate,
+        providerOverride: 'meta_cloud',  // Forçar uso da Meta Cloud API
+      }
+    });
+
+    // ... tratamento de resultado ...
+  }
+};
+```
+
+### 2.3 Atualizar Mensagens de Erro/Alerta
+
+```typescript
+if (!isConfigured) {
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertDescription>
+        A integração WhatsApp Cloud API (Meta) não está configurada. 
+        Acesse Configurações &gt; Integrações para configurar o Phone Number ID.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
 
 ---
 
-## 7. Arquivos a Modificar/Criar
+## 3. Resumo dos Arquivos a Modificar
 
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `supabase/migrations/xxx_add_meta_cloud_settings.sql` | Criar | Migration para novas colunas |
-| `supabase/functions/send-whatsapp/index.ts` | Modificar | Adicionar lógica de provider switch |
-| `supabase/functions/test-meta-cloud-connection/index.ts` | Criar | Testar conexão com Graph API |
-| `src/pages/settings/Integrations.tsx` | Modificar | UI de configuração |
-| `src/hooks/useIntegrationsSettings.ts` | Modificar | Tipos e hooks |
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/send-whatsapp/index.ts` | Adicionar suporte a `metaTemplate` na request e na função `sendViaMetaCloud` |
+| `src/components/whatsapp/WhatsAppOfficialApiTab.tsx` | Trocar de `send-whatsapp-official` para `send-whatsapp` com templates estruturados |
 
 ---
 
-## 8. Considerações sobre Templates
+## 4. Pré-Requisitos Importantes
 
-A Cloud API oficial exige templates aprovados pela Meta para iniciar conversas fora da janela de 24h. O sistema atual com Z-API envia mensagens livres.
+Para que os templates funcionem na Cloud API da Meta:
 
-**Estratégia:**
-1. Manter suporte a `text` (mensagem livre) para conversas dentro da janela
-2. Preparar estrutura de `template` para uso futuro
-3. Documentar que templates precisam ser criados no Meta Business Manager
+1. **Templates aprovados no Meta Business Manager**
+   - `bemvindo1` com 2 parâmetros no body: `{{1}}` (nome), `{{2}}` (token)
+   - `confirmar1` com 3 parâmetros no body: `{{1}}` (nome), `{{2}}` (contexto), `{{3}}` (código)
 
----
+2. **Idioma correto**: `pt_BR`
 
-## 9. Checklist de Testes
-
-- [x] Z-API ativo: tudo funciona como antes
-- [x] Meta Cloud ativo + test_mode=true + número na whitelist: envia via Cloud API
-- [x] Meta Cloud ativo + test_mode=true + número fora da whitelist: bloqueia (ou usa fallback se ativo)
-- [x] Meta Cloud ativo + test_mode=false: envia para qualquer número
-- [x] Fallback habilitado: se Cloud API falha, tenta Z-API
-- [x] Histórico (`whatsapp_messages`) registra o `provider` correto
-- [x] Nenhum token aparece em logs/console/frontend
+3. **Phone Number verificado** (resolver o status `EXPIRED`)
 
 ---
 
-## 10. Documentação de Secrets Necessários
+## 5. Fluxo Atualizado
 
-Após implementação, os seguintes secrets devem existir no ambiente Supabase:
-
-| Secret | Obrigatório | Onde Obter |
-|--------|-------------|------------|
-| `META_WA_ACCESS_TOKEN` | Sim (se usar Cloud API) | Meta Business Suite > System User > Token |
-| `META_APP_SECRET` | Não (futuro) | Meta Developers > App Settings |
+```text
+┌───────────────────────────────────────────────────────────────┐
+│              WhatsAppOfficialApiTab (Atualizado)               │
+├───────────────────────────────────────────────────────────────┤
+│ 1. Usuário seleciona template (bemvindo1 / confirmar1)         │
+│ 2. Seleciona destinatário(s)                                   │
+│ 3. Clica em Enviar                                             │
+│                                                                │
+│ 4. Monta metaTemplate com:                                     │
+│    - name: 'bemvindo1' ou 'confirmar1'                         │
+│    - language: { code: 'pt_BR' }                               │
+│    - components: parâmetros do body                            │
+│                                                                │
+│ 5. Chama send-whatsapp com:                                    │
+│    - phone, metaTemplate, providerOverride: 'meta_cloud'       │
+│                                                                │
+│ 6. Edge Function:                                              │
+│    - Detecta metaTemplate                                      │
+│    - Envia type: 'template' para Graph API                     │
+│    - Registra em whatsapp_messages                             │
+└───────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 11. Ordem de Implementação (CONCLUÍDO ✅)
+## 6. Compatibilidade
 
-1. ✅ **Migration SQL** - Colunas adicionadas
-2. ✅ **Request Secret** - `META_WA_ACCESS_TOKEN` configurado
-3. ✅ **Edge Function `test-meta-cloud-connection`** - Criada e deployada
-4. ✅ **Edge Function `send-whatsapp`** - Refatorada com provider switch
-5. ✅ **Hook `useIntegrationsSettings`** - Tipos atualizados + novo hook `useTestMetaCloudConnection`
-6. ✅ **UI Integrations.tsx** - Novo componente `MetaCloudConfigCard` adicionado
-7. ⏳ **Testes manuais** - Pendente validação pelo usuário
+- **Z-API continua funcionando** para todas as outras mensagens
+- **`send-whatsapp-official` permanece** (pode ser removido depois se desejado)
+- **Modo teste da Meta Cloud** aplica whitelist normalmente
+
