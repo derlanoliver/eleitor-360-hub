@@ -355,8 +355,15 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
       
       return;
     } else {
-      // Token not found or already verified - send error message
-      const errorMessage = `Não encontramos um cadastro pendente com esse código. Verifique se digitou corretamente ou entre em contato conosco.`;
+      // Token not found or already verified - send specific error message
+      let errorMessage: string;
+      if (verifyResult?.[0]?.error_code === 'already_verified') {
+        errorMessage = `Seu cadastro já foi verificado anteriormente. Se precisar de ajuda, entre em contato conosco.`;
+      } else if (verifyResult?.[0]?.error_code === 'token_not_found') {
+        errorMessage = `Código não encontrado. Por favor, verifique se você já completou seu cadastro e se digitou o código corretamente.`;
+      } else {
+        errorMessage = `Não encontramos um cadastro pendente com esse código. Verifique se digitou corretamente ou entre em contato conosco.`;
+      }
       await sendWhatsAppMessage(supabase, normalizedPhone, errorMessage, typedSettings);
       return;
     }
@@ -421,91 +428,81 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     // If no pending consent found, continue to chatbot
   }
   
+  // LEGACY FLOW DISABLED: Direct code verification via WhatsApp is no longer supported.
+  // Users must use the new flow: "CONFIRMAR [TOKEN]" → "SIM"
+  // This prevents confusion between the old (verification_code from lideres) and new (token from contact_verifications) flows.
   const codeMatch = cleanMessage.match(/^[A-Z0-9]{5,6}$/);
   let shouldCallChatbot = false;
   
   if (codeMatch) {
     const code = codeMatch[0];
-    console.log(`[zapi-webhook] Detected potential verification code: ${code}`);
+    console.log(`[zapi-webhook] Detected 5-6 char code: ${code}. Legacy direct verification is DISABLED.`);
+    console.log(`[zapi-webhook] User should use "CONFIRMAR ${code}" format instead.`);
     
-    // Search for contact with this verification code
-    const { data: contactToVerify, error: verifyError } = await supabase
+    // Search for contact with this verification code (only for logging/context)
+    const { data: contactToVerify } = await supabase
       .from("office_contacts")
-      .select("id, nome, source_id, source_type, is_verified, pending_messages, telefone_norm")
+      .select("id, nome, is_verified")
       .eq("verification_code", code)
-      .eq("is_verified", false)
+      .limit(1)
       .single();
     
-    if (contactToVerify && !verifyError) {
-      console.log(`[zapi-webhook] Found contact to verify: ${contactToVerify.id}`);
+    if (contactToVerify) {
+      console.log(`[zapi-webhook] Found contact with code ${code}: id=${contactToVerify.id}, is_verified=${contactToVerify.is_verified}`);
+      // Instead of auto-verifying, inform user of correct flow
+      const helpMessage = `Para confirmar seu cadastro, use o formato: CONFIRMAR [código]\n\nExemplo: CONFIRMAR ${code}`;
+      await sendWhatsAppMessage(supabase, normalizedPhone, helpMessage, typedSettings);
       
-      // Mark as verified
-      const { error: updateError } = await supabase
-        .from("office_contacts")
-        .update({ 
-          is_verified: true, 
-          verified_at: new Date().toISOString() 
-        })
-        .eq("id", contactToVerify.id);
-      
-      if (updateError) {
-        console.error("[zapi-webhook] Error updating verification status:", updateError);
-      } else {
-        console.log(`[zapi-webhook] Contact ${contactToVerify.id} verified successfully`);
-        
-        // Send pending messages
-        await sendPendingMessages(supabase, contactToVerify, typedSettings);
-        
-        // Send verification confirmation only if verificacao category is enabled
-        if (typedSettings?.wa_auto_verificacao_enabled !== false) {
-          await sendVerificationConfirmation(supabase, contactToVerify.telefone_norm, contactToVerify.nome, typedSettings);
-        } else {
-          console.log("[zapi-webhook] wa_auto_verificacao_enabled=false, skipping verification confirmation");
-        }
-      }
-    } else {
-      // Contact not found - try to find leader with this verification code
-      console.log(`[zapi-webhook] No contact found for code: ${code}, checking for leader...`);
-      
-      const { data: leaderToVerify, error: leaderVerifyError } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, telefone, affiliate_token")
-        .eq("verification_code", code)
-        .eq("is_verified", false)
-        .single();
-      
-      if (leaderToVerify && !leaderVerifyError) {
-        console.log(`[zapi-webhook] Found leader to verify: ${leaderToVerify.id}`);
-        
-        // Mark leader as verified
-        const { error: updateError } = await supabase
-          .from("lideres")
-          .update({ 
-            is_verified: true, 
-            verified_at: new Date().toISOString(),
-            verification_method: 'whatsapp'
-          })
-          .eq("id", leaderToVerify.id);
-        
-        if (updateError) {
-          console.error("[zapi-webhook] Error updating leader verification status:", updateError);
-        } else {
-          console.log(`[zapi-webhook] Leader ${leaderToVerify.id} verified successfully via WhatsApp`);
-          
-          // Send verification confirmation to leader
-          if (typedSettings?.wa_auto_verificacao_enabled !== false) {
-            await sendLeaderVerificationConfirmation(supabase, normalizedPhone, leaderToVerify.nome_completo, leaderToVerify.affiliate_token, typedSettings);
-          } else {
-            console.log("[zapi-webhook] wa_auto_verificacao_enabled=false, skipping leader verification confirmation");
-          }
-        }
-      } else {
-        console.log(`[zapi-webhook] No pending verification found for code: ${code}, checking if sender is a leader for chatbot`);
-        
-        // If no verification found, this might be a chatbot keyword like "AJUDA" - call chatbot
-        shouldCallChatbot = true;
-      }
+      // Record incoming message
+      await supabase.from("whatsapp_messages").insert({
+        message_id: messageId,
+        phone: phone,
+        message: message,
+        direction: "incoming",
+        status: "received",
+        contact_id: contactToVerify?.id || null,
+        sent_at: new Date().toISOString(),
+      });
+      return;
     }
+    
+    // Check for leader with this code
+    const { data: leaderToVerify } = await supabase
+      .from("lideres")
+      .select("id, nome_completo, is_verified")
+      .eq("verification_code", code)
+      .limit(1)
+      .single();
+    
+    if (leaderToVerify) {
+      console.log(`[zapi-webhook] Found leader with code ${code}: id=${leaderToVerify.id}, is_verified=${leaderToVerify.is_verified}`);
+      
+      if (leaderToVerify.is_verified) {
+        // Already verified - inform user
+        const infoMessage = `Seu cadastro já foi verificado! Se você precisa do seu link de indicação, entre em contato com nossa equipe.`;
+        await sendWhatsAppMessage(supabase, normalizedPhone, infoMessage, typedSettings);
+      } else {
+        // Not verified yet - guide to correct flow
+        const helpMessage = `Para confirmar seu cadastro, use o formato: CONFIRMAR [código]\n\nExemplo: CONFIRMAR ${code}`;
+        await sendWhatsAppMessage(supabase, normalizedPhone, helpMessage, typedSettings);
+      }
+      
+      // Record incoming message
+      await supabase.from("whatsapp_messages").insert({
+        message_id: messageId,
+        phone: phone,
+        message: message,
+        direction: "incoming",
+        status: "received",
+        contact_id: contact?.id || null,
+        sent_at: new Date().toISOString(),
+      });
+      return;
+    }
+    
+    // No match found - might be chatbot keyword
+    console.log(`[zapi-webhook] No pending verification found for code: ${code}, checking if sender is a leader for chatbot`);
+    shouldCallChatbot = true;
   } else {
     // Not a potential verification code, should check for chatbot
     shouldCallChatbot = true;
