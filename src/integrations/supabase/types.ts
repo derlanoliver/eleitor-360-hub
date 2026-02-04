@@ -749,6 +749,13 @@ export type Database = {
           disparopro_enabled: boolean | null
           disparopro_token: string | null
           id: string
+          meta_cloud_api_version: string | null
+          meta_cloud_enabled: boolean | null
+          meta_cloud_fallback_enabled: boolean | null
+          meta_cloud_phone_number_id: string | null
+          meta_cloud_test_mode: boolean | null
+          meta_cloud_waba_id: string | null
+          meta_cloud_whitelist: Json | null
           passkit_api_base_url: string | null
           passkit_api_token: string | null
           passkit_enabled: boolean | null
@@ -780,6 +787,7 @@ export type Database = {
           wa_auto_sms_fallback_enabled: boolean | null
           wa_auto_verificacao_enabled: boolean | null
           wa_auto_visita_enabled: boolean | null
+          whatsapp_provider_active: string | null
           zapi_client_token: string | null
           zapi_enabled: boolean | null
           zapi_instance_id: string | null
@@ -790,6 +798,13 @@ export type Database = {
           disparopro_enabled?: boolean | null
           disparopro_token?: string | null
           id?: string
+          meta_cloud_api_version?: string | null
+          meta_cloud_enabled?: boolean | null
+          meta_cloud_fallback_enabled?: boolean | null
+          meta_cloud_phone_number_id?: string | null
+          meta_cloud_test_mode?: boolean | null
+          meta_cloud_waba_id?: string | null
+          meta_cloud_whitelist?: Json | null
           passkit_api_base_url?: string | null
           passkit_api_token?: string | null
           passkit_enabled?: boolean | null
@@ -821,6 +836,7 @@ export type Database = {
           wa_auto_sms_fallback_enabled?: boolean | null
           wa_auto_verificacao_enabled?: boolean | null
           wa_auto_visita_enabled?: boolean | null
+          whatsapp_provider_active?: string | null
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null
@@ -831,6 +847,13 @@ export type Database = {
           disparopro_enabled?: boolean | null
           disparopro_token?: string | null
           id?: string
+          meta_cloud_api_version?: string | null
+          meta_cloud_enabled?: boolean | null
+          meta_cloud_fallback_enabled?: boolean | null
+          meta_cloud_phone_number_id?: string | null
+          meta_cloud_test_mode?: boolean | null
+          meta_cloud_waba_id?: string | null
+          meta_cloud_whitelist?: Json | null
           passkit_api_base_url?: string | null
           passkit_api_token?: string | null
           passkit_enabled?: boolean | null
@@ -862,6 +885,7 @@ export type Database = {
           wa_auto_sms_fallback_enabled?: boolean | null
           wa_auto_verificacao_enabled?: boolean | null
           wa_auto_visita_enabled?: boolean | null
+          whatsapp_provider_active?: string | null
           zapi_client_token?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null
@@ -2553,6 +2577,7 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
+          client_message_id: string | null
           contact_id: string | null
           created_at: string
           delivered_at: string | null
@@ -2562,6 +2587,7 @@ export type Database = {
           message: string
           message_id: string | null
           phone: string
+          provider: string | null
           read_at: string | null
           sent_at: string | null
           status: string
@@ -2569,6 +2595,7 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          client_message_id?: string | null
           contact_id?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -2578,6 +2605,7 @@ export type Database = {
           message: string
           message_id?: string | null
           phone: string
+          provider?: string | null
           read_at?: string | null
           sent_at?: string | null
           status?: string
@@ -2585,6 +2613,7 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          client_message_id?: string | null
           contact_id?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -2594,6 +2623,7 @@ export type Database = {
           message?: string
           message_id?: string | null
           phone?: string
+          provider?: string | null
           read_at?: string | null
           sent_at?: string | null
           status?: string

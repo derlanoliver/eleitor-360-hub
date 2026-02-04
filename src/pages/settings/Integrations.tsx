@@ -20,6 +20,7 @@ import { ZapiQRCodeDialog } from "@/components/settings/ZapiQRCodeDialog";
 import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
 import { ZapiConnectionIndicator } from "@/components/settings/ZapiConnectionIndicator";
 import { VerificationSettingsCard } from "@/components/settings/VerificationSettingsCard";
+import { MetaCloudConfigCard } from "@/components/settings/MetaCloudConfigCard";
 import type { Step } from "react-joyride";
 
 const integrationsTutorialSteps: Step[] = [
@@ -667,6 +668,9 @@ const Integrations = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* WhatsApp Cloud API (Meta) */}
+        <MetaCloudConfigCard settings={settings} />
 
         {/* Resend Email */}
         <Card>

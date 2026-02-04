@@ -28,6 +28,15 @@ interface IntegrationsSettings {
   passkit_program_id: string | null;
   passkit_tier_id: string | null;
   passkit_enabled: boolean;
+  // WhatsApp Cloud API (Meta)
+  whatsapp_provider_active: 'zapi' | 'meta_cloud';
+  meta_cloud_enabled: boolean;
+  meta_cloud_test_mode: boolean;
+  meta_cloud_whitelist: string[];
+  meta_cloud_phone_number_id: string | null;
+  meta_cloud_waba_id: string | null;
+  meta_cloud_api_version: string;
+  meta_cloud_fallback_enabled: boolean;
   // Controles de mensagens automáticas de WhatsApp
   wa_auto_verificacao_enabled: boolean;
   wa_auto_captacao_enabled: boolean;
@@ -75,6 +84,15 @@ interface UpdateIntegrationsDTO {
   passkit_program_id?: string | null;
   passkit_tier_id?: string | null;
   passkit_enabled?: boolean;
+  // WhatsApp Cloud API (Meta)
+  whatsapp_provider_active?: 'zapi' | 'meta_cloud';
+  meta_cloud_enabled?: boolean;
+  meta_cloud_test_mode?: boolean;
+  meta_cloud_whitelist?: string[];
+  meta_cloud_phone_number_id?: string | null;
+  meta_cloud_waba_id?: string | null;
+  meta_cloud_api_version?: string;
+  meta_cloud_fallback_enabled?: boolean;
   // Controles de mensagens automáticas de WhatsApp
   wa_auto_verificacao_enabled?: boolean;
   wa_auto_captacao_enabled?: boolean;
@@ -301,6 +319,36 @@ export function useTestDisparoproConnection() {
       toastHook({
         title: "Erro na conexão",
         description: error.message || "Verifique o token e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useTestMetaCloudConnection() {
+  const { toast: toastHook } = useToast();
+
+  return useMutation({
+    mutationFn: async (params: { phoneNumberId: string; apiVersion?: string }) => {
+      const { data, error } = await supabase.functions.invoke('test-meta-cloud-connection', {
+        body: params
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
+    },
+    onSuccess: (data) => {
+      toastHook({
+        title: "Conexão bem-sucedida",
+        description: `Número verificado: ${data.displayPhoneNumber || data.verifiedName || 'Conectado'}`,
+      });
+    },
+    onError: (error: Error) => {
+      toastHook({
+        title: "Erro na conexão",
+        description: error.message || "Verifique o Phone Number ID e o Access Token.",
         variant: "destructive",
       });
     }

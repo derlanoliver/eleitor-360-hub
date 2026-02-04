@@ -12,7 +12,9 @@ interface SendWhatsAppRequest {
   variables?: Record<string, string>;
   visitId?: string;
   contactId?: string;
-  imageUrl?: string; // URL da imagem a ser enviada após a mensagem de texto
+  imageUrl?: string;
+  providerOverride?: 'zapi' | 'meta_cloud'; // Admin override
+  clientMessageId?: string; // For idempotency
 }
 
 // Replace template variables {{var}} with actual values
@@ -41,7 +43,6 @@ async function generateMessageVariation(
 ): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   
-  // Primeiro substitui as variáveis para ter o template completo
   const filledMessage = replaceTemplateVariables(baseMessage, variables);
   
   if (!LOVABLE_API_KEY) {
@@ -83,7 +84,7 @@ Gere UMA variação criativa mantendo a essência. Responda APENAS com a mensage
         model: "google/gemini-2.5-flash-lite",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 300,
-        temperature: 0.95, // Alta criatividade para máxima variação
+        temperature: 0.95,
       }),
     });
 
@@ -124,38 +125,39 @@ const PUBLIC_TEMPLATES = [
 
 // Mapeamento de templates para colunas de configuração
 const TEMPLATE_SETTINGS_MAP: Record<string, string> = {
-  // Verificação de contatos
   'verificacao-cadastro': 'wa_auto_verificacao_enabled',
   'verificacao-codigo': 'wa_auto_verificacao_enabled',
   'verificacao-confirmada': 'wa_auto_verificacao_enabled',
-  // Captação de leads
   'captacao-boas-vindas': 'wa_auto_captacao_enabled',
-  // Pesquisas
   'pesquisa-agradecimento': 'wa_auto_pesquisa_enabled',
-  // Eventos
   'evento-inscricao-confirmada': 'wa_auto_evento_enabled',
-  // Liderança
   'lideranca-cadastro-link': 'wa_auto_lideranca_enabled',
   'lider-cadastro-confirmado': 'wa_auto_lideranca_enabled',
-  // Equipe/Membros
   'membro-cadastro-boas-vindas': 'wa_auto_membro_enabled',
-  // Visitas
   'visita-link-formulario': 'wa_auto_visita_enabled',
   'reuniao-cancelada': 'wa_auto_visita_enabled',
   'reuniao-reagendada': 'wa_auto_visita_enabled',
-  // Opt-out
   'descadastro-confirmado': 'wa_auto_optout_enabled',
   'recadastro-confirmado': 'wa_auto_optout_enabled',
-  // Fallback SMS -> WhatsApp
   'verificacao-sms-fallback': 'wa_auto_sms_fallback_enabled',
   'link-indicacao-sms-fallback': 'wa_auto_sms_fallback_enabled',
 };
 
 interface IntegrationSettings {
+  // Z-API
   zapi_instance_id: string | null;
   zapi_token: string | null;
   zapi_client_token: string | null;
   zapi_enabled: boolean | null;
+  // Meta Cloud API
+  whatsapp_provider_active: 'zapi' | 'meta_cloud' | null;
+  meta_cloud_enabled: boolean | null;
+  meta_cloud_test_mode: boolean | null;
+  meta_cloud_whitelist: string[] | null;
+  meta_cloud_phone_number_id: string | null;
+  meta_cloud_api_version: string | null;
+  meta_cloud_fallback_enabled: boolean | null;
+  // Auto message settings
   wa_auto_verificacao_enabled: boolean | null;
   wa_auto_captacao_enabled: boolean | null;
   wa_auto_pesquisa_enabled: boolean | null;
@@ -167,8 +169,138 @@ interface IntegrationSettings {
   wa_auto_sms_fallback_enabled: boolean | null;
 }
 
+// ============ PROVIDER ABSTRACTION ============
+
+interface SendResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+  providerUsed: 'zapi' | 'meta_cloud';
+}
+
+async function sendViaZapi(
+  settings: IntegrationSettings,
+  phone: string,
+  message: string
+): Promise<SendResult> {
+  if (!settings.zapi_instance_id || !settings.zapi_token) {
+    return { success: false, error: "Credenciais Z-API não configuradas", providerUsed: 'zapi' };
+  }
+
+  const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+  
+  const response = await fetch(zapiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(settings.zapi_client_token && { "Client-Token": settings.zapi_client_token }),
+    },
+    body: JSON.stringify({
+      phone: phone,
+      message: message,
+    }),
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    return { 
+      success: false, 
+      error: data.error || data.message || "Erro ao enviar via Z-API",
+      providerUsed: 'zapi'
+    };
+  }
+
+  return { 
+    success: true, 
+    messageId: data.zapiMessageId || data.messageId,
+    providerUsed: 'zapi'
+  };
+}
+
+async function sendViaMetaCloud(
+  settings: IntegrationSettings,
+  phone: string,
+  message: string
+): Promise<SendResult> {
+  const accessToken = Deno.env.get("META_WA_ACCESS_TOKEN");
+  
+  if (!accessToken) {
+    return { 
+      success: false, 
+      error: "META_WA_ACCESS_TOKEN não está configurado nos secrets",
+      providerUsed: 'meta_cloud'
+    };
+  }
+
+  if (!settings.meta_cloud_phone_number_id) {
+    return { 
+      success: false, 
+      error: "Phone Number ID não configurado",
+      providerUsed: 'meta_cloud'
+    };
+  }
+
+  const apiVersion = settings.meta_cloud_api_version || "v20.0";
+  const graphUrl = `https://graph.facebook.com/${apiVersion}/${settings.meta_cloud_phone_number_id}/messages`;
+
+  // Format phone for Graph API (needs country code without +)
+  let formattedPhone = phone.replace(/\D/g, "");
+  // Ensure it starts with country code (55 for Brazil)
+  if (!formattedPhone.startsWith("55") && formattedPhone.length <= 11) {
+    formattedPhone = "55" + formattedPhone;
+  }
+
+  const response = await fetch(graphUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: formattedPhone,
+      type: "text",
+      text: { body: message },
+    }),
+  });
+
+  const data = await response.json();
+  
+  console.log("[send-whatsapp] Meta Cloud API response:", JSON.stringify(data));
+
+  if (!response.ok) {
+    return { 
+      success: false, 
+      error: data.error?.message || "Erro ao enviar via Meta Cloud API",
+      providerUsed: 'meta_cloud'
+    };
+  }
+
+  return { 
+    success: true, 
+    messageId: data.messages?.[0]?.id,
+    providerUsed: 'meta_cloud'
+  };
+}
+
+function isPhoneInWhitelist(phone: string, whitelist: string[] | null): boolean {
+  if (!whitelist || whitelist.length === 0) return false;
+  
+  const cleanPhone = phone.replace(/\D/g, "");
+  
+  return whitelist.some(whitelistedPhone => {
+    const cleanWhitelisted = whitelistedPhone.replace(/\D/g, "");
+    return cleanPhone === cleanWhitelisted || 
+           cleanPhone.endsWith(cleanWhitelisted) || 
+           cleanWhitelisted.endsWith(cleanPhone);
+  });
+}
+
+// ============ END PROVIDER ABSTRACTION ============
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -178,22 +310,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse body first to check if it's a public template
     const requestBody: SendWhatsAppRequest = await req.json();
-    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl } = requestBody;
+    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl, providerOverride, clientMessageId } = requestBody;
 
-    // DEBUG: Log request details
-    console.log(`[send-whatsapp] REQUEST RECEIVED - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}...`);
-    console.log(`[send-whatsapp] PUBLIC_TEMPLATES list:`, PUBLIC_TEMPLATES);
+    console.log(`[send-whatsapp] REQUEST - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}..., providerOverride: ${providerOverride}`);
 
     const isPublicTemplate = templateSlug && PUBLIC_TEMPLATES.includes(templateSlug);
-    console.log(`[send-whatsapp] isPublicTemplate: ${isPublicTemplate} (templateSlug: ${templateSlug})`);
 
-    // ============ AUTHENTICATION CHECK (skip for public templates) ============
+    // ============ AUTHENTICATION CHECK ============
     if (!isPublicTemplate) {
       const authHeader = req.headers.get("authorization");
       if (!authHeader) {
-        console.error("[send-whatsapp] Missing authorization header");
         return new Response(
           JSON.stringify({ success: false, error: "Não autenticado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -204,15 +331,13 @@ Deno.serve(async (req) => {
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
       if (authError || !user) {
-        console.error("[send-whatsapp] Invalid token:", authError);
         return new Response(
           JSON.stringify({ success: false, error: "Token inválido" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Check user has admin, super_admin, or atendente role
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
@@ -220,37 +345,27 @@ Deno.serve(async (req) => {
         .limit(1)
         .single();
 
-      if (roleError || !roleData) {
-        console.error("[send-whatsapp] User lacks required role:", user.id);
+      if (!roleData) {
         return new Response(
           JSON.stringify({ success: false, error: "Acesso não autorizado. Requer permissão de admin ou atendente." }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      console.log(`[send-whatsapp] Authenticated user: ${user.email} with role: ${roleData.role}`);
-    } else {
-      console.log(`[send-whatsapp] Public template '${templateSlug}' - skipping authentication`);
+      console.log(`[send-whatsapp] Authenticated user with role: ${roleData.role}`);
     }
-    // ============ END AUTHENTICATION CHECK ============
 
-    // Buscar credenciais do Z-API e configurações de mensagens automáticas
+    // ============ LOAD SETTINGS ============
     const { data: settings, error: settingsError } = await supabase
       .from("integrations_settings")
       .select(`
-        zapi_instance_id, 
-        zapi_token, 
-        zapi_client_token, 
-        zapi_enabled,
-        wa_auto_verificacao_enabled,
-        wa_auto_captacao_enabled,
-        wa_auto_pesquisa_enabled,
-        wa_auto_evento_enabled,
-        wa_auto_lideranca_enabled,
-        wa_auto_membro_enabled,
-        wa_auto_visita_enabled,
-        wa_auto_optout_enabled,
-        wa_auto_sms_fallback_enabled
+        zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled,
+        whatsapp_provider_active, meta_cloud_enabled, meta_cloud_test_mode,
+        meta_cloud_whitelist, meta_cloud_phone_number_id, meta_cloud_api_version,
+        meta_cloud_fallback_enabled,
+        wa_auto_verificacao_enabled, wa_auto_captacao_enabled, wa_auto_pesquisa_enabled,
+        wa_auto_evento_enabled, wa_auto_lideranca_enabled, wa_auto_membro_enabled,
+        wa_auto_visita_enabled, wa_auto_optout_enabled, wa_auto_sms_fallback_enabled
       `)
       .limit(1)
       .single();
@@ -265,42 +380,71 @@ Deno.serve(async (req) => {
 
     const typedSettings = settings as IntegrationSettings;
 
-    if (!typedSettings?.zapi_enabled) {
-      console.log("[send-whatsapp] Z-API não está habilitado");
-      return new Response(
-        JSON.stringify({ success: false, error: "Z-API não está habilitado" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // ============ DETERMINE PROVIDER ============
+    let activeProvider: 'zapi' | 'meta_cloud' = providerOverride || typedSettings.whatsapp_provider_active || 'zapi';
+    
+    // Validate provider availability
+    if (activeProvider === 'meta_cloud') {
+      if (!typedSettings.meta_cloud_enabled) {
+        console.log("[send-whatsapp] Meta Cloud disabled, falling back to Z-API");
+        activeProvider = 'zapi';
+      }
+    }
+    
+    if (activeProvider === 'zapi') {
+      if (!typedSettings.zapi_enabled) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Nenhum provedor WhatsApp está habilitado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    if (!typedSettings.zapi_instance_id || !typedSettings.zapi_token) {
-      console.log("[send-whatsapp] Credenciais Z-API não configuradas");
-      return new Response(
-        JSON.stringify({ success: false, error: "Credenciais Z-API não configuradas" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log(`[send-whatsapp] Active provider: ${activeProvider}`);
 
-    // ============ CHECK IF SPECIFIC MESSAGE CATEGORY IS ENABLED ============
-    if (templateSlug) {
-      const settingColumn = TEMPLATE_SETTINGS_MAP[templateSlug];
-      if (settingColumn) {
-        const isEnabled = typedSettings[settingColumn as keyof IntegrationSettings];
-        if (isEnabled === false) {
-          console.log(`[send-whatsapp] Mensagem automática '${templateSlug}' está desabilitada (${settingColumn}=false)`);
+    // ============ TEST MODE CHECK FOR META CLOUD ============
+    if (activeProvider === 'meta_cloud' && typedSettings.meta_cloud_test_mode) {
+      const cleanPhone = phone.replace(/\D/g, "");
+      const isWhitelisted = isPhoneInWhitelist(cleanPhone, typedSettings.meta_cloud_whitelist);
+      
+      if (!isWhitelisted) {
+        console.log(`[send-whatsapp] Phone ${cleanPhone.substring(0, 6)}... not in whitelist, test mode active`);
+        
+        // If fallback is enabled, use Z-API instead
+        if (typedSettings.meta_cloud_fallback_enabled && typedSettings.zapi_enabled) {
+          console.log("[send-whatsapp] Using Z-API as fallback (test mode restriction)");
+          activeProvider = 'zapi';
+        } else {
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: `Mensagem automática '${templateSlug}' está desabilitada nas configurações`,
-              disabled: true,
-              category: settingColumn
+              error: "Número não está na whitelist do modo teste",
+              testMode: true
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
       }
     }
-    // ============ END CATEGORY CHECK ============
+
+    // ============ CHECK AUTO MESSAGE CATEGORY ============
+    if (templateSlug) {
+      const settingColumn = TEMPLATE_SETTINGS_MAP[templateSlug];
+      if (settingColumn) {
+        const isEnabled = typedSettings[settingColumn as keyof IntegrationSettings];
+        if (isEnabled === false) {
+          console.log(`[send-whatsapp] Auto message '${templateSlug}' is disabled`);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Mensagem automática '${templateSlug}' está desabilitada`,
+              disabled: true
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
 
     if (!phone) {
       return new Response(
@@ -309,11 +453,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ============ PROCESS MESSAGE ============
     let finalMessage = message;
 
-    // If templateSlug is provided, fetch template and process variables
     if (templateSlug) {
-      console.log(`[send-whatsapp] Buscando template: ${templateSlug}`);
+      console.log(`[send-whatsapp] Loading template: ${templateSlug}`);
       
       const { data: template, error: templateError } = await supabase
         .from("whatsapp_templates")
@@ -322,7 +466,6 @@ Deno.serve(async (req) => {
         .single();
 
       if (templateError || !template) {
-        console.error("[send-whatsapp] Template não encontrado:", templateError);
         return new Response(
           JSON.stringify({ success: false, error: `Template '${templateSlug}' não encontrado` }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -336,9 +479,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Gerar variação com IA para templates anti-spam
       if (ANTI_SPAM_TEMPLATES.includes(templateSlug) && variables) {
-        console.log(`[send-whatsapp] Template '${templateSlug}' usa variação com IA anti-spam`);
         finalMessage = await generateMessageVariation(template.mensagem, variables);
       } else {
         finalMessage = variables 
@@ -349,17 +490,15 @@ Deno.serve(async (req) => {
 
     if (!finalMessage) {
       return new Response(
-        JSON.stringify({ success: false, error: "Mensagem é obrigatória (via message ou templateSlug)" }),
+        JSON.stringify({ success: false, error: "Mensagem é obrigatória" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Normalizar telefone (apenas números)
     const cleanPhone = phone.replace(/\D/g, "");
-    
-    console.log(`[send-whatsapp] Enviando mensagem para ${cleanPhone}`);
+    console.log(`[send-whatsapp] Sending to ${cleanPhone.substring(0, 6)}... via ${activeProvider}`);
 
-    // Criar registro da mensagem antes de enviar
+    // ============ CREATE MESSAGE RECORD ============
     const { data: messageRecord, error: insertError } = await supabase
       .from("whatsapp_messages")
       .insert({
@@ -369,92 +508,77 @@ Deno.serve(async (req) => {
         status: "pending",
         visit_id: visitId || null,
         contact_id: contactId || null,
+        provider: activeProvider,
+        client_message_id: clientMessageId || null,
       })
       .select("id")
       .single();
 
     if (insertError) {
-      console.error("[send-whatsapp] Erro ao registrar mensagem:", insertError);
-      // Continue mesmo sem registro - não bloquear envio
+      console.error("[send-whatsapp] Error creating message record:", insertError);
     }
 
-    // Enviar para Z-API
-    const zapiUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-text`;
+    // ============ SEND MESSAGE ============
+    let result: SendResult;
     
-    const zapiResponse = await fetch(zapiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(typedSettings.zapi_client_token && { "Client-Token": typedSettings.zapi_client_token }),
-      },
-      body: JSON.stringify({
-        phone: cleanPhone,
-        message: finalMessage,
-      }),
-    });
+    if (activeProvider === 'meta_cloud') {
+      result = await sendViaMetaCloud(typedSettings, cleanPhone, finalMessage);
+      
+      // Fallback to Z-API if Meta Cloud fails and fallback is enabled
+      if (!result.success && typedSettings.meta_cloud_fallback_enabled && typedSettings.zapi_enabled) {
+        console.log(`[send-whatsapp] Meta Cloud failed: ${result.error}, trying Z-API fallback`);
+        result = await sendViaZapi(typedSettings, cleanPhone, finalMessage);
+      }
+    } else {
+      result = await sendViaZapi(typedSettings, cleanPhone, finalMessage);
+    }
 
-    const zapiData = await zapiResponse.json();
-    
-    console.log(`[send-whatsapp] Resposta Z-API:`, zapiData);
-
-    // Atualizar registro da mensagem com resultado
-    const messageId = zapiData.zapiMessageId || zapiData.messageId;
-    
+    // ============ UPDATE MESSAGE RECORD ============
     if (messageRecord?.id) {
-      const updateData: Record<string, unknown> = {
-        status: zapiResponse.ok ? "sent" : "failed",
-        sent_at: zapiResponse.ok ? new Date().toISOString() : null,
-        message_id: messageId || null,
-        error_message: zapiResponse.ok ? null : (zapiData.error || zapiData.message || "Erro ao enviar"),
-      };
-
       await supabase
         .from("whatsapp_messages")
-        .update(updateData)
+        .update({
+          status: result.success ? "sent" : "failed",
+          sent_at: result.success ? new Date().toISOString() : null,
+          message_id: result.messageId || null,
+          error_message: result.success ? null : result.error,
+          provider: result.providerUsed,
+        })
         .eq("id", messageRecord.id);
     }
 
-    // Atualizar office_visits se tiver visitId
+    // ============ UPDATE VISIT IF APPLICABLE ============
     if (visitId) {
-      const visitUpdateData: Record<string, unknown> = {
-        webhook_sent_at: new Date().toISOString(),
-        webhook_last_status: zapiResponse.status,
-      };
-
-      if (!zapiResponse.ok) {
-        visitUpdateData.webhook_error = zapiData.error || zapiData.message || "Erro ao enviar mensagem";
-      } else {
-        visitUpdateData.webhook_error = null;
-      }
-
       await supabase
         .from("office_visits")
-        .update(visitUpdateData)
+        .update({
+          webhook_sent_at: new Date().toISOString(),
+          webhook_last_status: result.success ? 200 : 500,
+          webhook_error: result.success ? null : result.error,
+        })
         .eq("id", visitId);
     }
 
-    if (!zapiResponse.ok) {
+    if (!result.success) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: zapiData.error || zapiData.message || "Erro ao enviar mensagem",
-          status: zapiResponse.status 
+          error: result.error,
+          providerUsed: result.providerUsed
         }),
-        { status: zapiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Se tiver imageUrl, enviar imagem após a mensagem de texto
-    if (imageUrl && zapiResponse.ok) {
-      console.log(`[send-whatsapp] Enviando imagem para ${cleanPhone}: ${imageUrl}`);
-      
-      // Aguardar 2 segundos antes de enviar a imagem
+    // ============ SEND IMAGE IF PROVIDED ============
+    if (imageUrl && result.success && activeProvider === 'zapi') {
+      console.log(`[send-whatsapp] Sending image: ${imageUrl}`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const zapiImageUrl = `https://api.z-api.io/instances/${typedSettings.zapi_instance_id}/token/${typedSettings.zapi_token}/send-image`;
       
       try {
-        const imageResponse = await fetch(zapiImageUrl, {
+        await fetch(zapiImageUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -465,30 +589,23 @@ Deno.serve(async (req) => {
             image: imageUrl,
           }),
         });
-        
-        const imageData = await imageResponse.json();
-        console.log(`[send-whatsapp] Resposta Z-API (imagem):`, imageData);
-        
-        if (!imageResponse.ok) {
-          console.error("[send-whatsapp] Erro ao enviar imagem:", imageData);
-        }
       } catch (imageError) {
-        console.error("[send-whatsapp] Erro ao enviar imagem:", imageError);
+        console.error("[send-whatsapp] Error sending image:", imageError);
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: zapiData,
-        messageId: messageId,
+        messageId: result.messageId,
+        providerUsed: result.providerUsed,
         recordId: messageRecord?.id
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("[send-whatsapp] Erro:", error);
+    console.error("[send-whatsapp] Error:", error);
     return new Response(
       JSON.stringify({ success: false, error: (error as Error).message || "Erro interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
