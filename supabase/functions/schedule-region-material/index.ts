@@ -122,6 +122,24 @@ serve(async (req) => {
     // 5. Get the city name
     const cityName = (leader.office_cities as any)?.nome || "sua região";
 
+    // 5.5. Shorten material URL using the production domain
+    let shortenedUrl = material.material_url;
+    try {
+      console.log("[schedule-region-material] Shortening material URL...");
+      const { data: shortenResult, error: shortenError } = await supabase.functions.invoke("shorten-url", {
+        body: { url: material.material_url },
+      });
+      
+      if (!shortenError && shortenResult?.shortUrl) {
+        shortenedUrl = shortenResult.shortUrl;
+        console.log(`[schedule-region-material] URL shortened: ${shortenedUrl}`);
+      } else {
+        console.warn("[schedule-region-material] Could not shorten URL, using original:", shortenError);
+      }
+    } catch (e) {
+      console.warn("[schedule-region-material] Error shortening URL, using original:", e);
+    }
+
     // 6. Create scheduled message
     const { error: insertError } = await supabase.from("scheduled_messages").insert({
       message_type: "sms",
@@ -131,7 +149,7 @@ serve(async (req) => {
       variables: {
         nome: leader.nome_completo,
         regiao: cityName,
-        link_material: material.material_url,
+        link_material: shortenedUrl,
       },
       scheduled_for: scheduledFor.toISOString(),
       leader_id: leader_id,
