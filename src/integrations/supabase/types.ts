@@ -3140,6 +3140,17 @@ export type Database = {
           user_type: string
         }[]
       }
+      get_verification_settings: {
+        Args: never
+        Returns: {
+          verification_method: string
+          verification_wa_enabled: boolean
+          verification_wa_keyword: string
+          verification_wa_test_mode: boolean
+          verification_wa_whitelist: Json
+          verification_wa_zapi_phone: string
+        }[]
+      }
       get_visit_by_qr: {
         Args: { _qr_code: string }
         Returns: {

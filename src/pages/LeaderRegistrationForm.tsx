@@ -27,12 +27,21 @@ import { RegionSelect } from "@/components/office/RegionSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { User, MapPin, Loader2, CheckCircle2, Crown, AlertTriangle } from "lucide-react";
+import { User, MapPin, Loader2, CheckCircle2, Crown, AlertTriangle, MessageCircle } from "lucide-react";
 import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
 import logo from "@/assets/logo-rafael-prudente.png";
+
+interface VerificationSettings {
+  verification_method: string | null;
+  verification_wa_enabled: boolean;
+  verification_wa_test_mode: boolean;
+  verification_wa_keyword: string | null;
+  verification_wa_whitelist: string[] | null;
+  verification_wa_zapi_phone: string | null;
+}
 
 // Constante para identificar versão do código (debug)
 const FORM_VERSION = "2.0.0-verificacao-fix";
@@ -62,6 +71,10 @@ export default function LeaderRegistrationForm() {
   const [hierarchyLevelExceeded, setHierarchyLevelExceeded] = useState(false);
   const [originalLeaderName, setOriginalLeaderName] = useState<string | null>(null);
   const [newLeaderAffiliateToken, setNewLeaderAffiliateToken] = useState<string | null>(null);
+  const [registeredPhone, setRegisteredPhone] = useState<string | null>(null);
+  const [useWhatsAppVerification, setUseWhatsAppVerification] = useState(false);
+  const [whatsAppKeyword, setWhatsAppKeyword] = useState<string>("CONFIRMAR");
+  const [whatsAppPhone, setWhatsAppPhone] = useState<string | null>(null);
 
   // Buscar líder pelo affiliate_token
   const { data: leader, isLoading: leaderLoading, error: leaderError } = useQuery({
@@ -109,6 +122,20 @@ export default function LeaderRegistrationForm() {
       const { data, error } = await supabase.rpc("get_public_form_settings");
       if (error) throw error;
       return data?.[0] || null;
+    }
+  });
+
+  // Buscar configurações de verificação via WhatsApp
+  const { data: verificationSettings } = useQuery<VerificationSettings | null>({
+    queryKey: ["verification_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_verification_settings");
+      if (error) {
+        console.error("[LeaderRegistrationForm] Erro ao buscar verification_settings:", error);
+        return null;
+      }
+      if (!data || data.length === 0) return null;
+      return data[0] as VerificationSettings;
     }
   });
 
@@ -190,45 +217,92 @@ export default function LeaderRegistrationForm() {
       if (leaderResult?.leader_id && leaderResult?.verification_code) {
         setNewLeaderAffiliateToken(leaderResult.affiliate_token);
         setIsNewLeader(true);
+        setRegisteredPhone(telefone_norm);
 
         // SEMPRE usa URL de produção (via função dedicada)
         const verificationLink = generateLeaderVerificationUrl(leaderResult.verification_code);
 
-        // DEBUG: Identificar versão do código - CRÍTICO para debug
-        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] === INICIANDO ENVIO DE SMS DE VERIFICAÇÃO ===`);
-        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Dados:`, {
-          phone: telefone_norm,
-          templateSlug: "verificacao-lider-sms", // <-- DEVE SER ESTE TEMPLATE!
-          verificationLink,
-          leaderName: data.nome.trim(),
-          leaderId: leaderResult.leader_id,
-          timestamp: new Date().toISOString()
-        });
+        // Verificar se deve usar WhatsApp ou SMS para verificação
+        const shouldUseWhatsApp = 
+          verificationSettings?.verification_method === 'whatsapp_consent' &&
+          verificationSettings?.verification_wa_enabled === true;
 
-        // IMPORTANTE: Enviar SMS de VERIFICAÇÃO - NÃO o link de afiliado!
-        // O template correto é "verificacao-lider-sms" que contém {{link_verificacao}}
-        // O template "lider-cadastro-confirmado-sms" SÓ deve ser usado após verificação
-        const smsResult = await supabase.functions.invoke("send-sms", {
-          body: {
-            phone: telefone_norm,
-            templateSlug: "verificacao-lider-sms", // <-- TEMPLATE DE VERIFICAÇÃO
-            variables: {
-              nome: data.nome.trim(),
-              link_verificacao: verificationLink, // <-- VARIÁVEL DE VERIFICAÇÃO
-            },
-          },
-        });
-        
-        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Resultado SMS:`, smsResult);
-        
-        if (smsResult.error) {
-          console.error(`[LeaderRegistrationForm v${FORM_VERSION}] ERRO ao enviar SMS:`, smsResult.error);
+        // Em modo de teste, verificar se o número está na whitelist
+        let phoneInWhitelist = true;
+        if (shouldUseWhatsApp && verificationSettings?.verification_wa_test_mode) {
+          const whitelist = verificationSettings?.verification_wa_whitelist || [];
+          // Normalizar números da whitelist para comparação
+          const normalizedWhitelist = whitelist.map((p: string) => 
+            p.replace(/\D/g, '').replace(/^55/, '')
+          );
+          const phoneToCheck = telefone_norm.replace(/\D/g, '').replace(/^55/, '');
+          phoneInWhitelist = normalizedWhitelist.some((wp: string) => 
+            wp.endsWith(phoneToCheck.slice(-8)) || phoneToCheck.endsWith(wp.slice(-8))
+          );
+          console.log(`[LeaderRegistrationForm] Test mode: phone ${telefone_norm} in whitelist: ${phoneInWhitelist}`, {
+            whitelist,
+            normalizedWhitelist,
+            phoneToCheck
+          });
         }
 
-        // Atualizar verification_sent_at
-        await supabase.rpc("update_leader_verification_sent", {
-          _leader_id: leaderResult.leader_id,
+        const useWhatsApp = shouldUseWhatsApp && phoneInWhitelist;
+
+        console.log(`[LeaderRegistrationForm v${FORM_VERSION}] === VERIFICAÇÃO ===`, {
+          method: verificationSettings?.verification_method,
+          waEnabled: verificationSettings?.verification_wa_enabled,
+          testMode: verificationSettings?.verification_wa_test_mode,
+          whitelist: verificationSettings?.verification_wa_whitelist,
+          phoneInWhitelist,
+          useWhatsApp,
+          phone: telefone_norm
         });
+
+        if (useWhatsApp) {
+          // USAR WHATSAPP: Não enviar SMS, mostrar botão do WhatsApp
+          console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Usando verificação via WhatsApp - NÃO enviando SMS`);
+          setUseWhatsAppVerification(true);
+          setWhatsAppKeyword(verificationSettings?.verification_wa_keyword || "CONFIRMAR");
+          setWhatsAppPhone(verificationSettings?.verification_wa_zapi_phone || null);
+          
+          // NÃO atualiza verification_sent_at ainda - será atualizado quando o user enviar a mensagem
+        } else {
+          // USAR SMS: Fluxo padrão
+          console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Usando verificação via SMS`);
+          
+          // DEBUG: Identificar versão do código - CRÍTICO para debug
+          console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Dados SMS:`, {
+            phone: telefone_norm,
+            templateSlug: "verificacao-lider-sms",
+            verificationLink,
+            leaderName: data.nome.trim(),
+            leaderId: leaderResult.leader_id,
+            timestamp: new Date().toISOString()
+          });
+
+          // Enviar SMS de VERIFICAÇÃO
+          const smsResult = await supabase.functions.invoke("send-sms", {
+            body: {
+              phone: telefone_norm,
+              templateSlug: "verificacao-lider-sms",
+              variables: {
+                nome: data.nome.trim(),
+                link_verificacao: verificationLink,
+              },
+            },
+          });
+          
+          console.log(`[LeaderRegistrationForm v${FORM_VERSION}] Resultado SMS:`, smsResult);
+          
+          if (smsResult.error) {
+            console.error(`[LeaderRegistrationForm v${FORM_VERSION}] ERRO ao enviar SMS:`, smsResult.error);
+          }
+
+          // Atualizar verification_sent_at
+          await supabase.rpc("update_leader_verification_sent", {
+            _leader_id: leaderResult.leader_id,
+          });
+        }
 
         // Tracking
         trackLead({ content_name: "leader_registration_promotion" });
@@ -320,17 +394,48 @@ export default function LeaderRegistrationForm() {
             ) : isNewLeader ? (
               <>
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Crown className="h-8 w-8 text-amber-600" />
+                  {useWhatsAppVerification ? (
+                    <MessageCircle className="h-8 w-8 text-green-600" />
+                  ) : (
+                    <Crown className="h-8 w-8 text-amber-600" />
+                  )}
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Falta Apenas uma Etapa!</h2>
-                <p className="text-muted-foreground mb-4">
-                  Enviamos um <strong>SMS de verificação</strong> para seu celular. 
-                  Clique no link para confirmar seu cadastro e receber seu link exclusivo de indicação.
-                </p>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                  <p className="font-semibold mb-1">📱 Verifique seu celular!</p>
-                  <p>O link de indicação será liberado após a confirmação.</p>
-                </div>
+                
+                {useWhatsAppVerification ? (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      Para confirmar seu cadastro, envie a palavra <strong>{whatsAppKeyword}</strong> pelo WhatsApp clicando no botão abaixo.
+                    </p>
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white mb-4"
+                      onClick={() => {
+                        const phone = whatsAppPhone?.replace(/\D/g, '') || '5561981894692';
+                        const message = encodeURIComponent(whatsAppKeyword);
+                        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                      }}
+                    >
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      Confirmar via WhatsApp
+                    </Button>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                      <p className="font-semibold mb-1">📱 Clique no botão acima!</p>
+                      <p>Após enviar "{whatsAppKeyword}", você receberá automaticamente seu link de indicação.</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      Enviamos um <strong>SMS de verificação</strong> para seu celular. 
+                      Clique no link para confirmar seu cadastro e receber seu link exclusivo de indicação.
+                    </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                      <p className="font-semibold mb-1">📱 Verifique seu celular!</p>
+                      <p>O link de indicação será liberado após a confirmação.</p>
+                    </div>
+                  </>
+                )}
+                
                 <p className="text-sm text-muted-foreground mt-4">
                   Indicado por: <strong>{leader.nome_completo}</strong>
                 </p>
