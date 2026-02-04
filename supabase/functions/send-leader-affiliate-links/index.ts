@@ -12,6 +12,7 @@ interface Leader {
   telefone: string | null;
   email: string | null;
   affiliate_token: string;
+  verification_method: string | null;
 }
 
 serve(async (req) => {
@@ -46,13 +47,13 @@ serve(async (req) => {
       );
     }
 
-    // Batch processing: find verified leaders from last 7 days without SMS/Email sent
+    // Batch processing: find verified leaders from last 7 days without SMS/Email/WhatsApp sent
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data: recentLeaders, error: leadersError } = await supabase
       .from("lideres")
-      .select("id, nome_completo, telefone, email, affiliate_token, verified_at")
+      .select("id, nome_completo, telefone, email, affiliate_token, verification_method, verified_at")
       .eq("is_active", true)
       .eq("is_verified", true)
       .not("affiliate_token", "is", null)
@@ -84,9 +85,10 @@ serve(async (req) => {
         continue;
       }
 
-      // Check if welcome SMS already sent for this leader (check by leader_id pattern in message or phone)
       const phoneNormalized = leader.telefone?.replace(/\D/g, "").slice(-8) || "";
-      
+      const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent';
+
+      // Check if welcome SMS already sent for this leader
       const { data: existingSMS } = await supabase
         .from("sms_messages")
         .select("id")
@@ -94,8 +96,16 @@ serve(async (req) => {
         .ilike("phone", `%${phoneNormalized}`)
         .limit(1);
 
-      // Check if ANY email already sent/attempted for this leader (regardless of status or subject)
-      // This prevents duplicate emails - each leader should only receive ONE email attempt
+      // Check if WhatsApp with affiliate link already sent
+      const { data: existingWhatsApp } = await supabase
+        .from("whatsapp_messages")
+        .select("id")
+        .or(`message.ilike.%link de indicacao%,message.ilike.%link_indicacao%,message.ilike.%indicar pessoas%,message.ilike.%cadastro confirmado%`)
+        .ilike("phone", `%${phoneNormalized}`)
+        .eq("direction", "outgoing")
+        .limit(1);
+
+      // Check if ANY email already sent/attempted for this leader
       const { data: existingEmail } = await supabase
         .from("email_logs")
         .select("id")
@@ -103,17 +113,44 @@ serve(async (req) => {
         .limit(1);
 
       const hasSMS = existingSMS && existingSMS.length > 0;
+      const hasWhatsApp = existingWhatsApp && existingWhatsApp.length > 0;
       const hasEmail = existingEmail && existingEmail.length > 0;
 
-      // Skip only if BOTH were already sent (to ensure both channels are covered)
-      if (hasSMS && hasEmail) {
-        console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has SMS and Email`);
-        skippedCount++;
-        continue;
+      // Determine what channels need to be sent based on verification method
+      let skipSMS = hasSMS;
+      let skipWhatsApp = hasWhatsApp;
+      const skipEmail = hasEmail;
+
+      // If verified via WhatsApp, we use WhatsApp channel (not SMS)
+      // If verified via other methods, we use SMS channel (not WhatsApp)
+      if (isWhatsAppVerification) {
+        skipSMS = true; // Never send SMS for WhatsApp verifications
+        // Check if both WhatsApp AND Email were already sent
+        if (hasWhatsApp && hasEmail) {
+          console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has WhatsApp and Email (WhatsApp verification)`);
+          skippedCount++;
+          continue;
+        }
+      } else {
+        skipWhatsApp = true; // Never send WhatsApp for non-WhatsApp verifications
+        // Check if both SMS AND Email were already sent
+        if (hasSMS && hasEmail) {
+          console.log(`[send-leader-affiliate-links] Skipping ${leader.nome_completo}: already has SMS and Email`);
+          skippedCount++;
+          continue;
+        }
       }
 
       // Process to send missing channels
-      const result = await processLeader(supabase, leader.id, baseUrl, leader, hasSMS ?? false, hasEmail ?? false);
+      const result = await processLeader(
+        supabase,
+        leader.id,
+        baseUrl,
+        leader as Leader,
+        skipSMS,
+        skipEmail,
+        skipWhatsApp
+      );
       results.push(result);
       processedCount++;
 
@@ -147,34 +184,69 @@ async function processLeader(
   baseUrl: string,
   leaderData?: Leader,
   skipSMS: boolean = false,
-  skipEmail: boolean = false
-): Promise<{ leader_id: string; nome: string; sms_sent: boolean; email_sent: boolean; errors: string[] }> {
+  skipEmail: boolean = false,
+  skipWhatsApp: boolean = false
+): Promise<{ leader_id: string; nome: string; sms_sent: boolean; email_sent: boolean; whatsapp_sent: boolean; errors: string[] }> {
   const errors: string[] = [];
 
   let leader = leaderData;
   if (!leader) {
     const { data, error } = await supabase
       .from("lideres")
-      .select("id, nome_completo, telefone, email, affiliate_token")
+      .select("id, nome_completo, telefone, email, affiliate_token, verification_method")
       .eq("id", leaderId)
       .single();
 
     if (error || !data) {
       console.error(`[processLeader] Failed to fetch leader ${leaderId}:`, error);
-      return { leader_id: leaderId, nome: "Unknown", sms_sent: false, email_sent: false, errors: ["Leader not found"] };
+      return { leader_id: leaderId, nome: "Unknown", sms_sent: false, email_sent: false, whatsapp_sent: false, errors: ["Leader not found"] };
     }
     leader = data as Leader;
   }
 
-  console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id}) - skipSMS=${skipSMS}, skipEmail=${skipEmail}`);
+  const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent';
+  
+  console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id})`);
+  console.log(`[processLeader] verification_method=${leader.verification_method}, isWhatsAppVerification=${isWhatsAppVerification}`);
+  console.log(`[processLeader] skipSMS=${skipSMS}, skipEmail=${skipEmail}, skipWhatsApp=${skipWhatsApp}`);
 
   const affiliateLink = `${baseUrl}/cadastro/${leader.affiliate_token}`;
-  let smsSent = skipSMS; // Mark as "sent" if we're skipping
-  let emailSent = skipEmail; // Mark as "sent" if we're skipping
+  let smsSent = skipSMS;
+  let emailSent = skipEmail;
+  let whatsAppSent = skipWhatsApp;
 
-  // Send SMS (only if not skipping)
-  if (!skipSMS && leader.telefone) {
+  // STEP 1: If WhatsApp verification → send WhatsApp (not SMS)
+  if (isWhatsAppVerification && !skipWhatsApp && leader.telefone) {
     try {
+      console.log(`[processLeader] Sending WhatsApp to ${leader.nome_completo} (WhatsApp verification flow)`);
+      const whatsAppResponse = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          phone: leader.telefone,
+          templateSlug: "lider-cadastro-confirmado",
+          variables: {
+            nome: leader.nome_completo,
+            link_indicacao: affiliateLink,
+          },
+        },
+      });
+
+      if (whatsAppResponse.error) {
+        errors.push(`WhatsApp: ${whatsAppResponse.error.message || "Error"}`);
+        console.error(`[processLeader] WhatsApp error for ${leader.nome_completo}:`, whatsAppResponse.error);
+      } else {
+        whatsAppSent = true;
+        console.log(`[processLeader] WhatsApp sent to ${leader.nome_completo}`);
+      }
+    } catch (e) {
+      errors.push(`WhatsApp exception: ${String(e)}`);
+      console.error(`[processLeader] WhatsApp exception for ${leader.nome_completo}:`, e);
+    }
+  }
+
+  // STEP 2: If NOT WhatsApp verification → send SMS (original behavior)
+  if (!isWhatsAppVerification && !skipSMS && leader.telefone) {
+    try {
+      console.log(`[processLeader] Sending SMS to ${leader.nome_completo} (non-WhatsApp verification flow)`);
       const smsResponse = await supabase.functions.invoke("send-sms", {
         body: {
           phone: leader.telefone,
@@ -198,12 +270,13 @@ async function processLeader(
       console.error(`[processLeader] SMS exception for ${leader.nome_completo}:`, e);
     }
   } else if (!leader.telefone) {
-    console.log(`[processLeader] No phone for ${leader.nome_completo}, skipping SMS`);
+    console.log(`[processLeader] No phone for ${leader.nome_completo}, skipping messaging channel`);
   }
 
-  // Send Email (only if not skipping)
+  // STEP 3: Send Email (always, after WhatsApp/SMS)
   if (!skipEmail && leader.email) {
     try {
+      console.log(`[processLeader] Sending Email to ${leader.nome_completo}`);
       const emailResponse = await supabase.functions.invoke("send-email", {
         body: {
           to: leader.email,
@@ -233,7 +306,7 @@ async function processLeader(
   }
 
   // Schedule region material after successful communication
-  if (smsSent || emailSent) {
+  if (smsSent || emailSent || whatsAppSent) {
     try {
       console.log(`[processLeader] Scheduling region material for ${leader.nome_completo}`);
       await supabase.functions.invoke("schedule-region-material", {
@@ -250,6 +323,7 @@ async function processLeader(
     nome: leader.nome_completo,
     sms_sent: smsSent,
     email_sent: emailSent,
+    whatsapp_sent: whatsAppSent,
     errors,
   };
 }
