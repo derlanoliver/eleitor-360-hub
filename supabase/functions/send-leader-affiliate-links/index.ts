@@ -86,7 +86,8 @@ serve(async (req) => {
       }
 
       const phoneNormalized = leader.telefone?.replace(/\D/g, "").slice(-8) || "";
-      const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent';
+      // Check for both 'whatsapp_consent' (new flow) and 'whatsapp' (legacy flow)
+      const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent' || leader.verification_method === 'whatsapp';
 
       // Check if welcome SMS already sent for this leader
       const { data: existingSMS } = await supabase
@@ -204,7 +205,8 @@ async function processLeader(
     leader = data as Leader;
   }
 
-  const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent';
+  // Check for both 'whatsapp_consent' (new flow) and 'whatsapp' (legacy flow)
+  const isWhatsAppVerification = leader.verification_method === 'whatsapp_consent' || leader.verification_method === 'whatsapp';
   
   console.log(`[processLeader] Processing: ${leader.nome_completo} (${leader.id})`);
   console.log(`[processLeader] verification_method=${leader.verification_method}, isWhatsAppVerification=${isWhatsAppVerification}`);
