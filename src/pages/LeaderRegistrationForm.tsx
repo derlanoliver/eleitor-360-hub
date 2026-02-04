@@ -429,10 +429,7 @@ export default function LeaderRegistrationForm() {
                     {(() => {
                       const phone = whatsAppPhone?.replace(/\D/g, "") || "5561981894692";
                       const message = encodeURIComponent(`${whatsAppKeyword} ${verificationCode}`);
-                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                      const href = isMobile
-                        ? `https://wa.me/${phone}?text=${message}`
-                        : `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
+                      const href = `https://wa.me/${phone}?text=${message}`;
 
                       return (
                         <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white mb-4">
