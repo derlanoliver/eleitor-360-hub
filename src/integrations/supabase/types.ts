@@ -359,6 +359,60 @@ export type Database = {
           },
         ]
       }
+      contact_verifications: {
+        Row: {
+          consent_channel: string | null
+          consent_message_id: string | null
+          consent_question_sent_at: string | null
+          consent_received_at: string | null
+          consent_text_version: string | null
+          contact_id: string
+          contact_type: string
+          created_at: string | null
+          id: string
+          keyword_received_at: string | null
+          method: string
+          phone: string
+          status: string | null
+          token: string
+          verified_at: string | null
+        }
+        Insert: {
+          consent_channel?: string | null
+          consent_message_id?: string | null
+          consent_question_sent_at?: string | null
+          consent_received_at?: string | null
+          consent_text_version?: string | null
+          contact_id: string
+          contact_type: string
+          created_at?: string | null
+          id?: string
+          keyword_received_at?: string | null
+          method: string
+          phone: string
+          status?: string | null
+          token: string
+          verified_at?: string | null
+        }
+        Update: {
+          consent_channel?: string | null
+          consent_message_id?: string | null
+          consent_question_sent_at?: string | null
+          consent_received_at?: string | null
+          consent_text_version?: string | null
+          contact_id?: string
+          contact_type?: string
+          created_at?: string | null
+          id?: string
+          keyword_received_at?: string | null
+          method?: string
+          phone?: string
+          status?: string | null
+          token?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           contact_id: string | null
@@ -711,6 +765,12 @@ export type Database = {
           smsdev_api_key: string | null
           smsdev_enabled: boolean | null
           updated_at: string
+          verification_method: string | null
+          verification_wa_enabled: boolean | null
+          verification_wa_keyword: string | null
+          verification_wa_test_mode: boolean | null
+          verification_wa_whitelist: Json | null
+          verification_wa_zapi_phone: string | null
           wa_auto_captacao_enabled: boolean | null
           wa_auto_evento_enabled: boolean | null
           wa_auto_lideranca_enabled: boolean | null
@@ -746,6 +806,12 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          verification_method?: string | null
+          verification_wa_enabled?: boolean | null
+          verification_wa_keyword?: string | null
+          verification_wa_test_mode?: boolean | null
+          verification_wa_whitelist?: Json | null
+          verification_wa_zapi_phone?: string | null
           wa_auto_captacao_enabled?: boolean | null
           wa_auto_evento_enabled?: boolean | null
           wa_auto_lideranca_enabled?: boolean | null
@@ -781,6 +847,12 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          verification_method?: string | null
+          verification_wa_enabled?: boolean | null
+          verification_wa_keyword?: string | null
+          verification_wa_test_mode?: boolean | null
+          verification_wa_whitelist?: Json | null
+          verification_wa_zapi_phone?: string | null
           wa_auto_captacao_enabled?: boolean | null
           wa_auto_evento_enabled?: boolean | null
           wa_auto_lideranca_enabled?: boolean | null
@@ -2705,6 +2777,13 @@ export type Database = {
             }
             Returns: Json
           }
+      create_whatsapp_verification: {
+        Args: { _contact_id: string; _contact_type: string; _phone: string }
+        Returns: {
+          created_at: string
+          token: string
+        }[]
+      }
       demote_coordinator: { Args: { _leader_id: string }; Returns: boolean }
       generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
@@ -3128,6 +3207,26 @@ export type Database = {
         Returns: boolean
       }
       normalize_phone_e164: { Args: { phone: string }; Returns: string }
+      process_verification_consent: {
+        Args: { _phone: string }
+        Returns: {
+          contact_id: string
+          contact_name: string
+          contact_type: string
+          error_code: string
+          success: boolean
+        }[]
+      }
+      process_verification_keyword: {
+        Args: { _phone: string; _token: string }
+        Returns: {
+          contact_id: string
+          contact_name: string
+          contact_type: string
+          error_code: string
+          success: boolean
+        }[]
+      }
       promote_leader_to_subordinate: {
         Args: { _leader_id: string; _parent_id: string }
         Returns: undefined
