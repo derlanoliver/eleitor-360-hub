@@ -1,103 +1,285 @@
 
-## Correção: Encurtar Link do Material de Região no Agendamento Automático
+## Plano: Adicionar WhatsApp Cloud API (Meta) como Opção ao Z-API
 
-### Problema Identificado
+### Visão Geral
 
-A função `schedule-region-material` salva o `link_material` diretamente como está no banco (`material.material_url`), que é a URL completa do Supabase Storage. 
-
-**Exemplo do link atual (longo):**
-```
-https://eydqducvsddckhyatcux.supabase.co/storage/v1/object/public/region-materials/arapoanga.pdf
-```
-
-**Exemplo do link esperado (encurtado):**
-```
-https://app.rafaelprudente.com/s/Ab3Xyz
-```
-
-O envio em massa (`SMSBulkSendTab`) encurta a URL antes de enviar, mas o agendamento automático não faz isso.
+Implementar suporte à API oficial do WhatsApp Business (Cloud API) da Meta como provedor alternativo ao Z-API existente, com toggle de seleção, modo teste e fallback configurável.
 
 ---
 
-### Solução
+## 1. Alterações no Banco de Dados
 
-Modificar a Edge Function `schedule-region-material` para chamar `shorten-url` antes de salvar a mensagem agendada.
+### 1.1 Novas Colunas na Tabela `integrations_settings`
+
+```sql
+-- Configurações do WhatsApp Cloud API (Meta)
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  whatsapp_provider_active TEXT DEFAULT 'zapi' CHECK (whatsapp_provider_active IN ('zapi', 'meta_cloud'));
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_enabled BOOLEAN DEFAULT false;
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_test_mode BOOLEAN DEFAULT true;
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_whitelist JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_phone_number_id TEXT;
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_waba_id TEXT;
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_api_version TEXT DEFAULT 'v20.0';
+
+ALTER TABLE integrations_settings ADD COLUMN IF NOT EXISTS 
+  meta_cloud_fallback_enabled BOOLEAN DEFAULT false;
+```
+
+### 1.2 Nova Coluna na Tabela `whatsapp_messages`
+
+```sql
+-- Rastrear qual provedor enviou a mensagem
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS 
+  provider TEXT DEFAULT 'zapi';
+
+-- Adicionar campo para ID único de cliente (idempotência)
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS 
+  client_message_id TEXT;
+
+-- Índice para idempotência
+CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_messages_client_id 
+  ON whatsapp_messages(client_message_id) WHERE client_message_id IS NOT NULL;
+```
 
 ---
 
-### Alterações Técnicas
+## 2. Gerenciamento de Secrets
 
-**Arquivo:** `supabase/functions/schedule-region-material/index.ts`
+### 2.1 Secrets Necessários (Supabase Secrets)
 
-**Modificação:**
+O Access Token da Meta **NÃO** será armazenado no banco. Deve ser configurado como secret:
 
-1. Adicionar chamada à função `shorten-url` antes de criar a `scheduled_message`
-2. Usar o link encurtado como valor de `link_material` nas variáveis
+| Secret | Descrição |
+|--------|-----------|
+| `META_WA_ACCESS_TOKEN` | Token permanente via System User (obrigatório) |
+| `META_APP_SECRET` | Para validação de webhooks (opcional, futuro) |
 
-**Código atualizado (linhas 118-139):**
+### 2.2 Aviso na UI
+
+Exibir mensagem clara:
+> "O Access Token deve ser configurado como secret no ambiente. Não será armazenado no banco de dados por segurança."
+
+---
+
+## 3. Edge Function: `send-whatsapp` (Atualização)
+
+### 3.1 Novo Fluxo com Abstração de Provedor
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                      send-whatsapp                               │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Receber request (phone, message, templateSlug, etc.)        │
+│  2. Carregar integrations_settings                               │
+│  3. Determinar provedor:                                         │
+│     - Se providerOverride → usar override (admin)                │
+│     - Senão → usar whatsapp_provider_active                      │
+│  4. Se meta_cloud:                                               │
+│     - Se test_mode → verificar whitelist                         │
+│     - Construir request Graph API                                │
+│     - Enviar para https://graph.facebook.com/{version}/{id}     │
+│  5. Se zapi:                                                     │
+│     - Usar implementação atual                                   │
+│  6. Registrar em whatsapp_messages com provider                  │
+│  7. Se falhou E fallback habilitado:                             │
+│     - Tentar provedor alternativo                                │
+│     - Registrar tentativa                                        │
+│  8. Retornar { success, providerUsed, message_id, error? }      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Estrutura do Request para Graph API
 
 ```typescript
-// 5. Get the city name
-const cityName = (leader.office_cities as any)?.nome || "sua região";
+// URL: https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages
+// Headers:
+//   Authorization: Bearer {META_WA_ACCESS_TOKEN}
+//   Content-Type: application/json
 
-// 5.5. Shorten material URL using the production domain
-let shortenedUrl = material.material_url;
-try {
-  console.log("[schedule-region-material] Shortening material URL...");
-  const { data: shortenResult, error: shortenError } = await supabase.functions.invoke("shorten-url", {
-    body: { url: material.material_url },
-  });
-  
-  if (!shortenError && shortenResult?.shortUrl) {
-    shortenedUrl = shortenResult.shortUrl;
-    console.log(`[schedule-region-material] URL shortened: ${shortenedUrl}`);
-  } else {
-    console.warn("[schedule-region-material] Could not shorten URL, using original:", shortenError);
-  }
-} catch (e) {
-  console.warn("[schedule-region-material] Error shortening URL, using original:", e);
+// Body para texto simples:
+{
+  "messaging_product": "whatsapp",
+  "recipient_type": "individual",
+  "to": "+5511999999999",
+  "type": "text",
+  "text": { "body": "Mensagem aqui" }
 }
 
-// 6. Create scheduled message
-const { error: insertError } = await supabase.from("scheduled_messages").insert({
-  message_type: "sms",
-  recipient_phone: leader.telefone,
-  recipient_name: leader.nome_completo,
-  template_slug: material.sms_template_slug || "material-regiao-sms",
-  variables: {
-    nome: leader.nome_completo,
-    regiao: cityName,
-    link_material: shortenedUrl,  // ← Agora usa o link encurtado
-  },
-  scheduled_for: scheduledFor.toISOString(),
-  leader_id: leader_id,
-  status: "pending",
-});
+// Body para template (preparar estrutura):
+{
+  "messaging_product": "whatsapp",
+  "to": "+5511999999999",
+  "type": "template",
+  "template": {
+    "name": "nome_do_template",
+    "language": { "code": "pt_BR" },
+    "components": [...]
+  }
+}
+```
+
+### 3.3 Tipagens para Payload
+
+```typescript
+type WhatsAppOutgoingPayload = 
+  | { kind: 'text'; body: string }
+  | { kind: 'template'; name: string; language: string; components?: any[] };
 ```
 
 ---
 
-### Comportamento Resultante
+## 4. Nova Edge Function: `test-meta-cloud-connection`
 
-| Cenário | Antes | Depois |
-|---------|-------|--------|
-| Agendamento automático | URL do Storage (~100 chars) | URL curta (~40 chars) |
-| Envio em massa | URL curta | URL curta (sem mudança) |
-| Fallback se encurtamento falhar | N/A | Usa URL original |
+Criar função para testar a conexão com a Cloud API:
 
----
-
-### Benefícios
-
-1. **Economia de caracteres no SMS** - Link curto ocupa ~40 chars vs ~100+ chars
-2. **Consistência** - Todos os envios usam o mesmo formato de link
-3. **Tracking** - Links curtos são rastreáveis via tabela `short_urls`
-4. **Domínio profissional** - `app.rafaelprudente.com/s/XXX` vs URL do Supabase
+```typescript
+// Endpoint: GET https://graph.facebook.com/{version}/{phoneNumberId}
+// Verifica se o token é válido e retorna info do número
+```
 
 ---
 
-### Resumo de Alterações
+## 5. Atualização do Frontend
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/schedule-region-material/index.ts` | Adicionar encurtamento de URL antes de criar scheduled_message |
+### 5.1 Arquivo: `src/pages/settings/Integrations.tsx`
+
+Adicionar nova seção após Z-API:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ 🟢 WhatsApp Cloud API (Meta Oficial)                            │
+│ ─────────────────────────────────────────────────────────────── │
+│ Provedor Ativo: ○ Z-API  ● WhatsApp Cloud API                   │
+│ ─────────────────────────────────────────────────────────────── │
+│ Phone Number ID: [___________________________]                   │
+│ WABA ID: [___________________________] (opcional)                │
+│ Versão da API: [ v20.0 ▼ ]                                      │
+│                                                                  │
+│ ⚠️ O Access Token deve ser configurado como secret              │
+│    no ambiente (META_WA_ACCESS_TOKEN).                          │
+│                                                                  │
+│ [✓] Modo Teste                                                  │
+│ Whitelist (números E.164):                                       │
+│ [+5511999999999, +5521888888888]                                │
+│                                                                  │
+│ [ ] Habilitar fallback (tentar outro provedor se falhar)        │
+│                                                                  │
+│ [Testar Conexão]  [Salvar]                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Arquivo: `src/hooks/useIntegrationsSettings.ts`
+
+Adicionar novos campos à interface:
+
+```typescript
+interface IntegrationsSettings {
+  // ... campos existentes ...
+  
+  // WhatsApp Cloud API (Meta)
+  whatsapp_provider_active: 'zapi' | 'meta_cloud';
+  meta_cloud_enabled: boolean;
+  meta_cloud_test_mode: boolean;
+  meta_cloud_whitelist: string[];
+  meta_cloud_phone_number_id: string | null;
+  meta_cloud_waba_id: string | null;
+  meta_cloud_api_version: string;
+  meta_cloud_fallback_enabled: boolean;
+}
+```
+
+Adicionar hook `useTestMetaCloudConnection()`.
+
+---
+
+## 6. Plano de Rollout Seguro
+
+### 6.1 Fase 1: Modo Teste (Padrão)
+
+| Configuração | Valor |
+|--------------|-------|
+| `meta_cloud_enabled` | `true` |
+| `meta_cloud_test_mode` | `true` |
+| `whatsapp_provider_active` | `meta_cloud` |
+| `meta_cloud_whitelist` | `["+55XXXXXXXXXXX"]` |
+
+Comportamento: Apenas números na whitelist recebem via Cloud API. Outros recebem via Z-API.
+
+### 6.2 Fase 2: Produção
+
+| Configuração | Valor |
+|--------------|-------|
+| `meta_cloud_test_mode` | `false` |
+
+Comportamento: Todos os envios usam Cloud API.
+
+---
+
+## 7. Arquivos a Modificar/Criar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/migrations/xxx_add_meta_cloud_settings.sql` | Criar | Migration para novas colunas |
+| `supabase/functions/send-whatsapp/index.ts` | Modificar | Adicionar lógica de provider switch |
+| `supabase/functions/test-meta-cloud-connection/index.ts` | Criar | Testar conexão com Graph API |
+| `src/pages/settings/Integrations.tsx` | Modificar | UI de configuração |
+| `src/hooks/useIntegrationsSettings.ts` | Modificar | Tipos e hooks |
+
+---
+
+## 8. Considerações sobre Templates
+
+A Cloud API oficial exige templates aprovados pela Meta para iniciar conversas fora da janela de 24h. O sistema atual com Z-API envia mensagens livres.
+
+**Estratégia:**
+1. Manter suporte a `text` (mensagem livre) para conversas dentro da janela
+2. Preparar estrutura de `template` para uso futuro
+3. Documentar que templates precisam ser criados no Meta Business Manager
+
+---
+
+## 9. Checklist de Testes
+
+- [ ] Z-API ativo: tudo funciona como antes
+- [ ] Meta Cloud ativo + test_mode=true + número na whitelist: envia via Cloud API
+- [ ] Meta Cloud ativo + test_mode=true + número fora da whitelist: bloqueia (ou usa fallback se ativo)
+- [ ] Meta Cloud ativo + test_mode=false: envia para qualquer número
+- [ ] Fallback habilitado: se Cloud API falha, tenta Z-API
+- [ ] Histórico (`whatsapp_messages`) registra o `provider` correto
+- [ ] Nenhum token aparece em logs/console/frontend
+
+---
+
+## 10. Documentação de Secrets Necessários
+
+Após implementação, os seguintes secrets devem existir no ambiente Supabase:
+
+| Secret | Obrigatório | Onde Obter |
+|--------|-------------|------------|
+| `META_WA_ACCESS_TOKEN` | Sim (se usar Cloud API) | Meta Business Suite > System User > Token |
+| `META_APP_SECRET` | Não (futuro) | Meta Developers > App Settings |
+
+---
+
+## 11. Ordem de Implementação
+
+1. **Migration SQL** - Adicionar colunas ao banco
+2. **Request Secret** - Solicitar `META_WA_ACCESS_TOKEN` ao usuário
+3. **Edge Function `test-meta-cloud-connection`** - Criar função de teste
+4. **Edge Function `send-whatsapp`** - Refatorar com provider switch
+5. **Hook `useIntegrationsSettings`** - Atualizar tipos
+6. **UI Integrations.tsx** - Adicionar seção de configuração
+7. **Testes manuais** - Validar todos os cenários
