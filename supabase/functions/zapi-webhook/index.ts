@@ -37,6 +37,7 @@ interface ZapiConnectionStatus {
 interface IntegrationSettings {
   zapi_instance_id: string | null;
   zapi_token: string | null;
+  zapi_client_token?: string | null;
   zapi_enabled: boolean | null;
   resend_api_key: string | null;
   resend_enabled: boolean | null;
@@ -212,7 +213,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   // Get integration settings to check category toggles
   const { data: settings } = await supabase
     .from("integrations_settings")
-    .select("zapi_instance_id, zapi_token, zapi_enabled, wa_auto_verificacao_enabled, wa_auto_optout_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name, verification_method, verification_wa_enabled, verification_wa_keyword")
+    .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled, wa_auto_verificacao_enabled, wa_auto_optout_enabled, resend_api_key, resend_enabled, resend_from_email, resend_from_name, verification_method, verification_wa_enabled, verification_wa_keyword")
     .limit(1)
     .single();
 
@@ -996,7 +997,10 @@ async function sendWhatsAppMessage(supabase: any, phone: string, message: string
     const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
     const response = await fetch(zapiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(settings.zapi_client_token ? { "client-token": settings.zapi_client_token } : {}),
+      },
       body: JSON.stringify({
         phone: phone.replace("+", ""),
         message: message,

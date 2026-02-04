@@ -265,7 +265,24 @@ export default function LeaderRegistrationForm() {
           setUseWhatsAppVerification(true);
           setWhatsAppKeyword(verificationSettings?.verification_wa_keyword || "CONFIRMAR");
           setWhatsAppPhone(verificationSettings?.verification_wa_zapi_phone || null);
-          setVerificationCode(leaderResult.verification_code);
+
+          // Criar verificação WhatsApp na tabela contact_verifications (token validado por process_verification_keyword)
+          try {
+            const { data: waVerification, error: waVerificationError } = await (supabase.rpc as any)("create_whatsapp_verification", {
+              _contact_type: "leader",
+              _contact_id: leaderResult.leader_id,
+              _phone: telefone_norm,
+            });
+
+            if (waVerificationError) throw waVerificationError;
+
+            const waToken = waVerification?.[0]?.token;
+            setVerificationCode(waToken || leaderResult.verification_code);
+          } catch (waError) {
+            console.error("[LeaderRegistrationForm] Error creating WhatsApp verification:", waError);
+            // Fallback para manter a UI utilizável (embora o backend valide pelo token de contact_verifications)
+            setVerificationCode(leaderResult.verification_code);
+          }
           
           // NÃO atualiza verification_sent_at ainda - será atualizado quando o user enviar a mensagem
         } else {
@@ -409,22 +426,23 @@ export default function LeaderRegistrationForm() {
                     <p className="text-muted-foreground mb-4">
                       Para confirmar seu cadastro, envie <strong>{whatsAppKeyword} {verificationCode}</strong> pelo WhatsApp clicando no botão abaixo.
                     </p>
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white mb-4"
-                      onClick={() => {
-                        const phone = whatsAppPhone?.replace(/\D/g, '') || '5561981894692';
-                        const message = encodeURIComponent(`${whatsAppKeyword} ${verificationCode}`);
-                        // Detectar se é desktop ou mobile para usar URL correta
-                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                        const baseUrl = isMobile 
-                          ? `https://wa.me/${phone}?text=${message}`
-                          : `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
-                        window.open(baseUrl, '_blank');
-                      }}
-                    >
-                      <MessageCircle className="h-5 w-5 mr-2" />
-                      Confirmar via WhatsApp
-                    </Button>
+                    {(() => {
+                      const phone = whatsAppPhone?.replace(/\D/g, "") || "5561981894692";
+                      const message = encodeURIComponent(`${whatsAppKeyword} ${verificationCode}`);
+                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                      const href = isMobile
+                        ? `https://wa.me/${phone}?text=${message}`
+                        : `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
+
+                      return (
+                        <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white mb-4">
+                          <a href={href} target="_blank" rel="noreferrer">
+                            <MessageCircle className="h-5 w-5 mr-2" />
+                            Confirmar via WhatsApp
+                          </a>
+                        </Button>
+                      );
+                    })()}
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
                       <p className="font-semibold mb-1">📱 Clique no botão acima!</p>
                       <p>Após enviar "{whatsAppKeyword} {verificationCode}", você receberá automaticamente seu link de indicação.</p>
