@@ -1,90 +1,35 @@
 
 
-## Correção: Migração SQL Completa para Verificação WhatsApp
+## Excluir Líder David Sveci da tabela `lideres`
 
-### Problema Identificado
+### Situação Identificada
 
-A migração anterior (`20260204005403`) só incluiu os templates WhatsApp. Estão faltando:
+O usuário "David Sveci" foi excluído do **Supabase Auth** (tabela `profiles`/`user_roles`), porém existe um registro separado na tabela **`lideres`** que não foi removido:
 
-1. **6 novas colunas em `integrations_settings`**
-2. **Tabela `contact_verifications`**
-3. **3 RPCs** (`create_whatsapp_verification`, `process_verification_keyword`, `process_verification_consent`)
+| ID | Nome | Email | Telefone |
+|----|------|-------|----------|
+| `bbfc0d9a-46fb-470c-9e3c-d9b17465077f` | David Sveci | davi_2d@hotmail.com | 5527999161738 |
+| `0a4b04f7-a164-4db8-b9a7-76d293c21e78` | David Teste Sveci | teste@teste1.com.br | +5527999887788 |
 
-### Solução
+### Ação Necessária
 
-Criar uma nova migração SQL que adiciona todos os elementos faltantes.
-
----
-
-## Migração SQL a ser Criada
-
-### 1. Colunas em `integrations_settings`
+Executar `DELETE` para remover permanentemente os registros de líder:
 
 ```sql
-ALTER TABLE integrations_settings 
-ADD COLUMN IF NOT EXISTS verification_method TEXT DEFAULT 'link',
-ADD COLUMN IF NOT EXISTS verification_wa_enabled BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS verification_wa_test_mode BOOLEAN DEFAULT true,
-ADD COLUMN IF NOT EXISTS verification_wa_whitelist JSONB DEFAULT '[]',
-ADD COLUMN IF NOT EXISTS verification_wa_keyword TEXT DEFAULT 'CONFIRMAR',
-ADD COLUMN IF NOT EXISTS verification_wa_zapi_phone TEXT;
-```
-
-### 2. Tabela `contact_verifications`
-
-```sql
-CREATE TABLE IF NOT EXISTS contact_verifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  contact_type TEXT NOT NULL,
-  contact_id UUID NOT NULL,
-  method TEXT NOT NULL,
-  token TEXT NOT NULL UNIQUE,
-  status TEXT DEFAULT 'pending',
-  phone TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  keyword_received_at TIMESTAMPTZ,
-  consent_question_sent_at TIMESTAMPTZ,
-  consent_received_at TIMESTAMPTZ,
-  verified_at TIMESTAMPTZ,
-  consent_text_version TEXT DEFAULT 'v1',
-  consent_channel TEXT,
-  consent_message_id TEXT
+DELETE FROM public.lideres 
+WHERE id IN (
+  'bbfc0d9a-46fb-470c-9e3c-d9b17465077f',
+  '0a4b04f7-a164-4db8-b9a7-76d293c21e78'
 );
-
--- Indices
-CREATE INDEX IF NOT EXISTS idx_verifications_phone_status 
-  ON contact_verifications(phone, status);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_verifications_active_per_contact 
-  ON contact_verifications(contact_type, contact_id) 
-  WHERE status IN ('pending', 'keyword_received', 'awaiting_consent');
-
--- RLS
-ALTER TABLE contact_verifications ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admin read access" ON contact_verifications
-  FOR SELECT USING (has_admin_access(auth.uid()));
 ```
 
-### 3. RPCs (Security Definer)
+### Passos
 
-Três funções para o fluxo seguro de verificação:
+1. Executar o comando DELETE usando a ferramenta de inserção/atualização de dados
+2. Confirmar que os registros foram removidos
+3. Testar se a lista de lideranças não exibe mais esses nomes
 
-- `create_whatsapp_verification`: Cria/reutiliza token de verificação
-- `process_verification_keyword`: Processa recebimento da keyword
-- `process_verification_consent`: Processa resposta "SIM"
+### Observação
 
----
-
-## Arquivo a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `supabase/migrations/[timestamp]_add_verification_schema.sql` | Migração completa com colunas, tabela e RPCs |
-
----
-
-## Após Migração
-
-Ao aplicar a migração, os types do Supabase serão atualizados automaticamente e o card de configuração funcionará corretamente.
+Não é necessário criar migração SQL pois esta é uma operação de **dados** (DELETE), não de esquema.
 
