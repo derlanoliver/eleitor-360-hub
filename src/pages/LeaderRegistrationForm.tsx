@@ -75,6 +75,7 @@ export default function LeaderRegistrationForm() {
   const [useWhatsAppVerification, setUseWhatsAppVerification] = useState(false);
   const [whatsAppKeyword, setWhatsAppKeyword] = useState<string>("CONFIRMAR");
   const [whatsAppPhone, setWhatsAppPhone] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
 
   // Buscar líder pelo affiliate_token
   const { data: leader, isLoading: leaderLoading, error: leaderError } = useQuery({
@@ -264,6 +265,7 @@ export default function LeaderRegistrationForm() {
           setUseWhatsAppVerification(true);
           setWhatsAppKeyword(verificationSettings?.verification_wa_keyword || "CONFIRMAR");
           setWhatsAppPhone(verificationSettings?.verification_wa_zapi_phone || null);
+          setVerificationCode(leaderResult.verification_code);
           
           // NÃO atualiza verification_sent_at ainda - será atualizado quando o user enviar a mensagem
         } else {
@@ -405,14 +407,19 @@ export default function LeaderRegistrationForm() {
                 {useWhatsAppVerification ? (
                   <>
                     <p className="text-muted-foreground mb-4">
-                      Para confirmar seu cadastro, envie a palavra <strong>{whatsAppKeyword}</strong> pelo WhatsApp clicando no botão abaixo.
+                      Para confirmar seu cadastro, envie <strong>{whatsAppKeyword} {verificationCode}</strong> pelo WhatsApp clicando no botão abaixo.
                     </p>
                     <Button
                       className="w-full bg-green-600 hover:bg-green-700 text-white mb-4"
                       onClick={() => {
                         const phone = whatsAppPhone?.replace(/\D/g, '') || '5561981894692';
-                        const message = encodeURIComponent(whatsAppKeyword);
-                        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                        const message = encodeURIComponent(`${whatsAppKeyword} ${verificationCode}`);
+                        // Detectar se é desktop ou mobile para usar URL correta
+                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                        const baseUrl = isMobile 
+                          ? `https://wa.me/${phone}?text=${message}`
+                          : `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
+                        window.open(baseUrl, '_blank');
                       }}
                     >
                       <MessageCircle className="h-5 w-5 mr-2" />
@@ -420,7 +427,7 @@ export default function LeaderRegistrationForm() {
                     </Button>
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
                       <p className="font-semibold mb-1">📱 Clique no botão acima!</p>
-                      <p>Após enviar "{whatsAppKeyword}", você receberá automaticamente seu link de indicação.</p>
+                      <p>Após enviar "{whatsAppKeyword} {verificationCode}", você receberá automaticamente seu link de indicação.</p>
                     </div>
                   </>
                 ) : (

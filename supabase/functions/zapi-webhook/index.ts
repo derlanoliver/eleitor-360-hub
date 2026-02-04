@@ -322,6 +322,104 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
   console.log(`[zapi-webhook] Original message: "${message}"`);
   console.log(`[zapi-webhook] Cleaned message: "${cleanMessage}"`);
   
+  // Check for CONFIRMAR [TOKEN] command (WhatsApp consent verification flow)
+  const confirmMatch = cleanMessage.match(/^CONFIRMAR\s+([A-Z0-9]{5,6})$/);
+  if (confirmMatch) {
+    const token = confirmMatch[1];
+    console.log(`[zapi-webhook] Detected CONFIRMAR command with token: ${token}`);
+    
+    // Call RPC to process verification keyword
+    const { data: verifyResult, error: verifyError } = await supabase.rpc("process_verification_keyword", {
+      _token: token,
+      _phone: normalizedPhone
+    });
+    
+    console.log(`[zapi-webhook] process_verification_keyword result:`, verifyResult, verifyError);
+    
+    if (verifyResult?.[0]?.success) {
+      // Ask for consent
+      const consentMessage = `Olá ${verifyResult[0].contact_name}! 👋\n\nPara confirmar seu cadastro como apoiador(a), responda *SIM* para esta mensagem.`;
+      await sendWhatsAppMessage(supabase, normalizedPhone, consentMessage, typedSettings);
+      
+      // Record incoming message
+      await supabase.from("whatsapp_messages").insert({
+        message_id: messageId,
+        phone: phone,
+        message: message,
+        direction: "incoming",
+        status: "received",
+        contact_id: contact?.id || null,
+        sent_at: new Date().toISOString(),
+      });
+      
+      return;
+    } else {
+      // Token not found or already verified - send error message
+      const errorMessage = `Não encontramos um cadastro pendente com esse código. Verifique se digitou corretamente ou entre em contato conosco.`;
+      await sendWhatsAppMessage(supabase, normalizedPhone, errorMessage, typedSettings);
+      return;
+    }
+  }
+  
+  // Check for SIM response (consent confirmation)
+  if (cleanMessage === "SIM") {
+    console.log(`[zapi-webhook] Detected SIM consent response from ${normalizedPhone}`);
+    
+    // Call RPC to process consent
+    const { data: consentResult, error: consentError } = await supabase.rpc("process_verification_consent", {
+      _phone: normalizedPhone
+    });
+    
+    console.log(`[zapi-webhook] process_verification_consent result:`, consentResult, consentError);
+    
+    if (consentResult?.[0]?.success) {
+      // Send confirmation message
+      const confirmMessage = `✅ Cadastro confirmado com sucesso!\n\nVocê receberá seu link de indicação em instantes.`;
+      await sendWhatsAppMessage(supabase, normalizedPhone, confirmMessage, typedSettings);
+      
+      // Call edge function to send affiliate links
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      
+      try {
+        console.log(`[zapi-webhook] Calling send-leader-affiliate-links for ${consentResult[0].contact_type} ${consentResult[0].contact_id}`);
+        
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/send-leader-affiliate-links`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              leader_id: consentResult[0].contact_id,
+            }),
+          }
+        );
+        
+        const result = await response.json();
+        console.log(`[zapi-webhook] send-leader-affiliate-links result:`, result);
+      } catch (affiliateError) {
+        console.error(`[zapi-webhook] Error sending affiliate links:`, affiliateError);
+      }
+      
+      // Record incoming message
+      await supabase.from("whatsapp_messages").insert({
+        message_id: messageId,
+        phone: phone,
+        message: message,
+        direction: "incoming",
+        status: "received",
+        contact_id: contact?.id || null,
+        sent_at: new Date().toISOString(),
+      });
+      
+      return;
+    }
+    // If no pending consent found, continue to chatbot
+  }
+  
   const codeMatch = cleanMessage.match(/^[A-Z0-9]{5,6}$/);
   let shouldCallChatbot = false;
   
@@ -884,6 +982,43 @@ async function sendResubscribeConfirmation(supabase: any, phone: string, nome: s
     console.log("[zapi-webhook] Sent re-subscribe confirmation");
   } catch (err) {
     console.error("[zapi-webhook] Error sending re-subscribe confirmation:", err);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendWhatsAppMessage(supabase: any, phone: string, message: string, settings: IntegrationSettings | null) {
+  if (!settings?.zapi_enabled || !settings?.zapi_instance_id || !settings?.zapi_token) {
+    console.log("[zapi-webhook] Z-API not configured, cannot send message");
+    return;
+  }
+  
+  try {
+    const zapiUrl = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
+    const response = await fetch(zapiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone.replace("+", ""),
+        message: message,
+      }),
+    });
+    
+    const result = await response.json();
+    console.log(`[zapi-webhook] Sent message to ${phone}:`, result);
+    
+    // Record in whatsapp_messages
+    await supabase.from("whatsapp_messages").insert({
+      message_id: result.messageId || result.zapiMessageId,
+      phone: phone,
+      message: message,
+      direction: "outgoing",
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    });
+    
+    return result;
+  } catch (err) {
+    console.error("[zapi-webhook] Error sending message:", err);
   }
 }
 
