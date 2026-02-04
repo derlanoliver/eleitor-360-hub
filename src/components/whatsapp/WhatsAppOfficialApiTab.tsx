@@ -46,6 +46,20 @@ interface LeaderWithTreeCount {
   unverified_in_tree: number;
 }
 
+interface MetaTemplateComponent {
+  type: 'header' | 'body' | 'button';
+  parameters?: Array<{
+    type: 'text';
+    text: string;
+  }>;
+}
+
+interface MetaTemplatePayload {
+  name: string;
+  language: { code: string };
+  components?: MetaTemplateComponent[];
+}
+
 export function WhatsAppOfficialApiTab() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('bemvindo1');
   const [recipientType, setRecipientType] = useState<RecipientType>('individual');
@@ -56,13 +70,13 @@ export function WhatsAppOfficialApiTab() {
   const [sentCount, setSentCount] = useState(0);
   const [totalToSend, setTotalToSend] = useState(0);
 
-  // Check if SMSBarato is configured
+  // Check if Meta Cloud API is configured
   const { data: settings, isLoading: isLoadingSettings } = useQuery({
-    queryKey: ["integrations_settings_smsbarato"],
+    queryKey: ["integrations_settings_meta_cloud_official"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("integrations_settings")
-        .select("smsbarato_api_key, smsbarato_enabled")
+        .select("meta_cloud_enabled, meta_cloud_phone_number_id, meta_cloud_test_mode, meta_cloud_whitelist")
         .limit(1)
         .single();
       if (error) throw error;
@@ -148,6 +162,44 @@ export function WhatsAppOfficialApiTab() {
 
   const getRandomDelay = () => Math.floor(Math.random() * 3000) + 3000; // 3-6 seconds
 
+  // Build Meta template payload based on template type
+  const buildMetaTemplate = (
+    templateType: TemplateType,
+    recipient: Leader
+  ): MetaTemplatePayload => {
+    if (templateType === 'bemvindo1') {
+      return {
+        name: 'bemvindo1',
+        language: { code: 'pt_BR' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: recipient.nome_completo.split(' ')[0] },
+              { type: 'text', text: recipient.affiliate_token || '' },
+            ],
+          },
+        ],
+      };
+    } else {
+      // confirmar1
+      return {
+        name: 'confirmar1',
+        language: { code: 'pt_BR' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: recipient.nome_completo.split(' ')[0] },
+              { type: 'text', text: 'sua conta' },
+              { type: 'text', text: recipient.verification_code || '' },
+            ],
+          },
+        ],
+      };
+    }
+  };
+
   const handleSend = async () => {
     if (!selectedLeader) {
       toast.error("Selecione um líder");
@@ -189,28 +241,16 @@ export function WhatsAppOfficialApiTab() {
         const recipient = recipients[i];
 
         try {
-          const payload: {
-            leaderId: string;
-            template: TemplateType;
-            nome: string;
-            telefone: string;
-            affiliateToken?: string;
-            verificationCode?: string;
-          } = {
-            leaderId: recipient.id,
-            template: selectedTemplate,
-            nome: recipient.nome_completo.split(' ')[0], // First name only
-            telefone: recipient.telefone,
-          };
+          // Build Meta template payload
+          const metaTemplate = buildMetaTemplate(selectedTemplate, recipient);
 
-          if (selectedTemplate === 'bemvindo1') {
-            payload.affiliateToken = recipient.affiliate_token;
-          } else {
-            payload.verificationCode = recipient.verification_code;
-          }
-
-          const { data, error } = await supabase.functions.invoke('send-whatsapp-official', {
-            body: payload
+          const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+            body: {
+              phone: recipient.telefone,
+              message: `[Template: ${selectedTemplate}]`, // Fallback for logging
+              metaTemplate,
+              providerOverride: 'meta_cloud', // Force Meta Cloud API
+            }
           });
 
           if (error || !data?.success) {
@@ -255,7 +295,7 @@ export function WhatsAppOfficialApiTab() {
     }
   };
 
-  const isConfigured = settings?.smsbarato_enabled && settings?.smsbarato_api_key;
+  const isConfigured = settings?.meta_cloud_enabled && settings?.meta_cloud_phone_number_id;
   const canSend = isConfigured && selectedLeader && !isSending;
 
   if (isLoadingSettings) {
@@ -271,7 +311,7 @@ export function WhatsAppOfficialApiTab() {
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          A integração SMSBarato não está configurada. Acesse Configurações &gt; Integrações para configurar.
+          A integração WhatsApp Cloud API (Meta) não está configurada. Acesse Configurações &gt; Integrações para configurar o Phone Number ID.
         </AlertDescription>
       </Alert>
     );
@@ -285,6 +325,11 @@ export function WhatsAppOfficialApiTab() {
         <AlertDescription>
           Envie mensagens via API Oficial do WhatsApp (Meta) usando templates pré-aprovados. 
           Esta opção é mais confiável e tem menor risco de bloqueio.
+          {settings?.meta_cloud_test_mode && (
+            <span className="block mt-1 text-amber-600 dark:text-amber-400 font-medium">
+              ⚠️ Modo Teste ativo: apenas números na whitelist receberão mensagens.
+            </span>
+          )}
         </AlertDescription>
       </Alert>
 
@@ -504,6 +549,9 @@ export function WhatsAppOfficialApiTab() {
                   </p>
                   <p>
                     <strong>Template:</strong> {selectedTemplate === 'bemvindo1' ? 'Boas-Vindas' : 'Verificação'}
+                  </p>
+                  <p>
+                    <strong>Provedor:</strong> Meta Cloud API (Oficial)
                   </p>
                 </div>
               ) : (
