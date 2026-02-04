@@ -1,35 +1,48 @@
 
 
-## Excluir Líder David Sveci da tabela `lideres`
+## Excluir Líder David Sveci
 
-### Situação Identificada
+### Registro Identificado
 
-O usuário "David Sveci" foi excluído do **Supabase Auth** (tabela `profiles`/`user_roles`), porém existe um registro separado na tabela **`lideres`** que não foi removido:
+Encontrado na tabela `lideres`:
 
-| ID | Nome | Email | Telefone |
-|----|------|-------|----------|
-| `bbfc0d9a-46fb-470c-9e3c-d9b17465077f` | David Sveci | davi_2d@hotmail.com | 5527999161738 |
-| `0a4b04f7-a164-4db8-b9a7-76d293c21e78` | David Teste Sveci | teste@teste1.com.br | +5527999887788 |
+| Campo | Valor |
+|-------|-------|
+| ID | `6245439c-f739-4803-9dd6-1e7f462a15ad` |
+| Nome | David Sveci |
+| Email | davi_2d@hotmail.com |
+| Telefone | +5527999161738 |
 
-### Ação Necessária
+### Plano de Execução
 
-Executar `DELETE` para remover permanentemente os registros de líder:
+1. **Anular referências** em tabelas relacionadas para evitar erros de chave estrangeira:
+   - `event_registrations.leader_id`
+   - `event_registrations.referred_by_leader_id`
+   - `email_logs.leader_id`
+   - `scheduled_messages.leader_id`
+   - `office_visits.leader_id`
+   - `survey_responses.leader_id`
+   - `survey_responses.referred_by_leader_id`
+
+2. **Excluir o registro** da tabela `lideres`
+
+3. **Verificar** que o registro foi removido
+
+---
+
+### Detalhes Técnicos
 
 ```sql
-DELETE FROM public.lideres 
-WHERE id IN (
-  'bbfc0d9a-46fb-470c-9e3c-d9b17465077f',
-  '0a4b04f7-a164-4db8-b9a7-76d293c21e78'
-);
+-- Passo 1: Anular referências em tabelas relacionadas
+UPDATE event_registrations SET leader_id = NULL WHERE leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE event_registrations SET referred_by_leader_id = NULL WHERE referred_by_leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE email_logs SET leader_id = NULL WHERE leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE scheduled_messages SET leader_id = NULL WHERE leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE office_visits SET leader_id = NULL WHERE leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE survey_responses SET leader_id = NULL WHERE leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+UPDATE survey_responses SET referred_by_leader_id = NULL WHERE referred_by_leader_id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
+
+-- Passo 2: Excluir o líder
+DELETE FROM lideres WHERE id = '6245439c-f739-4803-9dd6-1e7f462a15ad';
 ```
-
-### Passos
-
-1. Executar o comando DELETE usando a ferramenta de inserção/atualização de dados
-2. Confirmar que os registros foram removidos
-3. Testar se a lista de lideranças não exibe mais esses nomes
-
-### Observação
-
-Não é necessário criar migração SQL pois esta é uma operação de **dados** (DELETE), não de esquema.
 
