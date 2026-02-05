@@ -106,12 +106,15 @@ serve(async (req) => {
                 .select('verification_wa_keyword, verification_wa_enabled')
                 .single();
 
+              let handledAsVerification = false;
+
               if (settings?.verification_wa_enabled) {
                 const keyword = settings.verification_wa_keyword?.toUpperCase() || 'CONFIRMAR';
                 const normalizedMessage = messageText.toUpperCase().trim();
 
                 if (normalizedMessage === keyword || normalizedMessage.startsWith(keyword)) {
                   console.log('[Meta Webhook] Verification keyword detected from:', from);
+                  handledAsVerification = true;
                   
                   // Find pending verification for this phone
                   const normalizedPhone = from.replace(/\D/g, '');
@@ -158,6 +161,33 @@ serve(async (req) => {
 
                     console.log('[Meta Webhook] ✅ Verification completed for:', from);
                   }
+                }
+              }
+
+              // If not a verification message, try the chatbot
+              if (!handledAsVerification && messageText.trim()) {
+                console.log('[Meta Webhook] Forwarding to chatbot for:', from);
+                try {
+                  const chatbotResponse = await fetch(
+                    `${supabaseUrl}/functions/v1/whatsapp-chatbot`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseKey}`,
+                      },
+                      body: JSON.stringify({
+                        phone: from,
+                        message: messageText,
+                        messageId: messageId,
+                        provider: 'meta_cloud', // Signal to use Meta Cloud API for response
+                      }),
+                    }
+                  );
+                  const chatbotResult = await chatbotResponse.json();
+                  console.log('[Meta Webhook] Chatbot response:', chatbotResult);
+                } catch (chatbotError) {
+                  console.error('[Meta Webhook] Chatbot error:', chatbotError);
                 }
               }
             }
