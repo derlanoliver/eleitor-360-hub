@@ -370,9 +370,13 @@ export function WhatsAppHistoryTab() {
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         )}
                         <div className="flex flex-col">
-                          <span className="font-medium">{formatPhone(group.phone)}</span>
-                          {group.contactName && (
-                            <span className="text-sm text-muted-foreground">{group.contactName}</span>
+                          {group.contactName ? (
+                            <>
+                              <span className="font-medium">{group.contactName}</span>
+                              <span className="text-sm text-muted-foreground">{formatPhone(group.phone)}</span>
+                            </>
+                          ) : (
+                            <span className="font-medium">{formatPhone(group.phone)}</span>
                           )}
                         </div>
                       </div>
