@@ -116,3 +116,9 @@ verify_jwt = false
 
 [functions.schedule-region-material]
 verify_jwt = false
+
+[functions.meta-whatsapp-webhook]
+verify_jwt = false
+
+[functions.test-meta-cloud-connection]
+verify_jwt = false
