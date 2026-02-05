@@ -56,6 +56,7 @@ import {
 
 interface GroupedMessages {
   phone: string;
+  normalizedPhone: string;
   contactName: string | null;
   messages: WhatsAppMessage[];
   latestMessageAt: string;
@@ -75,25 +76,42 @@ export function WhatsAppHistoryTab() {
   const { data: messages, isLoading: messagesLoading, refetch } = useWhatsAppMessages(filters);
   const { data: metrics, isLoading: metricsLoading } = useWhatsAppMetrics();
 
-  // Group messages by phone number
+  // Normalize phone number to last 8 digits for grouping (handles 9th digit inconsistency)
+  const normalizePhoneForGrouping = (phone: string): string => {
+    const cleaned = phone.replace(/\D/g, "");
+    return cleaned.slice(-8);
+  };
+
+  // Group messages by normalized phone number
   const groupedMessages = useMemo(() => {
     if (!messages) return [];
 
     const groups: Record<string, GroupedMessages> = {};
 
     messages.forEach((msg) => {
-      if (!groups[msg.phone]) {
-        groups[msg.phone] = {
-          phone: msg.phone,
+      const normalizedPhone = normalizePhoneForGrouping(msg.phone);
+      
+      if (!groups[normalizedPhone]) {
+        groups[normalizedPhone] = {
+          phone: msg.phone, // Keep original phone for display
+          normalizedPhone: normalizedPhone,
           contactName: msg.contact?.nome || null,
           messages: [],
           latestMessageAt: msg.created_at,
         };
       }
-      groups[msg.phone].messages.push(msg);
+      groups[normalizedPhone].messages.push(msg);
+      
+      // Update contact name if we find one (prefer non-null)
+      if (!groups[normalizedPhone].contactName && msg.contact?.nome) {
+        groups[normalizedPhone].contactName = msg.contact.nome;
+      }
+      
       // Update latest message time if this message is newer
-      if (new Date(msg.created_at) > new Date(groups[msg.phone].latestMessageAt)) {
-        groups[msg.phone].latestMessageAt = msg.created_at;
+      if (new Date(msg.created_at) > new Date(groups[normalizedPhone].latestMessageAt)) {
+        groups[normalizedPhone].latestMessageAt = msg.created_at;
+        // Also update the display phone to the most recent one
+        groups[normalizedPhone].phone = msg.phone;
       }
     });
 
@@ -142,7 +160,7 @@ export function WhatsAppHistoryTab() {
   };
 
   const expandAllGroups = () => {
-    setExpandedGroups(new Set(groupedMessages.map(g => g.phone)));
+    setExpandedGroups(new Set(groupedMessages.map(g => g.normalizedPhone)));
   };
 
   const collapseAllGroups = () => {
@@ -339,14 +357,14 @@ export function WhatsAppHistoryTab() {
             <div className="divide-y">
               {groupedMessages.map((group) => (
                 <Collapsible
-                  key={group.phone}
-                  open={expandedGroups.has(group.phone)}
-                  onOpenChange={() => toggleGroup(group.phone)}
+                  key={group.normalizedPhone}
+                  open={expandedGroups.has(group.normalizedPhone)}
+                  onOpenChange={() => toggleGroup(group.normalizedPhone)}
                 >
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer">
                       <div className="flex items-center gap-3">
-                        {expandedGroups.has(group.phone) ? (
+                        {expandedGroups.has(group.normalizedPhone) ? (
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         ) : (
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
