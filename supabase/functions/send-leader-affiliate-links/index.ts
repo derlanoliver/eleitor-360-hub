@@ -217,9 +217,11 @@ async function processLeader(
   let whatsAppSent = skipWhatsApp;
 
   // STEP 1: If WhatsApp verification → send WhatsApp (not SMS)
+  // Use bypassAutoCheck=true to ensure the message is sent even if wa_auto_lideranca_enabled is false
+  // This is because the channel of delivery should match the channel of verification
   if (isWhatsAppVerification && !skipWhatsApp && leader.telefone) {
     try {
-      console.log(`[processLeader] Sending WhatsApp to ${leader.nome_completo} (WhatsApp verification flow)`);
+      console.log(`[processLeader] Sending WhatsApp to ${leader.nome_completo} (WhatsApp verification flow, bypassing auto check)`);
       const whatsAppResponse = await supabase.functions.invoke("send-whatsapp", {
         body: {
           phone: leader.telefone,
@@ -228,6 +230,7 @@ async function processLeader(
             nome: leader.nome_completo,
             link_indicacao: affiliateLink,
           },
+          bypassAutoCheck: true, // Always send via WhatsApp when verification was via WhatsApp
         },
       });
 
