@@ -53,6 +53,7 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
           contact:office_contacts(nome, telefone_norm),
           visit:office_visits(protocolo)
         `)
+        .order("phone", { ascending: true })
         .order("created_at", { ascending: false });
 
       // Filter by direction
