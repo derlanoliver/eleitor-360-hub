@@ -46,33 +46,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Batch processing: find verified leaders from last 24 HOURS without SMS/Email/WhatsApp sent
-    // IMPORTANT: Only process recent verifications to avoid re-sending to old verified leaders
-    const twentyFourHoursAgo = new Date();
-    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-
-    const { data: recentLeaders, error: leadersError } = await supabase
-      .from("lideres")
-      .select("id, nome_completo, telefone, email, affiliate_token, verification_method, verified_at")
-      .eq("is_active", true)
-      .eq("is_verified", true)
-      .not("affiliate_token", "is", null)
-      .gte("verified_at", twentyFourHoursAgo.toISOString())
-      .order("verified_at", { ascending: false });
-
-    if (leadersError) {
-      console.error("[send-leader-affiliate-links] Error fetching leaders:", leadersError);
-      throw new Error(leadersError.message);
-    }
-
-    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders (last 24 hours)`);
-
-    if (!recentLeaders || recentLeaders.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: "No pending leaders", processed: 0 }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Batch processing: DESABILITADO temporariamente para evitar reenvios a cada 5 minutos.
+    // O envio deve ocorrer apenas no fluxo transacional (passando leader_id).
+    // Se você quiser reativar o batch com segurança, precisamos persistir um marcador de envio por canal.
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Batch processing disabled (use leader_id)",
+        processed: 0,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
 
     const results = [];
     let processedCount = 0;
