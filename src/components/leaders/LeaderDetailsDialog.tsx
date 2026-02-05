@@ -287,15 +287,20 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         <UserCheck className="h-4 w-4" />
                         <span>Verificado manualmente por um administrador</span>
                       </>
-                    ) : leader.verification_method === 'whatsapp' ? (
+                    ) : leader.verification_method === 'whatsapp' || leader.verification_method === 'whatsapp_consent' ? (
                       <>
                         <MessageSquare className="h-4 w-4" />
                         <span>Verificado automaticamente via WhatsApp</span>
                       </>
-                    ) : (
+                    ) : leader.verification_method === 'link' || leader.verification_method === 'sms' ? (
                       <>
                         <Link className="h-4 w-4" />
                         <span>Verificado automaticamente via link (SMS)</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Verificado automaticamente</span>
                       </>
                     )}
                   </div>
