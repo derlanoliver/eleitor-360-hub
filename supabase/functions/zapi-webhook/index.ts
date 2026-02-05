@@ -329,6 +329,17 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     const token = confirmMatch[1];
     console.log(`[zapi-webhook] Detected CONFIRMAR command with token: ${token}`);
     
+    // Record incoming message FIRST (before any processing)
+    await supabase.from("whatsapp_messages").insert({
+      message_id: messageId,
+      phone: phone,
+      message: message,
+      direction: "incoming",
+      status: "received",
+      contact_id: contact?.id || null,
+      sent_at: new Date().toISOString(),
+    });
+    
     // Call RPC to process verification keyword
     const { data: verifyResult, error: verifyError } = await supabase.rpc("process_verification_keyword", {
       _token: token,
@@ -340,18 +351,24 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     if (verifyResult?.[0]?.success) {
       // Ask for consent
       const consentMessage = `Olá ${verifyResult[0].contact_name}! 👋\n\nPara confirmar seu cadastro como apoiador(a), responda *SIM* para esta mensagem.`;
-      await sendWhatsAppMessage(supabase, normalizedPhone, consentMessage, typedSettings);
+      console.log(`[zapi-webhook] Sending consent question to ${normalizedPhone}`);
       
-      // Record incoming message
-      await supabase.from("whatsapp_messages").insert({
-        message_id: messageId,
-        phone: phone,
-        message: message,
-        direction: "incoming",
-        status: "received",
-        contact_id: contact?.id || null,
-        sent_at: new Date().toISOString(),
-      });
+      try {
+        const sendResult = await sendWhatsAppMessage(supabase, normalizedPhone, consentMessage, typedSettings);
+        console.log(`[zapi-webhook] Consent message send result:`, sendResult);
+        
+        // Update contact_verifications to record consent question was sent
+        const { error: updateError } = await supabase
+          .from("contact_verifications")
+          .update({ consent_question_sent_at: new Date().toISOString() })
+          .eq("token", token);
+        
+        if (updateError) {
+          console.error(`[zapi-webhook] Error updating consent_question_sent_at:`, updateError);
+        }
+      } catch (sendError) {
+        console.error(`[zapi-webhook] Failed to send consent message to ${normalizedPhone}:`, sendError);
+      }
       
       return;
     } else {
