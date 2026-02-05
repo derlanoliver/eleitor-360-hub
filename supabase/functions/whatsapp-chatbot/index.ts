@@ -47,7 +47,6 @@ interface ChatbotRequest {
   phone: string;
   message: string;
   messageId?: string;
-  provider?: 'zapi' | 'meta_cloud'; // Which provider to use for sending response
 }
 
 // Dynamic function implementations
@@ -311,9 +310,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: ChatbotRequest = await req.json();
-    const { phone, message, messageId, provider } = body;
+    const { phone, message, messageId } = body;
 
-    console.log(`[whatsapp-chatbot] Received: phone=${phone}, message=${message.substring(0, 50)}..., provider=${provider || 'auto'}`);
+    console.log(`[whatsapp-chatbot] Received: phone=${phone}, message=${message.substring(0, 50)}...`);
 
     // Check chatbot configuration
     const { data: config } = await supabase
@@ -456,37 +455,14 @@ Deno.serve(async (req) => {
         `Olá ${leader.nome_completo.split(" ")[0]}! Digite AJUDA para ver os comandos disponíveis.`;
     }
 
-    // Send response - decide provider
+    // Send response via Z-API
     const { data: integrationSettings } = await supabase
       .from("integrations_settings")
-      .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled, meta_cloud_enabled, meta_cloud_phone_number_id, meta_cloud_api_version, whatsapp_provider_active")
+      .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled")
       .limit(1)
       .single();
 
-    // Determine which provider to use: explicit provider param > active provider setting > fallback
-    const useMetaCloud = provider === 'meta_cloud' || 
-      (provider !== 'zapi' && integrationSettings?.whatsapp_provider_active === 'meta_cloud');
-
-    let messageSent = false;
-
-    if (useMetaCloud && integrationSettings?.meta_cloud_enabled && integrationSettings.meta_cloud_phone_number_id) {
-      // Send via Meta Cloud API
-      const metaAccessToken = Deno.env.get("META_WA_ACCESS_TOKEN");
-      if (metaAccessToken) {
-        messageSent = await sendWhatsAppMessageMetaCloud(
-          integrationSettings.meta_cloud_phone_number_id,
-          integrationSettings.meta_cloud_api_version || "v20.0",
-          metaAccessToken,
-          normalizedPhone,
-          responseMessage
-        );
-      } else {
-        console.log("[whatsapp-chatbot] META_WA_ACCESS_TOKEN not configured");
-      }
-    }
-
-    // Fallback to Z-API if Meta Cloud failed or not configured
-    if (!messageSent && integrationSettings?.zapi_enabled && integrationSettings.zapi_instance_id && integrationSettings.zapi_token) {
+    if (integrationSettings?.zapi_enabled && integrationSettings.zapi_instance_id && integrationSettings.zapi_token) {
       await sendWhatsAppMessage(
         integrationSettings.zapi_instance_id,
         integrationSettings.zapi_token,
@@ -494,11 +470,8 @@ Deno.serve(async (req) => {
         normalizedPhone,
         responseMessage
       );
-      messageSent = true;
-    }
-
-    if (!messageSent) {
-      console.log("[whatsapp-chatbot] No WhatsApp provider configured, skipping send");
+    } else {
+      console.log("[whatsapp-chatbot] Z-API not configured, skipping send");
     }
 
     // Log the interaction
@@ -555,7 +528,7 @@ async function sendWhatsAppMessage(
   clientToken: string | null,
   phone: string,
   message: string
-): Promise<boolean> {
+): Promise<void> {
   const cleanPhone = phone.replace(/[^0-9]/g, "");
   const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
   
@@ -582,61 +555,11 @@ async function sendWhatsAppMessage(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[whatsapp-chatbot] Z-API error:", errorText);
-      return false;
     } else {
       console.log("[whatsapp-chatbot] Message sent successfully via Z-API");
-      return true;
     }
   } catch (err) {
     console.error("[whatsapp-chatbot] Error sending via Z-API:", err);
-    return false;
-  }
-}
-
-// Send WhatsApp message via Meta Cloud API
-async function sendWhatsAppMessageMetaCloud(
-  phoneNumberId: string,
-  apiVersion: string,
-  accessToken: string,
-  phone: string,
-  message: string
-): Promise<boolean> {
-  // Format phone to E.164 without +
-  let cleanPhone = phone.replace(/[^0-9]/g, "");
-  if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
-    cleanPhone = "55" + cleanPhone;
-  }
-
-  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
-  
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: cleanPhone,
-        type: "text",
-        text: { body: message },
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[whatsapp-chatbot] Meta Cloud API error:", errorText);
-      return false;
-    }
-    
-    const result = await response.json();
-    console.log("[whatsapp-chatbot] Message sent successfully via Meta Cloud API:", result.messages?.[0]?.id);
-    return true;
-  } catch (err) {
-    console.error("[whatsapp-chatbot] Error sending via Meta Cloud:", err);
-    return false;
   }
 }
 

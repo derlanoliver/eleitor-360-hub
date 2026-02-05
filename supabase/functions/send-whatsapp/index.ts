@@ -5,23 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Meta Template structures for Cloud API
-interface MetaTemplateComponent {
-  type: 'header' | 'body' | 'button';
-  sub_type?: string;
-  index?: number;
-  parameters?: Array<{
-    type: 'text' | 'currency' | 'date_time' | 'image' | 'document' | 'video';
-    text?: string;
-  }>;
-}
-
-interface MetaTemplatePayload {
-  name: string;
-  language: { code: string };
-  components?: MetaTemplateComponent[];
-}
-
 interface SendWhatsAppRequest {
   phone: string;
   message?: string;
@@ -32,7 +15,6 @@ interface SendWhatsAppRequest {
   imageUrl?: string;
   providerOverride?: 'zapi' | 'meta_cloud'; // Admin override
   clientMessageId?: string; // For idempotency
-  metaTemplate?: MetaTemplatePayload; // For direct template sending via Meta Cloud API
 }
 
 // Replace template variables {{var}} with actual values
@@ -239,8 +221,7 @@ async function sendViaZapi(
 async function sendViaMetaCloud(
   settings: IntegrationSettings,
   phone: string,
-  message: string,
-  metaTemplate?: MetaTemplatePayload
+  message: string
 ): Promise<SendResult> {
   const accessToken = Deno.env.get("META_WA_ACCESS_TOKEN");
   
@@ -270,39 +251,19 @@ async function sendViaMetaCloud(
     formattedPhone = "55" + formattedPhone;
   }
 
-  // Build request body - template or text
-  let body: object;
-
-  if (metaTemplate) {
-    // Send as structured template (for initiating conversations)
-    body = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: formattedPhone,
-      type: "template",
-      template: metaTemplate,
-    };
-    console.log(`[send-whatsapp] Sending Meta template: ${metaTemplate.name}`);
-  } else {
-    // Send as free-form text (only works within 24h window)
-    body = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: formattedPhone,
-      type: "text",
-      text: { body: message },
-    };
-  }
-
-  console.log("[send-whatsapp] Meta Cloud API request body:", JSON.stringify(body));
-
   const response = await fetch(graphUrl, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: formattedPhone,
+      type: "text",
+      text: { body: message },
+    }),
   });
 
   const data = await response.json();
@@ -350,7 +311,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestBody: SendWhatsAppRequest = await req.json();
-    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl, providerOverride, clientMessageId, metaTemplate } = requestBody;
+    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl, providerOverride, clientMessageId } = requestBody;
 
     console.log(`[send-whatsapp] REQUEST - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}..., providerOverride: ${providerOverride}`);
 
@@ -561,7 +522,7 @@ Deno.serve(async (req) => {
     let result: SendResult;
     
     if (activeProvider === 'meta_cloud') {
-      result = await sendViaMetaCloud(typedSettings, cleanPhone, finalMessage, metaTemplate);
+      result = await sendViaMetaCloud(typedSettings, cleanPhone, finalMessage);
       
       // Fallback to Z-API if Meta Cloud fails and fallback is enabled
       if (!result.success && typedSettings.meta_cloud_fallback_enabled && typedSettings.zapi_enabled) {
