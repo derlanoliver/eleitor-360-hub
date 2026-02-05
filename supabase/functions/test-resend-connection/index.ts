@@ -23,30 +23,49 @@ serve(async (req) => {
 
     console.log('Testing Resend connection...');
     
-    const resend = new Resend(apiKey);
-    
-    // Test the API key by fetching domains (doesn't send any email)
-    const { data, error } = await resend.domains.list();
+    // Test the API key by making a request to the Resend API
+    // We'll try to get API keys info (lightweight endpoint)
+    const response = await fetch('https://api.resend.com/api-keys', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-    if (error) {
-      console.error('Resend API error:', error);
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Check if it's a permission error (key is valid but restricted)
+      if (response.status === 403 || (data.message && data.message.includes('restricted'))) {
+        console.log('Resend API key is valid but restricted - connection successful');
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            connected: true,
+            message: 'API Key válida (restrita para envio de emails)'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.error('Resend API error:', data);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: error.message || 'Erro ao conectar com Resend',
+          error: data.message || 'API Key inválida',
           connected: false 
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Resend connection successful, domains:', data);
+    console.log('Resend connection successful');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         connected: true,
-        domains: (data as { data?: unknown[] })?.data || [],
         message: 'Conexão com Resend estabelecida com sucesso'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
