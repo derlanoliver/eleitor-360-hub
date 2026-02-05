@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -11,6 +11,9 @@ import {
   Filter,
   Eye,
   RefreshCw,
+  User,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +48,18 @@ import {
 import { MessageStatusBadge, DirectionBadge } from "@/components/whatsapp/MessageStatusBadge";
 import { MessageDetailsDialog } from "@/components/whatsapp/MessageDetailsDialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
+interface GroupedMessages {
+  phone: string;
+  contactName: string | null;
+  messages: WhatsAppMessage[];
+  latestMessageAt: string;
+}
 
 export function WhatsAppHistoryTab() {
   const [filters, setFilters] = useState<WhatsAppFilters>({
@@ -55,9 +70,43 @@ export function WhatsAppHistoryTab() {
   });
   const [selectedMessage, setSelectedMessage] = useState<WhatsAppMessage | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const { data: messages, isLoading: messagesLoading, refetch } = useWhatsAppMessages(filters);
   const { data: metrics, isLoading: metricsLoading } = useWhatsAppMetrics();
+
+  // Group messages by phone number
+  const groupedMessages = useMemo(() => {
+    if (!messages) return [];
+
+    const groups: Record<string, GroupedMessages> = {};
+
+    messages.forEach((msg) => {
+      if (!groups[msg.phone]) {
+        groups[msg.phone] = {
+          phone: msg.phone,
+          contactName: msg.contact?.nome || null,
+          messages: [],
+          latestMessageAt: msg.created_at,
+        };
+      }
+      groups[msg.phone].messages.push(msg);
+      // Update latest message time if this message is newer
+      if (new Date(msg.created_at) > new Date(groups[msg.phone].latestMessageAt)) {
+        groups[msg.phone].latestMessageAt = msg.created_at;
+      }
+    });
+
+    // Sort groups by latest message (most recent first), then messages within each group by created_at descending
+    return Object.values(groups)
+      .sort((a, b) => new Date(b.latestMessageAt).getTime() - new Date(a.latestMessageAt).getTime())
+      .map(group => ({
+        ...group,
+        messages: group.messages.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
+      }));
+  }, [messages]);
 
   const formatPhone = (phone: string) => {
     const cleaned = phone.replace(/\D/g, "");
@@ -78,6 +127,26 @@ export function WhatsAppHistoryTab() {
   const handleViewDetails = (message: WhatsAppMessage) => {
     setSelectedMessage(message);
     setDetailsOpen(true);
+  };
+
+  const toggleGroup = (phone: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(phone)) {
+        newSet.delete(phone);
+      } else {
+        newSet.add(phone);
+      }
+      return newSet;
+    });
+  };
+
+  const expandAllGroups = () => {
+    setExpandedGroups(new Set(groupedMessages.map(g => g.phone)));
+  };
+
+  const collapseAllGroups = () => {
+    setExpandedGroups(new Set());
   };
 
   return (
@@ -139,7 +208,7 @@ export function WhatsAppHistoryTab() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <AlertTriangle className="h-4 w-4 text-destructive" />
               Com Erro
             </CardTitle>
           </CardHeader>
@@ -147,7 +216,7 @@ export function WhatsAppHistoryTab() {
             {metricsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-red-500">{metrics?.failed || 0}</div>
+              <div className="text-2xl font-bold text-destructive">{metrics?.failed || 0}</div>
             )}
           </CardContent>
         </Card>
@@ -236,102 +305,138 @@ export function WhatsAppHistoryTab() {
         </CardContent>
       </Card>
 
-      {/* Messages Table */}
+      {/* Messages Grouped by Recipient */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">
-            Mensagens
-            {messages && (
-              <Badge variant="secondary" className="ml-2">
-                {messages.length}
-              </Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Conversas
+              {groupedMessages.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {groupedMessages.length} destinatários • {messages?.length || 0} mensagens
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={expandAllGroups}>
+                Expandir todos
+              </Button>
+              <Button variant="outline" size="sm" onClick={collapseAllGroups}>
+                Recolher todos
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {messagesLoading ? (
             <div className="p-4 space-y-3">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : messages && messages.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Destinatário</TableHead>
-                    <TableHead className="hidden md:table-cell">Mensagem</TableHead>
-                    <TableHead>Contexto</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">Data/Hora</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {messages.map((message) => (
-                    <TableRow key={message.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell>
-                        <DirectionBadge direction={message.direction} />
-                      </TableCell>
-                      <TableCell>
+          ) : groupedMessages.length > 0 ? (
+            <div className="divide-y">
+              {groupedMessages.map((group) => (
+                <Collapsible
+                  key={group.phone}
+                  open={expandedGroups.has(group.phone)}
+                  onOpenChange={() => toggleGroup(group.phone)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        {expandedGroups.has(group.phone) ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
                         <div className="flex flex-col">
-                          <span className="font-medium text-sm">
-                            {formatPhone(message.phone)}
-                          </span>
-                          {message.contact && (
-                            <span className="text-xs text-muted-foreground">
-                              {message.contact.nome}
-                            </span>
+                          <span className="font-medium">{formatPhone(group.phone)}</span>
+                          {group.contactName && (
+                            <span className="text-sm text-muted-foreground">{group.contactName}</span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell max-w-[300px]">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-sm text-muted-foreground truncate block">
-                              {truncateMessage(message.message)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-[400px]">
-                            <p className="whitespace-pre-wrap">{message.message}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        {message.visit ? (
-                          <Badge variant="outline" className="text-xs">
-                            🏛️ {message.visit.protocolo}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <MessageStatusBadge
-                          status={message.status}
-                          direction={message.direction}
-                        />
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                        {format(new Date(message.created_at), "dd/MM HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewDetails(message)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary">{group.messages.length} msg</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Última: {format(new Date(group.latestMessageAt), "dd/MM HH:mm:ss", { locale: ptBR })}
+                        </span>
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-x-auto border-t bg-muted/20">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead className="hidden md:table-cell">Mensagem</TableHead>
+                            <TableHead>Contexto</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Data/Hora</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.messages.map((message) => (
+                            <TableRow key={message.id} className="cursor-pointer hover:bg-muted/50">
+                              <TableCell>
+                                <DirectionBadge direction={message.direction} />
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell max-w-[300px]">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-sm text-muted-foreground truncate block">
+                                      {truncateMessage(message.message)}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-[400px]">
+                                    <p className="whitespace-pre-wrap">{message.message}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TableCell>
+                              <TableCell>
+                                {message.visit ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    🏛️ {message.visit.protocolo}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <MessageStatusBadge
+                                  status={message.status}
+                                  direction={message.direction}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {format(new Date(message.created_at), "dd/MM HH:mm:ss", {
+                                  locale: ptBR,
+                                })}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewDetails(message);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
