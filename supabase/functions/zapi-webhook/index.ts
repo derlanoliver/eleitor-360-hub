@@ -540,6 +540,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
               phone: normalizedPhone,
               message: message,
               leaderId: leader.id,
+              provider: 'zapi', // Respond via Z-API when message came from Z-API
             }),
           }
         );
