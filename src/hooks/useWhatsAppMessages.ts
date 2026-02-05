@@ -92,9 +92,53 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
 
       if (error) throw error;
 
-      // Client-side search filter
       let filteredData = data as WhatsAppMessage[];
 
+      // For messages without contact info via contact_id, try to match by phone
+      // Collect unique phone numbers that need contact lookup
+      const phonesWithoutContact = [...new Set(
+        filteredData
+          .filter(msg => !msg.contact?.nome)
+          .map(msg => msg.phone.replace(/\D/g, "").slice(-8))
+      )];
+
+      if (phonesWithoutContact.length > 0) {
+        // Fetch all contacts and match by last 8 digits
+        const { data: contacts } = await supabase
+          .from("office_contacts")
+          .select("nome, telefone_norm");
+
+        if (contacts && contacts.length > 0) {
+          // Create a map of normalized phone (last 8 digits) to contact name
+          const phoneToContactMap = new Map<string, string>();
+          contacts.forEach(contact => {
+            const normalizedPhone = contact.telefone_norm.replace(/\D/g, "").slice(-8);
+            if (contact.nome) {
+              phoneToContactMap.set(normalizedPhone, contact.nome);
+            }
+          });
+
+          // Enrich messages with contact names
+          filteredData = filteredData.map(msg => {
+            if (!msg.contact?.nome) {
+              const msgPhoneNorm = msg.phone.replace(/\D/g, "").slice(-8);
+              const contactName = phoneToContactMap.get(msgPhoneNorm);
+              if (contactName) {
+                return {
+                  ...msg,
+                  contact: {
+                    nome: contactName,
+                    telefone_norm: msg.phone,
+                  },
+                };
+              }
+            }
+            return msg;
+          });
+        }
+      }
+
+      // Client-side search filter
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         filteredData = filteredData.filter((msg) => {
