@@ -33,6 +33,7 @@ interface SendWhatsAppRequest {
   providerOverride?: 'zapi' | 'meta_cloud'; // Admin override
   clientMessageId?: string; // For idempotency
   metaTemplate?: MetaTemplatePayload; // For direct template sending via Meta Cloud API
+  bypassAutoCheck?: boolean; // Bypass automatic message category check (e.g., for WhatsApp verification flow)
 }
 
 // Replace template variables {{var}} with actual values
@@ -350,9 +351,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestBody: SendWhatsAppRequest = await req.json();
-    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl, providerOverride, clientMessageId, metaTemplate } = requestBody;
+    const { phone, message, templateSlug, variables, visitId, contactId, imageUrl, providerOverride, clientMessageId, metaTemplate, bypassAutoCheck } = requestBody;
 
-    console.log(`[send-whatsapp] REQUEST - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}..., providerOverride: ${providerOverride}`);
+    console.log(`[send-whatsapp] REQUEST - templateSlug: ${templateSlug}, phone: ${phone?.substring(0, 6)}..., providerOverride: ${providerOverride}, bypassAutoCheck: ${bypassAutoCheck}`);
 
     const isPublicTemplate = templateSlug && PUBLIC_TEMPLATES.includes(templateSlug);
 
@@ -467,7 +468,8 @@ Deno.serve(async (req) => {
     }
 
     // ============ CHECK AUTO MESSAGE CATEGORY ============
-    if (templateSlug) {
+    // Skip check if bypassAutoCheck is true (e.g., WhatsApp verification flow should always send via WhatsApp)
+    if (templateSlug && !bypassAutoCheck) {
       const settingColumn = TEMPLATE_SETTINGS_MAP[templateSlug];
       if (settingColumn) {
         const isEnabled = typedSettings[settingColumn as keyof IntegrationSettings];
@@ -483,6 +485,8 @@ Deno.serve(async (req) => {
           );
         }
       }
+    } else if (bypassAutoCheck) {
+      console.log(`[send-whatsapp] Bypassing auto check for template '${templateSlug}' (WhatsApp verification flow)`);
     }
 
     if (!phone) {
