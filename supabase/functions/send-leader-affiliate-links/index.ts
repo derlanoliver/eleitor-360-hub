@@ -46,9 +46,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Batch processing: find verified leaders from last 7 days without SMS/Email/WhatsApp sent
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Batch processing: find verified leaders from last 24 HOURS without SMS/Email/WhatsApp sent
+    // IMPORTANT: Only process recent verifications to avoid re-sending to old verified leaders
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
     const { data: recentLeaders, error: leadersError } = await supabase
       .from("lideres")
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .eq("is_verified", true)
       .not("affiliate_token", "is", null)
-      .gte("verified_at", sevenDaysAgo.toISOString())
+      .gte("verified_at", twentyFourHoursAgo.toISOString())
       .order("verified_at", { ascending: false });
 
     if (leadersError) {
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
       throw new Error(leadersError.message);
     }
 
-    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders (last 7 days)`);
+    console.log(`[send-leader-affiliate-links] Found ${recentLeaders?.length || 0} recently verified leaders (last 24 hours)`);
 
     if (!recentLeaders || recentLeaders.length === 0) {
       return new Response(
