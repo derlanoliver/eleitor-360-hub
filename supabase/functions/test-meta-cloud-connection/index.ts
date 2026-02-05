@@ -6,8 +6,10 @@ const corsHeaders = {
 };
 
 interface TestMetaCloudRequest {
-  phoneNumberId: string;
+  phoneNumberId?: string;
+  wabaId?: string;
   apiVersion?: string;
+  action?: 'test' | 'list-templates';
 }
 
 Deno.serve(async (req) => {
@@ -56,14 +58,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { phoneNumberId, apiVersion = "v20.0" }: TestMetaCloudRequest = await req.json();
-
-    if (!phoneNumberId) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Phone Number ID é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const { phoneNumberId, wabaId, apiVersion = "v20.0", action = "test" }: TestMetaCloudRequest = await req.json();
 
     // Get access token from environment
     const accessToken = Deno.env.get("META_WA_ACCESS_TOKEN");
@@ -74,6 +69,59 @@ Deno.serve(async (req) => {
           success: false, 
           error: "META_WA_ACCESS_TOKEN não está configurado nos secrets do ambiente" 
         }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // List templates action
+    if (action === "list-templates") {
+      if (!wabaId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "WABA ID é obrigatório para listar templates" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[test-meta-cloud] Listing templates for WABA ${wabaId}`);
+      
+      const templatesUrl = `https://graph.facebook.com/${apiVersion}/${wabaId}/message_templates`;
+      
+      const response = await fetch(templatesUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("[test-meta-cloud] Templates error:", data);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: data.error?.message || "Erro ao listar templates",
+            details: data.error
+          }),
+          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[test-meta-cloud] Templates found:", data.data?.length || 0);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          templates: data.data || []
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Default test connection action
+    if (!phoneNumberId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Phone Number ID é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
