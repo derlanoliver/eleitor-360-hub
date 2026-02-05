@@ -98,10 +98,11 @@ Deno.serve(async (req) => {
         .limit(1);
 
       // Check if WhatsApp with affiliate link already sent
+      // Note: Search for key phrases that appear in the welcome message template
       const { data: existingWhatsApp } = await supabase
         .from("whatsapp_messages")
         .select("id")
-        .or(`message.ilike.%link de indicacao%,message.ilike.%link_indicacao%,message.ilike.%indicar pessoas%,message.ilike.%cadastro confirmado%`)
+        .or(`message.ilike.%Seu link de indica%,message.ilike.%rede de lideranças%,message.ilike.%/cadastro/%`)
         .ilike("phone", `%${phoneNormalized}`)
         .eq("direction", "outgoing")
         .limit(1);
