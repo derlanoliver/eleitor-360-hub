@@ -746,6 +746,12 @@ export type Database = {
       integrations_settings: {
         Row: {
           created_at: string
+          dialog360_api_key: string | null
+          dialog360_enabled: boolean | null
+          dialog360_fallback_enabled: boolean | null
+          dialog360_phone_number_id: string | null
+          dialog360_test_mode: boolean | null
+          dialog360_whitelist: Json | null
           disparopro_enabled: boolean | null
           disparopro_token: string | null
           id: string
@@ -798,6 +804,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dialog360_api_key?: string | null
+          dialog360_enabled?: boolean | null
+          dialog360_fallback_enabled?: boolean | null
+          dialog360_phone_number_id?: string | null
+          dialog360_test_mode?: boolean | null
+          dialog360_whitelist?: Json | null
           disparopro_enabled?: boolean | null
           disparopro_token?: string | null
           id?: string
@@ -850,6 +862,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dialog360_api_key?: string | null
+          dialog360_enabled?: boolean | null
+          dialog360_fallback_enabled?: boolean | null
+          dialog360_phone_number_id?: string | null
+          dialog360_test_mode?: boolean | null
+          dialog360_whitelist?: Json | null
           disparopro_enabled?: boolean | null
           disparopro_token?: string | null
           id?: string
