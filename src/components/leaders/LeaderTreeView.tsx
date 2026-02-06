@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Crown, User, UserPlus, UserMinus, ChevronDown, ChevronRight, MoreVertical, ArrowRightLeft } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -62,6 +63,7 @@ interface TreeNodeProps {
 }
 
 function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRef, forceExpandAll }: TreeNodeProps) {
+  const { m } = useDemoMask();
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
@@ -161,7 +163,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
           {getLevelIcon(level)}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium truncate">{node.nome_completo}</span>
+              <span className="font-medium truncate">{m.name(node.nome_completo)}</span>
               <Badge variant="outline" className="text-xs shrink-0">
                 {getLevelLabel(level)}
               </Badge>
@@ -252,7 +254,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
           <AlertDialogHeader>
             <AlertDialogTitle>Remover da Hierarquia</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{node.nome_completo}</strong> da hierarquia?
+              Tem certeza que deseja remover <strong>{m.name(node.nome_completo)}</strong> da hierarquia?
               {hasChildren && (
                 <span className="block mt-2 text-amber-600">
                   Os subordinados diretos serão reassociados ao líder superior.
@@ -278,7 +280,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
           <AlertDialogHeader>
             <AlertDialogTitle>Promover a Coordenador</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja promover <strong>{node.nome_completo}</strong> a Coordenador?
+              Tem certeza que deseja promover <strong>{m.name(node.nome_completo)}</strong> a Coordenador?
               {subordinatesCount > 0 && (
                 <span className="block mt-2 text-blue-600">
                   {subordinatesCount} subordinado(s) serão mantidos e terão seus níveis ajustados automaticamente.
