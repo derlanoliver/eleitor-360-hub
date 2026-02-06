@@ -21,6 +21,8 @@ import { SurveyLeaderLinksDialog } from "@/components/surveys/SurveyLeaderLinksD
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useDemoMask } from "@/contexts/DemoModeContext";
+import { DEMO_SURVEYS } from "@/data/surveys/demoSurveys";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,9 +81,12 @@ const surveysTutorialSteps: Step[] = [
 
 export default function Surveys() {
   const navigate = useNavigate();
-  const { data: surveys, isLoading } = useSurveys();
+  const { data: dbSurveys, isLoading } = useSurveys();
   const deleteSurvey = useDeleteSurvey();
   const { restartTutorial } = useTutorial("surveys", surveysTutorialSteps);
+  const { isDemoMode } = useDemoMask();
+
+  const surveys = isDemoMode ? DEMO_SURVEYS : dbSurveys;
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -213,7 +218,7 @@ export default function Surveys() {
         </div>
 
         {/* Surveys Grid */}
-        {isLoading ? (
+        {isLoading && !isDemoMode ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-tutorial="surveys-list">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
