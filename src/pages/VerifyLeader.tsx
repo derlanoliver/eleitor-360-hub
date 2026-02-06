@@ -43,10 +43,21 @@ export default function VerifyLeader() {
           console.log("[VerifyLeader] Resultado da verificação:", verificationResult);
           setResult(verificationResult);
           
-          // O envio de SMS/Email é feito automaticamente pelo backend via trigger
-          // Não precisamos fazer nada aqui!
-          if (verificationResult.success && !verificationResult.already_verified) {
-            console.log("[VerifyLeader] Líder verificado! Backend enviará SMS/Email automaticamente via trigger.");
+          // Após verificação bem-sucedida, chamar edge function para enviar links de afiliado
+          if (verificationResult.success && !verificationResult.already_verified && verificationResult.leader_id) {
+            console.log("[VerifyLeader] Líder verificado! Chamando send-leader-affiliate-links para:", verificationResult.leader_id);
+            try {
+              const { error: sendError } = await supabase.functions.invoke("send-leader-affiliate-links", {
+                body: { leader_id: verificationResult.leader_id },
+              });
+              if (sendError) {
+                console.error("[VerifyLeader] Erro ao enviar links de afiliado:", sendError);
+              } else {
+                console.log("[VerifyLeader] Links de afiliado enviados com sucesso!");
+              }
+            } catch (sendErr) {
+              console.error("[VerifyLeader] Exceção ao enviar links:", sendErr);
+            }
           }
         }
       } catch (err) {
