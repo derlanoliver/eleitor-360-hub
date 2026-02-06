@@ -122,3 +122,12 @@ verify_jwt = false
 
 [functions.test-meta-cloud-connection]
 verify_jwt = false
+
+[functions.resend-verification-sms]
+verify_jwt = false
+
+[functions.test-smsbarato-connection]
+verify_jwt = false
+
+[functions.test-disparopro-connection]
+verify_jwt = false
