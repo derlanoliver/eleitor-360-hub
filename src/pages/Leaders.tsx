@@ -375,15 +375,15 @@ const Leaders = () => {
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground" data-tutorial="leaders-stats">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <strong className="text-foreground">{totalCount}</strong> líderes
+                <strong className="text-foreground">{m.number(totalCount, 'leaders_total')}</strong> líderes
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle className="h-4 w-4 text-green-500" />
-                <strong className="text-foreground">{activeLeaders}</strong> ativos
+                <strong className="text-foreground">{m.number(activeLeaders, 'leaders_active')}</strong> ativos
               </span>
               <span className="flex items-center gap-1.5">
                 <Star className="h-4 w-4 text-amber-500" />
-                <strong className="text-foreground">{totalPoints}</strong> pontos totais
+                <strong className="text-foreground">{m.number(totalPoints, 'leaders_pts')}</strong> pontos totais
               </span>
             </div>
           </div>
