@@ -58,6 +58,7 @@ import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import type { Step } from "react-joyride";
 import { useDemoMask } from "@/contexts/DemoModeContext";
+import { getDemoLeadersPaginated, DEMO_LEADERS_STATS } from "@/data/leaders/demoLeaders";
 
 const leadersTutorialSteps: Step[] = [
   {
@@ -198,7 +199,7 @@ const Leaders = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const queryClient = useQueryClient();
-  const { m } = useDemoMask();
+  const { isDemoMode, m } = useDemoMask();
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
   const { data: leadersResult, isLoading } = useQuery({
@@ -214,8 +215,22 @@ const Leaders = () => {
       }),
   });
 
-  const leaders = leadersResult?.data || [];
-  const totalCount = leadersResult?.count || 0;
+  // Demo mode override
+  const demoResult = isDemoMode
+    ? getDemoLeadersPaginated({
+        page: currentPage,
+        pageSize: ITEMS_PER_PAGE,
+        search: searchTerm || undefined,
+        cidade_id: selectedRegion === "all" ? undefined : selectedRegion,
+        sortBy,
+        verificationFilter,
+        statusFilter,
+      })
+    : null;
+
+  const leaders = isDemoMode ? (demoResult?.data || []) : (leadersResult?.data || []);
+  const totalCount = isDemoMode ? (demoResult?.count || 0) : (leadersResult?.count || 0);
+  const effectiveIsLoading = isDemoMode ? false : isLoading;
 
   // Realtime subscription para atualizar automaticamente quando líder mudar (ex: cartão instalado/desinstalado)
   useEffect(() => {
@@ -501,7 +516,7 @@ const Leaders = () => {
 
       {/* Lista de Líderes */}
       <div className="space-y-3" data-tutorial="leaders-list">
-        {isLoading ? (
+        {effectiveIsLoading ? (
           <Card>
             <CardContent className="p-8 text-center">
               <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
