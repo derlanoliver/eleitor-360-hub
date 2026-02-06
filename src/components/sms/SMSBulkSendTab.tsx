@@ -402,11 +402,32 @@ export function SMSBulkSendTab() {
         }));
       } else if (recipientType === "coordinator_tree" && selectedCoordinator) {
         // Líderes não verificados na árvore do coordenador (com telefone)
-        const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree_sms', {
-          coordinator_id: selectedCoordinator.id
-        });
-        if (error) throw error;
-        return (data as { id: string; nome_completo: string; telefone: string; verification_code: string }[]).map((l) => ({
+        // Buscar com paginação para ultrapassar limite de 1000
+        const allData: { id: string; nome_completo: string; telefone: string; verification_code: string }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree_sms', {
+            coordinator_id: selectedCoordinator.id
+          }).range(from, to);
+          
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allData.push(...(data as { id: string; nome_completo: string; telefone: string; verification_code: string }[]));
+            hasMore = data.length === pageSize;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allData.map((l) => ({
           id: l.id,
           nome: l.nome_completo,
           phone: l.telefone,
