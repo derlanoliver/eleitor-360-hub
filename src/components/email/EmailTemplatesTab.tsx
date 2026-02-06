@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Edit, Send, CheckCircle2 } from "lucide-react";
@@ -31,6 +32,7 @@ interface EmailTemplatesTabProps {
 }
 
 export function EmailTemplatesTab({ searchTerm }: EmailTemplatesTabProps) {
+  const { isDemoMode, m } = useDemoMask();
   const { data: templates, isLoading } = useEmailTemplates();
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [testingTemplate, setTestingTemplate] = useState<string | null>(null);
@@ -80,14 +82,14 @@ export function EmailTemplatesTab({ searchTerm }: EmailTemplatesTabProps) {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium truncate">{template.nome}</span>
+                          <span className="text-sm font-medium truncate">{isDemoMode ? m.platformName(template.nome) : template.nome}</span>
                           {template.is_active ? (
                             <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
                           ) : (
                             <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">Inativo</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">{template.assunto}</p>
+                        <p className="text-xs text-muted-foreground truncate">{isDemoMode ? m.observation(template.assunto) : template.assunto}</p>
                         <div className="flex items-center gap-1 mt-1">
                           {(template.variaveis as string[])?.slice(0, 2).map((v) => (
                             <code key={v} className="text-[10px] bg-muted px-1 rounded">

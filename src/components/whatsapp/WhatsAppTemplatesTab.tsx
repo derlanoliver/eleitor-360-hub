@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Edit2, MessageSquare, Send } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export function WhatsAppTemplatesTab() {
+  const { isDemoMode, m } = useDemoMask();
   const { data: templates, isLoading } = useWhatsAppTemplates();
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -98,8 +100,8 @@ export function WhatsAppTemplatesTab() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-medium truncate">
-                            {template.nome}
+                        <h4 className="text-sm font-medium truncate">
+                            {isDemoMode ? m.platformName(template.nome) : template.nome}
                           </h4>
                           {!template.is_active && (
                             <Badge variant="outline" className="text-xs">
@@ -108,7 +110,7 @@ export function WhatsAppTemplatesTab() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {template.mensagem.substring(0, 80)}...
+                          {isDemoMode ? m.observation(template.mensagem) : template.mensagem.substring(0, 80) + "..."}
                         </p>
                         <div className="flex items-center gap-1 mt-2">
                           {template.variaveis.slice(0, 3).map((v, i) => (
