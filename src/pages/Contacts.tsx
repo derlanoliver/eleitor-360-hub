@@ -75,6 +75,7 @@ import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import type { Step } from "react-joyride";
 import { useDemoMask } from "@/contexts/DemoModeContext";
+import { DEMO_CONTACTS, DEMO_CONTACTS_STATS } from "@/data/contacts/demoContacts";
 
 const contactsTutorialSteps: Step[] = [
   {
@@ -181,7 +182,7 @@ const Contacts = () => {
   const reactivateContact = useReactivateContact();
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
-  const { m } = useDemoMask();
+  const { isDemoMode, m } = useDemoMask();
 
   // Buscar contact_ids que foram promovidos a líder
   const { data: promotedContactIds = [] } = useQuery({
@@ -420,6 +421,16 @@ const Contacts = () => {
     },
   });
 
+  // Demo mode: override data with fake contacts
+  const effectiveContacts = isDemoMode ? DEMO_CONTACTS : contacts;
+  const effectiveTotalCount = isDemoMode ? DEMO_CONTACTS_STATS.total : totalCount;
+  const effectiveWhatsAppCount = isDemoMode ? DEMO_CONTACTS_STATS.withWhatsApp : totalWithWhatsAppCount;
+  const effectiveEmailCount = isDemoMode ? DEMO_CONTACTS_STATS.withEmail : totalWithEmailCount;
+  const effectivePromotedIds = isDemoMode
+    ? DEMO_CONTACTS.filter((c) => c.is_promoted).map((c) => c.id)
+    : promotedContactIds;
+  const effectiveIsLoading = isDemoMode ? false : isLoading;
+
   const handleWhatsAppClick = (phone: string) => {
     const normalizedPhone = phone.replace(/\D/g, "");
     const whatsappUrl = `https://wa.me/55${normalizedPhone}`;
@@ -431,7 +442,7 @@ const Contacts = () => {
   };
 
   // Filtros
-  const filteredContacts = contacts.filter((contact) => {
+  const filteredContacts = effectiveContacts.filter((contact) => {
     const searchDigits = searchTerm.replace(/\D/g, "");
     const matchesSearch =
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -465,7 +476,7 @@ const Contacts = () => {
     }
 
     // Verificar se contato foi promovido a líder
-    const isPromoted = promotedContactIds.includes(contact.id);
+    const isPromoted = effectivePromotedIds.includes(contact.id);
 
     let matchesStatus = true;
     if (statusFilter === "active") {
@@ -485,7 +496,7 @@ const Contacts = () => {
     return matchesSearch && matchesRegion && matchesSource && matchesStatus;
   });
 
-  const pendingVerificationCount = contacts.filter((c) => c.requiresVerification && !c.is_verified).length;
+  const pendingVerificationCount = effectiveContacts.filter((c) => c.requiresVerification && !c.is_verified).length;
 
   const verificationFilteredContacts = filteredContacts.filter((contact) => {
     if (verificationFilter === "all") return true;
@@ -530,8 +541,8 @@ const Contacts = () => {
     verificationFilter !== "all" ||
     statusFilter !== "active";
 
-  const inactiveCount = contacts.filter((c) => c.is_active === false && !promotedContactIds.includes(c.id)).length;
-  const promotedCount = promotedContactIds.length;
+  const inactiveCount = effectiveContacts.filter((c) => c.is_active === false && !effectivePromotedIds.includes(c.id)).length;
+  const promotedCount = effectivePromotedIds.length;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -544,15 +555,15 @@ const Contacts = () => {
             <div data-tutorial="contacts-stats" className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <strong className="text-foreground">{m.number(totalCount, 'contacts_total')}</strong> contatos
+                <strong className="text-foreground">{m.number(effectiveTotalCount, 'contacts_total')}</strong> contatos
               </span>
               <span className="flex items-center gap-1.5">
                 <Phone className="h-4 w-4 text-green-600" />
-                <strong className="text-foreground">{m.number(totalWithWhatsAppCount, 'contacts_wa')}</strong>
+                <strong className="text-foreground">{m.number(effectiveWhatsAppCount, 'contacts_wa')}</strong>
               </span>
               <span className="flex items-center gap-1.5">
                 <Mail className="h-4 w-4 text-blue-600" />
-                <strong className="text-foreground">{m.number(totalWithEmailCount, 'contacts_email')}</strong>
+                <strong className="text-foreground">{m.number(effectiveEmailCount, 'contacts_email')}</strong>
               </span>
               {pendingVerificationCount > 0 && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
@@ -792,7 +803,7 @@ const Contacts = () => {
 
       {/* Lista de Contatos */}
       <div className="space-y-3">
-        {isLoading ? (
+        {effectiveIsLoading ? (
           <Card>
             <CardContent className="p-8 text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
@@ -871,7 +882,7 @@ const Contacts = () => {
                             ))}
 
                           {/* Badge de Status Inativo */}
-                          {contact.is_active === false && !promotedContactIds.includes(contact.id) && (
+                          {contact.is_active === false && !effectivePromotedIds.includes(contact.id) && (
                             <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                               <Ban className="h-3 w-3 mr-1" />
                               Inativo
@@ -879,7 +890,7 @@ const Contacts = () => {
                           )}
 
                           {/* Badge de Promovido a Líder */}
-                          {promotedContactIds.includes(contact.id) && (
+                          {effectivePromotedIds.includes(contact.id) && (
                             <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
                               <Crown className="h-3 w-3 mr-1" />
                               Promovido a Líder
