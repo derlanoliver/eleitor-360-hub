@@ -95,27 +95,26 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
       let filteredData = data as WhatsAppMessage[];
 
       // For messages without contact info via contact_id, try to match by phone.
-      // IMPORTANT: fetch contacts in batches to avoid the 1000 row limit.
+      // IMPORTANT: fetch in batches to avoid the 1000 row limit.
       const needsPhoneLookup = filteredData.some((msg) => !msg.contact?.nome);
 
       if (needsPhoneLookup) {
-        const fetchAllContacts = async () => {
-          const pageSize = 1000;
-          let from = 0;
-          const all: Array<{ nome: string | null; telefone_norm: string }> = [];
+        const pageSize = 1000;
 
-          // Paginate until a page returns less than pageSize
+        const fetchAll = async <T,>(table: string, select: string): Promise<T[]> => {
+          let from = 0;
+          const all: T[] = [];
+
           while (true) {
-            const { data: page, error: pageError } = await supabase
-              .from("office_contacts")
-              .select("nome, telefone_norm")
+            const { data: page, error: pageError } = await (supabase as any)
+              .from(table)
+              .select(select)
               .range(from, from + pageSize - 1);
 
             if (pageError) throw pageError;
             if (!page || page.length === 0) break;
 
-            all.push(...(page as Array<{ nome: string | null; telefone_norm: string }>));
-
+            all.push(...(page as T[]));
             if (page.length < pageSize) break;
             from += pageSize;
           }
@@ -123,28 +122,43 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
           return all;
         };
 
-        const contacts = await fetchAllContacts();
+        const [contacts, leaders] = await Promise.all([
+          fetchAll<{ nome: string | null; telefone_norm: string }>(
+            "office_contacts",
+            "nome, telefone_norm"
+          ),
+          fetchAll<{ nome_completo: string; telefone: string | null }>(
+            "lideres",
+            "nome_completo, telefone"
+          ),
+        ]);
 
-        // Map: last 8 digits -> name
-        const phoneToContactMap = new Map<string, string>();
-        for (const contact of contacts) {
-          if (!contact?.nome || !contact?.telefone_norm) continue;
-          const normalized = contact.telefone_norm.replace(/\D/g, "").slice(-8);
-          if (normalized) phoneToContactMap.set(normalized, contact.nome);
+        // Map: last 8 digits -> name (prefer office_contacts, fallback to lideres)
+        const phoneToNameMap = new Map<string, string>();
+
+        for (const c of contacts) {
+          if (!c?.nome || !c?.telefone_norm) continue;
+          const last8 = c.telefone_norm.replace(/\D/g, "").slice(-8);
+          if (last8) phoneToNameMap.set(last8, c.nome);
+        }
+
+        for (const l of leaders) {
+          if (!l?.nome_completo || !l?.telefone) continue;
+          const last8 = l.telefone.replace(/\D/g, "").slice(-8);
+          if (last8 && !phoneToNameMap.has(last8)) phoneToNameMap.set(last8, l.nome_completo);
         }
 
         filteredData = filteredData.map((msg) => {
           if (msg.contact?.nome) return msg;
 
-          const msgPhoneNorm = msg.phone.replace(/\D/g, "").slice(-8);
-          const contactName = phoneToContactMap.get(msgPhoneNorm);
-
-          if (!contactName) return msg;
+          const msgLast8 = msg.phone.replace(/\D/g, "").slice(-8);
+          const name = phoneToNameMap.get(msgLast8);
+          if (!name) return msg;
 
           return {
             ...msg,
             contact: {
-              nome: contactName,
+              nome: name,
               telefone_norm: msg.phone,
             },
           };
