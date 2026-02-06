@@ -235,8 +235,12 @@ Deno.serve(async (req) => {
           .eq('telefone', telefone)
           .single();
 
-        // Gerar tokens para verificação
-        const verificationCode = crypto.randomUUID().substring(0, 8).toUpperCase();
+        // Gerar código de verificação permanente (6 caracteres alfanuméricos)
+        const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        const verificationCode = Array(6)
+          .fill(0)
+          .map(() => codeChars.charAt(Math.floor(Math.random() * codeChars.length)))
+          .join("");
         const affiliateToken = crypto.randomUUID().split('-')[0];
 
         if (existingLeader) {
