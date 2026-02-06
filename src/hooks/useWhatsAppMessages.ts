@@ -187,18 +187,39 @@ export function useWhatsAppMetrics() {
   return useQuery({
     queryKey: ["whatsapp-metrics"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_messages")
-        .select("status, direction")
-        .eq("direction", "outgoing");
+      // Usar count com head: true para contagem precisa sem limite de 1000
+      const [totalResult, sentResult, deliveredResult, readResult, failedResult] = await Promise.all([
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "sent"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "delivered"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "read"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "failed"),
+      ]);
 
-      if (error) throw error;
-
-      const total = data.length;
-      const sent = data.filter((m) => m.status === "sent").length;
-      const delivered = data.filter((m) => m.status === "delivered").length;
-      const read = data.filter((m) => m.status === "read").length;
-      const failed = data.filter((m) => m.status === "failed").length;
+      const total = totalResult.count || 0;
+      const sent = sentResult.count || 0;
+      const delivered = deliveredResult.count || 0;
+      const read = readResult.count || 0;
+      const failed = failedResult.count || 0;
 
       const successfulDeliveries = delivered + read;
       const deliveryRate = total > 0 ? (successfulDeliveries / total) * 100 : 0;
