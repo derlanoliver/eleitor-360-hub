@@ -321,24 +321,39 @@ export function EmailBulkSendTab() {
       }
 
       if (recipientType === "all_contacts") {
-        const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, email")
-          .not("email", "is", null)
-          .neq("email", "");
-        if (error) throw error;
-        // Filtrar contatos promovidos
-        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        const allData: { id: string; nome: string; email: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("office_contacts")
+            .select("id, nome, email")
+            .not("email", "is", null)
+            .neq("email", "")
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        const filteredData = allData.filter(c => !promotedContactIds.includes(c.id));
         return filteredData.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
       }
 
       if (recipientType === "event_contacts" && selectedEvent) {
-        const { data, error } = await supabase
-          .from("event_registrations")
-          .select("id, nome, email, contact_id")
-          .eq("event_id", selectedEvent);
-        if (error) throw error;
-        return data.map(r => ({ 
+        const allData: { id: string; nome: string; email: string; contact_id: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("event_registrations")
+            .select("id, nome, email, contact_id")
+            .eq("event_id", selectedEvent)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        return allData.map(r => ({ 
           id: r.contact_id || r.id, 
           name: r.nome, 
           email: r.email, 
@@ -347,41 +362,64 @@ export function EmailBulkSendTab() {
       }
 
       if (recipientType === "funnel_contacts" && selectedFunnel) {
-        const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, email")
-          .eq("source_type", "captacao")
-          .eq("source_id", selectedFunnel)
-          .not("email", "is", null);
-        if (error) throw error;
-        // Filtrar contatos promovidos
-        const filteredData = (data || []).filter(c => !promotedContactIds.includes(c.id));
+        const allData: { id: string; nome: string; email: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("office_contacts")
+            .select("id, nome, email")
+            .eq("source_type", "captacao")
+            .eq("source_id", selectedFunnel)
+            .not("email", "is", null)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        const filteredData = allData.filter(c => !promotedContactIds.includes(c.id));
         return filteredData.map(c => ({ id: c.id, name: c.nome, email: c.email!, type: "contact" as const }));
       }
 
       if (recipientType === "leaders") {
-        const { data, error } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, email, affiliate_token")
-          .eq("is_active", true)
-          .not("email", "is", null)
-          .neq("email", "");
-        if (error) throw error;
-        return data.map(l => ({ id: l.id, name: l.nome_completo, email: l.email!, type: "leader" as const, affiliateToken: l.affiliate_token }));
+        const allData: { id: string; nome_completo: string; email: string | null; affiliate_token: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("lideres")
+            .select("id, nome_completo, email, affiliate_token")
+            .eq("is_active", true)
+            .not("email", "is", null)
+            .neq("email", "")
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        return allData.map(l => ({ id: l.id, name: l.nome_completo, email: l.email!, type: "leader" as const, affiliateToken: l.affiliate_token }));
       }
 
       // Líderes não verificados
       if (recipientType === "unverified_leaders") {
-        const { data, error } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, email, verification_code")
-          .eq("is_active", true)
-          .eq("is_verified", false)
-          .not("email", "is", null)
-          .neq("email", "")
-          .is("verification_sent_at", null);
-        if (error) throw error;
-        return data.map(l => ({ 
+        const allData: { id: string; nome_completo: string; email: string | null; verification_code: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("lideres")
+            .select("id, nome_completo, email, verification_code")
+            .eq("is_active", true)
+            .eq("is_verified", false)
+            .not("email", "is", null)
+            .neq("email", "")
+            .is("verification_sent_at", null)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        return allData.map(l => ({ 
           id: l.id, 
           name: l.nome_completo, 
           email: l.email!, 
@@ -392,17 +430,25 @@ export function EmailBulkSendTab() {
 
       // Contatos não verificados (indicados por líderes)
       if (recipientType === "unverified_contacts") {
-        const { data, error } = await supabase
-          .from("office_contacts")
-          .select("id, nome, email, verification_code")
-          .eq("is_active", true)
-          .eq("source_type", "lider")
-          .eq("is_verified", false)
-          .not("email", "is", null)
-          .neq("email", "")
-          .is("verification_sent_at", null);
-        if (error) throw error;
-        return data.map(c => ({ 
+        const allData: { id: string; nome: string; email: string | null; verification_code: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("office_contacts")
+            .select("id, nome, email, verification_code")
+            .eq("is_active", true)
+            .eq("source_type", "lider")
+            .eq("is_verified", false)
+            .not("email", "is", null)
+            .neq("email", "")
+            .is("verification_sent_at", null)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...data); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        return allData.map(c => ({ 
           id: c.id, 
           name: c.nome, 
           email: c.email!, 
@@ -413,11 +459,18 @@ export function EmailBulkSendTab() {
 
       // Líderes não verificados de uma árvore de coordenador
       if (recipientType === "coordinator_tree" && selectedCoordinator) {
-        const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree', {
-          coordinator_id: selectedCoordinator.id
-        });
-        if (error) throw error;
-        return (data || []).map((l: { id: string; nome_completo: string; email: string; verification_code: string | null }) => ({ 
+        const allData: { id: string; nome_completo: string; email: string; verification_code: string | null }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase.rpc('get_unverified_leaders_in_tree', {
+            coordinator_id: selectedCoordinator.id
+          }).range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) { allData.push(...(data as typeof allData)); hasMore = data.length === pageSize; page++; } else { hasMore = false; }
+        }
+        return allData.map(l => ({ 
           id: l.id, 
           name: l.nome_completo, 
           email: l.email!, 
