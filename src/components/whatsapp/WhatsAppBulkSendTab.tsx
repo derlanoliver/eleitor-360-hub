@@ -583,8 +583,12 @@ export function WhatsAppBulkSendTab() {
                 .eq("id", recipientId)
                 .single();
               
-              verificationCode = leaderData?.verification_code || 
-                Math.floor(100000 + Math.random() * 900000).toString();
+              verificationCode = leaderData?.verification_code || null;
+              
+              if (!verificationCode) {
+                const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                verificationCode = Array(6).fill(0).map(() => codeChars.charAt(Math.floor(Math.random() * codeChars.length))).join("");
+              }
               
               if (!leaderData?.verification_code) {
                 await supabase
@@ -596,7 +600,8 @@ export function WhatsAppBulkSendTab() {
               // Para contatos não verificados
               verificationCode = recipient.verification_code as string;
               if (!verificationCode) {
-                verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+                const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                verificationCode = Array(6).fill(0).map(() => codeChars.charAt(Math.floor(Math.random() * codeChars.length))).join("");
                 await supabase
                   .from("office_contacts")
                   .update({ verification_code: verificationCode })

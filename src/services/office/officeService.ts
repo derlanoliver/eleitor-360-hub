@@ -111,8 +111,12 @@ export async function getCityById(id: string) {
 // =====================================================
 
 export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> {
-  // Gerar código de verificação (6 caracteres alfanuméricos)
-  const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  // Gerar código de verificação permanente (6 caracteres alfanuméricos maiúsculos)
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const verificationCode = Array(6)
+    .fill(0)
+    .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+    .join("");
   
   // Gerar affiliate_token (8 caracteres)
   const affiliateToken = crypto.randomUUID().split('-')[0];

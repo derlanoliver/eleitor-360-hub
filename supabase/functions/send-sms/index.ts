@@ -365,10 +365,10 @@ Deno.serve(async (req) => {
         if (!leaderError && leader) {
           let verificationCode = leader.verification_code;
 
-          // Generate new code if missing
+          // Generate new code ONLY if missing (never overwrite existing codes)
           if (!verificationCode) {
             const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            verificationCode = Array(5)
+            verificationCode = Array(6)
               .fill(0)
               .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
               .join("");
@@ -383,6 +383,8 @@ Deno.serve(async (req) => {
               .eq("id", leaderId);
 
             console.log("[send-sms] Generated new verification_code for leader:", leaderId);
+          } else {
+            console.log("[send-sms] Using existing verification_code for leader:", leaderId);
           }
 
           finalVariables.link_verificacao = generateLeaderVerificationUrl(verificationCode);
@@ -412,10 +414,10 @@ Deno.serve(async (req) => {
         if (!contactError && contact) {
           let verificationCode = contact.verification_code;
 
-          // Generate new code if missing
+          // Generate new code ONLY if missing (never overwrite existing codes)
           if (!verificationCode) {
             const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            verificationCode = Array(5)
+            verificationCode = Array(6)
               .fill(0)
               .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
               .join("");
@@ -430,6 +432,8 @@ Deno.serve(async (req) => {
               .eq("id", contactId);
 
             console.log("[send-sms] Generated new verification_code for contact:", contactId);
+          } else {
+            console.log("[send-sms] Using existing verification_code for contact:", contactId);
           }
 
           finalVariables.link_verificacao = generateContactVerificationUrl(verificationCode);
