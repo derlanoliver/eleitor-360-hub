@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Brain, RefreshCw, Sparkles, AlertTriangle, TrendingUp, MapPin, Download } from "lucide-react";
@@ -24,6 +25,7 @@ export function MapAnalysisPanel({
   totalContacts,
   totalConnections 
 }: MapAnalysisPanelProps) {
+  const { isDemoMode } = useDemoMask();
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -373,7 +375,7 @@ Seja direto, use dados específicos dos números fornecidos, e priorize recomend
                 strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
               }}
             >
-              {analysis}
+              {isDemoMode ? "Análise estratégica oculta no modo demonstração. Gere uma nova análise para visualizar dados fictícios." : analysis}
             </ReactMarkdown>
           </div>
         )}

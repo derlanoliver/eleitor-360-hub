@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Polyline, Marker } from "react-leaflet";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import L from "leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -342,6 +343,7 @@ function ConnectionsLayer({
 }
 
 export default function StrategicMap() {
+  const { isDemoMode, m } = useDemoMask();
   const { leaders, contacts, cities, stats, isLoading, error } = useStrategicMapData();
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showLeaders, setShowLeaders] = useState(false);
@@ -494,19 +496,19 @@ export default function StrategicMap() {
           <div data-tutorial="map-stats" className="flex flex-wrap gap-3">
             <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
               <Crown className="h-4 w-4" />
-              {stats?.coordinatorsCount ?? 0} Coordenadores
+              {m.number(stats?.coordinatorsCount ?? 0, "map_coord")} Coordenadores
             </Badge>
             <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
               <Star className="h-4 w-4" />
-              {stats?.leadersCount ?? 0} Líderes
+              {m.number(stats?.leadersCount ?? 0, "map_ldr")} Líderes
             </Badge>
             <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
               <Users className="h-4 w-4" />
-              {stats?.contactsCount ?? 0} Contatos
+              {m.number(stats?.contactsCount ?? 0, "map_ctc")} Contatos
             </Badge>
             <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
               <Link2 className="h-4 w-4" />
-              {contactConnectionsCount + hierarchyConnectionsCount} Conexões
+              {m.number(contactConnectionsCount + hierarchyConnectionsCount, "map_conn")} Conexões
             </Badge>
           </div>
           <TutorialButton onClick={restartTutorial} />
@@ -567,7 +569,7 @@ export default function StrategicMap() {
                       </div>
                       {leaderOptions.coordinators.map(c => (
                         <SelectItem key={c.id} value={c.id}>
-                          👑 {c.nome_completo}
+                          👑 {isDemoMode ? m.name(c.nome_completo) : c.nome_completo}
                         </SelectItem>
                       ))}
                     </>
@@ -580,7 +582,7 @@ export default function StrategicMap() {
                       </div>
                       {leaderOptions.regularLeaders.map(l => (
                         <SelectItem key={l.id} value={l.id}>
-                          ⭐ {l.nome_completo}
+                          ⭐ {isDemoMode ? m.name(l.nome_completo) : l.nome_completo}
                         </SelectItem>
                       ))}
                     </>
@@ -704,18 +706,18 @@ export default function StrategicMap() {
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-lg">{leader.is_coordinator ? '👑' : '⭐'}</span>
                             <div>
-                              <p className="font-semibold">{leader.nome_completo}</p>
+                              <p className="font-semibold">{m.name(leader.nome_completo)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {leader.is_coordinator ? 'Coordenador' : 'Líder'}
                               </p>
                             </div>
                           </div>
-                          <p className="text-muted-foreground mb-2">📍 {leader.cidade_nome}</p>
+                          <p className="text-muted-foreground mb-2">📍 {m.city(leader.cidade_nome)}</p>
                           <div className="space-y-1 text-xs border-t pt-2">
-                            <p>📊 {leader.cadastros} cadastros</p>
-                            <p>🏆 {leader.pontuacao_total} pontos</p>
-                            {leader.email && <p>📧 {leader.email}</p>}
-                            {leader.telefone && <p>📞 {leader.telefone}</p>}
+                            <p>📊 {m.number(leader.cadastros, leader.id + "_cad")} cadastros</p>
+                            <p>🏆 {m.number(leader.pontuacao_total, leader.id + "_pts")} pontos</p>
+                            {leader.email && <p>📧 {m.email(leader.email)}</p>}
+                            {leader.telefone && <p>📞 {m.phone(leader.telefone)}</p>}
                           </div>
                         </div>
                       </Popup>
@@ -749,8 +751,8 @@ export default function StrategicMap() {
                     >
                       <Popup>
                         <div className="text-sm">
-                          <p className="font-semibold">{contact.nome}</p>
-                          <p className="text-muted-foreground">{contact.cidade_nome}</p>
+                          <p className="font-semibold">{m.name(contact.nome)}</p>
+                          <p className="text-muted-foreground">{m.city(contact.cidade_nome)}</p>
                           {contact.source_type && (
                             <p className="text-xs mt-1">Origem: {contact.source_type}</p>
                           )}
@@ -809,9 +811,9 @@ export default function StrategicMap() {
       {/* AI Analysis Panel */}
       <MapAnalysisPanel
         cities={cities}
-        totalLeaders={leaders.length}
-        totalContacts={contacts.length}
-        totalConnections={contactConnectionsCount + hierarchyConnectionsCount}
+        totalLeaders={m.number(leaders.length, "map_al")}
+        totalContacts={m.number(contacts.length, "map_ac")}
+        totalConnections={m.number(contactConnectionsCount + hierarchyConnectionsCount, "map_aconn")}
       />
     </div>
   );
