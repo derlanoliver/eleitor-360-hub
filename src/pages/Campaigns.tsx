@@ -66,6 +66,7 @@ import {
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import type { Step } from "react-joyride";
 
 const campaignsTutorialSteps: Step[] = [
@@ -139,6 +140,7 @@ const Campaigns = () => {
   
   const { toast } = useToast();
   const { restartTutorial } = useTutorial("campaigns", campaignsTutorialSteps);
+  const { isDemoMode, m } = useDemoMask();
   const queryClient = useQueryClient();
   
   const { data: events = [] } = useEvents();
@@ -848,10 +850,10 @@ const Campaigns = () => {
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <h3 className="font-semibold text-gray-900 mb-1">
-                              {campaign.name}
+                              {isDemoMode ? m.name(campaign.name) : campaign.name}
                             </h3>
                             <p className="text-sm text-gray-600 mb-2">
-                              {campaign.description}
+                              {isDemoMode ? m.observation(campaign.description) : campaign.description}
                             </p>
                             <div className="flex items-center space-x-2">
                               <Badge variant={campaign.status === "active" ? "default" : "secondary"}>
@@ -877,15 +879,15 @@ const Campaigns = () => {
                         <div className="grid grid-cols-3 gap-3">
                           <div className="text-center p-3 bg-purple-50 rounded-lg">
                             <p className="text-sm text-gray-600">Visitantes</p>
-                            <p className="font-bold text-purple-600">{campaign.pageViews}</p>
+                            <p className="font-bold text-purple-600">{m.number(campaign.pageViews, campaign.name + "_views")}</p>
                           </div>
                           <div className="text-center p-3 bg-blue-50 rounded-lg">
                             <p className="text-sm text-gray-600">Cadastros</p>
-                            <p className="font-bold text-blue-600">{campaign.registrations}</p>
+                            <p className="font-bold text-blue-600">{m.number(campaign.registrations, campaign.name + "_regs")}</p>
                           </div>
                           <div className="text-center p-3 bg-green-50 rounded-lg">
                             <p className="text-sm text-gray-600">Conversão</p>
-                            <p className="font-bold text-green-600">{campaign.conversionRate}%</p>
+                            <p className="font-bold text-green-600">{isDemoMode ? m.percentage(parseFloat(campaign.conversionRate), campaign.name + "_conv") : campaign.conversionRate}%</p>
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 text-center mt-2">
@@ -1048,20 +1050,20 @@ const Campaigns = () => {
                         <div className="md:col-span-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center font-bold">
-                              {leader.leaderName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                              {(isDemoMode ? m.name(leader.leaderName) : leader.leaderName).split(' ').map(n => n[0]).join('').substring(0, 2)}
                             </div>
                             <div>
                               <h3 className="font-semibold text-gray-900">
-                                {leader.leaderName}
+                                {isDemoMode ? m.name(leader.leaderName) : leader.leaderName}
                               </h3>
                               {leader.cityName && (
                                 <p className="text-sm text-gray-600">
-                                  {leader.cityName}
+                                  {isDemoMode ? m.city(leader.cityName) : leader.cityName}
                                 </p>
                               )}
                               {leader.leaderPhone && (
                                 <p className="text-xs text-gray-500">
-                                  {leader.leaderPhone}
+                                  {isDemoMode ? m.phone(leader.leaderPhone) : leader.leaderPhone}
                                 </p>
                               )}
                             </div>
@@ -1082,7 +1084,7 @@ const Campaigns = () => {
                             className="w-full text-center p-3 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
                           >
                             <p className="text-sm text-gray-600">Indicações</p>
-                            <p className="font-bold text-primary-600">{leader.registrations}</p>
+                            <p className="font-bold text-primary-600">{m.number(leader.registrations, leader.leaderName)}</p>
                           </button>
                           {leader.lastActivity && (
                             <p className="text-xs text-gray-500 text-center mt-2">
@@ -1316,6 +1318,7 @@ const Campaigns = () => {
 
 // Componente para o relatório de atribuição com dados reais
 const AttributionReport = () => {
+  const { isDemoMode, m } = useDemoMask();
   const { data: stats, isLoading, refetch } = useAttributionStats();
   
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -1359,11 +1362,11 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Users className="h-5 w-5 text-primary-600" />
             </div>
-            <p className="text-2xl font-bold text-primary-600">{(stats.summary.grandTotal ?? stats.summary.totalContacts ?? 0).toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary-600">{m.number(stats.summary.grandTotal ?? stats.summary.totalContacts ?? 0, "attr_total").toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Total Cadastros</p>
             {(stats.summary.totalLeaders ?? 0) > 0 && (
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                ({(stats.summary.totalContacts ?? 0).toLocaleString()} contatos + {(stats.summary.totalLeaders ?? 0).toLocaleString()} líderes)
+                ({m.number(stats.summary.totalContacts ?? 0, "attr_contacts").toLocaleString()} contatos + {m.number(stats.summary.totalLeaders ?? 0, "attr_leaders").toLocaleString()} líderes)
               </p>
             )}
             {stats.growthPercentage !== 0 && (
@@ -1380,7 +1383,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <UserCheck className="h-5 w-5 text-blue-600" />
             </div>
-            <p className="text-2xl font-bold text-blue-600">{stats.summary.fromLeaders}</p>
+            <p className="text-2xl font-bold text-blue-600">{m.number(stats.summary.fromLeaders, "attr_from_leaders")}</p>
             <p className="text-xs text-muted-foreground">Via Líderes</p>
           </CardContent>
         </Card>
@@ -1390,7 +1393,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Calendar className="h-5 w-5 text-green-600" />
             </div>
-            <p className="text-2xl font-bold text-green-600">{stats.summary.totalEventRegistrations}</p>
+            <p className="text-2xl font-bold text-green-600">{m.number(stats.summary.totalEventRegistrations, "attr_events")}</p>
             <p className="text-xs text-muted-foreground">Eventos</p>
           </CardContent>
         </Card>
@@ -1400,7 +1403,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Target className="h-5 w-5 text-teal-600" />
             </div>
-            <p className="text-2xl font-bold text-teal-600">{stats.summary.fromCaptacao}</p>
+            <p className="text-2xl font-bold text-teal-600">{m.number(stats.summary.fromCaptacao, "attr_captacao")}</p>
             <p className="text-xs text-muted-foreground">Via Captação</p>
           </CardContent>
         </Card>
@@ -1410,7 +1413,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Building2 className="h-5 w-5 text-orange-600" />
             </div>
-            <p className="text-2xl font-bold text-orange-600">{stats.summary.fromVisita}</p>
+            <p className="text-2xl font-bold text-orange-600">{m.number(stats.summary.fromVisita, "attr_visita")}</p>
             <p className="text-xs text-muted-foreground">Via Visitas</p>
           </CardContent>
         </Card>
@@ -1420,7 +1423,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Building2 className="h-5 w-5 text-amber-600" />
             </div>
-            <p className="text-2xl font-bold text-amber-600">{stats.summary.totalOfficeVisits}</p>
+            <p className="text-2xl font-bold text-amber-600">{m.number(stats.summary.totalOfficeVisits, "attr_office")}</p>
             <p className="text-xs text-muted-foreground">Total Visitas</p>
           </CardContent>
         </Card>
@@ -1430,7 +1433,7 @@ const AttributionReport = () => {
             <div className="flex items-center justify-center mb-2">
               <Users className="h-5 w-5 text-purple-600" />
             </div>
-            <p className="text-2xl font-bold text-purple-600">{stats.summary.activeLeaders}</p>
+            <p className="text-2xl font-bold text-purple-600">{m.number(stats.summary.activeLeaders, "attr_active_leaders")}</p>
             <p className="text-xs text-muted-foreground">Líderes Ativos</p>
           </CardContent>
         </Card>
@@ -1522,7 +1525,7 @@ const AttributionReport = () => {
                         />
                         <span className="text-muted-foreground">{item.source}</span>
                       </div>
-                      <span className="font-medium">{item.count} ({item.percentage}%)</span>
+                      <span className="font-medium">{m.number(item.count, item.source)} ({item.percentage}%)</span>
                     </div>
                   ))}
                 </div>
@@ -1558,32 +1561,32 @@ const AttributionReport = () => {
                         {index + 1}
                       </div>
                       <div>
-                        <p className="font-medium text-sm">{leader.name}</p>
+                        <p className="font-medium text-sm">{isDemoMode ? m.name(leader.name) : leader.name}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {leader.city && (
                             <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" /> {leader.city}
+                              <MapPin className="h-3 w-3" /> {isDemoMode ? m.city(leader.city) : leader.city}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-primary text-lg">{leader.totalInfluence}</p>
+                      <p className="font-bold text-primary text-lg">{m.number(leader.totalInfluence, leader.name)}</p>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap justify-end">
                         {leader.contactsReferred > 0 && (
                           <Badge variant="outline" className="text-xs py-0 px-1.5">
-                            👥 {leader.contactsReferred} contatos
+                            👥 {m.number(leader.contactsReferred, leader.name + "_c")} contatos
                           </Badge>
                         )}
                         {leader.eventRegistrations > 0 && (
                           <Badge variant="outline" className="text-xs py-0 px-1.5">
-                            🎫 {leader.eventRegistrations} eventos
+                            🎫 {m.number(leader.eventRegistrations, leader.name + "_e")} eventos
                           </Badge>
                         )}
                         {leader.officeVisits > 0 && (
                           <Badge variant="outline" className="text-xs py-0 px-1.5">
-                            🏢 {leader.officeVisits} visitas
+                            🏢 {m.number(leader.officeVisits, leader.name + "_v")} visitas
                           </Badge>
                         )}
                       </div>
@@ -1670,7 +1673,7 @@ const AttributionReport = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{item.count.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-primary">{m.number(item.count, item.source).toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">{item.percentage}% do total</p>
                   </div>
                 </div>
