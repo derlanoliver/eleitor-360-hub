@@ -53,6 +53,18 @@ const ANTI_SPAM_TEMPLATES = [
   'verificacao-sms-fallback',
   'verificacao-cadastro',
   'verificacao-codigo',
+  'lider-cadastro-confirmado',
+  'captacao-boas-vindas',
+  'evento-inscricao-confirmada',
+  'lideranca-cadastro-link',
+  'membro-cadastro-boas-vindas',
+  'visita-link-formulario',
+  'reuniao-cancelada',
+  'reuniao-reagendada',
+  'descadastro-confirmado',
+  'recadastro-confirmado',
+  'link-indicacao-sms-fallback',
+  'pesquisa-agradecimento',
 ];
 
 // Gerar variação de mensagem com IA para evitar detecção de spam
@@ -73,21 +85,33 @@ async function generateMessageVariation(
     const nome = variables.nome || variables.name || "Amigo(a)";
     const codigo = variables.codigo || variables.code || "";
     
-    const prompt = `Você é um assistente que cria variações naturais de mensagens de WhatsApp.
+    // Extract URLs/links from the message to preserve them exactly
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = filledMessage.match(urlRegex) || [];
+    const urlPlaceholders = urls.map((url, i) => `[[URL_${i}]]`);
+    
+    let messageForAI = filledMessage;
+    urls.forEach((url, i) => {
+      messageForAI = messageForAI.replace(url, urlPlaceholders[i]);
+    });
+
+    const prompt = `Você é um assistente que cria variações naturais de mensagens de WhatsApp para evitar bloqueio por spam.
 
 MENSAGEM ORIGINAL:
-${filledMessage}
+${messageForAI}
 
 REGRAS OBRIGATÓRIAS:
 1. Mantenha a saudação usando o nome "${nome}"
-2. Mantenha o código de verificação "${codigo}" em destaque com *asteriscos*
-3. Explique que é um fallback após falha de SMS (se aplicável)
-4. Peça para responder com o código
-5. Use tom amigável e natural
-6. Varie a estrutura das frases, emojis (use diferentes do original) e palavras
-7. Mantenha entre 4-6 linhas
+2. Se houver código de verificação "${codigo}", mantenha-o EXATAMENTE igual em destaque com *asteriscos*
+3. Mantenha TODOS os placeholders [[URL_0]], [[URL_1]] etc EXATAMENTE como estão - NÃO os modifique
+4. Mantenha o significado e a intenção da mensagem original
+5. Varie: saudações, emojis (use DIFERENTES), estrutura de frases, sinônimos, pontuação
+6. Use tom amigável e natural, como se fosse uma pessoa real
+7. Mantenha entre 3-7 linhas
 8. NÃO use formatação markdown além de *negrito*
 9. NÃO repita a estrutura exata da mensagem original
+10. Varie a ordem das informações quando possível
+11. Use saudações variadas: Olá, Oi, E aí, Fala, Hey, Tudo bem, Bom dia/tarde
 
 Gere UMA variação criativa mantendo a essência. Responda APENAS com a mensagem, sem explicações:`;
 
@@ -116,8 +140,13 @@ Gere UMA variação criativa mantendo a essência. Responda APENAS com a mensage
     const variation = data.choices?.[0]?.message?.content?.trim();
     
     if (variation && variation.length > 20) {
+      // Restore original URLs back into the variation
+      let finalVariation = variation;
+      urls.forEach((url, i) => {
+        finalVariation = finalVariation.replace(urlPlaceholders[i], url);
+      });
       console.log("[send-whatsapp] Variação gerada com IA com sucesso");
-      return variation;
+      return finalVariation;
     }
     
     console.log("[send-whatsapp] Variação vazia ou muito curta, usando original");
