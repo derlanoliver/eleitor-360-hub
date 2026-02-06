@@ -209,3 +209,25 @@ export function maskRecord<T extends Record<string, unknown>>(record: T): T {
 export function maskRecords<T extends Record<string, unknown>>(records: T[]): T[] {
   return records.map(r => maskRecord(r));
 }
+
+/**
+ * Brand names / politician names that must be hidden in demo mode.
+ * Replaces any occurrence of these terms with a generic placeholder.
+ */
+const BRAND_PATTERNS = [
+  /rafael\s+prudente/gi,
+  /dep\.\s*rafael\s*prudente/gi,
+  /deputado\s+rafael\s*prudente/gi,
+  /gabinete\s+rafael\s*prudente/gi,
+];
+
+const BRAND_REPLACEMENT = "Deputado Demo";
+
+export function maskBrandText(text: string | null | undefined): string {
+  if (!text) return text ?? "";
+  let result = text;
+  for (const pattern of BRAND_PATTERNS) {
+    result = result.replace(pattern, BRAND_REPLACEMENT);
+  }
+  return result;
+}

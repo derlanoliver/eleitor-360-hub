@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { ptBR } from "date-fns/locale";
 import { Eye, Users, Download, TrendingUp, Loader2 } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ interface FunnelReportDialogProps {
 }
 
 export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportDialogProps) {
+  const { isDemoMode, m } = useDemoMask();
   // Fetch leads captured by this funnel
   const { data: leads, isLoading } = useQuery({
     queryKey: ['funnel_leads', funnel.id],
@@ -63,7 +65,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Relatório: {funnel.nome}</DialogTitle>
+          <DialogTitle>Relatório: {m.brand(funnel.nome)}</DialogTitle>
         </DialogHeader>
 
         {/* Metrics Cards */}
@@ -74,7 +76,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                 <Eye className="h-4 w-4" />
                 <span className="text-xs">Visitas</span>
               </div>
-              <p className="text-2xl font-bold">{funnel.views_count}</p>
+              <p className="text-2xl font-bold">{m.number(funnel.views_count, funnel.id + "_rv")}</p>
             </CardContent>
           </Card>
 
@@ -84,7 +86,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                 <Users className="h-4 w-4" />
                 <span className="text-xs">Leads</span>
               </div>
-              <p className="text-2xl font-bold">{funnel.leads_count}</p>
+              <p className="text-2xl font-bold">{m.number(funnel.leads_count, funnel.id + "_rl")}</p>
             </CardContent>
           </Card>
 
@@ -94,7 +96,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                 <Download className="h-4 w-4" />
                 <span className="text-xs">Downloads</span>
               </div>
-              <p className="text-2xl font-bold">{funnel.downloads_count}</p>
+              <p className="text-2xl font-bold">{m.number(funnel.downloads_count, funnel.id + "_rd")}</p>
             </CardContent>
           </Card>
 
@@ -104,7 +106,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                 <TrendingUp className="h-4 w-4" />
                 <span className="text-xs">Conversão</span>
               </div>
-              <p className="text-2xl font-bold">{conversionRate}%</p>
+              <p className="text-2xl font-bold">{isDemoMode ? m.percentage(parseFloat(conversionRate), funnel.id + "_rcr") : conversionRate}%</p>
             </CardContent>
           </Card>
         </div>
@@ -123,7 +125,7 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                     className="bg-blue-500 h-full flex items-center justify-end pr-2 text-xs text-white font-medium"
                     style={{ width: '100%' }}
                   >
-                    {funnel.views_count}
+                    {m.number(funnel.views_count, funnel.id + "_rv")}
                   </div>
                 </div>
               </div>
@@ -134,10 +136,10 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                     className="bg-green-500 h-full flex items-center justify-end pr-2 text-xs text-white font-medium"
                     style={{ width: `${funnel.views_count > 0 ? (funnel.leads_count / funnel.views_count) * 100 : 0}%`, minWidth: funnel.leads_count > 0 ? '40px' : '0' }}
                   >
-                    {funnel.leads_count}
+                    {m.number(funnel.leads_count, funnel.id + "_rl")}
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground w-12">{conversionRate}%</span>
+                <span className="text-xs text-muted-foreground w-12">{isDemoMode ? m.percentage(parseFloat(conversionRate), funnel.id + "_rcr") : conversionRate}%</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-20 text-xs text-muted-foreground">Downloads</div>
@@ -146,10 +148,10 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                     className="bg-purple-500 h-full flex items-center justify-end pr-2 text-xs text-white font-medium"
                     style={{ width: `${funnel.views_count > 0 ? (funnel.downloads_count / funnel.views_count) * 100 : 0}%`, minWidth: funnel.downloads_count > 0 ? '40px' : '0' }}
                   >
-                    {funnel.downloads_count}
+                    {m.number(funnel.downloads_count, funnel.id + "_rd")}
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground w-12">{downloadRate}%</span>
+                <span className="text-xs text-muted-foreground w-12">{isDemoMode ? m.percentage(parseFloat(downloadRate), funnel.id + "_rdr") : downloadRate}%</span>
               </div>
             </div>
           </CardContent>
@@ -180,10 +182,10 @@ export function FunnelReportDialog({ open, onOpenChange, funnel }: FunnelReportD
                   <TableBody>
                     {leads.map((lead) => (
                       <TableRow key={lead.id}>
-                        <TableCell className="font-medium">{lead.nome}</TableCell>
-                        <TableCell>{lead.email || '-'}</TableCell>
-                        <TableCell>{lead.telefone_norm || '-'}</TableCell>
-                        <TableCell>{(lead.cidade as any)?.nome || '-'}</TableCell>
+                        <TableCell className="font-medium">{m.name(lead.nome)}</TableCell>
+                        <TableCell>{m.email(lead.email || '-')}</TableCell>
+                        <TableCell>{m.phone(lead.telefone_norm || '-')}</TableCell>
+                        <TableCell>{m.city((lead.cidade as any)?.nome || '-')}</TableCell>
                         <TableCell>
                           {format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                         </TableCell>
