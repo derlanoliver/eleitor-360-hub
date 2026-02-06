@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ const DirectionBadge = ({ direction }: { direction: string }) => (
 );
 
 export default function WhatsAppHistory() {
+  const { m } = useDemoMask();
   const [filters, setFilters] = useState<WhatsAppFilters>({
     search: "",
     direction: "all",
@@ -117,7 +119,7 @@ export default function WhatsAppHistory() {
               {metricsLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
-                <div className="text-2xl font-bold">{metrics?.total || 0}</div>
+                <div className="text-2xl font-bold">{m.number(metrics?.total || 0, "wa_total")}</div>
               )}
             </CardContent>
           </Card>
@@ -134,7 +136,7 @@ export default function WhatsAppHistory() {
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-2xl font-bold text-green-600">
-                  {metrics?.deliveryRate.toFixed(1) || 0}%
+                  {m.percentage(metrics?.deliveryRate || 0, "wa_delivery").toFixed(1)}%
                 </div>
               )}
             </CardContent>
@@ -152,7 +154,7 @@ export default function WhatsAppHistory() {
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-2xl font-bold text-blue-600">
-                  {metrics?.readRate.toFixed(1) || 0}%
+                  {m.percentage(metrics?.readRate || 0, "wa_read").toFixed(1)}%
                 </div>
               )}
             </CardContent>
@@ -169,7 +171,7 @@ export default function WhatsAppHistory() {
               {metricsLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
-                <div className="text-2xl font-bold text-red-500">{metrics?.failed || 0}</div>
+                <div className="text-2xl font-bold text-red-500">{m.number(metrics?.failed || 0, "wa_failed")}</div>
               )}
             </CardContent>
           </Card>
@@ -294,11 +296,11 @@ export default function WhatsAppHistory() {
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="font-medium text-sm">
-                              {formatPhone(message.phone)}
+                              {m.phone(message.phone)}
                             </span>
                             {message.contact && (
                               <span className="text-xs text-muted-foreground">
-                                {message.contact.nome}
+                                {m.name(message.contact.nome)}
                               </span>
                             )}
                           </div>

@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { MessageStatusBadge, DirectionBadge } from "./MessageStatusBadge";
 import { WhatsAppMessage } from "@/hooks/useWhatsAppMessages";
 import { Phone, User, Clock, MessageSquare, Building2, AlertCircle } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 
 interface MessageDetailsDialogProps {
   message: WhatsAppMessage | null;
@@ -23,6 +24,8 @@ export function MessageDetailsDialog({
   open,
   onOpenChange,
 }: MessageDetailsDialogProps) {
+  const { m } = useDemoMask();
+
   if (!message) return null;
 
   const formatPhone = (phone: string) => {
@@ -62,14 +65,14 @@ export function MessageDetailsDialog({
             <div className="flex items-center gap-2 text-sm">
               <Phone className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Telefone:</span>
-              <span className="font-medium">{formatPhone(message.phone)}</span>
+              <span className="font-medium">{m.phone(message.phone)}</span>
             </div>
 
             {message.contact && (
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Contato:</span>
-                <span className="font-medium">{message.contact.nome}</span>
+                <span className="font-medium">{m.name(message.contact.nome)}</span>
               </div>
             )}
 

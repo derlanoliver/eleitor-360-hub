@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -63,6 +64,7 @@ interface GroupedMessages {
 }
 
 export function WhatsAppHistoryTab() {
+  const { m } = useDemoMask();
   const [filters, setFilters] = useState<WhatsAppFilters>({
     search: "",
     direction: "all",
@@ -182,7 +184,7 @@ export function WhatsAppHistoryTab() {
             {metricsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{metrics?.total || 0}</div>
+              <div className="text-2xl font-bold">{m.number(metrics?.total || 0, "wa_total")}</div>
             )}
           </CardContent>
         </Card>
@@ -198,9 +200,9 @@ export function WhatsAppHistoryTab() {
             {metricsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-green-600">
-                {metrics?.deliveryRate.toFixed(1) || 0}%
-              </div>
+                <div className="text-2xl font-bold text-green-600">
+                  {m.percentage(metrics?.deliveryRate || 0, "wa_delivery").toFixed(1)}%
+                </div>
             )}
           </CardContent>
         </Card>
@@ -216,9 +218,9 @@ export function WhatsAppHistoryTab() {
             {metricsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-blue-600">
-                {metrics?.readRate.toFixed(1) || 0}%
-              </div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {m.percentage(metrics?.readRate || 0, "wa_read").toFixed(1)}%
+                </div>
             )}
           </CardContent>
         </Card>
@@ -234,7 +236,7 @@ export function WhatsAppHistoryTab() {
             {metricsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-destructive">{metrics?.failed || 0}</div>
+              <div className="text-2xl font-bold text-destructive">{m.number(metrics?.failed || 0, "wa_failed")}</div>
             )}
           </CardContent>
         </Card>
@@ -372,11 +374,11 @@ export function WhatsAppHistoryTab() {
                         <div className="flex flex-col">
                           {group.contactName ? (
                             <>
-                              <span className="font-medium">{group.contactName}</span>
-                              <span className="text-sm text-muted-foreground">{formatPhone(group.phone)}</span>
+                              <span className="font-medium">{m.name(group.contactName)}</span>
+                              <span className="text-sm text-muted-foreground">{m.phone(group.phone)}</span>
                             </>
                           ) : (
-                            <span className="font-medium">{formatPhone(group.phone)}</span>
+                            <span className="font-medium">{m.phone(group.phone)}</span>
                           )}
                         </div>
                       </div>
