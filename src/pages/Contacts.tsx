@@ -74,6 +74,7 @@ import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import type { Step } from "react-joyride";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 
 const contactsTutorialSteps: Step[] = [
   {
@@ -180,6 +181,7 @@ const Contacts = () => {
   const reactivateContact = useReactivateContact();
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
+  const { m } = useDemoMask();
 
   // Buscar contact_ids que foram promovidos a líder
   const { data: promotedContactIds = [] } = useQuery({
@@ -542,15 +544,15 @@ const Contacts = () => {
             <div data-tutorial="contacts-stats" className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <strong className="text-foreground">{totalCount}</strong> contatos
+                <strong className="text-foreground">{m.number(totalCount, 'contacts_total')}</strong> contatos
               </span>
               <span className="flex items-center gap-1.5">
                 <Phone className="h-4 w-4 text-green-600" />
-                <strong className="text-foreground">{totalWithWhatsAppCount}</strong>
+                <strong className="text-foreground">{m.number(totalWithWhatsAppCount, 'contacts_wa')}</strong>
               </span>
               <span className="flex items-center gap-1.5">
                 <Mail className="h-4 w-4 text-blue-600" />
-                <strong className="text-foreground">{totalWithEmailCount}</strong>
+                <strong className="text-foreground">{m.number(totalWithEmailCount, 'contacts_email')}</strong>
               </span>
               {pendingVerificationCount > 0 && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
@@ -833,7 +835,7 @@ const Contacts = () => {
                       {/* Informações */}
                       <div className="flex-1 min-w-0">
                         {/* Nome e Região */}
-                        <h3 className="font-semibold text-foreground truncate">{contact.name}</h3>
+                        <h3 className="font-semibold text-foreground truncate">{m.name(contact.name)}</h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                           <span className="truncate">{contact.region}</span>
@@ -889,12 +891,12 @@ const Contacts = () => {
                         <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
                           <span className="flex items-center gap-1.5 text-muted-foreground">
                             <Phone className="h-4 w-4" />
-                            {contact.phone}
+                            {m.phone(contact.phone)}
                           </span>
                           {contact.email && (
                             <span className="flex items-center gap-1.5 text-muted-foreground">
                               <Mail className="h-4 w-4" />
-                              <span className="truncate max-w-[200px]">{contact.email}</span>
+                              <span className="truncate max-w-[200px]">{m.email(contact.email)}</span>
                             </span>
                           )}
                         </div>
@@ -955,7 +957,7 @@ const Contacts = () => {
                               >
                                 {initials}
                               </div>
-                              {contact.name}
+                              {m.name(contact.name)}
                             </DialogTitle>
                           </DialogHeader>
                           {selectedContact && <ContactDetails contact={selectedContact} />}
@@ -1090,6 +1092,7 @@ const Contacts = () => {
 
 // Componente de detalhes do contato com Tabs
 const ContactDetails = ({ contact }: { contact: any }) => {
+  const { m } = useDemoMask();
   const { data: eventParticipation = [], isLoading: isLoadingEvents } = useContactEventParticipation(contact.id);
   const { data: pageViews = [], isLoading: isLoadingPageViews } = useContactPageViews(contact.id);
   const { data: downloads = [], isLoading: isLoadingDownloads } = useContactDownloads(contact.id);
@@ -1202,7 +1205,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
             <div>
               <label className="text-xs font-medium text-muted-foreground">WhatsApp</label>
               <div className="flex items-center justify-between">
-                <p className="font-medium">{contact.phone}</p>
+                <p className="font-medium">{m.phone(contact.phone)}</p>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1217,7 +1220,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">E-mail</label>
                 <div className="flex items-center justify-between">
-                  <p className="font-medium truncate">{contact.email}</p>
+                  <p className="font-medium truncate">{m.email(contact.email)}</p>
                   <Button
                     variant="ghost"
                     size="sm"

@@ -1698,6 +1698,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_demo: boolean
           name: string
           role: string
           telefone: string | null
@@ -1709,6 +1710,7 @@ export type Database = {
           created_at?: string
           email: string
           id: string
+          is_demo?: boolean
           name: string
           role?: string
           telefone?: string | null
@@ -1720,6 +1722,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_demo?: boolean
           name?: string
           role?: string
           telefone?: string | null

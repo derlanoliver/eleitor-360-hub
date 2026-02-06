@@ -23,6 +23,7 @@ import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import { Step } from "react-joyride";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 
 
 // Tutorial steps for Dashboard
@@ -88,6 +89,7 @@ const Dashboard = () => {
   const [periodRA, setPeriodRA] = useState("30d");
   const [periodTemas, setPeriodTemas] = useState("30d");
   const queryClient = useQueryClient();
+  const { m } = useDemoMask();
 
   // Tutorial hook
   const { restartTutorial } = useTutorial("dashboard", dashboardTutorialSteps);
@@ -255,15 +257,15 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                            {leader.name}
+                            {m.name(leader.name)}
                           </h4>
-                          <p className="text-xs text-muted-foreground mb-2">{leader.region}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{m.city(leader.region)}</p>
                           <LeaderLevelBadge points={leader.points} size="sm" />
                           <div className="mt-2 text-center">
-                            <span className="text-lg font-bold text-primary-600">{leader.points}</span>
+                            <span className="text-lg font-bold text-primary-600">{m.number(leader.points, leader.name + '_pts')}</span>
                             <span className="text-xs text-muted-foreground ml-1">pts</span>
                             <span className="text-xs text-muted-foreground mx-1">•</span>
-                            <span className="text-xs text-muted-foreground">{leader.indicacoes} ind</span>
+                            <span className="text-xs text-muted-foreground">{m.number(leader.indicacoes, leader.name + '_ind')} ind</span>
                           </div>
                           <LeaderLevelProgress points={leader.points} showLabel={false} className="mt-2" />
                           {leader.phone && (
@@ -307,18 +309,18 @@ const Dashboard = () => {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-gray-900">{leader.name}</h4>
+                              <h4 className="font-medium text-gray-900">{m.name(leader.name)}</h4>
                               <LeaderLevelBadge points={leader.points} size="sm" showIcon={true} />
                             </div>
-                            <p className="text-xs text-muted-foreground">{leader.region}</p>
+                            <p className="text-xs text-muted-foreground">{m.city(leader.region)}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
-                            <span className="font-bold text-primary-600">{leader.points}</span>
+                            <span className="font-bold text-primary-600">{m.number(leader.points, leader.name + '_pts')}</span>
                             <span className="text-xs text-muted-foreground ml-1">pts</span>
                             <span className="text-xs text-muted-foreground mx-1">•</span>
-                            <span className="text-xs text-muted-foreground">{leader.indicacoes} ind</span>
+                            <span className="text-xs text-muted-foreground">{m.number(leader.indicacoes, leader.name + '_ind')} ind</span>
                           </div>
                           {leader.phone && (
                             <Button
@@ -402,7 +404,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Total de Cadastros</span>
                   </div>
                   <span className="text-lg font-bold text-primary-600">
-                    {dashboardStats?.totalRegistrations.toLocaleString() || 0}
+                    {m.number(dashboardStats?.totalRegistrations || 0, 'total_registrations').toLocaleString()}
                   </span>
                 </div>
 
@@ -412,7 +414,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Cidades Alcançadas</span>
                   </div>
                   <span className="text-lg font-bold text-blue-600">
-                    {dashboardStats?.citiesReached || 0} RAs
+                    {m.number(dashboardStats?.citiesReached || 0, 'cities')} RAs
                   </span>
                 </div>
 
@@ -423,7 +425,7 @@ const Dashboard = () => {
                       <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
                     </div>
                     <span className="text-base font-semibold text-green-600">
-                      {dashboardStats.topCity} ({dashboardStats.topCityCount})
+                      {m.city(dashboardStats.topCity)} ({m.number(dashboardStats.topCityCount, 'top_city')})
                     </span>
                   </div>
                 )}
@@ -434,7 +436,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Líderes Ativos</span>
                   </div>
                   <span className="text-lg font-bold text-orange-600">
-                    {dashboardStats?.activeLeaders || 0}
+                    {m.number(dashboardStats?.activeLeaders || 0, 'active_leaders')}
                   </span>
                 </div>
 
@@ -469,15 +471,15 @@ const Dashboard = () => {
                 {/* Cards de métricas */}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-blue-50 rounded-lg">
-                    <p className="text-xl font-bold text-blue-600">{officeStats?.totalVisits || 0}</p>
+                    <p className="text-xl font-bold text-blue-600">{m.number(officeStats?.totalVisits || 0, 'office_total')}</p>
                     <p className="text-xs text-muted-foreground">Total</p>
                   </div>
                   <div className="text-center p-2 bg-amber-50 rounded-lg">
-                    <p className="text-xl font-bold text-amber-600">{officeStats?.pendingVisits || 0}</p>
+                    <p className="text-xl font-bold text-amber-600">{m.number(officeStats?.pendingVisits || 0, 'office_pending')}</p>
                     <p className="text-xs text-muted-foreground">Aguardando</p>
                   </div>
                   <div className="text-center p-2 bg-green-50 rounded-lg">
-                    <p className="text-xl font-bold text-green-600">{officeStats?.meetingsCompleted || 0}</p>
+                    <p className="text-xl font-bold text-green-600">{m.number(officeStats?.meetingsCompleted || 0, 'office_completed')}</p>
                     <p className="text-xs text-muted-foreground">Realizadas</p>
                   </div>
                 </div>
@@ -506,7 +508,7 @@ const Dashboard = () => {
                     <div className="space-y-2">
                       {officeStats.recentVisits.slice(0, 3).map(visit => (
                         <div key={visit.id} className="flex justify-between items-center text-sm py-1 px-2 bg-muted/50 rounded">
-                          <span className="truncate max-w-[120px]">{visit.contactName}</span>
+                          <span className="truncate max-w-[120px]">{m.name(visit.contactName)}</span>
                           <Badge variant="outline" className="text-xs">
                             {visit.status === "LINK_SENT" && "Link Enviado"}
                             {visit.status === "FORM_SUBMITTED" && "Form Enviado"}
