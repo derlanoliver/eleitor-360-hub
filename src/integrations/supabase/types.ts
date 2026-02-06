@@ -772,6 +772,7 @@ export type Database = {
           smsdev_api_key: string | null
           smsdev_enabled: boolean | null
           updated_at: string
+          verification_fallback_active: boolean | null
           verification_method: string | null
           verification_wa_enabled: boolean | null
           verification_wa_keyword: string | null
@@ -789,8 +790,10 @@ export type Database = {
           wa_auto_visita_enabled: boolean | null
           whatsapp_provider_active: string | null
           zapi_client_token: string | null
+          zapi_disconnected_at: string | null
           zapi_enabled: boolean | null
           zapi_instance_id: string | null
+          zapi_last_connected_at: string | null
           zapi_token: string | null
         }
         Insert: {
@@ -821,6 +824,7 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          verification_fallback_active?: boolean | null
           verification_method?: string | null
           verification_wa_enabled?: boolean | null
           verification_wa_keyword?: string | null
@@ -838,8 +842,10 @@ export type Database = {
           wa_auto_visita_enabled?: boolean | null
           whatsapp_provider_active?: string | null
           zapi_client_token?: string | null
+          zapi_disconnected_at?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null
+          zapi_last_connected_at?: string | null
           zapi_token?: string | null
         }
         Update: {
@@ -870,6 +876,7 @@ export type Database = {
           smsdev_api_key?: string | null
           smsdev_enabled?: boolean | null
           updated_at?: string
+          verification_fallback_active?: boolean | null
           verification_method?: string | null
           verification_wa_enabled?: boolean | null
           verification_wa_keyword?: string | null
@@ -887,8 +894,10 @@ export type Database = {
           wa_auto_visita_enabled?: boolean | null
           whatsapp_provider_active?: string | null
           zapi_client_token?: string | null
+          zapi_disconnected_at?: string | null
           zapi_enabled?: boolean | null
           zapi_instance_id?: string | null
+          zapi_last_connected_at?: string | null
           zapi_token?: string | null
         }
         Relationships: []
@@ -3173,12 +3182,14 @@ export type Database = {
       get_verification_settings: {
         Args: never
         Returns: {
+          verification_fallback_active: boolean
           verification_method: string
           verification_wa_enabled: boolean
           verification_wa_keyword: string
           verification_wa_test_mode: boolean
           verification_wa_whitelist: Json
           verification_wa_zapi_phone: string
+          zapi_disconnected_at: string
         }[]
       }
       get_visit_by_qr: {

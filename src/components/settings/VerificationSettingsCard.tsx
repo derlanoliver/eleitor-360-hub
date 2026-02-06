@@ -8,12 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Shield, ChevronDown, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Shield, ChevronDown, MessageSquare, CheckCircle2, AlertTriangle, Wifi, WifiOff } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings } from "@/hooks/useIntegrationsSettings";
+import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function VerificationSettingsCard() {
   const { data: settings, isLoading } = useIntegrationsSettings();
   const updateSettings = useUpdateIntegrationsSettings();
+  
+  // Check Z-API connection status
+  const { data: zapiStatus, isLoading: isCheckingZapi } = useZapiConnectionStatus(
+    settings?.zapi_instance_id ?? null,
+    settings?.zapi_token ?? null,
+    settings?.zapi_client_token ?? null,
+    settings?.zapi_enabled ?? false
+  );
   
   const [verificationMethod, setVerificationMethod] = useState<'link' | 'whatsapp_consent'>('link');
   const [verificationWaEnabled, setVerificationWaEnabled] = useState(false);
@@ -22,6 +34,9 @@ export function VerificationSettingsCard() {
   const [verificationWaKeyword, setVerificationWaKeyword] = useState("CONFIRMAR");
   const [verificationWaZapiPhone, setVerificationWaZapiPhone] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  
+  const isFallbackActive = settings?.verification_fallback_active ?? false;
+  const isZapiConnected = zapiStatus?.connected ?? false;
 
   useEffect(() => {
     if (settings) {
@@ -78,7 +93,13 @@ export function VerificationSettingsCard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {verificationWaEnabled && isWhatsAppMethod ? (
+            {/* Fallback indicator */}
+            {isFallbackActive && verificationWaEnabled && isWhatsAppMethod ? (
+              <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Fallback SMS Ativo
+              </Badge>
+            ) : verificationWaEnabled && isWhatsAppMethod ? (
               <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                 <MessageSquare className="h-3 w-3 mr-1" />
                 WhatsApp Ativo
@@ -89,10 +110,38 @@ export function VerificationSettingsCard() {
                 Link SMS
               </Badge>
             )}
+            
+            {/* Z-API connection status */}
+            {settings?.zapi_enabled && (
+              <div className="flex items-center gap-1.5 text-xs">
+                {isCheckingZapi ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                ) : isZapiConnected ? (
+                  <Wifi className="h-3 w-3 text-green-500" />
+                ) : (
+                  <WifiOff className="h-3 w-3 text-red-500" />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Fallback Alert */}
+        {isFallbackActive && verificationWaEnabled && isWhatsAppMethod && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>Fallback SMS ativo:</strong> O WhatsApp está desconectado
+              {settings?.zapi_disconnected_at && (
+                <span className="text-amber-600">
+                  {" "}(há {formatDistanceToNow(new Date(settings.zapi_disconnected_at), { locale: ptBR })})
+                </span>
+              )}. As verificações estão sendo enviadas automaticamente via SMS até a reconexão.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {/* Toggle Master */}
         <div className="flex items-center justify-between py-3 border-b">
           <div>

@@ -1044,7 +1044,42 @@ async function sendWhatsAppMessage(supabase: any, phone: string, message: string
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleConnectionStatus(supabase: any, data: ZapiConnectionStatus) {
   const isConnected = data.connected || data.status === "connected" || data.type === "ConnectedCallback";
-  console.log(`[zapi-webhook] Connection status: ${isConnected ? "connected" : "disconnected"}`);
+  const isDisconnected = data.type === "DisconnectedCallback" || data.status === "disconnected" || data.connected === false;
+  
+  console.log(`[zapi-webhook] Connection status: ${isConnected ? "connected" : "disconnected"} (type: ${data.type})`);
+  
+  // Update verification fallback status based on connection
+  if (isConnected) {
+    // Z-API connected - disable fallback
+    const { error } = await supabase
+      .from("integrations_settings")
+      .update({
+        verification_fallback_active: false,
+        zapi_last_connected_at: new Date().toISOString(),
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Update all rows
+    
+    if (error) {
+      console.error("[zapi-webhook] Error updating connection status:", error);
+    } else {
+      console.log("[zapi-webhook] Verification fallback DISABLED - Z-API connected");
+    }
+  } else if (isDisconnected) {
+    // Z-API disconnected - enable fallback to SMS
+    const { error } = await supabase
+      .from("integrations_settings")
+      .update({
+        verification_fallback_active: true,
+        zapi_disconnected_at: new Date().toISOString(),
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Update all rows
+    
+    if (error) {
+      console.error("[zapi-webhook] Error updating disconnection status:", error);
+    } else {
+      console.log("[zapi-webhook] Verification fallback ENABLED - Z-API disconnected, switching to SMS");
+    }
+  }
 }
 
 function mapZapiStatus(status: string | undefined): string {
