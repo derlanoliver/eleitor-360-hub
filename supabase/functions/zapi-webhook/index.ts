@@ -210,6 +210,21 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
   console.log(`[zapi-webhook] Received message from ${phone}: ${message.substring(0, 50)}...`);
 
+  // Deduplication: check if this messageId was already processed
+  if (messageId) {
+    const { data: existingMsg } = await supabase
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("message_id", messageId)
+      .limit(1)
+      .single();
+    
+    if (existingMsg) {
+      console.log(`[zapi-webhook] Duplicate messageId ${messageId} detected, skipping processing`);
+      return;
+    }
+  }
+
   // Get integration settings to check category toggles
   const { data: settings } = await supabase
     .from("integrations_settings")
