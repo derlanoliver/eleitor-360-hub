@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Map as MapIcon, Users, UserCheck, Flame, MapPin, Link2, Navigation, Crown, Star } from "lucide-react";
 import { useStrategicMapData, LeaderMapData, ContactMapData } from "@/hooks/maps/useStrategicMapData";
+import { DEMO_MAP_LEADERS, DEMO_MAP_CONTACTS, DEMO_MAP_CITIES, DEMO_MAP_STATS } from "@/data/maps/demoMapData";
 import { MapController } from "@/components/maps/MapController";
 import { MapAnalysisPanel } from "@/components/maps/MapAnalysisPanel";
 import { RegionBoundaryLayer } from "@/components/maps/RegionBoundaryLayer";
@@ -344,7 +345,13 @@ function ConnectionsLayer({
 
 export default function StrategicMap() {
   const { isDemoMode, m } = useDemoMask();
-  const { leaders, contacts, cities, stats, isLoading, error } = useStrategicMapData();
+  const { leaders: dbLeaders, contacts: dbContacts, cities: dbCities, stats: dbStats, isLoading, error } = useStrategicMapData();
+
+  // Demo mode overrides
+  const leaders = isDemoMode ? DEMO_MAP_LEADERS : dbLeaders;
+  const contacts = isDemoMode ? DEMO_MAP_CONTACTS : dbContacts;
+  const cities = isDemoMode ? DEMO_MAP_CITIES : dbCities;
+  const stats = isDemoMode ? DEMO_MAP_STATS : dbStats;
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showLeaders, setShowLeaders] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
@@ -453,7 +460,7 @@ export default function StrategicMap() {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [cities]);
 
-  if (isLoading) {
+  if (isLoading && !isDemoMode) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         <Skeleton className="h-12 w-64" />
@@ -462,7 +469,7 @@ export default function StrategicMap() {
     );
   }
 
-  if (error) {
+  if (error && !isDemoMode) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <Card className="border-destructive">
