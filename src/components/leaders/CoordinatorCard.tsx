@@ -1,4 +1,5 @@
 import { Crown, Users, Award, ChevronRight, MoreVertical, UserMinus } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ export function CoordinatorCard({
   onSelect,
   onDemote 
 }: CoordinatorCardProps) {
+  const { m } = useDemoMask();
   return (
     <Card 
       className={`cursor-pointer transition-all ${
@@ -38,9 +40,9 @@ export function CoordinatorCard({
               <Crown className="h-5 w-5 text-amber-600" />
             </div>
             <div className="min-w-0 overflow-hidden">
-              <h3 className="font-semibold truncate max-w-[200px]">{coordinator.nome_completo}</h3>
+              <h3 className="font-semibold truncate max-w-[200px]">{m.name(coordinator.nome_completo)}</h3>
               <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                {coordinator.cidade_nome || "Sem região"}
+                {m.city(coordinator.cidade_nome) || "Sem região"}
               </p>
             </div>
           </div>

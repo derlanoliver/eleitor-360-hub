@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { GitBranch, Crown, Plus, Users, Award, Target, Loader2, Search, Star } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,6 +68,7 @@ const leaderTreeTutorialSteps: Step[] = [
 ];
 
 export default function LeaderTree() {
+  const { m } = useDemoMask();
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState<string | null>(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -198,7 +200,7 @@ export default function LeaderTree() {
               <Crown className="h-6 w-6 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{coordinators?.length || 0}</p>
+              <p className="text-2xl font-bold">{m.number(coordinators?.length || 0, "tree_coords")}</p>
               <p className="text-sm text-muted-foreground">Coordenadores</p>
             </div>
           </CardContent>
@@ -210,7 +212,7 @@ export default function LeaderTree() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {coordinators?.reduce((sum, c) => sum + c.total_cadastros, 0) || 0}
+                {m.number(coordinators?.reduce((sum, c) => sum + c.total_cadastros, 0) || 0, "tree_cadastros")}
               </p>
               <p className="text-sm text-muted-foreground">Cadastros Totais</p>
             </div>
@@ -223,7 +225,7 @@ export default function LeaderTree() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {coordinators?.reduce((sum, c) => sum + c.total_pontos, 0) || 0}
+                {m.number(coordinators?.reduce((sum, c) => sum + c.total_pontos, 0) || 0, "tree_pontos")}
               </p>
               <p className="text-sm text-muted-foreground">Pontos Totais</p>
             </div>
@@ -305,13 +307,13 @@ export default function LeaderTree() {
                         >
                           <div className="flex items-center gap-2">
                             <Star className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium flex-1 truncate">{leader.nome_completo}</span>
+                            <span className="font-medium flex-1 truncate">{m.name(leader.nome_completo)}</span>
                             <Badge variant="outline" className="text-xs">
                               {getLevelLabel(leader.hierarchy_level)}
                             </Badge>
                           </div>
                           {leader.cidade_nome && (
-                            <p className="text-xs text-muted-foreground mt-1 ml-6">{leader.cidade_nome}</p>
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">{m.city(leader.cidade_nome)}</p>
                           )}
                         </div>
                       ))}
@@ -369,7 +371,7 @@ export default function LeaderTree() {
             <CardTitle className="text-lg flex items-center gap-2">
               <GitBranch className="h-5 w-5 text-primary" />
               {selectedCoordinator ? (
-                <>Hierarquia de {selectedCoordinator.nome_completo}</>
+                <>Hierarquia de {m.name(selectedCoordinator.nome_completo)}</>
               ) : (
                 <>Visualização da Árvore</>
               )}
