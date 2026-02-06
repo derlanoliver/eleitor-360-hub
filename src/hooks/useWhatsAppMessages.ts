@@ -94,48 +94,61 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
 
       let filteredData = data as WhatsAppMessage[];
 
-      // For messages without contact info via contact_id, try to match by phone
-      // Collect unique phone numbers that need contact lookup
-      const phonesWithoutContact = [...new Set(
-        filteredData
-          .filter(msg => !msg.contact?.nome)
-          .map(msg => msg.phone.replace(/\D/g, "").slice(-8))
-      )];
+      // For messages without contact info via contact_id, try to match by phone.
+      // IMPORTANT: fetch contacts in batches to avoid the 1000 row limit.
+      const needsPhoneLookup = filteredData.some((msg) => !msg.contact?.nome);
 
-      if (phonesWithoutContact.length > 0) {
-        // Fetch all contacts and match by last 8 digits
-        const { data: contacts } = await supabase
-          .from("office_contacts")
-          .select("nome, telefone_norm");
+      if (needsPhoneLookup) {
+        const fetchAllContacts = async () => {
+          const pageSize = 1000;
+          let from = 0;
+          const all: Array<{ nome: string | null; telefone_norm: string }> = [];
 
-        if (contacts && contacts.length > 0) {
-          // Create a map of normalized phone (last 8 digits) to contact name
-          const phoneToContactMap = new Map<string, string>();
-          contacts.forEach(contact => {
-            const normalizedPhone = contact.telefone_norm.replace(/\D/g, "").slice(-8);
-            if (contact.nome) {
-              phoneToContactMap.set(normalizedPhone, contact.nome);
-            }
-          });
+          // Paginate until a page returns less than pageSize
+          while (true) {
+            const { data: page, error: pageError } = await supabase
+              .from("office_contacts")
+              .select("nome, telefone_norm")
+              .range(from, from + pageSize - 1);
 
-          // Enrich messages with contact names
-          filteredData = filteredData.map(msg => {
-            if (!msg.contact?.nome) {
-              const msgPhoneNorm = msg.phone.replace(/\D/g, "").slice(-8);
-              const contactName = phoneToContactMap.get(msgPhoneNorm);
-              if (contactName) {
-                return {
-                  ...msg,
-                  contact: {
-                    nome: contactName,
-                    telefone_norm: msg.phone,
-                  },
-                };
-              }
-            }
-            return msg;
-          });
+            if (pageError) throw pageError;
+            if (!page || page.length === 0) break;
+
+            all.push(...(page as Array<{ nome: string | null; telefone_norm: string }>));
+
+            if (page.length < pageSize) break;
+            from += pageSize;
+          }
+
+          return all;
+        };
+
+        const contacts = await fetchAllContacts();
+
+        // Map: last 8 digits -> name
+        const phoneToContactMap = new Map<string, string>();
+        for (const contact of contacts) {
+          if (!contact?.nome || !contact?.telefone_norm) continue;
+          const normalized = contact.telefone_norm.replace(/\D/g, "").slice(-8);
+          if (normalized) phoneToContactMap.set(normalized, contact.nome);
         }
+
+        filteredData = filteredData.map((msg) => {
+          if (msg.contact?.nome) return msg;
+
+          const msgPhoneNorm = msg.phone.replace(/\D/g, "").slice(-8);
+          const contactName = phoneToContactMap.get(msgPhoneNorm);
+
+          if (!contactName) return msg;
+
+          return {
+            ...msg,
+            contact: {
+              nome: contactName,
+              telefone_norm: msg.phone,
+            },
+          };
+        });
       }
 
       // Client-side search filter
