@@ -1,251 +1,106 @@
 
+# Plano: Corrigir Métricas do WhatsApp (Paginação)
 
-## Plano: Migrar Aba "API Oficial" para Usar Cloud API da Meta
+## Problema Identificado
 
-### Situação Atual
+As métricas do WhatsApp na página `/whatsapp` estão incorretas porque o hook `useWhatsAppMetrics()` busca dados sem paginação, ficando limitado a 1.000 registros (limite padrão do banco de dados).
 
-| Componente | Função | Provedor |
-|------------|--------|----------|
-| `WhatsAppOfficialApiTab` | `send-whatsapp-official` | SMSBarato |
-| Templates usados | `bemvindo1`, `confirmar1` | Via SMSBarato |
+**Dados reais vs exibidos:**
+| Métrica | Valor Real | Valor Exibido |
+|---------|-----------|---------------|
+| Total Enviadas | 3.976 | ~1.000 |
+| Entregues | 1.281 | ~limitado |
+| Lidas | 101 | ~limitado |
+| Com Erro | 773 | ~limitado |
 
-### Objetivo
+## Solução
 
-Migrar a aba "API Oficial" para usar a **Cloud API da Meta** (`send-whatsapp`) com suporte a templates estruturados.
+Modificar o hook `useWhatsAppMetrics()` para usar a abordagem de **contagem via SQL** com `count: 'exact'` e `head: true`, que é mais eficiente e precisa.
 
----
+Esta abordagem:
+- Não tem limite de 1.000 registros
+- É mais performática (não transfere dados, só conta)
+- Já é usada no relatório de emails com sucesso
 
-## 1. Atualizar Edge Function `send-whatsapp`
+## Alterações Técnicas
 
-### 1.1 Adicionar Tipagens para Templates da Meta
+### Arquivo: `src/hooks/useWhatsAppMessages.ts`
 
-```typescript
-interface MetaTemplateComponent {
-  type: 'header' | 'body' | 'button';
-  parameters?: Array<{
-    type: 'text' | 'currency' | 'date_time' | 'image' | 'document' | 'video';
-    text?: string;
-  }>;
-}
-
-interface MetaTemplatePayload {
-  name: string;
-  language: { code: string };
-  components?: MetaTemplateComponent[];
-}
-```
-
-### 1.2 Adicionar Parâmetro de Template no Request
+Substituir a função `useWhatsAppMetrics()` atual por uma versão otimizada que faz contagens diretas no banco:
 
 ```typescript
-interface SendWhatsAppRequest {
-  // ... campos existentes ...
-  metaTemplate?: {
-    name: string;
-    language?: string;
-    components?: MetaTemplateComponent[];
-  };
-}
-```
+export function useWhatsAppMetrics() {
+  return useQuery({
+    queryKey: ["whatsapp-metrics"],
+    queryFn: async () => {
+      // Usar count com head: true para contagem precisa sem limite de 1000
+      const [totalResult, sentResult, deliveredResult, readResult, failedResult] = await Promise.all([
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "sent"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "delivered"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "read"),
+        supabase
+          .from("whatsapp_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("direction", "outgoing")
+          .eq("status", "failed"),
+      ]);
 
-### 1.3 Atualizar `sendViaMetaCloud` para Suportar Templates
+      const total = totalResult.count || 0;
+      const sent = sentResult.count || 0;
+      const delivered = deliveredResult.count || 0;
+      const read = readResult.count || 0;
+      const failed = failedResult.count || 0;
 
-```typescript
-async function sendViaMetaCloud(
-  settings: IntegrationSettings,
-  phone: string,
-  message: string,
-  metaTemplate?: MetaTemplatePayload  // NOVO PARÂMETRO
-): Promise<SendResult> {
-  // ... validações existentes ...
+      const successfulDeliveries = delivered + read;
+      const deliveryRate = total > 0 ? (successfulDeliveries / total) * 100 : 0;
+      const readRate = successfulDeliveries > 0 ? (read / successfulDeliveries) * 100 : 0;
 
-  let body: object;
-
-  if (metaTemplate) {
-    // Enviar como template estruturado
-    body = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: formattedPhone,
-      type: "template",
-      template: metaTemplate,
-    };
-    console.log(`[send-whatsapp] Sending Meta template: ${metaTemplate.name}`);
-  } else {
-    // Enviar como texto livre
-    body = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: formattedPhone,
-      type: "text",
-      text: { body: message },
-    };
-  }
-
-  // ... resto da função ...
-}
-```
-
-### 1.4 Chamar com Template quando fornecido
-
-```typescript
-// Na seção de envio
-if (activeProvider === 'meta_cloud') {
-  result = await sendViaMetaCloud(
-    typedSettings, 
-    cleanPhone, 
-    finalMessage,
-    requestBody.metaTemplate  // Passar template se existir
-  );
+      return {
+        total,
+        sent,
+        delivered,
+        read,
+        failed,
+        deliveryRate,
+        readRate,
+      } as WhatsAppMetrics;
+    },
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
 }
 ```
 
----
+## Resultado Esperado
 
-## 2. Atualizar `WhatsAppOfficialApiTab.tsx`
+Após a correção, os cards exibirão:
 
-### 2.1 Verificar Configuração da Meta Cloud
+| Métrica | Valor Correto |
+|---------|---------------|
+| Total Enviadas | 3.976 |
+| Taxa de Entrega | ~34.7% |
+| Taxa de Leitura | ~7.3% |
+| Com Erro | 773 |
 
-Mudar de verificar `smsbarato_enabled` para verificar `meta_cloud_enabled`:
+## Benefícios
 
-```typescript
-const { data: settings } = useQuery({
-  queryKey: ["integrations_settings_meta_cloud"],
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("integrations_settings")
-      .select("meta_cloud_enabled, meta_cloud_phone_number_id, whatsapp_provider_active")
-      .limit(1)
-      .single();
-    if (error) throw error;
-    return data;
-  }
-});
-
-const isConfigured = settings?.meta_cloud_enabled && 
-                     settings?.meta_cloud_phone_number_id;
-```
-
-### 2.2 Atualizar Função de Envio
-
-Trocar chamada de `send-whatsapp-official` para `send-whatsapp`:
-
-```typescript
-const handleSend = async () => {
-  // ... validações ...
-
-  for (const recipient of recipients) {
-    // Construir template para Meta Cloud API
-    const metaTemplate = {
-      name: selectedTemplate,  // 'bemvindo1' ou 'confirmar1'
-      language: { code: 'pt_BR' },
-      components: selectedTemplate === 'bemvindo1' 
-        ? [
-            {
-              type: 'body' as const,
-              parameters: [
-                { type: 'text' as const, text: recipient.nome_completo.split(' ')[0] },
-                { type: 'text' as const, text: recipient.affiliate_token },
-              ],
-            },
-          ]
-        : [
-            {
-              type: 'body' as const,
-              parameters: [
-                { type: 'text' as const, text: recipient.nome_completo.split(' ')[0] },
-                { type: 'text' as const, text: 'sua conta' },
-                { type: 'text' as const, text: recipient.verification_code },
-              ],
-            },
-          ],
-    };
-
-    const { data, error } = await supabase.functions.invoke('send-whatsapp', {
-      body: {
-        phone: recipient.telefone,
-        message: `[Template: ${selectedTemplate}]`,  // Fallback message for logging
-        metaTemplate,
-        providerOverride: 'meta_cloud',  // Forçar uso da Meta Cloud API
-      }
-    });
-
-    // ... tratamento de resultado ...
-  }
-};
-```
-
-### 2.3 Atualizar Mensagens de Erro/Alerta
-
-```typescript
-if (!isConfigured) {
-  return (
-    <Alert variant="destructive">
-      <AlertCircle className="h-4 w-4" />
-      <AlertDescription>
-        A integração WhatsApp Cloud API (Meta) não está configurada. 
-        Acesse Configurações &gt; Integrações para configurar o Phone Number ID.
-      </AlertDescription>
-    </Alert>
-  );
-}
-```
-
----
-
-## 3. Resumo dos Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/send-whatsapp/index.ts` | Adicionar suporte a `metaTemplate` na request e na função `sendViaMetaCloud` |
-| `src/components/whatsapp/WhatsAppOfficialApiTab.tsx` | Trocar de `send-whatsapp-official` para `send-whatsapp` com templates estruturados |
-
----
-
-## 4. Pré-Requisitos Importantes
-
-Para que os templates funcionem na Cloud API da Meta:
-
-1. **Templates aprovados no Meta Business Manager**
-   - `bemvindo1` com 2 parâmetros no body: `{{1}}` (nome), `{{2}}` (token)
-   - `confirmar1` com 3 parâmetros no body: `{{1}}` (nome), `{{2}}` (contexto), `{{3}}` (código)
-
-2. **Idioma correto**: `pt_BR`
-
-3. **Phone Number verificado** (resolver o status `EXPIRED`)
-
----
-
-## 5. Fluxo Atualizado
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│              WhatsAppOfficialApiTab (Atualizado)               │
-├───────────────────────────────────────────────────────────────┤
-│ 1. Usuário seleciona template (bemvindo1 / confirmar1)         │
-│ 2. Seleciona destinatário(s)                                   │
-│ 3. Clica em Enviar                                             │
-│                                                                │
-│ 4. Monta metaTemplate com:                                     │
-│    - name: 'bemvindo1' ou 'confirmar1'                         │
-│    - language: { code: 'pt_BR' }                               │
-│    - components: parâmetros do body                            │
-│                                                                │
-│ 5. Chama send-whatsapp com:                                    │
-│    - phone, metaTemplate, providerOverride: 'meta_cloud'       │
-│                                                                │
-│ 6. Edge Function:                                              │
-│    - Detecta metaTemplate                                      │
-│    - Envia type: 'template' para Graph API                     │
-│    - Registra em whatsapp_messages                             │
-└───────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 6. Compatibilidade
-
-- **Z-API continua funcionando** para todas as outras mensagens
-- **`send-whatsapp-official` permanece** (pode ser removido depois se desejado)
-- **Modo teste da Meta Cloud** aplica whitelist normalmente
-
+1. **Precisão**: Contagem exata de todos os registros
+2. **Performance**: Queries `head: true` são mais rápidas (não transferem dados)
+3. **Consistência**: Mesma abordagem usada no relatório de emails
+4. **Paralelismo**: 5 queries executadas simultaneamente via `Promise.all`
