@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,7 @@ const eventsTutorialSteps: Step[] = [
 ];
 
 const Events = () => {
+  const { isDemoMode, m } = useDemoMask();
   const { data: events = [], isLoading } = useEvents();
   const { data: cities = [] } = useOfficeCities();
   const { data: eventStats } = useEventStats();
@@ -744,7 +746,7 @@ const Events = () => {
                         <div className="flex flex-col md:flex-row gap-4">
                           {/* Imagem */}
                           <div className="w-full md:w-48 h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                            {event.cover_image_url ? (
+                            {event.cover_image_url && !isDemoMode ? (
                               <img
                                 src={event.cover_image_url}
                                 alt={event.name}
@@ -761,7 +763,7 @@ const Events = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-semibold mb-1 truncate">{event.name}</h3>
+                                <h3 className="text-lg font-semibold mb-1 truncate">{isDemoMode ? m.name(event.name) : event.name}</h3>
                                 <div className="flex flex-wrap gap-2 mb-2">
                                   {(event.categories || []).map((cat: string) => (
                                     <Badge key={cat} className={`${getCategoryColor(cat)} text-white`}>
@@ -830,22 +832,22 @@ const Events = () => {
                               </div>
                               <div className="flex items-center gap-1">
                                 <MapPin className="h-4 w-4" />
-                                {event.region}
+                                {isDemoMode ? m.city(event.region) : event.region}
                               </div>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Users className="h-4 w-4" />
-                                <span>{event.registrations_count}/{event.capacity} inscritos</span>
+                                <span>{m.number(event.registrations_count || 0, event.id + "_reg")}/{m.number(event.capacity || 0, event.id + "_cap")} inscritos</span>
                               </div>
                               <div className="flex items-center gap-1 text-green-600">
                                 <UserCheck className="h-4 w-4" />
-                                <span>{event.checkedin_count} check-ins</span>
+                                <span>{m.number(event.checkedin_count || 0, event.id + "_chk")} check-ins</span>
                               </div>
                               <div className="flex items-center gap-1 text-blue-600">
                                 <TrendingUp className="h-4 w-4" />
-                                <span>{getAttendanceRate(event)}% presença</span>
+                                <span>{m.percentage(getAttendanceRate(event), event.id + "_att")}% presença</span>
                               </div>
                               <div 
                                 className="flex items-center gap-1 text-orange-600" 
@@ -1189,6 +1191,7 @@ const Events = () => {
 // Event Details Dialog Component
 function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: () => void }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const { isDemoMode, m } = useDemoMask();
   const { data: registrations = [], isLoading } = useEventRegistrations(eventId);
   const updateCheckIn = useUpdateCheckIn();
   const { data: events = [] } = useEvents();
@@ -1256,7 +1259,7 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
                 <CardTitle className="text-sm">Total Inscritos</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{event.registrations_count}</p>
+                <p className="text-2xl font-bold">{m.number(event.registrations_count || 0, "det_reg")}</p>
               </CardContent>
             </Card>
             <Card>
@@ -1264,7 +1267,7 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
                 <CardTitle className="text-sm">Check-ins</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{event.checkedin_count}</p>
+                <p className="text-2xl font-bold">{m.number(event.checkedin_count || 0, "det_chk")}</p>
               </CardContent>
             </Card>
             <Card>
@@ -1272,7 +1275,7 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
                 <CardTitle className="text-sm">Vagas Restantes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{event.capacity - event.registrations_count}</p>
+                <p className="text-2xl font-bold">{m.number((event.capacity || 0) - (event.registrations_count || 0), "det_vag")}</p>
               </CardContent>
             </Card>
           </div>
@@ -1307,9 +1310,9 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
                   {filteredRegistrations.map((reg: any) => (
                     <div key={reg.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium">{reg.nome}</p>
-                        <p className="text-sm text-muted-foreground">{reg.email}</p>
-                        <p className="text-xs text-muted-foreground">{reg.whatsapp}</p>
+                        <p className="font-medium">{m.name(reg.nome)}</p>
+                        <p className="text-sm text-muted-foreground">{m.email(reg.email)}</p>
+                        <p className="text-xs text-muted-foreground">{m.phone(reg.whatsapp)}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {reg.checked_in ? (
@@ -1342,6 +1345,7 @@ function EventDetailsDialog({ eventId, onClose }: { eventId: string; onClose: ()
 // Check-in Section Component
 function CheckInSection({ events }: { events: any[] }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const { isDemoMode, m } = useDemoMask();
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const { data: registrations = [] } = useEventRegistrations(selectedEventId);
   const { toast } = useToast();
@@ -1545,8 +1549,8 @@ function CheckInSection({ events }: { events: any[] }) {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="font-medium">{reg.nome}</p>
-                    <p className="text-sm text-muted-foreground">{reg.email}</p>
+                    <p className="font-medium">{m.name(reg.nome)}</p>
+                    <p className="text-sm text-muted-foreground">{m.email(reg.email)}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
                       {reg.created_at && (
                         <span>
@@ -1576,6 +1580,7 @@ function CheckInSection({ events }: { events: any[] }) {
 // Reports Component
 function EventReports({ events }: { events: any[] }) {
   const [timelinePeriod, setTimelinePeriod] = useState(30);
+  const { isDemoMode, m } = useDemoMask();
   const { data: stats } = useEventStats();
   const { data: leadersRanking } = useLeadersEventRanking();
   const { data: citiesStats } = useCitiesEventStats();
@@ -1686,9 +1691,9 @@ function EventReports({ events }: { events: any[] }) {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalEvents || 0}</div>
+            <div className="text-2xl font-bold">{m.number(stats?.totalEvents || 0, "rep_total")}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.activeEvents || 0} ativos
+              {m.number(stats?.activeEvents || 0, "rep_active")} ativos
             </p>
           </CardContent>
         </Card>
@@ -1700,10 +1705,10 @@ function EventReports({ events }: { events: any[] }) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.overallConversionRate.toFixed(1) || 0}%
+              {m.percentage(parseFloat(stats?.overallConversionRate.toFixed(1) || "0"), "rep_conv")}%
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.totalCheckins || 0} de {stats?.totalRegistrations || 0} inscrições
+              {m.number(stats?.totalCheckins || 0, "rep_chk")} de {m.number(stats?.totalRegistrations || 0, "rep_ins")} inscrições
             </p>
           </CardContent>
         </Card>
@@ -1715,7 +1720,7 @@ function EventReports({ events }: { events: any[] }) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.averageCapacityUtilization.toFixed(1) || 0}%
+              {m.percentage(parseFloat(stats?.averageCapacityUtilization.toFixed(1) || "0"), "rep_caputil")}%
             </div>
             <p className="text-xs text-muted-foreground">
               Utilização média dos eventos
@@ -1753,9 +1758,9 @@ function EventReports({ events }: { events: any[] }) {
           <CardContent>
             {stats?.mostPopularEvent ? (
               <div>
-                <p className="font-semibold text-lg">{stats.mostPopularEvent.name}</p>
+                <p className="font-semibold text-lg">{isDemoMode ? m.name(stats.mostPopularEvent.name) : stats.mostPopularEvent.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {stats.mostPopularEvent.registrations} inscrições
+                  {m.number(stats.mostPopularEvent.registrations, "pop_reg")} inscrições
                 </p>
               </div>
             ) : (
@@ -1774,9 +1779,9 @@ function EventReports({ events }: { events: any[] }) {
           <CardContent>
             {stats?.bestConversionEvent ? (
               <div>
-                <p className="font-semibold text-lg">{stats.bestConversionEvent.name}</p>
+                <p className="font-semibold text-lg">{isDemoMode ? m.name(stats.bestConversionEvent.name) : stats.bestConversionEvent.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {stats.bestConversionEvent.rate.toFixed(1)}% de conversão
+                  {m.percentage(parseFloat(stats.bestConversionEvent.rate.toFixed(1)), "best_conv")}% de conversão
                 </p>
               </div>
             ) : (
@@ -1904,14 +1909,14 @@ function EventReports({ events }: { events: any[] }) {
                     {categoryStats.map((cat) => (
                       <tr key={cat.category} className="border-b">
                         <td className="py-3 font-medium">{cat.categoryLabel}</td>
-                        <td className="py-3 text-right">{cat.totalEvents}</td>
-                        <td className="py-3 text-right">{cat.totalRegistrations}</td>
-                        <td className="py-3 text-right">{cat.totalCheckins}</td>
+                        <td className="py-3 text-right">{m.number(cat.totalEvents, cat.category + "_te")}</td>
+                        <td className="py-3 text-right">{m.number(cat.totalRegistrations, cat.category + "_tr")}</td>
+                        <td className="py-3 text-right">{m.number(cat.totalCheckins, cat.category + "_tc")}</td>
                         <td className={`py-3 text-right font-medium ${getConversionColor(cat.conversionRate)}`}>
-                          {cat.conversionRate.toFixed(1)}%
+                          {m.percentage(parseFloat(cat.conversionRate.toFixed(1)), cat.category + "_cr")}%
                         </td>
                         <td className="py-3 text-right">
-                          {cat.averageRegistrationsPerEvent.toFixed(1)}
+                          {m.number(parseFloat(cat.averageRegistrationsPerEvent.toFixed(1)), cat.category + "_avg")}
                         </td>
                       </tr>
                     ))}
@@ -1946,9 +1951,9 @@ function EventReports({ events }: { events: any[] }) {
                 <div key={event.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{event.name}</p>
+                      <p className="font-medium">{isDemoMode ? m.name(event.name) : event.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {checkins} de {registrations} confirmados
+                        {m.number(checkins, event.id + "_rchk")} de {m.number(registrations, event.id + "_rreg")} confirmados
                       </p>
                     </div>
                     <span className={`text-lg font-bold ${getConversionColor(rate)}`}>
@@ -1982,19 +1987,19 @@ function EventReports({ events }: { events: any[] }) {
               {/* Métricas Principais */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold">{contactsAnalysis.totalUniqueContacts}</p>
+                  <p className="text-2xl font-bold">{m.number(contactsAnalysis.totalUniqueContacts, "ca_total")}</p>
                   <p className="text-sm text-muted-foreground">Contatos Únicos</p>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold">{contactsAnalysis.newContacts}</p>
+                  <p className="text-2xl font-bold">{m.number(contactsAnalysis.newContacts, "ca_new")}</p>
                   <p className="text-sm text-muted-foreground">Novos (1 evento)</p>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold">{contactsAnalysis.recurringContacts}</p>
+                  <p className="text-2xl font-bold">{m.number(contactsAnalysis.recurringContacts, "ca_rec")}</p>
                   <p className="text-sm text-muted-foreground">Recorrentes (2+)</p>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold">{contactsAnalysis.recurrenceRate.toFixed(1)}%</p>
+                  <p className="text-2xl font-bold">{m.percentage(parseFloat(contactsAnalysis.recurrenceRate.toFixed(1)), "ca_rate")}%</p>
                   <p className="text-sm text-muted-foreground">Taxa de Recorrência</p>
                 </div>
               </div>
@@ -2053,7 +2058,7 @@ function EventReports({ events }: { events: any[] }) {
                         {contactsAnalysis.topRecurringContacts.map((contact, index) => (
                           <tr key={contact.contactId} className="border-b">
                             <td className="py-3 text-muted-foreground">{index + 1}</td>
-                            <td className="py-3 font-medium">{contact.name}</td>
+                            <td className="py-3 font-medium">{m.name(contact.name)}</td>
                             <td className="py-3 text-right">{contact.eventCount}</td>
                           </tr>
                         ))}
@@ -2097,14 +2102,14 @@ function EventReports({ events }: { events: any[] }) {
                   {leadersRanking.map((leader, index) => (
                     <tr key={leader.leaderId} className="border-b">
                       <td className="py-3 text-muted-foreground">{index + 1}</td>
-                      <td className="py-3 font-medium">{leader.leaderName}</td>
+                      <td className="py-3 font-medium">{m.name(leader.leaderName)}</td>
                       <td className="py-3 text-muted-foreground">
-                        {leader.cityName || "-"}
+                        {m.city(leader.cityName) || "-"}
                       </td>
-                      <td className="py-3 text-right">{leader.registrations}</td>
-                      <td className="py-3 text-right">{leader.checkins}</td>
+                      <td className="py-3 text-right">{m.number(leader.registrations, leader.leaderId + "_lreg")}</td>
+                      <td className="py-3 text-right">{m.number(leader.checkins, leader.leaderId + "_lchk")}</td>
                       <td className={`py-3 text-right font-medium ${getConversionColor(leader.conversionRate)}`}>
-                        {leader.conversionRate.toFixed(1)}%
+                        {m.percentage(parseFloat(leader.conversionRate.toFixed(1)), leader.leaderId + "_lconv")}%
                       </td>
                     </tr>
                   ))}
@@ -2142,11 +2147,11 @@ function EventReports({ events }: { events: any[] }) {
                 <tbody>
                   {citiesStats.map((city) => (
                     <tr key={city.cityId} className="border-b">
-                      <td className="py-3 font-medium">{city.cityName}</td>
-                      <td className="py-3 text-right">{city.registrations}</td>
-                      <td className="py-3 text-right">{city.checkins}</td>
+                      <td className="py-3 font-medium">{m.city(city.cityName)}</td>
+                      <td className="py-3 text-right">{m.number(city.registrations, city.cityId + "_creg")}</td>
+                      <td className="py-3 text-right">{m.number(city.checkins, city.cityId + "_cchk")}</td>
                       <td className={`py-3 text-right font-medium ${getConversionColor(city.conversionRate)}`}>
-                        {city.conversionRate.toFixed(1)}%
+                        {m.percentage(parseFloat(city.conversionRate.toFixed(1)), city.cityId + "_cconv")}%
                       </td>
                     </tr>
                   ))}
