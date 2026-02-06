@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrograms } from "@/hooks/programs/usePrograms";
 import { AddProgramDialog } from "@/components/programs/AddProgramDialog";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { EditProgramDialog } from "@/components/programs/EditProgramDialog";
 import { DeleteProgramDialog } from "@/components/programs/DeleteProgramDialog";
 import { useTutorial } from "@/hooks/useTutorial";
@@ -51,6 +52,7 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const { data: programs = [], isLoading } = usePrograms();
+  const { isDemoMode, m } = useDemoMask();
   const { restartTutorial } = useTutorial("projects", projectsTutorialSteps);
 
   const filteredPrograms = programs.filter(program => {
@@ -141,7 +143,7 @@ const Projects = () => {
               <Card key={program.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
-                    <CardTitle className="text-lg pr-2">{program.nome}</CardTitle>
+                    <CardTitle className="text-lg pr-2">{isDemoMode ? m.platformName(program.nome) : program.nome}</CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge 
                         variant={program.status === "Ativo" ? "default" : "secondary"}
@@ -149,6 +151,7 @@ const Projects = () => {
                       >
                         {program.status}
                       </Badge>
+                      {!isDemoMode && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -173,16 +176,17 @@ const Projects = () => {
                           </DeleteProgramDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      )}
                     </div>
                   </div>
-                  <CardDescription>{program.descricao}</CardDescription>
+                  <CardDescription>{isDemoMode ? m.observation(program.descricao) : program.descricao}</CardDescription>
                 </CardHeader>
                 
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Users className="h-4 w-4 text-primary" />
-                      <span className="font-semibold">{program.impacto.toLocaleString()}</span>
+                      <span className="font-semibold">{m.number(program.impacto, program.nome).toLocaleString()}</span>
                       <span className="text-muted-foreground">pessoas impactadas</span>
                     </div>
 
