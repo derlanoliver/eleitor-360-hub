@@ -174,11 +174,14 @@ const Dashboard = () => {
   const podiumLeaders = topLeaders.slice(0, 3);
   const listLeaders = topLeaders.slice(3, 5);
 
-  // Preparar dados dos gráficos
-  const raChartData = citiesRanking.slice(0, 8);
+  // Preparar dados dos gráficos com mascaramento
+  const raChartData = citiesRanking.slice(0, 8).map(item => ({
+    name: m.city(item.name),
+    value: m.number(item.value, "ra_" + item.name),
+  }));
   const temasChartData = temasRanking.slice(0, 8).map(item => ({
     name: item.tema,
-    value: item.cadastros,
+    value: m.number(item.cadastros, "tema_" + item.tema),
   }));
 
   const isLoading = statsLoading || leadersLoading || profileLoading || temasLoading || citiesLoading;
@@ -446,7 +449,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Último cadastro</span>
                   </div>
                   <span className="text-sm text-gray-600">
-                    {formatRelativeTime(dashboardStats?.lastRegistration || null)}
+                    {formatRelativeTime(m.date(dashboardStats?.lastRegistration || null))}
                   </span>
                 </div>
               </CardContent>
@@ -488,7 +491,7 @@ const Dashboard = () => {
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm text-muted-foreground">Taxa de aceite de reunião</span>
-                    <span className="font-bold text-purple-600">{officeStats?.acceptRateReuniao || 0}%</span>
+                    <span className="font-bold text-purple-600">{m.percentage(officeStats?.acceptRateReuniao || 0, 'accept_rate')}%</span>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2">
                     <div 

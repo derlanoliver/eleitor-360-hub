@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Users, Calendar } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 
 interface ProfileData {
   genero: Array<{ label: string; valor: number }>;
@@ -18,9 +19,10 @@ const GENDER_COLORS = {
 };
 
 export const ProfileStats = ({ data }: ProfileStatsProps) => {
+  const { m } = useDemoMask();
   const genderData = data.genero.map((item) => ({
     name: item.label,
-    value: item.valor,
+    value: m.number(item.valor, "gender_" + item.label),
   }));
 
   return (
@@ -66,7 +68,7 @@ export const ProfileStats = ({ data }: ProfileStatsProps) => {
               <Users className="h-4 w-4 text-blue-600" />
               <span className="text-sm font-medium text-gray-700">Idade Média</span>
             </div>
-            <span className="text-lg font-bold text-blue-600">{data.idade_media} anos</span>
+            <span className="text-lg font-bold text-blue-600">{m.number(data.idade_media, "idade_media")} anos</span>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -74,7 +76,7 @@ export const ProfileStats = ({ data }: ProfileStatsProps) => {
               <Calendar className="h-4 w-4 text-green-600" />
               <span className="text-sm font-medium text-gray-700">Presença em Eventos</span>
             </div>
-            <span className="text-lg font-bold text-green-600">{data.participacao_eventos_pct}%</span>
+            <span className="text-lg font-bold text-green-600">{m.percentage(data.participacao_eventos_pct, "part_eventos")}%</span>
           </div>
         </div>
       </CardContent>
