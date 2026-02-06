@@ -131,3 +131,9 @@ verify_jwt = false
 
 [functions.test-disparopro-connection]
 verify_jwt = false
+
+[functions.test-360dialog-connection]
+verify_jwt = false
+
+[functions.dialog360-webhook]
+verify_jwt = false

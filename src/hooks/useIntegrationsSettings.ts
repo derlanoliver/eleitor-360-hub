@@ -29,7 +29,7 @@ interface IntegrationsSettings {
   passkit_tier_id: string | null;
   passkit_enabled: boolean;
   // WhatsApp Cloud API (Meta)
-  whatsapp_provider_active: 'zapi' | 'meta_cloud';
+  whatsapp_provider_active: 'zapi' | 'meta_cloud' | 'dialog360';
   meta_cloud_enabled: boolean;
   meta_cloud_test_mode: boolean;
   meta_cloud_whitelist: string[];
@@ -58,6 +58,13 @@ interface IntegrationsSettings {
   verification_wa_zapi_phone: string | null;
   // Fallback automático
   verification_fallback_active: boolean;
+  // 360dialog
+  dialog360_enabled: boolean;
+  dialog360_api_key: string | null;
+  dialog360_phone_number_id: string | null;
+  dialog360_test_mode: boolean;
+  dialog360_whitelist: string[];
+  dialog360_fallback_enabled: boolean;
   zapi_last_connected_at: string | null;
   zapi_disconnected_at: string | null;
   created_at: string;
@@ -89,7 +96,7 @@ interface UpdateIntegrationsDTO {
   passkit_tier_id?: string | null;
   passkit_enabled?: boolean;
   // WhatsApp Cloud API (Meta)
-  whatsapp_provider_active?: 'zapi' | 'meta_cloud';
+  whatsapp_provider_active?: 'zapi' | 'meta_cloud' | 'dialog360';
   meta_cloud_enabled?: boolean;
   meta_cloud_test_mode?: boolean;
   meta_cloud_whitelist?: string[];
@@ -116,6 +123,12 @@ interface UpdateIntegrationsDTO {
   verification_wa_whitelist?: string[];
   verification_wa_keyword?: string;
   verification_wa_zapi_phone?: string | null;
+  // 360dialog
+  dialog360_enabled?: boolean;
+  dialog360_phone_number_id?: string | null;
+  dialog360_test_mode?: boolean;
+  dialog360_whitelist?: string[];
+  dialog360_fallback_enabled?: boolean;
 }
 
 export function useIntegrationsSettings() {
@@ -353,6 +366,36 @@ export function useTestMetaCloudConnection() {
       toastHook({
         title: "Erro na conexão",
         description: error.message || "Verifique o Phone Number ID e o Access Token.",
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useTest360DialogConnection() {
+  const { toast: toastHook } = useToast();
+
+  return useMutation({
+    mutationFn: async (phoneNumberId: string) => {
+      const { data, error } = await supabase.functions.invoke('test-360dialog-connection', {
+        body: { phoneNumberId }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data;
+    },
+    onSuccess: (data) => {
+      toastHook({
+        title: "Conexão bem-sucedida",
+        description: `Número verificado: ${data.displayPhoneNumber || data.verifiedName || 'Conectado'}`,
+      });
+    },
+    onError: (error: Error) => {
+      toastHook({
+        title: "Erro na conexão",
+        description: error.message || "Verifique o Phone Number ID e a API Key.",
         variant: "destructive",
       });
     }

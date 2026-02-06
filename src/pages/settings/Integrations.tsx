@@ -21,6 +21,7 @@ import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
 import { ZapiConnectionIndicator } from "@/components/settings/ZapiConnectionIndicator";
 import { VerificationSettingsCard } from "@/components/settings/VerificationSettingsCard";
 import { MetaCloudConfigCard } from "@/components/settings/MetaCloudConfigCard";
+import { Dialog360ConfigCard } from "@/components/settings/Dialog360ConfigCard";
 import type { Step } from "react-joyride";
 
 const integrationsTutorialSteps: Step[] = [
@@ -670,7 +671,10 @@ const Integrations = () => {
         </Card>
 
         {/* WhatsApp Cloud API (Meta) */}
-        <MetaCloudConfigCard settings={settings} />
+        <MetaCloudConfigCard settings={settings as any} />
+
+        {/* 360dialog WhatsApp BSP */}
+        <Dialog360ConfigCard settings={settings as any} />
 
         {/* Resend Email */}
         <Card>
