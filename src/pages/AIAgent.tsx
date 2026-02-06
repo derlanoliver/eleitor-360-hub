@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +89,7 @@ interface AttachedFile {
 
 const AIAgent = () => {
   const { user } = useAuth();
+  const { isDemoMode } = useDemoMask();
   const isMobile = useIsMobile();
   const { restartTutorial } = useTutorial("ai-agent", aiAgentTutorialSteps);
   
@@ -146,7 +148,9 @@ const AIAgent = () => {
       setLocalMessages([{
         id: "welcome",
         role: "assistant",
-        content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico dos eleitores",
+        content: isDemoMode
+          ? "Olá! 👋 Sou o assistente virtual da plataforma.\n\nEstou aqui para ajudá-lo com informações e análise de dados.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico"
+          : "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝\n\n📊 Posso consultar:\n• Rankings de cadastros por região\n• Performance de coordenadores\n• Temas mais populares\n• Perfil demográfico dos eleitores",
         timestamp: new Date(),
       }]);
     }
@@ -323,7 +327,9 @@ const AIAgent = () => {
     setLocalMessages([{
       id: "welcome",
       role: "assistant",
-      content: "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝",
+      content: isDemoMode
+        ? "Olá! 👋 Sou o assistente virtual da plataforma.\n\nEstou aqui para ajudá-lo com informações e análise de dados.\n\n**Como posso ajudar você hoje?** 🤝"
+        : "Olá! 👋 Sou o assistente virtual do Deputado Rafael Prudente.\n\nEstou aqui para ajudá-lo com informações sobre nossa campanha e análise de dados políticos.\n\n**Como posso ajudar você hoje?** 🤝",
       timestamp: new Date(),
     }]);
     setShowSidebar(false);
@@ -545,7 +551,7 @@ const AIAgent = () => {
                     <Bot className="h-6 w-6 text-primary-foreground" />
                   </div>
                   <div>
-                    <h1 className="text-lg font-semibold">Assistente do Deputado Rafael Prudente</h1>
+                    <h1 className="text-lg font-semibold">{isDemoMode ? "Assistente IA da Plataforma" : "Assistente do Deputado Rafael Prudente"}</h1>
                     <p className="text-sm text-muted-foreground">Análise de dados políticos em tempo real</p>
                   </div>
                 </div>

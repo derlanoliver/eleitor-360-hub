@@ -31,6 +31,8 @@ interface DemoModeContextType {
     observation: (val: string | null | undefined) => string;
     record: <T extends Record<string, unknown>>(rec: T) => T;
     records: <T extends Record<string, unknown>>(recs: T[]) => T[];
+    /** Replaces platform name / brand references with a generic label */
+    platformName: (val: string) => string;
   };
 }
 
@@ -52,6 +54,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     observation: (val: string | null | undefined) => isDemoMode ? maskObservation(val) : (val ?? ""),
     record: <T extends Record<string, unknown>>(rec: T) => isDemoMode ? maskRecord(rec) : rec,
     records: <T extends Record<string, unknown>>(recs: T[]) => isDemoMode ? maskRecords(recs) : recs,
+    platformName: (val: string) => isDemoMode ? "Plataforma 360.ai" : val,
   }), [isDemoMode]);
 
   return (

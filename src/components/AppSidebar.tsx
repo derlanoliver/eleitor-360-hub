@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { 
   LayoutDashboard, 
   Users, 
@@ -111,8 +112,9 @@ export function AppSidebar() {
   const { logout } = useAuth();
   const { role } = useUserRole();
   const { data: organization } = useOrganization();
+  const { m } = useDemoMask();
 
-  const platformName = organization?.nome_plataforma || "Minha Plataforma";
+  const platformName = m.platformName(organization?.nome_plataforma || "Minha Plataforma");
   const platformInitial = platformName.charAt(0).toUpperCase();
 
   const isActive = (path: string) => currentPath === path;
