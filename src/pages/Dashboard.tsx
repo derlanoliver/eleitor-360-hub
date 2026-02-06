@@ -24,6 +24,14 @@ import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import { Step } from "react-joyride";
 import { useDemoMask } from "@/contexts/DemoModeContext";
+import {
+  DEMO_DASHBOARD_STATS,
+  DEMO_TOP_LEADERS,
+  DEMO_PROFILE_STATS,
+  DEMO_TEMAS_RANKING,
+  DEMO_CITIES_RANKING,
+  DEMO_OFFICE_STATS,
+} from "@/data/dashboard/demoDashboard";
 
 
 // Tutorial steps for Dashboard
@@ -102,6 +110,15 @@ const Dashboard = () => {
   const { data: citiesRanking = [], isLoading: citiesLoading } = useCitiesRanking();
   const { data: officeStats } = useOfficeStats();
 
+  // Demo mode overrides
+  const { isDemoMode } = useDemoMask();
+  const effectiveStats = isDemoMode ? DEMO_DASHBOARD_STATS : dashboardStats;
+  const effectiveLeaders = isDemoMode ? DEMO_TOP_LEADERS : topLeaders;
+  const effectiveProfile = isDemoMode ? DEMO_PROFILE_STATS : profileStats;
+  const effectiveTemas = isDemoMode ? DEMO_TEMAS_RANKING : temasRanking;
+  const effectiveCities = isDemoMode ? DEMO_CITIES_RANKING : citiesRanking;
+  const effectiveOffice = isDemoMode ? DEMO_OFFICE_STATS : officeStats;
+
   // Mutation para atualizar status do líder
   const toggleLeaderMutation = useMutation({
     mutationFn: async ({ leaderId, isActive }: { leaderId: string; isActive: boolean }) => {
@@ -171,20 +188,20 @@ const Dashboard = () => {
     }
   };
 
-  const podiumLeaders = topLeaders.slice(0, 3);
-  const listLeaders = topLeaders.slice(3, 5);
+  const podiumLeaders = effectiveLeaders.slice(0, 3);
+  const listLeaders = effectiveLeaders.slice(3, 5);
 
   // Preparar dados dos gráficos com mascaramento
-  const raChartData = citiesRanking.slice(0, 8).map(item => ({
+  const raChartData = effectiveCities.slice(0, 8).map(item => ({
     name: m.city(item.name),
     value: m.number(item.value, "ra_" + item.name),
   }));
-  const temasChartData = temasRanking.slice(0, 8).map(item => ({
+  const temasChartData = effectiveTemas.slice(0, 8).map(item => ({
     name: item.tema,
     value: m.number(item.cadastros, "tema_" + item.tema),
   }));
 
-  const isLoading = statsLoading || leadersLoading || profileLoading || temasLoading || citiesLoading;
+  const isLoading = isDemoMode ? false : (statsLoading || leadersLoading || profileLoading || temasLoading || citiesLoading);
 
   return (
     <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
@@ -407,7 +424,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Total de Cadastros</span>
                   </div>
                   <span className="text-lg font-bold text-primary-600">
-                    {m.number(dashboardStats?.totalRegistrations || 0, 'total_registrations').toLocaleString()}
+                    {m.number(effectiveStats?.totalRegistrations || 0, 'total_registrations').toLocaleString()}
                   </span>
                 </div>
 
@@ -417,18 +434,18 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Cidades Alcançadas</span>
                   </div>
                   <span className="text-lg font-bold text-blue-600">
-                    {m.number(dashboardStats?.citiesReached || 0, 'cities')} RAs
+                    {m.number(effectiveStats?.citiesReached || 0, 'cities')} RAs
                   </span>
                 </div>
 
-                {dashboardStats?.topCity && (
+                {effectiveStats?.topCity && (
                   <div className="p-3 bg-green-50 rounded-lg">
                     <div className="flex items-center mb-1">
                       <MapPin className="h-4 w-4 text-green-600 mr-2" />
                       <span className="text-sm font-medium text-gray-700">RA com mais cadastros</span>
                     </div>
                     <span className="text-base font-semibold text-green-600">
-                      {m.city(dashboardStats.topCity)} ({m.number(dashboardStats.topCityCount, 'top_city')})
+                      {m.city(effectiveStats.topCity)} ({m.number(effectiveStats.topCityCount, 'top_city')})
                     </span>
                   </div>
                 )}
@@ -439,7 +456,7 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Líderes Ativos</span>
                   </div>
                   <span className="text-lg font-bold text-orange-600">
-                    {m.number(dashboardStats?.activeLeaders || 0, 'active_leaders')}
+                    {m.number(effectiveStats?.activeLeaders || 0, 'active_leaders')}
                   </span>
                 </div>
 
@@ -449,16 +466,16 @@ const Dashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Último cadastro</span>
                   </div>
                   <span className="text-sm text-gray-600">
-                    {formatRelativeTime(m.date(dashboardStats?.lastRegistration || null))}
+                    {formatRelativeTime(m.date(effectiveStats?.lastRegistration || null))}
                   </span>
                 </div>
               </CardContent>
             </Card>
 
             {/* Novo: Perfil dos Cadastrados */}
-            {profileStats && (
+            {effectiveProfile && (
               <div data-tutorial="perfil-stats">
-                <ProfileStats data={profileStats} />
+                <ProfileStats data={effectiveProfile} />
               </div>
             )}
 
@@ -474,15 +491,15 @@ const Dashboard = () => {
                 {/* Cards de métricas */}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-blue-50 rounded-lg">
-                    <p className="text-xl font-bold text-blue-600">{m.number(officeStats?.totalVisits || 0, 'office_total')}</p>
+                    <p className="text-xl font-bold text-blue-600">{m.number(effectiveOffice?.totalVisits || 0, 'office_total')}</p>
                     <p className="text-xs text-muted-foreground">Total</p>
                   </div>
                   <div className="text-center p-2 bg-amber-50 rounded-lg">
-                    <p className="text-xl font-bold text-amber-600">{m.number(officeStats?.pendingVisits || 0, 'office_pending')}</p>
+                    <p className="text-xl font-bold text-amber-600">{m.number(effectiveOffice?.pendingVisits || 0, 'office_pending')}</p>
                     <p className="text-xs text-muted-foreground">Aguardando</p>
                   </div>
                   <div className="text-center p-2 bg-green-50 rounded-lg">
-                    <p className="text-xl font-bold text-green-600">{m.number(officeStats?.meetingsCompleted || 0, 'office_completed')}</p>
+                    <p className="text-xl font-bold text-green-600">{m.number(effectiveOffice?.meetingsCompleted || 0, 'office_completed')}</p>
                     <p className="text-xs text-muted-foreground">Realizadas</p>
                   </div>
                 </div>
@@ -491,12 +508,12 @@ const Dashboard = () => {
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm text-muted-foreground">Taxa de aceite de reunião</span>
-                    <span className="font-bold text-purple-600">{m.percentage(officeStats?.acceptRateReuniao || 0, 'accept_rate')}%</span>
+                    <span className="font-bold text-purple-600">{m.percentage(effectiveOffice?.acceptRateReuniao || 0, 'accept_rate')}%</span>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2">
                     <div 
                       className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${officeStats?.acceptRateReuniao || 0}%` }}
+                      style={{ width: `${effectiveOffice?.acceptRateReuniao || 0}%` }}
                     />
                   </div>
                 </div>
@@ -507,9 +524,9 @@ const Dashboard = () => {
                     <ClipboardList className="h-4 w-4 mr-1 text-muted-foreground" />
                     Próximos na fila
                   </h4>
-                  {officeStats?.recentVisits && officeStats.recentVisits.length > 0 ? (
+                  {effectiveOffice?.recentVisits && effectiveOffice.recentVisits.length > 0 ? (
                     <div className="space-y-2">
-                      {officeStats.recentVisits.slice(0, 3).map(visit => (
+                      {effectiveOffice.recentVisits.slice(0, 3).map(visit => (
                         <div key={visit.id} className="flex justify-between items-center text-sm py-1 px-2 bg-muted/50 rounded">
                           <span className="truncate max-w-[120px]">{m.name(visit.contactName)}</span>
                           <Badge variant="outline" className="text-xs">
