@@ -497,8 +497,28 @@ Deno.serve(async (req) => {
     }
 
     // ============ CHECK AUTO MESSAGE CATEGORY ============
-    // Skip check if bypassAutoCheck is true (e.g., WhatsApp verification flow should always send via WhatsApp)
-    if (templateSlug && !bypassAutoCheck) {
+    // Templates de verificação NUNCA devem ser bloqueados quando o método de verificação é whatsapp_consent
+    // Isso evita falhas silenciosas causadas por wa_auto_verificacao_enabled=false
+    const VERIFICATION_TEMPLATES = ['verificacao-cadastro', 'verificacao-codigo', 'verificacao-confirmada', 'verificacao-sms-fallback', 'link-indicacao-sms-fallback'];
+    const isVerificationTemplate = templateSlug && VERIFICATION_TEMPLATES.includes(templateSlug);
+    
+    // Auto-bypass para templates de verificação quando o método ativo é whatsapp_consent
+    let effectiveBypass = bypassAutoCheck || false;
+    if (isVerificationTemplate && !effectiveBypass) {
+      // Buscar verification_method para decidir se deve fazer bypass automático
+      const { data: verSettings } = await supabase
+        .from("integrations_settings")
+        .select("verification_method")
+        .limit(1)
+        .single();
+      
+      if (verSettings?.verification_method === 'whatsapp_consent') {
+        effectiveBypass = true;
+        console.log(`[send-whatsapp] Auto-bypassing check for verification template '${templateSlug}' (verification_method=whatsapp_consent)`);
+      }
+    }
+    
+    if (templateSlug && !effectiveBypass) {
       const settingColumn = TEMPLATE_SETTINGS_MAP[templateSlug];
       if (settingColumn) {
         const isEnabled = typedSettings[settingColumn as keyof IntegrationSettings];
@@ -514,8 +534,8 @@ Deno.serve(async (req) => {
           );
         }
       }
-    } else if (bypassAutoCheck) {
-      console.log(`[send-whatsapp] Bypassing auto check for template '${templateSlug}' (WhatsApp verification flow)`);
+    } else if (effectiveBypass) {
+      console.log(`[send-whatsapp] Bypassing auto check for template '${templateSlug}'`);
     }
 
     if (!phone) {
