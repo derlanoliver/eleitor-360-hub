@@ -52,12 +52,14 @@ Deno.serve(async (req) => {
 
     // Filtrar: só reenviar se o último envio foi há mais de 1 hora (evitar spam)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const eligibleLeaders = leaders.filter((leader) => {
-      if (!leader.verification_sent_at) return true; // Nunca recebeu
-      return leader.verification_sent_at < oneHourAgo; // Último envio há mais de 1h
-    });
+    const eligibleLeaders = leaders
+      .filter((leader) => {
+        if (!leader.verification_sent_at) return true; // Nunca recebeu
+        return leader.verification_sent_at < oneHourAgo; // Último envio há mais de 1h
+      })
+      .slice(0, 5); // Máximo de 5 líderes por execução
 
-    console.log(`[resend-verification-sms] Found ${leaders.length} unverified, ${eligibleLeaders.length} eligible for resend`);
+    console.log(`[resend-verification-sms] Found ${leaders.length} unverified, ${eligibleLeaders.length} eligible for resend (max 5)`);
 
     const results: { nome: string; phone: string; success: boolean; error?: string }[] = [];
 
