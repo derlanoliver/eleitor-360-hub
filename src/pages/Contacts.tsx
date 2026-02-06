@@ -675,7 +675,7 @@ const Contacts = () => {
                   <SelectItem value="all">Todos os líderes</SelectItem>
                   {leadersForFilter.map((leader) => (
                     <SelectItem key={leader.id} value={leader.id}>
-                      {leader.nome_completo}
+                      {m.name(leader.nome_completo)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -698,7 +698,7 @@ const Contacts = () => {
                   <SelectItem value="all">Todos os eventos</SelectItem>
                   {eventsForFilter.map((event) => (
                     <SelectItem key={event.id} value={event.id}>
-                      {event.name}
+                      {m.name(event.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -838,7 +838,7 @@ const Contacts = () => {
                         <h3 className="font-semibold text-foreground truncate">{m.name(contact.name)}</h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                          <span className="truncate">{contact.region}</span>
+                          <span className="truncate">{m.city(contact.region)}</span>
                         </p>
 
                         {/* Badges */}
@@ -852,7 +852,7 @@ const Contacts = () => {
                           {/* Badge de Atribuição (nome do líder/evento/etc) */}
                           {contact.sourceName && (
                             <Badge variant="secondary" className="text-xs bg-muted/50">
-                              {contact.sourceName}
+                              {m.name(contact.sourceName)}
                             </Badge>
                           )}
 
@@ -1172,12 +1172,12 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <label className="text-xs font-medium text-muted-foreground">Região Administrativa</label>
               <p className="font-medium flex items-center gap-1.5">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                {contact.region}
+                {m.city(contact.region)}
               </p>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Origem</label>
-              <p className="text-sm">{contact.source}</p>
+              <p className="text-sm">{m.observation(contact.source)}</p>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Data de Cadastro</label>
@@ -1263,7 +1263,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
               <div key={idx} className="p-3 rounded-lg bg-muted/50 border">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className="font-medium">{event.event_name}</p>
+                    <p className="font-medium">{m.name(event.event_name)}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
@@ -1368,7 +1368,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                 return (
                   <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-xs">{msg.message.substring(0, 60)}...</p>
+                      <p className="truncate text-xs">{m.observation(msg.message.substring(0, 60))}...</p>
                     </div>
                     <div className="flex items-center gap-2 ml-2">
                       <StatusIcon className={`h-3.5 w-3.5 ${statusConfig.color}`} />
@@ -1401,7 +1401,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                 return (
                   <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-xs">{msg.message.substring(0, 60)}...</p>
+                      <p className="truncate text-xs">{m.observation(msg.message.substring(0, 60))}...</p>
                     </div>
                     <div className="flex items-center gap-2 ml-2">
                       <StatusIcon className={`h-3.5 w-3.5 ${statusConfig.color}`} />
@@ -1467,7 +1467,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                 <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30 border">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-xs">{visit.protocolo}</p>
-                    {visit.leader_name && <p className="text-xs text-muted-foreground">Líder: {visit.leader_name}</p>}
+                    {visit.leader_name && <p className="text-xs text-muted-foreground">Líder: {m.name(visit.leader_name)}</p>}
                   </div>
                   <div className="flex items-center gap-2 ml-2">
                     <Badge variant="outline" className="text-xs">
@@ -1569,7 +1569,7 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{actionConfig.label}</p>
                       <p className="text-xs text-muted-foreground">
-                        por {activity.user_name || "Sistema"} •{" "}
+                        por {m.name(activity.user_name || "Sistema")} •{" "}
                         {format(new Date(activity.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </p>
                       {activity.details?.reason && (
@@ -1577,14 +1577,14 @@ const ContactDetails = ({ contact }: { contact: any }) => {
                       )}
                       {activity.details?.leader_name && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Líder criado: {activity.details.leader_name}
+                          Líder criado: {m.name(activity.details.leader_name)}
                         </p>
                       )}
                       {activity.details?.field && (
                         <p className="text-xs text-muted-foreground mt-1">Campo: {activity.details.field}</p>
                       )}
                       {activity.details?.event_name && (
-                        <p className="text-xs text-muted-foreground mt-1">Evento: {activity.details.event_name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Evento: {m.name(activity.details.event_name)}</p>
                       )}
                       {activity.details?.template_name && (
                         <p className="text-xs text-muted-foreground mt-1">Template: {activity.details.template_name}</p>
