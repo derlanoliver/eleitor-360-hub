@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, MessageSquare } from "lucide-react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ interface SMSTemplatesTabProps {
 }
 
 export function SMSTemplatesTab({ searchTerm = "" }: SMSTemplatesTabProps) {
+  const { isDemoMode, m } = useDemoMask();
   const { data: templates, isLoading } = useSMSTemplates();
   const updateTemplate = useUpdateSMSTemplate();
   const deleteTemplate = useDeleteSMSTemplate();
@@ -112,7 +114,7 @@ export function SMSTemplatesTab({ searchTerm = "" }: SMSTemplatesTabProps) {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <CardTitle className="text-base">{template.nome}</CardTitle>
+                      <CardTitle className="text-base">{isDemoMode ? m.platformName(template.nome) : template.nome}</CardTitle>
                       <Badge variant="outline" className="text-xs">
                         {template.slug}
                       </Badge>
@@ -125,7 +127,7 @@ export function SMSTemplatesTab({ searchTerm = "" }: SMSTemplatesTabProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground line-clamp-3">
-                    {template.mensagem}
+                    {isDemoMode ? m.observation(template.mensagem) : template.mensagem}
                   </p>
                   <div className="text-xs text-muted-foreground">
                     {template.mensagem.length}/160 caracteres
