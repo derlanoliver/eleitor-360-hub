@@ -25,15 +25,17 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     let leaderId: string | null = null;
+    let leaderIds: string[] | null = null;
 
     try {
       const body = await req.json();
       leaderId = body?.leader_id || null;
+      leaderIds = body?.leader_ids || null;
     } catch {
       // No body provided
     }
 
-    console.log(`[send-leader-affiliate-links] Mode: ${leaderId ? 'single leader: ' + leaderId : 'batch processing'}`);
+    console.log(`[send-leader-affiliate-links] Mode: ${leaderId ? 'single leader: ' + leaderId : leaderIds ? 'batch: ' + leaderIds.length + ' leaders' : 'batch processing (disabled)'}`);
 
     const baseUrl = "https://app.rafaelprudente.com";
 
@@ -46,13 +48,41 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Batch processing: DESABILITADO temporariamente para evitar reenvios a cada 5 minutos.
-    // O envio deve ocorrer apenas no fluxo transacional (passando leader_id).
-    // Se você quiser reativar o batch com segurança, precisamos persistir um marcador de envio por canal.
+    // If leader_ids array provided, process in background and return immediately
+    if (leaderIds && leaderIds.length > 0) {
+      console.log(`[send-leader-affiliate-links] Starting background batch of ${leaderIds.length} leaders`);
+      
+      const backgroundTask = async () => {
+        let successCount = 0;
+        let errorCount = 0;
+        for (const lid of leaderIds!) {
+          try {
+            const result = await processLeader(supabase, lid, baseUrl);
+            if (result.sms_sent || result.whatsapp_sent || result.email_sent) {
+              successCount++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } catch (e) {
+            errorCount++;
+            console.error(`[send-leader-affiliate-links] Error processing ${lid}:`, e);
+          }
+        }
+        console.log(`[send-leader-affiliate-links] Background batch done. Success: ${successCount}, Errors: ${errorCount}`);
+      };
+
+      EdgeRuntime.waitUntil(backgroundTask());
+
+      return new Response(
+        JSON.stringify({ success: true, message: `Processing ${leaderIds.length} leaders in background`, total: leaderIds.length }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Generic batch processing: DISABLED
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Batch processing disabled (use leader_id)",
+        message: "Batch processing disabled (use leader_id or leader_ids)",
         processed: 0,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
