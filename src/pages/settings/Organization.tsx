@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useOrganization, useUpdateOrganization, uploadOrganizationLogo } from "@/hooks/useOrganization";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ const Organization = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: organization, isLoading } = useOrganization();
   const updateOrganization = useUpdateOrganization();
+  const { isDemoMode, m } = useDemoMask();
   const { restartTutorial } = useTutorial("organization", organizationTutorialSteps);
   
   const [nome, setNome] = useState("");
@@ -80,7 +82,8 @@ const Organization = () => {
     }
   }, [organization]);
 
-  const initials = nome
+  const displayNome = isDemoMode ? m.name(nome) : nome;
+  const initials = displayNome
     .split(" ")
     .map(n => n[0])
     .slice(0, 2)
@@ -157,11 +160,19 @@ const Organization = () => {
             </CardHeader>
             <CardContent className="flex flex-col items-center space-y-4">
               <div className="relative">
-                <Avatar className="h-32 w-32 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                  <AvatarImage src={logoUrl || undefined} alt={nome} />
-                  <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                    {initials || <Building2 className="h-12 w-12" />}
-                  </AvatarFallback>
+                <Avatar className="h-32 w-32 cursor-pointer" onClick={() => !isDemoMode && fileInputRef.current?.click()}>
+                  {isDemoMode ? (
+                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                      {initials || <Building2 className="h-12 w-12" />}
+                    </AvatarFallback>
+                  ) : (
+                    <>
+                      <AvatarImage src={logoUrl || undefined} alt={nome} />
+                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                        {initials || <Building2 className="h-12 w-12" />}
+                      </AvatarFallback>
+                    </>
+                  )}
                 </Avatar>
                 <Button
                   size="icon"
@@ -206,9 +217,10 @@ const Organization = () => {
                 <Label htmlFor="nomePlataforma">Nome da Plataforma</Label>
                 <Input
                   id="nomePlataforma"
-                  value={nomePlataforma}
+                  value={isDemoMode ? m.platformName(nomePlataforma) : nomePlataforma}
                   onChange={(e) => setNomePlataforma(e.target.value)}
-                  placeholder="Ex: Rafael Prudente 360.ai"
+                  placeholder="Ex: Plataforma 360.ai"
+                  disabled={isDemoMode}
                 />
                 <p className="text-xs text-muted-foreground">
                   Este nome aparece no topo da barra lateral
@@ -220,18 +232,20 @@ const Organization = () => {
                   <Label htmlFor="nome">Nome Completo</Label>
                   <Input
                     id="nome"
-                    value={nome}
+                    value={isDemoMode ? displayNome : nome}
                     onChange={(e) => setNome(e.target.value)}
                     placeholder="Nome do político"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cargo">Cargo</Label>
                   <Input
                     id="cargo"
-                    value={cargo}
+                    value={isDemoMode ? "Cargo Político" : cargo}
                     onChange={(e) => setCargo(e.target.value)}
                     placeholder="Ex: Deputado Distrital"
+                    disabled={isDemoMode}
                   />
                 </div>
               </div>
@@ -241,27 +255,30 @@ const Organization = () => {
                   <Label htmlFor="partido">Partido</Label>
                   <Input
                     id="partido"
-                    value={partido}
+                    value={isDemoMode ? "PTD" : partido}
                     onChange={(e) => setPartido(e.target.value)}
                     placeholder="Sigla do partido"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="estado">Estado</Label>
                   <Input
                     id="estado"
-                    value={estado}
+                    value={isDemoMode ? "DF" : estado}
                     onChange={(e) => setEstado(e.target.value)}
                     placeholder="Ex: DF"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cidade">Cidade</Label>
                   <Input
                     id="cidade"
-                    value={cidade}
+                    value={isDemoMode ? m.city(cidade) : cidade}
                     onChange={(e) => setCidade(e.target.value)}
                     placeholder="Ex: Brasília"
+                    disabled={isDemoMode}
                   />
                 </div>
               </div>
@@ -278,10 +295,11 @@ const Organization = () => {
             </CardHeader>
             <CardContent>
               <Textarea
-                value={bio}
+                value={isDemoMode ? m.observation(bio) : bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Escreva uma biografia..."
                 rows={4}
+                disabled={isDemoMode}
               />
             </CardContent>
           </Card>
@@ -306,9 +324,10 @@ const Organization = () => {
                   </Label>
                   <Input
                     id="instagram"
-                    value={instagram}
+                    value={isDemoMode ? m.social(instagram) : instagram}
                     onChange={(e) => setInstagram(e.target.value)}
                     placeholder="@usuario"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
@@ -318,9 +337,10 @@ const Organization = () => {
                   </Label>
                   <Input
                     id="facebook"
-                    value={facebook}
+                    value={isDemoMode ? m.social(facebook) : facebook}
                     onChange={(e) => setFacebook(e.target.value)}
                     placeholder="URL do perfil"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
@@ -330,9 +350,10 @@ const Organization = () => {
                   </Label>
                   <Input
                     id="twitter"
-                    value={twitter}
+                    value={isDemoMode ? m.social(twitter) : twitter}
                     onChange={(e) => setTwitter(e.target.value)}
                     placeholder="@usuario"
+                    disabled={isDemoMode}
                   />
                 </div>
                 <div className="space-y-2">
@@ -342,9 +363,10 @@ const Organization = () => {
                   </Label>
                   <Input
                     id="youtube"
-                    value={youtube}
+                    value={isDemoMode ? m.social(youtube) : youtube}
                     onChange={(e) => setYoutube(e.target.value)}
                     placeholder="URL do canal"
+                    disabled={isDemoMode}
                   />
                 </div>
               </div>
@@ -370,9 +392,10 @@ const Organization = () => {
                 </Label>
                 <Input
                   id="website"
-                  value={website}
+                  value={isDemoMode ? "https://plataforma360.ai" : website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://..."
+                  disabled={isDemoMode}
                 />
               </div>
               <div className="space-y-2">
@@ -383,9 +406,10 @@ const Organization = () => {
                 <Input
                   id="emailContato"
                   type="email"
-                  value={emailContato}
+                  value={isDemoMode ? m.email(emailContato) : emailContato}
                   onChange={(e) => setEmailContato(e.target.value)}
                   placeholder="contato@..."
+                  disabled={isDemoMode}
                 />
               </div>
               <div className="space-y-2">
@@ -395,9 +419,10 @@ const Organization = () => {
                 </Label>
                 <Input
                   id="whatsapp"
-                  value={whatsapp}
+                  value={isDemoMode ? m.phone(whatsapp) : whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
                   placeholder="(00) 00000-0000"
+                  disabled={isDemoMode}
                 />
               </div>
             </CardContent>
