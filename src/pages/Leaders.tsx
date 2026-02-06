@@ -57,6 +57,7 @@ import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { TutorialButton } from "@/components/TutorialButton";
 import type { Step } from "react-joyride";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 
 const leadersTutorialSteps: Step[] = [
   {
@@ -197,7 +198,7 @@ const Leaders = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const queryClient = useQueryClient();
-
+  const { m } = useDemoMask();
   const { data: cities } = useOfficeCities();
   const { data: leaderLevels } = useLeaderLevels();
   const { data: leadersResult, isLoading } = useQuery({
@@ -540,7 +541,7 @@ const Leaders = () => {
                     <div className="flex-1 min-w-0">
                       {/* Nome + Badge Nível + Badge Hierarquia */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-lg text-foreground truncate">{leader.nome_completo}</h3>
+                        <h3 className="font-semibold text-lg text-foreground truncate">{m.name(leader.nome_completo)}</h3>
                         <LeaderLevelBadge points={leader.pontuacao_total} size="sm" levels={leaderLevels} />
                         {(() => {
                           const hierarchyBadge = getHierarchyBadge(leader);
@@ -567,16 +568,16 @@ const Leaders = () => {
                       {/* Região */}
                       <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                         <MapPin className="h-3.5 w-3.5" />
-                        {leader.cidade?.nome || "Sem região"}
+                        {m.city(leader.cidade?.nome || "Sem região")}
                       </p>
 
                       {/* Badges de Métricas + Status + Verificação + Cartão */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
-                          📊 {leader.cadastros + (subordinatesCounts?.[leader.id] || 0)} indicações
+                          📊 {m.number(leader.cadastros + (subordinatesCounts?.[leader.id] || 0), leader.id + '_ind')} indicações
                         </Badge>
                         <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
-                          ⭐ {leader.pontuacao_total} pontos
+                          ⭐ {m.number(leader.pontuacao_total, leader.id + '_pts')} pontos
                         </Badge>
                         <Badge
                           variant={leader.is_active ? "default" : "secondary"}
@@ -613,13 +614,13 @@ const Leaders = () => {
                         {leader.telefone && (
                           <span className="flex items-center gap-1.5">
                             <Phone className="h-4 w-4" />
-                            {formatPhone(leader.telefone)}
+                            {m.phone(leader.telefone)}
                           </span>
                         )}
                         {leader.email && (
                           <span className="flex items-center gap-1.5">
                             <Mail className="h-4 w-4" />
-                            <span className="truncate max-w-[200px]">{leader.email}</span>
+                            <span className="truncate max-w-[200px]">{m.email(leader.email)}</span>
                           </span>
                         )}
                       </div>

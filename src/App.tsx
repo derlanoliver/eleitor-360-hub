@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider } from "./contexts/AuthContext";
 import { TrackingProvider } from "./components/TrackingProvider";
 import { TutorialProvider } from "./contexts/TutorialContext";
+import { DemoModeProvider } from "./contexts/DemoModeContext";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
@@ -103,6 +104,7 @@ const App = () => (
           }}
         >
           <AuthProvider>
+          <DemoModeProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -424,6 +426,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+        </DemoModeProvider>
         </AuthProvider>
           </BrowserRouter>
         </TrackingProvider>
