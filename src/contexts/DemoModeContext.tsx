@@ -13,6 +13,7 @@ import {
   maskObservation,
   maskSocialHandle,
   maskDate,
+  maskBrandText,
 } from "@/lib/demoMask";
 
 interface DemoModeContextType {
@@ -33,6 +34,8 @@ interface DemoModeContextType {
     records: <T extends Record<string, unknown>>(recs: T[]) => T[];
     /** Replaces platform name / brand references with a generic label */
     platformName: (val: string) => string;
+    /** Replaces politician / brand name references in any text */
+    brand: (val: string | null | undefined) => string;
   };
 }
 
@@ -55,6 +58,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     record: <T extends Record<string, unknown>>(rec: T) => isDemoMode ? maskRecord(rec) : rec,
     records: <T extends Record<string, unknown>>(recs: T[]) => isDemoMode ? maskRecords(recs) : recs,
     platformName: (val: string) => isDemoMode ? "Plataforma 360.ai" : val,
+    brand: (val: string | null | undefined) => isDemoMode ? maskBrandText(val) : (val ?? ""),
   }), [isDemoMode]);
 
   return (

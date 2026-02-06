@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDemoMask } from "@/contexts/DemoModeContext";
 import { 
   Eye, 
   Edit, 
@@ -49,6 +50,7 @@ interface FunnelCardProps {
 }
 
 export function FunnelCard({ funnel }: FunnelCardProps) {
+  const { isDemoMode, m } = useDemoMask();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -105,27 +107,30 @@ export function FunnelCard({ funnel }: FunnelCardProps) {
         {/* Cover preview */}
         <div 
           className="h-24 bg-gradient-to-br from-primary/20 to-primary/5 relative"
-          style={funnel.cover_url ? { 
+          style={!isDemoMode && funnel.cover_url ? { 
             backgroundImage: `url(${funnel.cover_url})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           } : undefined}
         >
-          {funnel.logo_url && (
+          {!isDemoMode && funnel.logo_url && (
             <img 
               src={funnel.logo_url} 
               alt="Logo" 
               className="absolute bottom-2 left-1/2 -translate-x-1/2 h-12 w-auto bg-white rounded-lg p-1 shadow"
             />
           )}
+          {isDemoMode && (
+            <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-40">🎯</div>
+          )}
         </div>
 
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <h4 className="font-semibold leading-none">{funnel.nome}</h4>
+              <h4 className="font-semibold leading-none">{m.brand(funnel.nome)}</h4>
               <p className="text-xs text-muted-foreground">
-                🎁 {funnel.lead_magnet_nome}
+                🎁 {m.brand(funnel.lead_magnet_nome)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -193,29 +198,29 @@ export function FunnelCard({ funnel }: FunnelCardProps) {
               <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
                 <Eye className="h-3 w-3" />
               </div>
-              <p className="text-lg font-bold">{funnel.views_count}</p>
+              <p className="text-lg font-bold">{m.number(funnel.views_count, funnel.id + "_v")}</p>
               <p className="text-[10px] text-muted-foreground">Visitas</p>
             </div>
             <div className="p-2 bg-muted/50 rounded-lg">
               <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
                 <Users className="h-3 w-3" />
               </div>
-              <p className="text-lg font-bold">{funnel.leads_count}</p>
+              <p className="text-lg font-bold">{m.number(funnel.leads_count, funnel.id + "_l")}</p>
               <p className="text-[10px] text-muted-foreground">Leads</p>
             </div>
             <div className="p-2 bg-muted/50 rounded-lg">
               <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
                 <Download className="h-3 w-3" />
               </div>
-              <p className="text-lg font-bold">{funnel.downloads_count}</p>
+              <p className="text-lg font-bold">{m.number(funnel.downloads_count, funnel.id + "_d")}</p>
               <p className="text-[10px] text-muted-foreground">Downloads</p>
             </div>
           </div>
 
           {/* Conversion rates */}
           <div className="flex justify-between text-xs text-muted-foreground mt-3 pt-3 border-t">
-            <span>Conversão: <strong className="text-foreground">{conversionRate}%</strong></span>
-            <span>Taxa Download: <strong className="text-foreground">{downloadRate}%</strong></span>
+            <span>Conversão: <strong className="text-foreground">{isDemoMode ? m.percentage(parseFloat(conversionRate), funnel.id + "_cr") : conversionRate}%</strong></span>
+            <span>Taxa Download: <strong className="text-foreground">{isDemoMode ? m.percentage(parseFloat(downloadRate), funnel.id + "_dr") : downloadRate}%</strong></span>
           </div>
         </CardContent>
       </Card>
@@ -237,7 +242,7 @@ export function FunnelCard({ funnel }: FunnelCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir funil?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O funil "{funnel.nome}" será 
+              Esta ação não pode ser desfeita. O funil "{m.brand(funnel.nome)}" será 
               permanentemente excluído, mas os leads já capturados serão mantidos.
             </AlertDialogDescription>
           </AlertDialogHeader>
