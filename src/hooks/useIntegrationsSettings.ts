@@ -56,6 +56,10 @@ interface IntegrationsSettings {
   verification_wa_whitelist: string[];
   verification_wa_keyword: string;
   verification_wa_zapi_phone: string | null;
+  // Fallback automático
+  verification_fallback_active: boolean;
+  zapi_last_connected_at: string | null;
+  zapi_disconnected_at: string | null;
   created_at: string;
   updated_at: string;
 }
