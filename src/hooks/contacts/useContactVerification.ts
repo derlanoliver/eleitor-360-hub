@@ -92,6 +92,7 @@ export async function sendVerificationMessage({
           deputado_nome: org?.nome || "Deputado",
         },
         contactId: contactId,
+        bypassAutoCheck: true,
       },
     });
 
@@ -113,6 +114,7 @@ export async function sendVerificationMessage({
           codigo: verificationCode,
         },
         contactId: contactId,
+        bypassAutoCheck: true,
       },
     });
 
