@@ -104,7 +104,13 @@ Deno.serve(async (req) => {
     const successCount = results.filter((r) => r.success).length;
     const failCount = results.filter((r) => !r.success).length;
 
-    console.log(`[resend-verification-sms] Completed. Sent: ${successCount}, Failed: ${failCount}`);
+    console.log(`[resend-verification-sms] ===== RESUMO DO LOTE =====`);
+    console.log(`[resend-verification-sms] Total enviados: ${successCount} | Falhas: ${failCount}`);
+    results.forEach((r, i) => {
+      const status = r.success ? "✅ ENVIADO" : `❌ FALHA (${r.error})`;
+      console.log(`[resend-verification-sms] ${i + 1}. ${r.nome} | ${r.phone} | ${status}`);
+    });
+    console.log(`[resend-verification-sms] ==========================`);
 
     return new Response(
       JSON.stringify({
