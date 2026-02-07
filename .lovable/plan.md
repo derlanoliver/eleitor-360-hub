@@ -1,109 +1,109 @@
 
-# Integrar 360dialog como Provedor WhatsApp
+# Horario de Silencio (21h as 8h)
 
 ## Resumo
-Adicionar a 360dialog como terceiro provedor de WhatsApp Business API, seguindo o mesmo padrao de abstração já existente para Z-API e Meta Cloud API. A 360dialog utiliza a mesma Graph API do WhatsApp (compatível com a Meta Cloud API), mas com autenticação e endpoints próprios.
+Implementar um sistema de "horario de silencio" das **21h as 8h (horario de Brasilia)** que bloqueia disparos automaticos (cron jobs, retentativas, fallbacks), mas permite mensagens transacionais disparadas por acoes do usuario (cadastro, verificacao, etc.).
 
-## O que muda para o usuário
-- Nova opção "360dialog" no seletor de provedor WhatsApp ativo nas Integrações
-- Card de configuração com campos: API Key da 360dialog e Phone Number ID
-- Modo teste com whitelist (mesmo padrão do Meta Cloud)
-- Fallback automático para Z-API se 360dialog falhar
-- Botão para testar conexão
+## Logica Principal
 
-## Etapas de Implementação
+Mensagens **bloqueadas** durante o silencio:
+- Retentativas automaticas de SMS (`retry-failed-sms`)
+- Fallback SMS para WhatsApp (`process-sms-fallback`)
+- Mensagens agendadas (`process-scheduled-messages`)
+- Envio pendente de SMS para lideres (`send-pending-leader-sms`)
+- Reprocessamento de status SMS (`reprocess-sms-status`)
 
-### 1. Banco de Dados - Nova coluna na tabela `integrations_settings`
-Adicionar colunas para armazenar configurações da 360dialog:
-- `dialog360_enabled` (boolean, default false)
-- `dialog360_api_key` (text, nullable) - API Key da 360dialog
-- `dialog360_phone_number_id` (text, nullable)
-- `dialog360_test_mode` (boolean, default true)
-- `dialog360_whitelist` (jsonb, default '[]')
-- `dialog360_fallback_enabled` (boolean, default false)
+Mensagens **permitidas** (transacionais):
+- Verificacao de lider/contato (provocada por acao do usuario)
+- Link de indicacao apos verificacao (provocada por cadastro)
+- Inscricao em evento
+- Cadastro via formulario publico
+- Qualquer disparo iniciado diretamente por uma acao do usuario no sistema
 
-Atualizar o tipo de `whatsapp_provider_active` para aceitar `'zapi' | 'meta_cloud' | 'dialog360'`.
+## Implementacao
 
-### 2. Secret - API Key da 360dialog
-Armazenar a API Key como secret do backend (`DIALOG360_API_KEY`) para uso seguro na Edge Function, seguindo o mesmo padrão do `META_WA_ACCESS_TOKEN`.
+### 1. Configuracao no banco de dados
+Adicionar colunas na tabela `integrations_settings`:
+- `quiet_hours_enabled` (boolean, default true)
+- `quiet_hours_start` (text, default '21:00') -- hora de inicio
+- `quiet_hours_end` (text, default '08:00') -- hora de fim
 
-### 3. Edge Function `send-whatsapp` - Novo provedor
-Adicionar função `sendVia360Dialog()` seguindo o padrão existente:
-- A 360dialog usa a mesma Graph API (`https://waba-v2.360dialog.io/messages`)
-- Autenticação via header `D360-API-KEY`
-- Payload idêntico ao da Meta Cloud (messaging_product, type, to, text/template)
-- Integrar no fluxo de seleção de provedor e fallback
+### 2. Funcao utilitaria nas Edge Functions
+Criar uma funcao `isQuietHours()` que sera chamada pelas Edge Functions automaticas (cron):
 
-Atualizar o tipo `IntegrationSettings` e a lógica de roteamento para incluir `dialog360`.
-
-### 4. Edge Function `test-360dialog-connection`
-Nova Edge Function para validar a API Key e Phone Number ID:
-- Chamar endpoint de health/status da 360dialog
-- Retornar informações do número conectado
-
-### 5. Edge Function `dialog360-webhook` (recebimento de mensagens)
-Webhook para receber mensagens e status updates da 360dialog:
-- Mesmo formato da Graph API (compatível com meta-whatsapp-webhook)
-- Registrar mensagens recebidas
-- Atualizar status de entrega
-- Suporte ao chatbot
-
-### 6. Frontend - Configurações de Integração
-
-**`src/hooks/useIntegrationsSettings.ts`:**
-- Atualizar interfaces `IntegrationsSettings` e `UpdateIntegrationsDTO` com campos 360dialog
-- Adicionar hook `useTest360DialogConnection`
-
-**`src/components/settings/MetaCloudConfigCard.tsx`:**
-- Expandir o seletor de provedor para incluir opção "360dialog"
-
-**Novo componente `src/components/settings/Dialog360ConfigCard.tsx`:**
-- Card com campos: API Key, Phone Number ID
-- Toggle habilitado/desabilitado
-- Modo teste com whitelist
-- Fallback para Z-API
-- Botão testar conexão
-
-**`src/pages/settings/Integrations.tsx`:**
-- Renderizar o novo `Dialog360ConfigCard`
-- Integrar salvamento das configurações
-
-### 7. Atualizar tipos e referências
-- `whatsapp_messages.provider` - garantir que aceite valor 'dialog360'
-- Atualizar `providerOverride` no tipo `SendWhatsAppRequest` para incluir `'dialog360'`
-- Atualizar abas de WhatsApp (histórico, API Oficial) se necessário
-
-## Detalhes Técnicos
-
-### API da 360dialog
-```text
-Endpoint: https://waba-v2.360dialog.io/messages
-Auth: Header "D360-API-KEY: {api_key}"
-Payload: Mesmo formato da Graph API do WhatsApp (messaging_product, to, type, text/template)
+```typescript
+function isQuietHours(settings: { quiet_hours_enabled: boolean; quiet_hours_start: string; quiet_hours_end: string }): boolean {
+  if (!settings.quiet_hours_enabled) return false;
+  const now = new Date();
+  // Converter para horario de Brasilia (UTC-3)
+  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
+  const startHour = parseInt(settings.quiet_hours_start.split(':')[0]);
+  const endHour = parseInt(settings.quiet_hours_end.split(':')[0]);
+  // Ex: 21h ate 8h -> bloqueio se hora >= 21 OU hora < 8
+  if (startHour > endHour) {
+    return brasiliaHour >= startHour || brasiliaHour < endHour;
+  }
+  return brasiliaHour >= startHour && brasiliaHour < endHour;
+}
 ```
 
-### Fluxo de roteamento de provedores (atualizado)
-```text
-providerOverride definido?
-  |-- Sim --> Usa provedor especificado (zapi / meta_cloud / dialog360)
-  |-- Nao --> Usa whatsapp_provider_active da config
-        |-- dialog360 --> dialog360_enabled?
-        |     |-- Nao --> fallback para zapi
-        |     |-- Sim --> test_mode? whitelist ok? --> envia via 360dialog
-        |           |-- Falhou + fallback --> tenta zapi
-        |-- meta_cloud --> (fluxo existente)
-        |-- zapi --> (fluxo existente)
+### 3. Edge Functions que serao modificadas (adicionar verificacao de silencio)
+Estas funcoes automaticas verificarao `isQuietHours()` antes de processar:
+
+- **`process-scheduled-messages/index.ts`** -- Pular execucao se estiver no horario de silencio
+- **`retry-failed-sms/index.ts`** -- Pular retentativas durante silencio
+- **`process-sms-fallback/index.ts`** -- Pular fallbacks durante silencio
+- **`send-pending-leader-sms/index.ts`** -- Pular envios pendentes durante silencio
+- **`reprocess-sms-status/index.ts`** -- Pular reprocessamento durante silencio
+
+### 4. Edge Functions que NAO serao modificadas (transacionais)
+Estas continuam funcionando normalmente, pois sao disparadas por acao direta do usuario:
+
+- `send-sms` (chamada direta por verificacao/cadastro)
+- `send-whatsapp` (chamada direta)
+- `send-email` (chamada direta)
+- `send-leader-affiliate-links` (chamada apos verificacao)
+- `send-event-photos`
+- `resend-verification-sms`
+
+### 5. Interface de configuracao
+Adicionar um card na pagina de Integracoes (`src/pages/settings/Integrations.tsx`) com:
+- Toggle para ativar/desativar horario de silencio
+- Campos para configurar horario de inicio e fim
+- Indicacao do fuso horario (Brasilia)
+
+### 6. Hook do frontend
+Atualizar `src/hooks/useIntegrationsSettings.ts` para incluir os novos campos de quiet hours.
+
+## Detalhes Tecnicos
+
+### Migracao SQL
+```sql
+ALTER TABLE integrations_settings
+  ADD COLUMN quiet_hours_enabled boolean DEFAULT true,
+  ADD COLUMN quiet_hours_start text DEFAULT '21:00',
+  ADD COLUMN quiet_hours_end text DEFAULT '08:00';
 ```
 
-### Arquivos a criar
-- `supabase/functions/test-360dialog-connection/index.ts`
-- `supabase/functions/dialog360-webhook/index.ts`
-- `src/components/settings/Dialog360ConfigCard.tsx`
+### Padrao de bloqueio nas Edge Functions cron
+Cada funcao cron recebera no inicio:
+```typescript
+// Verificar horario de silencio
+const { data: settings } = await supabase
+  .from("integrations_settings")
+  .select("quiet_hours_enabled, quiet_hours_start, quiet_hours_end")
+  .limit(1)
+  .single();
 
-### Arquivos a modificar
-- `supabase/functions/send-whatsapp/index.ts` (novo provedor)
-- `supabase/config.toml` (novas functions)
-- `src/hooks/useIntegrationsSettings.ts` (tipos + hook teste)
-- `src/components/settings/MetaCloudConfigCard.tsx` (seletor 3 opções)
-- `src/pages/settings/Integrations.tsx` (novo card)
-- Migration SQL para novas colunas
+if (isQuietHours(settings)) {
+  console.log("[function-name] Horario de silencio ativo. Pulando execucao.");
+  return new Response(JSON.stringify({ success: true, skipped: true, reason: "quiet_hours" }));
+}
+```
+
+### Arquivos a serem criados/modificados
+1. **Migracao SQL** -- Novas colunas em `integrations_settings`
+2. **5 Edge Functions** -- Adicionar verificacao de silencio
+3. **1 componente novo** -- `QuietHoursCard.tsx` para configuracao
+4. **`useIntegrationsSettings.ts`** -- Novos campos
+5. **`Integrations.tsx`** -- Incluir novo card
