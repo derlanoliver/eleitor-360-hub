@@ -133,6 +133,18 @@ async function checkSMSBaratoStatus(
   return { success: true, status: mappedStatus, description: descriptions[statusCode] };
 }
 
+function isQuietHours(settings: { quiet_hours_enabled: boolean | null; quiet_hours_start: string | null; quiet_hours_end: string | null } | null): boolean {
+  if (!settings?.quiet_hours_enabled) return false;
+  const now = new Date();
+  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
+  const startHour = parseInt((settings.quiet_hours_start || '21:00').split(':')[0]);
+  const endHour = parseInt((settings.quiet_hours_end || '08:00').split(':')[0]);
+  if (startHour > endHour) {
+    return brasiliaHour >= startHour || brasiliaHour < endHour;
+  }
+  return brasiliaHour >= startHour && brasiliaHour < endHour;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -150,6 +162,18 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verificar horário de silêncio
+    const { data: qhSettings } = await supabase
+      .from("integrations_settings")
+      .select("quiet_hours_enabled, quiet_hours_start, quiet_hours_end")
+      .limit(1)
+      .single();
+
+    if (isQuietHours(qhSettings)) {
+      console.log("[reprocess-sms-status] Horário de silêncio ativo. Pulando execução.");
+      return json({ success: true, skipped: true, reason: "quiet_hours" });
+    }
 
     // Get settings for all SMS providers
     const { data: settings, error: settingsError } = await supabase
