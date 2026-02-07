@@ -767,6 +767,9 @@ export type Database = {
           passkit_enabled: boolean | null
           passkit_program_id: string | null
           passkit_tier_id: string | null
+          quiet_hours_enabled: boolean | null
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
           region_material_default_delay_minutes: number | null
           resend_api_key: string | null
           resend_enabled: boolean | null
@@ -825,6 +828,9 @@ export type Database = {
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
           passkit_tier_id?: string | null
+          quiet_hours_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
           region_material_default_delay_minutes?: number | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null
@@ -883,6 +889,9 @@ export type Database = {
           passkit_enabled?: boolean | null
           passkit_program_id?: string | null
           passkit_tier_id?: string | null
+          quiet_hours_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
           region_material_default_delay_minutes?: number | null
           resend_api_key?: string | null
           resend_enabled?: boolean | null

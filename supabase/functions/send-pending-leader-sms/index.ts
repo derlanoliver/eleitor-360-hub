@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function isQuietHours(settings: { quiet_hours_enabled: boolean | null; quiet_hours_start: string | null; quiet_hours_end: string | null } | null): boolean {
+  if (!settings?.quiet_hours_enabled) return false;
+  const now = new Date();
+  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
+  const startHour = parseInt((settings.quiet_hours_start || '21:00').split(':')[0]);
+  const endHour = parseInt((settings.quiet_hours_end || '08:00').split(':')[0]);
+  if (startHour > endHour) {
+    return brasiliaHour >= startHour || brasiliaHour < endHour;
+  }
+  return brasiliaHour >= startHour && brasiliaHour < endHour;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,6 +27,21 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verificar horário de silêncio
+    const { data: qhSettings } = await supabase
+      .from("integrations_settings")
+      .select("quiet_hours_enabled, quiet_hours_start, quiet_hours_end")
+      .limit(1)
+      .single();
+
+    if (isQuietHours(qhSettings)) {
+      console.log("[send-pending-leader-sms] Horário de silêncio ativo. Pulando execução.");
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "quiet_hours" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Buscar líderes VERIFICADOS que não receberam o SMS com link de indicação
     const { data: leaders, error: leadersError } = await supabase

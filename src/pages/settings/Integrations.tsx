@@ -20,6 +20,7 @@ import { ZapiQRCodeDialog } from "@/components/settings/ZapiQRCodeDialog";
 import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
 import { ZapiConnectionIndicator } from "@/components/settings/ZapiConnectionIndicator";
 import { VerificationSettingsCard } from "@/components/settings/VerificationSettingsCard";
+import { QuietHoursCard } from "@/components/settings/QuietHoursCard";
 import { MetaCloudConfigCard } from "@/components/settings/MetaCloudConfigCard";
 import { Dialog360ConfigCard } from "@/components/settings/Dialog360ConfigCard";
 import type { Step } from "react-joyride";
@@ -1370,6 +1371,9 @@ const Integrations = () => {
 
         {/* Verificação de Cadastro */}
         <VerificationSettingsCard />
+
+        {/* Horário de Silêncio */}
+        <QuietHoursCard />
       </div>
 
       {/* Z-API QR Code Reconnect Dialog */}

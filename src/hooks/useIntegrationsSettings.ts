@@ -67,6 +67,10 @@ interface IntegrationsSettings {
   dialog360_fallback_enabled: boolean;
   zapi_last_connected_at: string | null;
   zapi_disconnected_at: string | null;
+  // Horário de Silêncio
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
   created_at: string;
   updated_at: string;
 }
@@ -129,6 +133,10 @@ interface UpdateIntegrationsDTO {
   dialog360_test_mode?: boolean;
   dialog360_whitelist?: string[];
   dialog360_fallback_enabled?: boolean;
+  // Horário de Silêncio
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
 }
 
 export function useIntegrationsSettings() {
