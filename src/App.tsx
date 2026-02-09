@@ -426,11 +426,11 @@ const App = () => (
             
             {/* Dispatch Region Materials */}
             <Route path="/disparar-materiais" element={
-              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
+              <ProtectedRoute>
                 <DashboardLayout>
                   <DispatchRegionMaterials />
                 </DashboardLayout>
-              </RoleProtectedRoute>
+              </ProtectedRoute>
             } />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
