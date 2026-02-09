@@ -426,7 +426,7 @@ const App = () => (
             
             {/* Dispatch Region Materials */}
             <Route path="/disparar-materiais" element={
-              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'atendente']}>
                 <DashboardLayout>
                   <DispatchRegionMaterials />
                 </DashboardLayout>
