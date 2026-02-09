@@ -53,6 +53,7 @@ import Gamification from "./pages/settings/Gamification";
 import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
 import Reports from "./pages/settings/Reports";
 import RegionMaterials from "./pages/settings/RegionMaterials";
+import DispatchRegionMaterials from "./pages/DispatchRegionMaterials";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -419,6 +420,15 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
                 <DashboardLayout>
                   <OfficeSettings />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            
+            {/* Dispatch Region Materials */}
+            <Route path="/disparar-materiais" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <DispatchRegionMaterials />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />
