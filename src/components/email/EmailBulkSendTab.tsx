@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Send, Users, Calendar, Target, UserCheck, AlertTriangle, ClipboardList, Layers, Play, Clock, ShieldAlert, Network } from "lucide-react";
 import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { useEvents } from "@/hooks/events/useEvents";
+import { useRegionMaterials } from "@/hooks/useRegionMaterials";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -39,6 +40,8 @@ const SURVEY_INVITE_TEMPLATES = ["pesquisa-convite", "lideranca-pesquisa-link"];
 const LEADER_AFFILIATE_LINK_TEMPLATES = ["lideranca-reuniao-link", "lideranca-cadastro-link"];
 // Template de validação de cadastro
 const VERIFICATION_TEMPLATE = "validacao-cadastro-email";
+// Template de material de região
+const REGION_MATERIAL_TEMPLATE = "material-regiao-email";
 
 // Opções de tamanho de lote
 const BATCH_SIZE_OPTIONS = [
@@ -59,6 +62,7 @@ function generateVerificationCode(): string {
 export function EmailBulkSendTab() {
   const { data: templates, isLoading: loadingTemplates } = useEmailTemplates();
   const { data: events } = useEvents();
+  const { data: regionMaterials } = useRegionMaterials();
 
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [recipientType, setRecipientType] = useState<RecipientType>("all_contacts");
@@ -124,6 +128,10 @@ export function EmailBulkSendTab() {
   const isSurveyInviteTemplate = SURVEY_INVITE_TEMPLATES.includes(selectedTemplate);
   const isLeaderAffiliateLinkTemplate = LEADER_AFFILIATE_LINK_TEMPLATES.includes(selectedTemplate);
   const isVerificationTemplate = selectedTemplate === VERIFICATION_TEMPLATE;
+  const isRegionMaterialTemplate = selectedTemplate === REGION_MATERIAL_TEMPLATE;
+
+  // Estado para material de região selecionado
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
 
   // Fetch funnels
   const { data: funnels } = useQuery({
@@ -502,12 +510,14 @@ export function EmailBulkSendTab() {
     "lideranca-reuniao-link",
     "lideranca-cadastro-link",
     "validacao-cadastro-email",
+    "material-regiao-email",
   ];
 
   const CONVITE_TEMPLATES_CONTACTS = [
     "captacao-convite-material",
     "evento-convite-participar",
     "pesquisa-convite",
+    "material-regiao-email",
   ];
 
   // Filter templates based on recipient type
@@ -534,7 +544,8 @@ export function EmailBulkSendTab() {
     !isSending &&
     (!isEventInviteTemplate || targetEventId) &&
     (!isFunnelInviteTemplate || targetFunnelId) &&
-    (!isSurveyInviteTemplate || targetSurveyId);
+    (!isSurveyInviteTemplate || targetSurveyId) &&
+    (!isRegionMaterialTemplate || selectedMaterialId);
 
   // Calcular tempo estimado em minutos (média de 0.3 segundos por email)
   const estimatedMinutes = Math.ceil((recipients?.length || 0) * 0.3 / 60);
@@ -629,6 +640,14 @@ export function EmailBulkSendTab() {
           const linkPesquisaAfiliado = generateSurveyAffiliateUrl(targetSurvey.slug, affiliateToken);
           variables.link_pesquisa_afiliado = linkPesquisaAfiliado;
           variables.qr_code_url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkPesquisaAfiliado)}`;
+        }
+      }
+
+      if (isRegionMaterialTemplate && selectedMaterialId) {
+        const material = regionMaterials?.find(m => m.id === selectedMaterialId);
+        if (material) {
+          variables.material_nome = material.material_name;
+          variables.link_material = material.material_url;
         }
       }
 
@@ -1128,6 +1147,7 @@ export function EmailBulkSendTab() {
                   setTargetEventId("");
                   setTargetFunnelId("");
                   setTargetSurveyId("");
+                  setSelectedMaterialId("");
                 }}
               >
                 <SelectTrigger>
@@ -1222,6 +1242,32 @@ export function EmailBulkSendTab() {
                 )}
               </div>
             )}
+
+            {/* DESTINO: Seleção do Material de Região */}
+            {isRegionMaterialTemplate && (
+              <div className="space-y-2 p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label className="text-primary font-medium">
+                  Qual material de região deseja enviar?
+                </Label>
+                <Select value={selectedMaterialId} onValueChange={setSelectedMaterialId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o material" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regionMaterials?.filter(m => m.is_active).map((material) => (
+                      <SelectItem key={material.id} value={material.id}>
+                        {material.material_name} - {material.office_cities?.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedMaterialId && regionMaterials?.find(m => m.id === selectedMaterialId) && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    <p>📄 {regionMaterials.find(m => m.id === selectedMaterialId)?.office_cities?.nome}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1279,6 +1325,17 @@ export function EmailBulkSendTab() {
                     <p className="font-medium mt-1">📊 {targetSurvey.titulo}</p>
                   </div>
                 )}
+
+                {isRegionMaterialTemplate && selectedMaterialId && (() => {
+                  const mat = regionMaterials?.find(m => m.id === selectedMaterialId);
+                  return mat ? (
+                    <div className="py-3 border-b">
+                      <span className="text-muted-foreground">Material de Região</span>
+                      <p className="font-medium mt-1">📄 {mat.material_name}</p>
+                      <p className="text-sm text-muted-foreground">{mat.office_cities?.nome}</p>
+                    </div>
+                  ) : null;
+                })()}
 
                 {isVerificationTemplate && (recipientType === "unverified_leaders" || recipientType === "unverified_contacts") && (
                   <div className="py-3 border-b">
