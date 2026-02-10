@@ -54,6 +54,7 @@ import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
 import Reports from "./pages/settings/Reports";
 import RegionMaterials from "./pages/settings/RegionMaterials";
 import DispatchRegionMaterials from "./pages/DispatchRegionMaterials";
+import DownloadCoordinatorReport from "./pages/DownloadCoordinatorReport";
 
 // Office module pages
 import NewVisit from "./pages/office/NewVisit";
@@ -430,6 +431,13 @@ const App = () => (
                 <DashboardLayout>
                   <DispatchRegionMaterials />
                 </DashboardLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* Download Coordinator Report */}
+            <Route path="/relatorio-coordenadores" element={
+              <ProtectedRoute>
+                <DownloadCoordinatorReport />
               </ProtectedRoute>
             } />
             
