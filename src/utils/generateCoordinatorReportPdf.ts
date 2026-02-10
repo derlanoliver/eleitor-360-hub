@@ -97,8 +97,8 @@ export function generateCoordinatorReportPdf() {
   ];
 
   // Table drawing helper
-  const colX = [14, 90, 132, 154, 176];
-  const colW = [74, 40, 20, 20, 20];
+  const colX = [14, 82, 122, 142, 160, 178];
+  const colW = [66, 38, 18, 16, 16, 16];
 
   const drawTableHeader = () => {
     doc.setFillColor(240, 80, 35);
@@ -108,9 +108,10 @@ export function generateCoordinatorReportPdf() {
     doc.setFont("helvetica", "bold");
     doc.text("Coordenador", colX[0] + 2, y);
     doc.text("Tipo", colX[1] + 2, y);
-    doc.text("Inscritos", colX[2] + 2, y);
-    doc.text("Check-ins", colX[3] + 2, y);
-    doc.text("%", colX[4] + 8, y, { align: "center" });
+    doc.text("Inscr.", colX[2] + 2, y);
+    doc.text("Check", colX[3] + 2, y);
+    doc.text("% Inscr.", colX[4] + 1, y);
+    doc.text("% Check", colX[5] + 1, y);
     doc.setTextColor(0, 0, 0);
     y += 5;
   };
@@ -148,14 +149,16 @@ export function generateCoordinatorReportPdf() {
       doc.setFont("helvetica", isCoord ? "bold" : "normal");
 
       // Truncate long names
-      const name = row.coordinator.length > 34 ? row.coordinator.substring(0, 32) + "..." : row.coordinator;
+      const name = row.coordinator.length > 30 ? row.coordinator.substring(0, 28) + "..." : row.coordinator;
       doc.text(name, colX[0] + 2, y);
       doc.setFont("helvetica", "normal");
       doc.text(row.tipo, colX[1] + 2, y);
-      doc.text(String(row.inscritos), colX[2] + 10, y, { align: "center" });
-      doc.text(String(row.checkins), colX[3] + 10, y, { align: "center" });
-      const pct = event.totalInscritos > 0 ? ((row.inscritos / event.totalInscritos) * 100).toFixed(1) + "%" : "0%";
-      doc.text(pct, colX[4] + 10, y, { align: "center" });
+      doc.text(String(row.inscritos), colX[2] + 9, y, { align: "center" });
+      doc.text(String(row.checkins), colX[3] + 8, y, { align: "center" });
+      const pctInsc = event.totalInscritos > 0 ? ((row.inscritos / event.totalInscritos) * 100).toFixed(1) + "%" : "0%";
+      doc.text(pctInsc, colX[4] + 8, y, { align: "center" });
+      const pctCheck = event.totalCheckins > 0 ? ((row.checkins / event.totalCheckins) * 100).toFixed(1) + "%" : "0%";
+      doc.text(pctCheck, colX[5] + 8, y, { align: "center" });
       y += 6;
     });
 
