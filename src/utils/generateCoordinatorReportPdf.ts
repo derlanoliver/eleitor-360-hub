@@ -101,7 +101,7 @@ export function generateCoordinatorReportPdf() {
   const colW = [84, 43, 23, 23];
 
   const drawTableHeader = () => {
-    doc.setFillColor(41, 65, 122);
+    doc.setFillColor(240, 80, 35);
     doc.rect(14, y - 4, pageWidth - 28, 7, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
@@ -120,7 +120,7 @@ export function generateCoordinatorReportPdf() {
     // Event header
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(41, 65, 122);
+    doc.setTextColor(240, 80, 35);
     doc.text(`${idx + 1}. ${event.eventName}`, 14, y);
     y += 6;
 
@@ -138,7 +138,7 @@ export function generateCoordinatorReportPdf() {
       checkPage(8);
 
       if (rIdx % 2 === 0) {
-        doc.setFillColor(240, 243, 250);
+        doc.setFillColor(253, 241, 236);
         doc.rect(14, y - 4, pageWidth - 28, 6, "F");
       }
 
@@ -170,28 +170,32 @@ export function generateCoordinatorReportPdf() {
   checkPage(30);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(41, 65, 122);
+  doc.setTextColor(240, 80, 35);
   doc.text("Resumo dos Coordenadores Presentes", 14, y);
-  y += 7;
+  y += 9;
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
 
-  const summaryLines = [
-    "✅ Presentes com check-in: Boca, Adevair, José Jeckson, Zilda, Marcio, Pr. Carlos, Almino, Raimundo Paz",
-    "❌ Sem check-in: Miriam Gonçalves (inscrita em P SUL e Itapoã sem check-in)",
-    "⚠️ Não inscritos mas com líderes presentes: Heleninha (26 líderes em Ceil. Norte), Cristiano (67 em Itapoã)",
+  const summaryItems = [
+    { icon: "Presentes com check-in:", text: "Boca, Adevair, Jose Jeckson, Zilda, Marcio, Pr. Carlos, Almino, Raimundo Paz" },
+    { icon: "Sem check-in:", text: "Miriam Goncalves (inscrita em P SUL e Itapoa sem check-in)" },
+    { icon: "Nao inscritos mas com lideres presentes:", text: "Heleninha (26 lideres em Ceil. Norte), Cristiano (67 em Itapoa)" },
   ];
 
-  summaryLines.forEach((line) => {
-    checkPage(8);
-    const splitLines = doc.splitTextToSize(line, pageWidth - 28);
+  summaryItems.forEach((item) => {
+    checkPage(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(item.icon, 14, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    const splitLines = doc.splitTextToSize(item.text, pageWidth - 28);
     splitLines.forEach((sl: string) => {
-      doc.text(sl, 14, y);
+      doc.text(sl, 18, y);
       y += 5;
     });
-    y += 2;
+    y += 4;
   });
 
   const fileName = `relatorio-coordenadores-eventos-${format(new Date(), "yyyy-MM-dd")}.pdf`;
