@@ -51,6 +51,7 @@ export function generateCoordinatorReportPdf() {
         { coordinator: "Zilda Maria da Cunha", tipo: "Coordenadora presente", inscritos: 1, checkins: 1 },
         { coordinator: "Rafael Prudente", tipo: "Líderes", inscritos: 5, checkins: 2 },
         { coordinator: "TCB (Contratados)", tipo: "Líderes", inscritos: 1, checkins: 0 },
+        { coordinator: "Sem coordenador", tipo: "—", inscritos: 16, checkins: 2 },
       ],
     },
     {
@@ -74,6 +75,7 @@ export function generateCoordinatorReportPdf() {
         { coordinator: "(HELENINHA) Helena Farias de Souza", tipo: "Líderes", inscritos: 1, checkins: 0 },
         { coordinator: "Rita de Paula Guedes", tipo: "Líderes", inscritos: 1, checkins: 0 },
         { coordinator: "Vanderlei Rodrigues de Oliveira", tipo: "Líderes", inscritos: 1, checkins: 0 },
+        { coordinator: "Sem coordenador", tipo: "—", inscritos: 87, checkins: 76 },
       ],
     },
     {
