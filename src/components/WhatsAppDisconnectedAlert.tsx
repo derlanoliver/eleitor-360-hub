@@ -171,8 +171,7 @@ export function WhatsAppDisconnectedAlert() {
 
   const hasDisconnected = allConnected.some(v => v === false);
 
-  const smsLabel = smsProvider === 'smsdev' ? 'SMSDev' :
-    smsProvider === 'smsbarato' ? 'SMSBarato' : 'DisparoPro';
+  const smsLabel = 'SMS';
 
   return (
     <div
