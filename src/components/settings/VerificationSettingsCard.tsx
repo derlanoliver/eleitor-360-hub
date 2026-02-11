@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Shield, ChevronDown, MessageSquare, CheckCircle2, AlertTriangle, Wifi, WifiOff } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings } from "@/hooks/useIntegrationsSettings";
 import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -34,9 +35,11 @@ export function VerificationSettingsCard() {
   const [verificationWaKeyword, setVerificationWaKeyword] = useState("CONFIRMAR");
   const [verificationWaZapiPhone, setVerificationWaZapiPhone] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [isFetchingMetaPhone, setIsFetchingMetaPhone] = useState(false);
   
   const isFallbackActive = settings?.verification_fallback_active ?? false;
   const isZapiConnected = zapiStatus?.connected ?? false;
+  const isMetaCloudActive = settings?.whatsapp_provider_active === 'meta_cloud';
 
   useEffect(() => {
     if (settings) {
@@ -48,6 +51,33 @@ export function VerificationSettingsCard() {
       setVerificationWaZapiPhone(settings.verification_wa_zapi_phone || '');
     }
   }, [settings]);
+
+  // Auto-fetch phone number from Meta Cloud API when provider is meta_cloud
+  useEffect(() => {
+    if (!settings || !isMetaCloudActive || !settings.meta_cloud_phone_number_id) return;
+
+    const fetchMetaPhone = async () => {
+      setIsFetchingMetaPhone(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('test-meta-cloud-connection', {
+          body: { 
+            phoneNumberId: settings.meta_cloud_phone_number_id,
+            apiVersion: settings.meta_cloud_api_version || 'v21.0'
+          }
+        });
+        if (!error && data?.success && data?.data?.displayPhoneNumber) {
+          const phone = data.data.displayPhoneNumber.replace(/[\s\-\+\(\)]/g, '');
+          setVerificationWaZapiPhone(phone);
+        }
+      } catch (err) {
+        console.error("Error fetching Meta Cloud phone:", err);
+      } finally {
+        setIsFetchingMetaPhone(false);
+      }
+    };
+
+    fetchMetaPhone();
+  }, [settings?.meta_cloud_phone_number_id, isMetaCloudActive]);
 
   const handleSave = () => {
     const whitelist = verificationWaWhitelist
@@ -212,16 +242,26 @@ export function VerificationSettingsCard() {
                   </div>
                 )}
 
-                {/* Número do Z-API */}
+                {/* Número do WhatsApp */}
                 <div className="space-y-2">
-                  <Label>Número do WhatsApp (Z-API)</Label>
-                  <Input
-                    placeholder="5561999999999"
-                    value={verificationWaZapiPhone}
-                    onChange={(e) => setVerificationWaZapiPhone(e.target.value)}
-                  />
+                  <Label>Número do WhatsApp {isMetaCloudActive ? "(Cloud API)" : "(Z-API)"}</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="5561999999999"
+                      value={verificationWaZapiPhone}
+                      onChange={(e) => setVerificationWaZapiPhone(e.target.value)}
+                      readOnly={isMetaCloudActive}
+                      className={isMetaCloudActive ? "bg-muted" : ""}
+                    />
+                    {isFetchingMetaPhone && (
+                      <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Este número será usado no link wa.me para o usuário enviar a mensagem
+                    {isMetaCloudActive 
+                      ? "Obtido automaticamente da configuração do WhatsApp Cloud API (Meta)"
+                      : "Este número será usado no link wa.me para o usuário enviar a mensagem"
+                    }
                   </p>
                 </div>
 
