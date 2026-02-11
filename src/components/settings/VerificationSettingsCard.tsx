@@ -9,18 +9,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, ChevronDown, MessageSquare, CheckCircle2, AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { Loader2, Shield, ChevronDown, MessageSquare, CheckCircle2, AlertTriangle, Wifi, WifiOff, Cloud } from "lucide-react";
 import { useIntegrationsSettings, useUpdateIntegrationsSettings } from "@/hooks/useIntegrationsSettings";
 import { useZapiConnectionStatus } from "@/hooks/useZapiConnectionStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+type VerificationMethod = 'link' | 'whatsapp_consent' | 'whatsapp_meta_cloud';
+
 export function VerificationSettingsCard() {
   const { data: settings, isLoading } = useIntegrationsSettings();
   const updateSettings = useUpdateIntegrationsSettings();
   
-  // Check Z-API connection status
   const { data: zapiStatus, isLoading: isCheckingZapi } = useZapiConnectionStatus(
     settings?.zapi_instance_id ?? null,
     settings?.zapi_token ?? null,
@@ -28,7 +29,7 @@ export function VerificationSettingsCard() {
     settings?.zapi_enabled ?? false
   );
   
-  const [verificationMethod, setVerificationMethod] = useState<'link' | 'whatsapp_consent'>('link');
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>('link');
   const [verificationWaEnabled, setVerificationWaEnabled] = useState(false);
   const [verificationWaTestMode, setVerificationWaTestMode] = useState(true);
   const [verificationWaWhitelist, setVerificationWaWhitelist] = useState("");
@@ -39,11 +40,13 @@ export function VerificationSettingsCard() {
   
   const isFallbackActive = settings?.verification_fallback_active ?? false;
   const isZapiConnected = zapiStatus?.connected ?? false;
-  const isMetaCloudActive = settings?.whatsapp_provider_active === 'meta_cloud';
+  const isMetaCloudMethod = verificationMethod === 'whatsapp_meta_cloud';
+  const isWhatsAppConsentMethod = verificationMethod === 'whatsapp_consent';
+  const isAnyWhatsAppMethod = isMetaCloudMethod || isWhatsAppConsentMethod;
 
   useEffect(() => {
     if (settings) {
-      setVerificationMethod((settings.verification_method as 'link' | 'whatsapp_consent') || 'link');
+      setVerificationMethod((settings.verification_method as VerificationMethod) || 'link');
       setVerificationWaEnabled(settings.verification_wa_enabled || false);
       setVerificationWaTestMode(settings.verification_wa_test_mode ?? true);
       setVerificationWaWhitelist((settings.verification_wa_whitelist || []).join('\n'));
@@ -52,9 +55,9 @@ export function VerificationSettingsCard() {
     }
   }, [settings]);
 
-  // Auto-fetch phone number from Meta Cloud API when provider is meta_cloud
+  // Auto-fetch phone number from Meta Cloud API
   useEffect(() => {
-    if (!settings || !isMetaCloudActive || !settings.meta_cloud_phone_number_id) return;
+    if (!settings?.meta_cloud_phone_number_id || !settings?.meta_cloud_enabled) return;
 
     const fetchMetaPhone = async () => {
       setIsFetchingMetaPhone(true);
@@ -77,7 +80,7 @@ export function VerificationSettingsCard() {
     };
 
     fetchMetaPhone();
-  }, [settings?.meta_cloud_phone_number_id, isMetaCloudActive]);
+  }, [settings?.meta_cloud_phone_number_id, settings?.meta_cloud_enabled]);
 
   const handleSave = () => {
     const whitelist = verificationWaWhitelist
@@ -105,7 +108,38 @@ export function VerificationSettingsCard() {
     );
   }
 
-  const isWhatsAppMethod = verificationMethod === 'whatsapp_consent';
+  const getActiveBadge = () => {
+    if (!verificationWaEnabled || !isAnyWhatsAppMethod) {
+      return (
+        <Badge variant="secondary">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Link SMS
+        </Badge>
+      );
+    }
+    if (isFallbackActive) {
+      return (
+        <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Fallback Ativo
+        </Badge>
+      );
+    }
+    if (isMetaCloudMethod) {
+      return (
+        <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">
+          <Cloud className="h-3 w-3 mr-1" />
+          Cloud API
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+        <MessageSquare className="h-3 w-3 mr-1" />
+        WhatsApp Z-API
+      </Badge>
+    );
+  };
 
   return (
     <Card>
@@ -123,25 +157,8 @@ export function VerificationSettingsCard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Fallback indicator */}
-            {isFallbackActive && verificationWaEnabled && isWhatsAppMethod ? (
-              <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Fallback SMS Ativo
-              </Badge>
-            ) : verificationWaEnabled && isWhatsAppMethod ? (
-              <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                <MessageSquare className="h-3 w-3 mr-1" />
-                WhatsApp Ativo
-              </Badge>
-            ) : (
-              <Badge variant="secondary">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Link SMS
-              </Badge>
-            )}
+            {getActiveBadge()}
             
-            {/* Z-API connection status */}
             {settings?.zapi_enabled && (
               <div className="flex items-center gap-1.5 text-xs">
                 {isCheckingZapi ? (
@@ -149,7 +166,7 @@ export function VerificationSettingsCard() {
                 ) : isZapiConnected ? (
                   <Wifi className="h-3 w-3 text-green-500" />
                 ) : (
-                  <WifiOff className="h-3 w-3 text-red-500" />
+                  <WifiOff className="h-3 w-3 text-destructive" />
                 )}
               </div>
             )}
@@ -158,16 +175,16 @@ export function VerificationSettingsCard() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Fallback Alert */}
-        {isFallbackActive && verificationWaEnabled && isWhatsAppMethod && (
+        {isFallbackActive && verificationWaEnabled && isAnyWhatsAppMethod && (
           <Alert className="border-amber-200 bg-amber-50">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>Fallback SMS ativo:</strong> O WhatsApp está desconectado
+              <strong>Fallback ativo:</strong> O provedor principal está desconectado
               {settings?.zapi_disconnected_at && (
                 <span className="text-amber-600">
                   {" "}(há {formatDistanceToNow(new Date(settings.zapi_disconnected_at), { locale: ptBR })})
                 </span>
-              )}. As verificações estão sendo enviadas automaticamente via SMS até a reconexão.
+              )}. As verificações estão usando o canal de fallback automaticamente.
             </AlertDescription>
           </Alert>
         )}
@@ -193,24 +210,41 @@ export function VerificationSettingsCard() {
               <Label>Método de Verificação Ativo</Label>
               <RadioGroup 
                 value={verificationMethod} 
-                onValueChange={(v) => setVerificationMethod(v as 'link' | 'whatsapp_consent')}
+                onValueChange={(v) => setVerificationMethod(v as VerificationMethod)}
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="link" id="link" />
                   <Label htmlFor="link" className="font-normal cursor-pointer">
-                    Link via SMS (atual) - Enviar link de verificação por SMS
+                    Link via SMS - Enviar link de verificação por SMS
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="whatsapp_consent" id="whatsapp" />
                   <Label htmlFor="whatsapp" className="font-normal cursor-pointer">
-                    WhatsApp com Consentimento - Usuário envia mensagem e confirma com "SIM"
+                    WhatsApp Z-API - Usuário envia mensagem e confirma com "SIM"
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="whatsapp_meta_cloud" id="whatsapp_meta" />
+                  <Label htmlFor="whatsapp_meta" className="font-normal cursor-pointer">
+                    WhatsApp Cloud API (Meta) - Verificação via API oficial da Meta
                   </Label>
                 </div>
               </RadioGroup>
+
+              {/* Fallback chain info */}
+              {isAnyWhatsAppMethod && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2 border border-border/50">
+                  <strong>Fallback automático:</strong>{" "}
+                  {isMetaCloudMethod 
+                    ? "Cloud API → Z-API → SMS" 
+                    : "Z-API → SMS"
+                  }
+                </div>
+              )}
             </div>
 
-            {isWhatsAppMethod && (
+            {isAnyWhatsAppMethod && (
               <>
                 {/* Modo Teste */}
                 <div className="flex items-center justify-between py-3 border-t">
@@ -244,21 +278,23 @@ export function VerificationSettingsCard() {
 
                 {/* Número do WhatsApp */}
                 <div className="space-y-2">
-                  <Label>Número do WhatsApp {isMetaCloudActive ? "(Cloud API)" : "(Z-API)"}</Label>
+                  <Label>
+                    Número do WhatsApp {isMetaCloudMethod ? "(Cloud API)" : "(Z-API)"}
+                  </Label>
                   <div className="relative">
                     <Input
                       placeholder="5561999999999"
                       value={verificationWaZapiPhone}
                       onChange={(e) => setVerificationWaZapiPhone(e.target.value)}
-                      readOnly={isMetaCloudActive}
-                      className={isMetaCloudActive ? "bg-muted" : ""}
+                      readOnly={isMetaCloudMethod && !!settings?.meta_cloud_enabled}
+                      className={isMetaCloudMethod && settings?.meta_cloud_enabled ? "bg-muted" : ""}
                     />
                     {isFetchingMetaPhone && (
                       <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {isMetaCloudActive 
+                    {isMetaCloudMethod && settings?.meta_cloud_enabled
                       ? "Obtido automaticamente da configuração do WhatsApp Cloud API (Meta)"
                       : "Este número será usado no link wa.me para o usuário enviar a mensagem"
                     }
@@ -295,6 +331,16 @@ export function VerificationSettingsCard() {
                     <li>Sistema recebe a mensagem e pergunta: "Você autoriza? Responda SIM"</li>
                     <li>Usuário responde "SIM" e cadastro é verificado automaticamente</li>
                   </ol>
+                  {isMetaCloudMethod && (
+                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
+                      <strong>Cloud API:</strong> Se a Meta Cloud API falhar, o sistema tentará via Z-API. Se o Z-API também falhar, será enviado link via SMS.
+                    </p>
+                  )}
+                  {isWhatsAppConsentMethod && (
+                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
+                      <strong>Z-API:</strong> Se o Z-API desconectar, o sistema enviará link de verificação via SMS automaticamente.
+                    </p>
+                  )}
                 </div>
               </>
             )}

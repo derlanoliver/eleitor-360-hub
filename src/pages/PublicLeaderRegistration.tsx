@@ -209,7 +209,8 @@ export default function PublicLeaderRegistration() {
       // Verificar se deve usar verificação via WhatsApp (pausa SMS)
       const useWhatsAppVerification = 
         integrationSettings?.verification_wa_enabled && 
-        integrationSettings?.verification_method === 'whatsapp_consent';
+        (integrationSettings?.verification_method === 'whatsapp_consent' || 
+         integrationSettings?.verification_method === 'whatsapp_meta_cloud');
 
       if (leaderId && verificationCode) {
         // SMS de verificação: apenas se NÃO estiver usando WhatsApp Consent
@@ -397,7 +398,8 @@ export default function PublicLeaderRegistration() {
   // Verificar se WhatsApp está ativo para exibir botão
   const useWhatsAppVerification = 
     integrationSettings?.verification_wa_enabled && 
-    integrationSettings?.verification_method === 'whatsapp_consent';
+    (integrationSettings?.verification_method === 'whatsapp_consent' || 
+     integrationSettings?.verification_method === 'whatsapp_meta_cloud');
 
   // Verificar elegibilidade para WhatsApp (modo teste)
   const isWhatsAppEligible = (() => {
