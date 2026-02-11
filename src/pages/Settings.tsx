@@ -16,7 +16,8 @@ import {
   Trophy,
   MessageSquareText,
   FileBarChart,
-  FolderOpen
+  FolderOpen,
+  Copy
 } from "lucide-react";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -173,6 +174,14 @@ const Settings = () => {
       href: "/settings/reports",
       available: true,
       roles: ['super_admin', 'admin', 'atendente'],
+    },
+    {
+      title: "Duplicidades",
+      description: "Gerencie contatos que possuem cadastro duplicado como líder",
+      icon: Copy,
+      href: "/settings/duplicates",
+      available: true,
+      roles: ['super_admin', 'admin'],
     },
   ];
 

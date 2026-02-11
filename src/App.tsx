@@ -53,6 +53,7 @@ import Gamification from "./pages/settings/Gamification";
 import WhatsAppChatbot from "./pages/settings/WhatsAppChatbot";
 import Reports from "./pages/settings/Reports";
 import RegionMaterials from "./pages/settings/RegionMaterials";
+import DuplicateContacts from "./pages/settings/DuplicateContacts";
 import DispatchRegionMaterials from "./pages/DispatchRegionMaterials";
 import DownloadCoordinatorReport from "./pages/DownloadCoordinatorReport";
 
@@ -439,6 +440,15 @@ const App = () => (
               <ProtectedRoute>
                 <DownloadCoordinatorReport />
               </ProtectedRoute>
+            } />
+            
+            {/* Duplicate Contacts */}
+            <Route path="/settings/duplicates" element={
+              <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <DashboardLayout>
+                  <DuplicateContacts />
+                </DashboardLayout>
+              </RoleProtectedRoute>
             } />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
