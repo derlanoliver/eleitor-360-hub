@@ -25,15 +25,15 @@ export function WhatsAppDisconnectedAlert() {
   return (
     <Link
       to="/settings/integrations"
-      className="flex items-center gap-1.5 px-2.5 py-1.5 
-                 bg-red-50 border border-red-200 rounded-md 
-                 text-red-600 text-xs font-medium 
-                 hover:bg-red-100 transition-colors mr-3
-                 animate-fade-in"
+      className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium 
+                 text-destructive hover:opacity-80 transition-opacity mr-2 animate-fade-in"
+      title="WhatsApp desconectado – clique para configurar"
     >
-      <AlertTriangle className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">WhatsApp Desconectado</span>
-      <span className="sm:hidden">WhatsApp</span>
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+      </span>
+      <span className="hidden sm:inline">WA</span>
     </Link>
   );
 }
