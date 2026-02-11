@@ -104,10 +104,21 @@ export function useEventDetailedReport(eventId: string | null) {
         };
       }
 
-      // Buscar todos os líderes para classificação (incluindo parent_leader_id e nome)
-      const { data: leaders } = await supabase
-        .from('lideres')
-        .select('id, email, telefone, is_coordinator, parent_leader_id, nome_completo');
+      // Buscar todos os líderes para classificação com paginação (limite de 1000 por query)
+      const allLeaders: { id: string; email: string | null; telefone: string | null; is_coordinator: boolean | null; parent_leader_id: string | null; nome_completo: string }[] = [];
+      let leaderOffset = 0;
+      const leaderPageSize = 1000;
+      while (true) {
+        const { data: leadersBatch } = await supabase
+          .from('lideres')
+          .select('id, email, telefone, is_coordinator, parent_leader_id, nome_completo')
+          .range(leaderOffset, leaderOffset + leaderPageSize - 1);
+        if (!leadersBatch || leadersBatch.length === 0) break;
+        allLeaders.push(...leadersBatch);
+        if (leadersBatch.length < leaderPageSize) break;
+        leaderOffset += leaderPageSize;
+      }
+      const leaders = allLeaders;
 
       // Criar maps para lookup rápido
       const leadersByEmail = new Map<string, { id: string; is_coordinator: boolean; parent_leader_id: string | null }>();
