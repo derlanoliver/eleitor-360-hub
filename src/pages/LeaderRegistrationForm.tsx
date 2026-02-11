@@ -225,7 +225,8 @@ export default function LeaderRegistrationForm() {
 
         // Verificar se deve usar WhatsApp ou SMS para verificação
         const shouldUseWhatsApp = 
-          verificationSettings?.verification_method === 'whatsapp_consent' &&
+          (verificationSettings?.verification_method === 'whatsapp_consent' ||
+           verificationSettings?.verification_method === 'whatsapp_meta_cloud') &&
           verificationSettings?.verification_wa_enabled === true;
 
         // Em modo de teste, verificar se o número está na whitelist
