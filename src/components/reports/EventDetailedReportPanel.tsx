@@ -158,8 +158,8 @@ export function EventDetailedReportPanel({ report, eventName, isLoading }: Props
             {profileData.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">Nenhum dado disponível</p>
             ) : (
-              <div className="flex flex-col md:flex-row items-center gap-4">
-                <div className="h-[200px] w-full md:w-1/2">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="h-[220px] w-full md:w-1/2">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -167,16 +167,28 @@ export function EventDetailedReportPanel({ report, eventName, isLoading }: Props
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        cy="45%"
+                        outerRadius={70}
+                        labelLine={false}
                       >
                         {profileData.map((entry, index) => (
                           <Cell key={index} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
-                      <Legend />
+                      <Tooltip formatter={(value: number, name: string) => [`${value}`, name]} />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="center"
+                        iconType="circle"
+                        iconSize={10}
+                        wrapperStyle={{ paddingTop: 12 }}
+                        formatter={(value: string) => {
+                          const item = profileData.find(d => d.name === value);
+                          const total = profileData.reduce((s, d) => s + d.value, 0);
+                          const pct = total > 0 && item ? ((item.value / total) * 100).toFixed(0) : '0';
+                          return <span className="text-sm text-muted-foreground">{value} ({pct}%)</span>;
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
