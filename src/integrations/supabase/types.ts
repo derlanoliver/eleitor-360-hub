@@ -447,6 +447,7 @@ export type Database = {
       }
       email_logs: {
         Row: {
+          body_html: string | null
           contact_id: string | null
           created_at: string
           error_message: string | null
@@ -463,6 +464,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          body_html?: string | null
           contact_id?: string | null
           created_at?: string
           error_message?: string | null
@@ -479,6 +481,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          body_html?: string | null
           contact_id?: string | null
           created_at?: string
           error_message?: string | null
