@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Users, CheckCircle2, XCircle, TrendingUp, MapPin, UserCheck, RefreshCcw } from "lucide-react";
+import { Users, CheckCircle2, XCircle, TrendingUp, MapPin, UserCheck, RefreshCcw, Crown } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { EventDetailedReport } from "@/hooks/reports/useEventDetailedReport";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ interface Props {
   report: EventDetailedReport;
   eventName: string;
   isLoading?: boolean;
+  coordinatorName?: string | null;
 }
 
 const PROFILE_COLORS = {
@@ -26,7 +27,7 @@ const PROFILE_LABELS = {
   coordinators: "Coordenadores"
 };
 
-export function EventDetailedReportPanel({ report, eventName, isLoading }: Props) {
+export function EventDetailedReportPanel({ report, eventName, isLoading, coordinatorName }: Props) {
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -65,6 +66,14 @@ export function EventDetailedReportPanel({ report, eventName, isLoading }: Props
 
   return (
     <div className="space-y-6">
+      {/* Indicador de coordenador criador */}
+      {coordinatorName && (
+        <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <Crown className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-medium">Evento criado pelo coordenador: <strong>{coordinatorName}</strong></span>
+        </div>
+      )}
+
       {/* Cards de KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
