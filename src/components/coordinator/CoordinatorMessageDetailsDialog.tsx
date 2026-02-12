@@ -123,9 +123,16 @@ export function CoordinatorMessageDetailsDialog({ message, open, onOpenChange }:
                   <MessageSquare className="h-4 w-4" />
                   <span>Conteúdo</span>
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                  {message.message}
-                </div>
+                {message.channel === 'email' && message.message.includes('<') ? (
+                  <div
+                    className="bg-muted/50 rounded-lg p-3 text-sm max-h-64 overflow-y-auto"
+                    dangerouslySetInnerHTML={{ __html: message.message }}
+                  />
+                ) : (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
+                    {message.message}
+                  </div>
+                )}
               </div>
             </>
           )}
