@@ -81,7 +81,7 @@ export default function CoordinatorEvents() {
         address: newEvent.address,
         capacity: parseInt(newEvent.capacity),
         categories: newEvent.categories,
-        region: newEvent.region,
+        region: cities.find(c => c.id === newEvent.region)?.nome || newEvent.region,
         coverImageUrl: fixedCoverUrl || undefined,
         show_registrations_count: newEvent.show_registrations_count,
         registration_deadline_hours: newEvent.registration_deadline_hours,

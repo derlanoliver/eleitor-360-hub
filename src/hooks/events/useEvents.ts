@@ -7,7 +7,7 @@ export function useEvents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("*")
+        .select("*, coordinator:lideres!events_created_by_coordinator_id_fkey(id, nome_completo)")
         .order("date", { ascending: false });
       
       if (error) throw error;
