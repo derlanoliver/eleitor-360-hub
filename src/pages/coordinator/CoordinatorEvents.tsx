@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCoordinatorAuth } from "@/contexts/CoordinatorAuthContext";
 import { useCoordinatorDashboard } from "@/hooks/coordinator/useCoordinatorDashboard";
-import { useCoordinatorCreateEvent } from "@/hooks/coordinator/useCoordinatorEvents";
+import { useCoordinatorCreateEvent, useCoordinatorEvents } from "@/hooks/coordinator/useCoordinatorEvents";
 import { useOfficeCities } from "@/hooks/office/useOfficeCities";
 import { useEventCategories } from "@/hooks/events/useEventCategories";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -33,6 +33,7 @@ export default function CoordinatorEvents() {
   const { data: cities = [] } = useOfficeCities();
   const { data: eventCategories = [] } = useEventCategories();
   const { data: appSettings } = useAppSettings();
+  const { data: coordinatorEvents = [] } = useCoordinatorEvents(session?.leader_id);
   const createEvent = useCoordinatorCreateEvent();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -57,7 +58,7 @@ export default function CoordinatorEvents() {
 
   if (!isAuthenticated || !session) return null;
 
-  const eventsCreated = (dashboard?.events_created as any[]) || [];
+  const eventsCreated = coordinatorEvents;
 
   // Fixed cover image from affiliate form settings
   const fixedCoverUrl = (appSettings as any)?.affiliate_form_cover_url || null;

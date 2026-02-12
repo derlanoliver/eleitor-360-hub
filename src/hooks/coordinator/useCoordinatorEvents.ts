@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -40,6 +40,7 @@ export function useCoordinatorCreateEvent() {
           cover_image_url: params.coverImageUrl || null,
           show_registrations_count: params.show_registrations_count,
           registration_deadline_hours: params.registration_deadline_hours,
+          created_by_coordinator_id: params.coordinatorId,
         })
         .select()
         .single();
@@ -49,10 +50,29 @@ export function useCoordinatorCreateEvent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["coordinator_dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["coordinator_events"] });
       toast.success("Evento criado com sucesso!");
     },
     onError: (error: Error) => {
       toast.error("Erro ao criar evento: " + error.message);
     },
+  });
+}
+
+export function useCoordinatorEvents(leaderId: string | undefined) {
+  return useQuery({
+    queryKey: ["coordinator_events", leaderId],
+    queryFn: async () => {
+      if (!leaderId) return [];
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("created_by_coordinator_id", leaderId)
+        .order("date", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!leaderId,
   });
 }
