@@ -19,7 +19,7 @@ export function useOfficeStats() {
   return useQuery({
     queryKey: ["office_stats"],
     queryFn: async (): Promise<OfficeStats> => {
-      // Buscar todas as visitas com contato
+      // Only fetch recent/active visits (limit to last 100)
       const { data: visits, error: visitsError } = await supabase
         .from("office_visits")
         .select(`
@@ -28,61 +28,67 @@ export function useOfficeStats() {
           created_at,
           contact:office_contacts(nome)
         `)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(100);
 
       if (visitsError) throw visitsError;
 
-      // Buscar taxa de aceite de reunião dos formulários
-      const { data: forms, error: formsError } = await supabase
+      // Get counts via head queries for totals
+      const { count: totalVisitsCount } = await supabase
+        .from("office_visits")
+        .select("*", { count: "exact", head: true });
+
+      const { count: pendingCount } = await supabase
+        .from("office_visits")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["FORM_SUBMITTED", "CHECKED_IN"]);
+
+      const { count: meetingsCount } = await supabase
+        .from("office_visits")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "MEETING_COMPLETED");
+
+      const { count: checkedInCount } = await supabase
+        .from("office_visits")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["CHECKED_IN", "MEETING_COMPLETED"]);
+
+      // Taxa de aceite
+      const { count: totalForms } = await supabase
         .from("office_visit_forms")
-        .select("aceita_reuniao");
+        .select("*", { count: "exact", head: true });
 
-      if (formsError) throw formsError;
+      const { count: acceptedMeetings } = await supabase
+        .from("office_visit_forms")
+        .select("*", { count: "exact", head: true })
+        .eq("aceita_reuniao", true);
 
-      const totalVisits = visits?.length || 0;
-      
-      // Visitas aguardando (FORM_SUBMITTED ou CHECKED_IN)
-      const pendingVisits = visits?.filter(v => 
-        v.status === "FORM_SUBMITTED" || v.status === "CHECKED_IN"
-      ).length || 0;
-      
-      // Reuniões realizadas
-      const meetingsCompleted = visits?.filter(v => 
-        v.status === "MEETING_COMPLETED"
-      ).length || 0;
-      
-      // Check-ins realizados
-      const checkedIn = visits?.filter(v => 
-        v.status === "CHECKED_IN" || v.status === "MEETING_COMPLETED"
-      ).length || 0;
-
-      // Taxa de aceite de reunião
-      const totalForms = forms?.length || 0;
-      const acceptedMeetings = forms?.filter(f => f.aceita_reuniao).length || 0;
-      const acceptRateReuniao = totalForms > 0 
-        ? Math.round((acceptedMeetings / totalForms) * 100) 
+      const acceptRateReuniao = (totalForms || 0) > 0
+        ? Math.round(((acceptedMeetings || 0) / (totalForms || 1)) * 100)
         : 0;
 
-      // Visitas recentes na fila (LINK_SENT, FORM_SUBMITTED, CHECKED_IN)
+      // Recent active visits
       const activeStatuses = ["LINK_SENT", "FORM_SUBMITTED", "CHECKED_IN"];
-      const recentVisits = visits
-        ?.filter(v => activeStatuses.includes(v.status))
+      const recentVisits = (visits || [])
+        .filter(v => activeStatuses.includes(v.status))
         .slice(0, 5)
         .map(v => ({
           id: v.id,
-          contactName: v.contact?.nome || "Sem nome",
+          contactName: (v.contact as any)?.nome || "Sem nome",
           status: v.status,
           createdAt: v.created_at,
-        })) || [];
+        }));
 
       return {
-        totalVisits,
-        pendingVisits,
-        meetingsCompleted,
-        checkedIn,
+        totalVisits: totalVisitsCount || 0,
+        pendingVisits: pendingCount || 0,
+        meetingsCompleted: meetingsCount || 0,
+        checkedIn: checkedInCount || 0,
         acceptRateReuniao,
         recentVisits,
       };
     },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

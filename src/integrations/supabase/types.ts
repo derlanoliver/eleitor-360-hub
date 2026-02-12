@@ -2943,6 +2943,13 @@ export type Database = {
           total_pontos: number
         }[]
       }
+      get_cities_ranking: {
+        Args: never
+        Returns: {
+          city_count: number
+          city_name: string
+        }[]
+      }
       get_coordinator_network_stats: {
         Args: { _coordinator_id: string }
         Returns: {
@@ -2980,6 +2987,7 @@ export type Database = {
           unverified_count: number
         }[]
       }
+      get_distinct_cities_count: { Args: never; Returns: number }
       get_leader_by_affiliate_token: {
         Args: { _token: string }
         Returns: {
@@ -3187,6 +3195,7 @@ export type Database = {
           unverified_in_tree: number
         }[]
       }
+      get_profile_stats: { Args: never; Returns: Json }
       get_public_form_settings: {
         Args: never
         Returns: {

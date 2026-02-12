@@ -10,21 +10,13 @@ export function useCitiesRanking() {
   return useQuery({
     queryKey: ["cities_ranking"],
     queryFn: async (): Promise<CityRanking[]> => {
-      const { data: contacts } = await supabase
-        .from("office_contacts")
-        .select("cidade_id, office_cities(nome)")
-        .not("cidade_id", "is", null);
+      const { data, error } = await (supabase.rpc as any)("get_cities_ranking");
+      if (error) throw error;
 
-      const cityCount = (contacts || []).reduce((acc, contact) => {
-        const cityName = (contact.office_cities as any)?.nome || "Outros";
-        acc[cityName] = (acc[cityName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      return Object.entries(cityCount)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+      return (data || []).map((row: any) => ({
+        name: row.city_name,
+        value: Number(row.city_count),
+      }));
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
