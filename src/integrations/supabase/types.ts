@@ -3470,6 +3470,7 @@ export type Database = {
         Args: { _leader_id: string; _parent_id: string }
         Returns: boolean
       }
+      unaccent: { Args: { "": string }; Returns: string }
       unsubscribe_contact_by_token: {
         Args: { p_reason?: string; p_token: string }
         Returns: Json
