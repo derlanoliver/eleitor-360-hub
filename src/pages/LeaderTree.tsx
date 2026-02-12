@@ -77,7 +77,7 @@ export default function LeaderTree() {
   const [pendingLeaderSelection, setPendingLeaderSelection] = useState<LeaderSearchResult | null>(null);
 
   const { data: coordinators, isLoading: loadingCoordinators } = useCoordinators();
-  const { data: allLeaders } = useAllLeadersForSearch();
+  const { data: allLeaders, isLoading: loadingAllLeaders } = useAllLeadersForSearch();
   const { data: tree, isLoading: loadingTree } = useLeaderTree(selectedCoordinatorId);
   const demoteCoordinator = useDemoteCoordinator();
   const { data: hierarchyPath } = useLeaderHierarchyPath(pendingLeaderSelection?.id);
@@ -266,6 +266,11 @@ export default function LeaderTree() {
               {loadingCoordinators ? (
                 <div className="flex items-center justify-center h-32">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : searchTerm.trim() && loadingAllLeaders ? (
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                  <p className="text-sm">Buscando líderes...</p>
                 </div>
               ) : searchTerm.trim() && (searchedCoordinators.length > 0 || searchedLeaders.length > 0) ? (
                 <div className="p-4 space-y-4">
