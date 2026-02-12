@@ -76,6 +76,19 @@ export default function CoordinatorDashboard() {
     return map[status?.toLowerCase()] || status;
   };
 
+  const populateVariables = (text: string | null | undefined): string => {
+    if (!text) return "";
+    return text
+      .replace(/\{\{nome\}\}/gi, session.nome_completo || "")
+      .replace(/\{\{nome_completo\}\}/gi, session.nome_completo || "")
+      .replace(/\{\{telefone\}\}/gi, session.telefone || "")
+      .replace(/\{\{email\}\}/gi, session.email || "")
+      .replace(/\{\{cidade\}\}/gi, session.cidade_nome || "")
+      .replace(/\{\{pontuacao\}\}/gi, String(session.pontuacao_total || 0))
+      .replace(/\{\{cadastros\}\}/gi, String(session.cadastros || 0))
+      .replace(/\{\{primeiro_nome\}\}/gi, (session.nome_completo || "").split(" ")[0]);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       {/* Header */}
@@ -295,7 +308,7 @@ export default function CoordinatorDashboard() {
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {items.slice(0, 30).map((comm: any, i: number) => (
                           <div key={i} className="flex items-center justify-between border rounded-lg p-3">
-                            <p className="text-sm truncate max-w-[200px]">{comm.subject || "—"}</p>
+                            <p className="text-sm truncate max-w-[200px]">{populateVariables(comm.subject) || "—"}</p>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-xs">{translateStatus(comm.status)}</Badge>
                               <p className="text-xs text-muted-foreground">{formatDate(comm.sent_at)}</p>
@@ -303,7 +316,12 @@ export default function CoordinatorDashboard() {
                                 size="icon"
                                 variant="ghost"
                                 className="h-7 w-7"
-                                onClick={() => setSelectedMessage({ ...comm, channel: key })}
+                                onClick={() => setSelectedMessage({
+                                  ...comm,
+                                  channel: key,
+                                  subject: populateVariables(comm.subject),
+                                  message: populateVariables(comm.message),
+                                })}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
