@@ -210,15 +210,35 @@ export function useAvailableLeaders() {
   return useQuery({
     queryKey: ["available-leaders"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, email, telefone, cadastros, pontuacao_total, cidade:office_cities(nome)")
-        .eq("is_coordinator", false)
-        .eq("is_active", true)
-        .order("nome_completo");
+      const allLeaders: any[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data;
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+          .from("lideres")
+          .select("id, nome_completo, email, telefone, cadastros, pontuacao_total, cidade:office_cities(nome)")
+          .eq("is_coordinator", false)
+          .eq("is_active", true)
+          .order("nome_completo")
+          .range(from, to);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allLeaders.push(...data);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allLeaders;
     },
   });
 }
