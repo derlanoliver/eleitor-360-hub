@@ -71,7 +71,7 @@ async function sendMetaCloudMessage(supabase: any, phone: string, message: strin
     await supabase.from('whatsapp_messages').insert({
       phone: formattedPhone,
       message: message,
-      direction: 'outbound',
+      direction: 'outgoing',
       status: 'sent',
       provider: 'meta_cloud',
       metadata: { wamid: data.messages?.[0]?.id },
@@ -165,7 +165,7 @@ serve(async (req) => {
               await supabase.from('whatsapp_messages').insert({
                 phone: from,
                 message: messageText,
-                direction: 'inbound',
+                direction: 'incoming',
                 status: 'received',
                 provider: 'meta_cloud',
                 metadata: {
@@ -453,7 +453,7 @@ serve(async (req) => {
               const { data: msgs } = await supabase
                 .from('whatsapp_messages')
                 .select('id, metadata')
-                .eq('direction', 'outbound')
+                .eq('direction', 'outgoing')
                 .eq('phone', recipientId)
                 .order('created_at', { ascending: false })
                 .limit(20);
