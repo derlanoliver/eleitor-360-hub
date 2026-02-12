@@ -49,8 +49,38 @@ serve(async (req) => {
       );
     }
 
+    // If connected, fetch device info to get the phone number
+    const isConnected = data.connected === true || data.status === "connected";
+    let deviceData = null;
+
+    if (isConnected) {
+      try {
+        const deviceUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/device`;
+        console.log("Fetching device info:", deviceUrl);
+        const deviceResponse = await fetch(deviceUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(clientToken && { "Client-Token": clientToken }),
+          },
+        });
+        if (deviceResponse.ok) {
+          deviceData = await deviceResponse.json();
+          console.log("Device data:", JSON.stringify(deviceData));
+        }
+      } catch (e) {
+        console.error("Error fetching device info:", e);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ 
+        success: true, 
+        data: {
+          ...data,
+          phone: deviceData?.phone || null,
+        }
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
