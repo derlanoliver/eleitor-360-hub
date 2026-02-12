@@ -55,32 +55,35 @@ export function VerificationSettingsCard() {
     }
   }, [settings]);
 
-  // Auto-fetch phone number from Meta Cloud API
+  // Auto-fetch phone number from Meta Cloud API or Z-API
   useEffect(() => {
-    if (!settings?.meta_cloud_phone_number_id || !settings?.meta_cloud_enabled) return;
-
-    const fetchMetaPhone = async () => {
-      setIsFetchingMetaPhone(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('test-meta-cloud-connection', {
-          body: { 
-            phoneNumberId: settings.meta_cloud_phone_number_id,
-            apiVersion: settings.meta_cloud_api_version || 'v21.0'
+    if (isMetaCloudMethod && settings?.meta_cloud_phone_number_id && settings?.meta_cloud_enabled) {
+      const fetchMetaPhone = async () => {
+        setIsFetchingMetaPhone(true);
+        try {
+          const { data, error } = await supabase.functions.invoke('test-meta-cloud-connection', {
+            body: { 
+              phoneNumberId: settings.meta_cloud_phone_number_id,
+              apiVersion: settings.meta_cloud_api_version || 'v21.0'
+            }
+          });
+          if (!error && data?.success && data?.data?.displayPhoneNumber) {
+            const phone = data.data.displayPhoneNumber.replace(/[\s\-\+\(\)]/g, '');
+            setVerificationWaZapiPhone(phone);
           }
-        });
-        if (!error && data?.success && data?.data?.displayPhoneNumber) {
-          const phone = data.data.displayPhoneNumber.replace(/[\s\-\+\(\)]/g, '');
-          setVerificationWaZapiPhone(phone);
+        } catch (err) {
+          console.error("Error fetching Meta Cloud phone:", err);
+        } finally {
+          setIsFetchingMetaPhone(false);
         }
-      } catch (err) {
-        console.error("Error fetching Meta Cloud phone:", err);
-      } finally {
-        setIsFetchingMetaPhone(false);
-      }
-    };
-
-    fetchMetaPhone();
-  }, [settings?.meta_cloud_phone_number_id, settings?.meta_cloud_enabled]);
+      };
+      fetchMetaPhone();
+    } else if (isWhatsAppConsentMethod && zapiStatus?.phone) {
+      // Auto-populate from Z-API connected phone
+      const phone = zapiStatus.phone.replace(/[\s\-\+\(\)]/g, '');
+      setVerificationWaZapiPhone(phone);
+    }
+  }, [settings?.meta_cloud_phone_number_id, settings?.meta_cloud_enabled, isMetaCloudMethod, isWhatsAppConsentMethod, zapiStatus?.phone]);
 
   const handleSave = () => {
     const whitelist = verificationWaWhitelist
@@ -282,12 +285,12 @@ export function VerificationSettingsCard() {
                     Número do WhatsApp {isMetaCloudMethod ? "(Cloud API)" : "(Z-API)"}
                   </Label>
                   <div className="relative">
-                    <Input
+                  <Input
                       placeholder="5561999999999"
                       value={verificationWaZapiPhone}
                       onChange={(e) => setVerificationWaZapiPhone(e.target.value)}
-                      readOnly={isMetaCloudMethod && !!settings?.meta_cloud_enabled}
-                      className={isMetaCloudMethod && settings?.meta_cloud_enabled ? "bg-muted" : ""}
+                      readOnly={(isMetaCloudMethod && !!settings?.meta_cloud_enabled) || (isWhatsAppConsentMethod && isZapiConnected)}
+                      className={(isMetaCloudMethod && settings?.meta_cloud_enabled) || (isWhatsAppConsentMethod && isZapiConnected) ? "bg-muted" : ""}
                     />
                     {isFetchingMetaPhone && (
                       <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -296,7 +299,9 @@ export function VerificationSettingsCard() {
                   <p className="text-xs text-muted-foreground">
                     {isMetaCloudMethod && settings?.meta_cloud_enabled
                       ? "Obtido automaticamente da configuração do WhatsApp Cloud API (Meta)"
-                      : "Este número será usado no link wa.me para o usuário enviar a mensagem"
+                      : isWhatsAppConsentMethod && isZapiConnected
+                        ? "Obtido automaticamente da instância Z-API conectada"
+                        : "Este número será usado no link wa.me para o usuário enviar a mensagem"
                     }
                   </p>
                 </div>
