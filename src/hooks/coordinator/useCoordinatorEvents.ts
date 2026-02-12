@@ -24,22 +24,25 @@ export function useCoordinatorCreateEvent() {
 
   return useMutation({
     mutationFn: async (params: CreateEventParams) => {
-      const { data, error } = await (supabase.rpc as any)("coordinator_create_event", {
-        p_coordinator_id: params.coordinatorId,
-        p_name: params.name,
-        p_slug: params.slug,
-        p_description: params.description || null,
-        p_date: params.date,
-        p_time: params.time,
-        p_location: params.location,
-        p_address: params.address || null,
-        p_capacity: params.capacity,
-        p_categories: params.categories,
-        p_region: params.region,
-        p_cover_image_url: params.coverImageUrl || null,
-        p_show_registrations_count: params.show_registrations_count,
-        p_registration_deadline_hours: params.registration_deadline_hours,
-      });
+      const { data, error } = await supabase
+        .from("events")
+        .insert({
+          name: params.name,
+          slug: params.slug,
+          description: params.description || null,
+          date: params.date,
+          time: params.time,
+          location: params.location,
+          address: params.address || null,
+          capacity: params.capacity,
+          categories: params.categories,
+          region: params.region,
+          cover_image_url: params.coverImageUrl || null,
+          show_registrations_count: params.show_registrations_count,
+          registration_deadline_hours: params.registration_deadline_hours,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
