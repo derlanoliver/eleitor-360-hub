@@ -478,7 +478,8 @@ Deno.serve(async (req) => {
           integrationSettings.meta_cloud_api_version || "v20.0",
           metaAccessToken,
           normalizedPhone,
-          responseMessage
+          responseMessage,
+          supabase
         );
       } else {
         console.log("[whatsapp-chatbot] META_WA_ACCESS_TOKEN not configured");
@@ -599,7 +600,8 @@ async function sendWhatsAppMessageMetaCloud(
   apiVersion: string,
   accessToken: string,
   phone: string,
-  message: string
+  message: string,
+  supabase?: any
 ): Promise<boolean> {
   // Format phone to E.164 without +
   let cleanPhone = phone.replace(/[^0-9]/g, "");
@@ -632,7 +634,21 @@ async function sendWhatsAppMessageMetaCloud(
     }
     
     const result = await response.json();
-    console.log("[whatsapp-chatbot] Message sent successfully via Meta Cloud API:", result.messages?.[0]?.id);
+    const wamid = result.messages?.[0]?.id;
+    console.log("[whatsapp-chatbot] Message sent successfully via Meta Cloud API:", wamid);
+
+    // Log outbound message to whatsapp_messages
+    if (supabase) {
+      await supabase.from("whatsapp_messages").insert({
+        phone: cleanPhone,
+        message: message,
+        direction: "outgoing",
+        status: "sent",
+        provider: "meta_cloud",
+        metadata: { wamid },
+      });
+    }
+
     return true;
   } catch (err) {
     console.error("[whatsapp-chatbot] Error sending via Meta Cloud:", err);
