@@ -3348,6 +3348,10 @@ export type Database = {
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      lookup_leader_for_verification: {
+        Args: { phone_digits: string }
+        Returns: Json
+      }
       mark_leader_verified_manually:
         | { Args: { _leader_id: string }; Returns: boolean }
         | {
