@@ -116,6 +116,9 @@ export default function CoordinatorDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/coordenador/verificar")}>
+              <ShieldCheck className="h-4 w-4 mr-1" /> Verificar
+            </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/coordenador/eventos")}>
               <Plus className="h-4 w-4 mr-1" /> Eventos
             </Button>
