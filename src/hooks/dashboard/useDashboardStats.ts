@@ -19,21 +19,16 @@ export function useDashboardStats() {
         .from("office_contacts")
         .select("*", { count: "exact", head: true });
 
-      // Total de líderes (todos, não só ativos)
+      // Total de líderes
       const { count: totalLeaders } = await supabase
         .from("lideres")
         .select("*", { count: "exact", head: true });
 
-      // Total de cadastros = contatos + líderes
       const totalRegistrations = (totalContacts || 0) + (totalLeaders || 0);
 
-      // Cidades alcançadas (distintas)
-      const { data: cities } = await supabase
-        .from("office_contacts")
-        .select("cidade_id")
-        .not("cidade_id", "is", null);
-      
-      const citiesReached = new Set(cities?.map(c => c.cidade_id)).size;
+      // Cidades alcançadas via RPC
+      const { data: citiesCount } = await (supabase.rpc as any)("get_distinct_cities_count");
+      const citiesReached = Number(citiesCount) || 0;
 
       // Líderes ativos
       const { count: activeLeaders } = await supabase
@@ -41,9 +36,8 @@ export function useDashboardStats() {
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
 
-      // Cidade com mais cadastros - via RPC (evita limite de 1000 registros)
+      // Cidade top via RPC
       const { data: topCityData } = await supabase.rpc("get_top_city");
-
       const topCity = topCityData?.[0]?.city_name || "N/A";
       const topCityCount = topCityData?.[0]?.city_count || 0;
 
@@ -64,7 +58,7 @@ export function useDashboardStats() {
         lastRegistration: lastContact?.created_at || null,
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
