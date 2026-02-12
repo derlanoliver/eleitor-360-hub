@@ -223,7 +223,7 @@ export default function CoordinatorDashboard() {
             ) : subordinates.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma indicação ainda.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
                 {subordinates.map((sub: any) => (
                   <div key={sub.id} className="flex items-center justify-between border rounded-lg p-3">
                     <div className="flex items-center gap-3">
