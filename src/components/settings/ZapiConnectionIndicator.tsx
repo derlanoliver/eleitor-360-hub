@@ -55,7 +55,7 @@ export function ZapiConnectionIndicator({
         <span>{isConnected ? "Conectado" : "Desconectado"}</span>
       </div>
       {isConnected && phone && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-[18px]">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Phone className="h-3 w-3" />
           <span>{formatPhone(phone)}</span>
         </div>
