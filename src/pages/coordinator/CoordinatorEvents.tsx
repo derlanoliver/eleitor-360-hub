@@ -19,8 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Plus, Calendar, MapPin, Users, ArrowLeft,
-  Copy, Link as LinkIcon, Clock,
+  Copy, Link as LinkIcon, Clock, Eye, UserCheck,
 } from "lucide-react";
+import { CoordinatorEventDetailsDialog } from "@/components/coordinator/CoordinatorEventDetailsDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { generateEventUrl } from "@/lib/eventUrlHelper";
@@ -37,6 +38,7 @@ export default function CoordinatorEvents() {
   const createEvent = useCoordinatorCreateEvent();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [detailsEvent, setDetailsEvent] = useState<any>(null);
   const [newEvent, setNewEvent] = useState({
     name: "",
     slug: "",
@@ -296,45 +298,71 @@ export default function CoordinatorEvents() {
             </CardContent>
           </Card>
         ) : (
-          eventsCreated.map((ev: any) => (
-            <Card key={ev.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{ev.name}</h3>
-                      <Badge
-                        variant={ev.status === "active" ? "default" : ev.status === "cancelled" ? "destructive" : "secondary"}
-                      >
-                        {ev.status === "active" ? "Ativo" : ev.status === "cancelled" ? "Cancelado" : ev.status === "completed" ? "Concluído" : (ev.status || "Sem status")}
-                      </Badge>
-                      {/* Debug: */}
-                      {process.env.NODE_ENV === "development" && <span className="text-[10px] text-muted-foreground">({JSON.stringify(ev.status)})</span>}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(ev.date)}</span>
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {ev.time}</span>
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {ev.location}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm mt-2">
-                      <Badge variant="secondary"><Users className="h-3 w-3 mr-1" /> {ev.registrations_count || 0} inscritos</Badge>
-                      <Badge variant="outline">{ev.checkedin_count || 0} check-ins</Badge>
+          eventsCreated.map((ev: any) => {
+            const pendingCheckins = (ev.registrations_count || 0) - (ev.checkedin_count || 0);
+            return (
+              <Card key={ev.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold">{ev.name}</h3>
+                        <Badge
+                          variant={ev.status === "active" ? "default" : ev.status === "cancelled" ? "destructive" : "secondary"}
+                        >
+                          {ev.status === "active" ? "Ativo" : ev.status === "cancelled" ? "Cancelado" : ev.status === "completed" ? "Concluído" : (ev.status || "Sem status")}
+                        </Badge>
+                        {process.env.NODE_ENV === "development" && <span className="text-[10px] text-muted-foreground">({JSON.stringify(ev.status)})</span>}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(ev.date)}</span>
+                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {ev.time}</span>
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {ev.location}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm mt-2 flex-wrap">
+                        <Badge variant="secondary"><Users className="h-3 w-3 mr-1" /> {ev.registrations_count || 0} inscritos</Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <UserCheck className="h-3 w-3" /> {ev.checkedin_count || 0} check-ins
+                        </Badge>
+                        {pendingCheckins > 0 && ev.status === "active" && (
+                          <Badge variant="outline" className="gap-1 border-orange-300 text-orange-600">
+                            {pendingCheckins} pendente{pendingCheckins !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyEventLink(ev.slug)}
-                    disabled={ev.status !== "active"}
-                  >
-                    <Copy className="h-3 w-3 mr-1" /> Link
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                  <div className="flex gap-2 mt-3 pt-3 border-t">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDetailsEvent(ev)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" /> Ver Detalhes
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyEventLink(ev.slug)}
+                      disabled={ev.status !== "active"}
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Link
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
+
+      {/* Event Details Dialog */}
+      {detailsEvent && (
+        <CoordinatorEventDetailsDialog
+          event={detailsEvent}
+          onClose={() => setDetailsEvent(null)}
+        />
+      )}
     </div>
   );
 }
