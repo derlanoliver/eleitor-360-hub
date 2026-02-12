@@ -11,7 +11,7 @@ import {
   useCoordinators, 
   useLeaderTree, 
   useDemoteCoordinator,
-  useAllLeadersForSearch,
+  useSearchLeaders,
   LeaderSearchResult
 } from "@/hooks/leaders/useLeaderTree";
 import { useLeaderHierarchyPath } from "@/hooks/leaders/useLeaderHierarchyPath";
@@ -77,7 +77,7 @@ export default function LeaderTree() {
   const [pendingLeaderSelection, setPendingLeaderSelection] = useState<LeaderSearchResult | null>(null);
 
   const { data: coordinators, isLoading: loadingCoordinators } = useCoordinators();
-  const { data: allLeaders, isLoading: loadingAllLeaders } = useAllLeadersForSearch();
+  const { data: searchResults, isLoading: loadingSearch } = useSearchLeaders(searchTerm);
   const { data: tree, isLoading: loadingTree } = useLeaderTree(selectedCoordinatorId);
   const demoteCoordinator = useDemoteCoordinator();
   const { data: hierarchyPath } = useLeaderHierarchyPath(pendingLeaderSelection?.id);
@@ -104,20 +104,8 @@ export default function LeaderTree() {
       .replace(/[\u0300-\u036f]/g, "");
   };
 
-  // Filter all leaders by search term
-  const filteredLeaders = allLeaders?.filter((leader) => {
-    if (!searchTerm.trim()) return false;
-    
-    const search = normalizeString(searchTerm.trim());
-    const searchDigits = searchTerm.replace(/\D/g, "");
-    
-    const matchesName = normalizeString(leader.nome_completo || "").includes(search);
-    const matchesEmail = (leader.email || "").toLowerCase().includes(search);
-    const matchesPhone = searchDigits.length >= 4 && 
-      leader.telefone?.replace(/\D/g, "").includes(searchDigits);
-    
-    return matchesName || matchesEmail || matchesPhone;
-  }) || [];
+  // Use server-side search results directly
+  const filteredLeaders = searchResults || [];
 
   // Separate coordinators and non-coordinators from search results
   const searchedCoordinators = filteredLeaders.filter(l => l.is_coordinator);
@@ -244,11 +232,6 @@ export default function LeaderTree() {
             </CardTitle>
             <CardDescription>
               Selecione um coordenador para ver sua árvore
-              {allLeaders && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  ({allLeaders.length} líderes carregados)
-                </span>
-              )}
             </CardDescription>
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -267,7 +250,7 @@ export default function LeaderTree() {
                 <div className="flex items-center justify-center h-32">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : searchTerm.trim() && loadingAllLeaders ? (
+              ) : searchTerm.trim() && loadingSearch ? (
                 <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin mb-2" />
                   <p className="text-sm">Buscando líderes...</p>

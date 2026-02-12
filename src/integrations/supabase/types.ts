@@ -3453,6 +3453,19 @@ export type Database = {
         }[]
       }
       remove_from_tree: { Args: { _leader_id: string }; Returns: boolean }
+      search_leaders_by_term: {
+        Args: { _limit?: number; _term: string }
+        Returns: {
+          cidade_nome: string
+          email: string
+          hierarchy_level: number
+          id: string
+          is_coordinator: boolean
+          nome_completo: string
+          parent_leader_id: string
+          telefone: string
+        }[]
+      }
       set_parent_leader: {
         Args: { _leader_id: string; _parent_id: string }
         Returns: boolean

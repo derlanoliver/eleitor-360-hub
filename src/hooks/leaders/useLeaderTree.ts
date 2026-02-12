@@ -131,7 +131,7 @@ export function useCoordinatorStats(coordinatorId: string | null) {
   });
 }
 
-// Fetch all leaders for global search
+// Fetch leaders by search term (server-side)
 export interface LeaderSearchResult {
   id: string;
   nome_completo: string;
@@ -143,65 +143,20 @@ export interface LeaderSearchResult {
   cidade_nome: string | null;
 }
 
-export function useAllLeadersForSearch() {
+export function useSearchLeaders(searchTerm: string) {
+  const trimmed = searchTerm.trim();
   return useQuery({
-    // v6 para invalidar o cache antigo e usar batching
-    queryKey: ["all-leaders-search-v6"],
+    queryKey: ["search-leaders", trimmed],
     queryFn: async () => {
-      const startTime = Date.now();
-      console.log('[DEBUG Leaders Search v6] ========================================');
-      console.log('[DEBUG Leaders Search v6] Iniciando busca com batching...');
-      console.log('[DEBUG Leaders Search v6] Timestamp:', new Date().toISOString());
-      
-      const allLeaders: any[] = [];
-      const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const from = page * pageSize;
-        const to = from + pageSize - 1;
-
-        console.log(`[DEBUG Leaders Search v6] Buscando página ${page + 1} (registros ${from} a ${to})...`);
-
-        const { data, error } = await supabase
-          .from("lideres")
-          .select(
-            "id, nome_completo, email, telefone, is_coordinator, hierarchy_level, parent_leader_id, cidade:office_cities(nome)"
-          )
-          .eq("is_active", true)
-          .order("nome_completo")
-          .range(from, to);
-
-        if (error) {
-          console.error(`[DEBUG Leaders Search v6] ERRO na página ${page + 1}:`, error);
-          throw error;
-        }
-
-        if (data && data.length > 0) {
-          allLeaders.push(...data);
-          console.log(`[DEBUG Leaders Search v6] Página ${page + 1}: ${data.length} registros (total acumulado: ${allLeaders.length})`);
-          hasMore = data.length === pageSize;
-          page++;
-        } else {
-          console.log(`[DEBUG Leaders Search v6] Página ${page + 1}: 0 registros - finalizando`);
-          hasMore = false;
-        }
-      }
-
-      console.log(`[DEBUG Leaders Search v6] Total de líderes carregados: ${allLeaders.length}`);
-      console.log(`[DEBUG Leaders Search v6] Busca concluída em ${Date.now() - startTime}ms`);
-      console.log('[DEBUG Leaders Search v6] ========================================');
-
-      return allLeaders.map((l) => ({
-        ...l,
-        cidade_nome: (l.cidade as any)?.nome || null,
-      })) as LeaderSearchResult[];
+      const { data, error } = await (supabase.rpc as any)("search_leaders_by_term", {
+        _term: trimmed,
+        _limit: 30,
+      });
+      if (error) throw error;
+      return (data || []) as LeaderSearchResult[];
     },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
+    enabled: trimmed.length >= 2,
+    staleTime: 30_000,
   });
 }
 
