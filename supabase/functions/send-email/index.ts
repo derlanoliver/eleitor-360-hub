@@ -192,7 +192,7 @@ serve(async (req) => {
       );
     }
 
-    // Create email log record
+    // Create email log record with rendered HTML
     const { data: logRecord, error: logError } = await supabase
       .from('email_logs')
       .insert({
@@ -204,6 +204,7 @@ serve(async (req) => {
         contact_id: contactId || null,
         leader_id: leaderId || null,
         event_id: eventId || null,
+        body_html: finalHtml,
       })
       .select()
       .single();
