@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Users, Calendar, MessageSquare, LogOut, Star,
   CheckCircle, Clock, GitBranch, Plus, ShieldCheck, ShieldAlert,
+  Mail, Phone, MessageCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,7 +45,11 @@ export default function CoordinatorDashboard() {
   const subordinates = (dashboard?.subordinates as any[]) || [];
   const eventsParticipated = (dashboard?.events_participated as any[]) || [];
   const eventsCreated = (dashboard?.events_created as any[]) || [];
-  const communications = (dashboard?.communications as any[]) || [];
+  const commsGrouped = dashboard?.communications || { whatsapp: [], email: [], sms: [] };
+  const whatsappComms = (commsGrouped.whatsapp as any[]) || [];
+  const emailComms = (commsGrouped.email as any[]) || [];
+  const smsComms = (commsGrouped.sms as any[]) || [];
+  const totalComms = whatsappComms.length + emailComms.length + smsComms.length;
   const treeTotals = dashboard?.tree_totals || { total_members: 0, total_points: 0, total_cadastros: 0 };
 
   const formatDate = (d: string | null) => {
@@ -235,28 +241,53 @@ export default function CoordinatorDashboard() {
           </CardContent>
         </Card>
 
-        {/* Communications */}
+        {/* Communications - Grouped by Channel */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <MessageSquare className="h-5 w-5" /> Comunicações ({communications.length})
+              <MessageSquare className="h-5 w-5" /> Comunicações ({totalComms})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {communications.length === 0 ? (
+            {totalComms === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma comunicação registrada.</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {communications.slice(0, 20).map((comm: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between border rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs capitalize">{comm.channel}</Badge>
-                      <p className="text-sm truncate max-w-[200px]">{comm.subject || "—"}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{formatDate(comm.sent_at)}</p>
-                  </div>
+              <Tabs defaultValue={whatsappComms.length > 0 ? "whatsapp" : emailComms.length > 0 ? "email" : "sms"}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="whatsapp" className="flex-1 gap-1">
+                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp ({whatsappComms.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="email" className="flex-1 gap-1">
+                    <Mail className="h-3.5 w-3.5" /> Email ({emailComms.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="sms" className="flex-1 gap-1">
+                    <Phone className="h-3.5 w-3.5" /> SMS ({smsComms.length})
+                  </TabsTrigger>
+                </TabsList>
+                {[
+                  { key: "whatsapp", items: whatsappComms },
+                  { key: "email", items: emailComms },
+                  { key: "sms", items: smsComms },
+                ].map(({ key, items }) => (
+                  <TabsContent key={key} value={key}>
+                    {items.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-3">Nenhuma mensagem neste canal.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {items.slice(0, 30).map((comm: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between border rounded-lg p-3">
+                            <p className="text-sm truncate max-w-[250px]">{comm.subject || "—"}</p>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs capitalize">{comm.status}</Badge>
+                              <p className="text-xs text-muted-foreground">{formatDate(comm.sent_at)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
                 ))}
-              </div>
+              </Tabs>
             )}
           </CardContent>
         </Card>
