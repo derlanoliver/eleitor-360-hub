@@ -32,6 +32,7 @@ import { trackLead, pushToDataLayer } from "@/lib/trackingUtils";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
+import { buildWhatsAppLink } from "@/lib/whatsappLink";
 import logo from "@/assets/logo-rafael-prudente.png";
 
 interface VerificationSettings {
@@ -430,10 +431,7 @@ export default function LeaderRegistrationForm() {
                     {(() => {
                       const phone = whatsAppPhone?.replace(/\D/g, "") || "5561981894692";
                       const messageText = `${whatsAppKeyword} ${verificationCode}`;
-                      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-                      const href = isMobile
-                        ? `https://wa.me/${phone}?text=${encodeURIComponent(messageText)}`
-                        : `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(messageText)}`;
+                      const href = buildWhatsAppLink(phone, messageText);
 
                       return (
                         <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white mb-4">

@@ -24,6 +24,7 @@ import { RegionSelect } from "@/components/office/RegionSelect";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalizer";
 import { MaskedDateInput, parseDateBR, isValidDateBR, isNotFutureDate } from "@/components/ui/masked-date-input";
 import { generateLeaderVerificationUrl } from "@/lib/urlHelper";
+import { buildWhatsAppLink } from "@/lib/whatsappLink";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -420,7 +421,7 @@ export default function PublicLeaderRegistration() {
     const token = successData.verificationCode;
     
     const message = `${keyword} ${token}`;
-    const url = `https://wa.me/${zapiPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    const url = buildWhatsAppLink(zapiPhone, message);
     
     window.open(url, '_blank');
   };
