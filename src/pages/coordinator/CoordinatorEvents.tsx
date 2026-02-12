@@ -300,7 +300,14 @@ export default function CoordinatorEvents() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold">{ev.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{ev.name}</h3>
+                      <Badge
+                        variant={ev.status === "active" ? "default" : ev.status === "cancelled" ? "destructive" : "secondary"}
+                      >
+                        {ev.status === "active" ? "Ativo" : ev.status === "cancelled" ? "Cancelado" : ev.status === "completed" ? "Concluído" : ev.status}
+                      </Badge>
+                    </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(ev.date)}</span>
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {ev.time}</span>
@@ -311,7 +318,12 @@ export default function CoordinatorEvents() {
                       <Badge variant="outline">{ev.checkedin_count || 0} check-ins</Badge>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => copyEventLink(ev.slug)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyEventLink(ev.slug)}
+                    disabled={ev.status !== "active"}
+                  >
                     <Copy className="h-3 w-3 mr-1" /> Link
                   </Button>
                 </div>
