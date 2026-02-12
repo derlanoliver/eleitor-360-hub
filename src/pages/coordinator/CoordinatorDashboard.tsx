@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCoordinatorAuth } from "@/contexts/CoordinatorAuthContext";
 import { useCoordinatorDashboard } from "@/hooks/coordinator/useCoordinatorDashboard";
@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Users, Calendar, MessageSquare, LogOut, Star,
   CheckCircle, Clock, GitBranch, Plus, ShieldCheck, ShieldAlert,
-  Mail, Phone, MessageCircle,
+  Mail, Phone, MessageCircle, Eye,
 } from "lucide-react";
+import { CoordinatorMessageDetailsDialog } from "@/components/coordinator/CoordinatorMessageDetailsDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { maskPhone } from "@/lib/maskPhone";
@@ -28,6 +29,7 @@ export default function CoordinatorDashboard() {
   const { session, logout, isAuthenticated } = useCoordinatorAuth();
   const navigate = useNavigate();
   const { data: dashboard, isLoading } = useCoordinatorDashboard(session?.leader_id);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/coordenador/login", { replace: true });
@@ -276,10 +278,18 @@ export default function CoordinatorDashboard() {
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {items.slice(0, 30).map((comm: any, i: number) => (
                           <div key={i} className="flex items-center justify-between border rounded-lg p-3">
-                            <p className="text-sm truncate max-w-[250px]">{comm.subject || "—"}</p>
+                            <p className="text-sm truncate max-w-[200px]">{comm.subject || "—"}</p>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-xs capitalize">{comm.status}</Badge>
                               <p className="text-xs text-muted-foreground">{formatDate(comm.sent_at)}</p>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={() => setSelectedMessage({ ...comm, channel: key })}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -291,6 +301,12 @@ export default function CoordinatorDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <CoordinatorMessageDetailsDialog
+          message={selectedMessage}
+          open={!!selectedMessage}
+          onOpenChange={(open) => { if (!open) setSelectedMessage(null); }}
+        />
       </div>
     </div>
   );
