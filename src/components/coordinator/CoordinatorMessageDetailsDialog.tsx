@@ -123,11 +123,22 @@ export function CoordinatorMessageDetailsDialog({ message, open, onOpenChange }:
                   <MessageSquare className="h-4 w-4" />
                   <span>Conteúdo</span>
                 </div>
-                {message.channel === 'email' && message.message.includes('<') ? (
-                  <div
-                    className="bg-muted/50 rounded-lg p-3 text-sm max-h-64 overflow-y-auto"
-                    dangerouslySetInnerHTML={{ __html: message.message }}
-                  />
+          {message.channel === 'email' && message.message.includes('<') ? (
+                  <div className="bg-white rounded-lg border overflow-hidden">
+                    <iframe
+                      srcDoc={message.message}
+                      className="w-full border-0"
+                      style={{ minHeight: '300px', maxHeight: '500px' }}
+                      title="Visualização do e-mail"
+                      sandbox="allow-same-origin"
+                      onLoad={(e) => {
+                        const iframe = e.target as HTMLIFrameElement;
+                        if (iframe.contentDocument) {
+                          iframe.style.height = Math.min(iframe.contentDocument.body.scrollHeight + 20, 500) + 'px';
+                        }
+                      }}
+                    />
+                  </div>
                 ) : (
                   <div className="bg-muted/50 rounded-lg p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
                     {message.message}
