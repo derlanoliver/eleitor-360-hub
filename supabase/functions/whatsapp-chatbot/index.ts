@@ -80,7 +80,7 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     }
     
     if (error || !data || data.length === 0) {
-      return `Olá ${leader.nome_completo.split(" ")[0]}! 🌳\n\nNão encontrei dados da sua rede. Se você é novo, comece indicando pessoas!`;
+      return `Olá ${leader.nome_completo.split(" ")[0]}! 🌳\n\nSua rede ainda está começando. Compartilhe seu link de indicação para que novas pessoas se cadastrem!`;
     }
     
     const stats = data[0];
@@ -124,7 +124,7 @@ const dynamicFunctions: Record<string, (supabase: any, leader: Leader) => Promis
     response += `Total: ${leader.cadastros}\n\n`;
     
     if (!contatos || contatos.length === 0) {
-      response += `Você ainda não tem cadastros. Compartilhe seu link de indicação!`;
+      response += `Você ainda não tem cadastros. Compartilhe seu link de indicação para que novas pessoas se cadastrem através dele!`;
     } else {
       response += `*Últimos cadastros:*\n`;
       contatos.forEach((c: any, i: number) => {
@@ -390,6 +390,90 @@ Deno.serve(async (req) => {
 
     // Try to match message with a keyword
     const normalizedMessage = message.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // === INTERCEPT VERIFICATION CODES ===
+    // Check if the message looks like a verification attempt (CONFIRMAR CODE or bare code)
+    const confirmMatchChatbot = normalizedMessage.match(/^CONFIRMAR\s+([A-Z0-9]{5,6})$/);
+    const bareCodeMatch = normalizedMessage.match(/^[A-Z0-9]{5,6}$/);
+
+    if (confirmMatchChatbot || (bareCodeMatch && normalizedMessage !== "AJUDA" && normalizedMessage !== "PONTOS" && normalizedMessage !== "SIM")) {
+      const code = confirmMatchChatbot ? confirmMatchChatbot[1] : bareCodeMatch![0];
+      console.log(`[whatsapp-chatbot] Detected verification code: ${code} from leader ${leader.id}`);
+
+      // Check if this leader is already verified
+      const { data: leaderVerificationStatus } = await supabase
+        .from("lideres")
+        .select("is_verified, verification_code")
+        .eq("id", leader.id)
+        .single();
+
+      if (leaderVerificationStatus?.is_verified) {
+        // Leader is already verified
+        const responseAlready = `Olá ${leader.nome_completo.split(" ")[0]}! ✅\n\nSeu cadastro já foi verificado anteriormente. Você já pode usar todos os comandos disponíveis.\n\nDigite *AJUDA* para ver a lista de comandos.`;
+        
+        // Send and log
+        const { data: intSettings } = await supabase
+          .from("integrations_settings")
+          .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled, meta_cloud_enabled, meta_cloud_phone_number_id, meta_cloud_api_version, whatsapp_provider_active")
+          .limit(1)
+          .single();
+
+        const useMetaCloudForVerif = provider === 'meta_cloud' || 
+          (provider !== 'zapi' && intSettings?.whatsapp_provider_active === 'meta_cloud');
+
+        if (useMetaCloudForVerif && intSettings?.meta_cloud_enabled && intSettings.meta_cloud_phone_number_id) {
+          const metaToken = Deno.env.get("META_WA_ACCESS_TOKEN");
+          if (metaToken) await sendWhatsAppMessageMetaCloud(intSettings.meta_cloud_phone_number_id, intSettings.meta_cloud_api_version || "v20.0", metaToken, normalizedPhone, responseAlready, supabase);
+        } else if (intSettings?.zapi_enabled && intSettings.zapi_instance_id && intSettings.zapi_token) {
+          await sendWhatsAppMessage(intSettings.zapi_instance_id, intSettings.zapi_token, intSettings.zapi_client_token, normalizedPhone, responseAlready);
+        }
+
+        await supabase.from("whatsapp_chatbot_logs").insert({
+          leader_id: leader.id, phone: normalizedPhone, message_in: message,
+          message_out: responseAlready, keyword_matched: "CONFIRMAR", response_type: "verification_already",
+          processing_time_ms: Date.now() - startTime
+        });
+
+        return new Response(JSON.stringify({ success: true, responseType: "verification_already" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Leader is NOT verified - check if the code belongs to THIS leader
+      if (leaderVerificationStatus?.verification_code && leaderVerificationStatus.verification_code !== code) {
+        const responseWrongCode = `Olá ${leader.nome_completo.split(" ")[0]}! ⚠️\n\nEsse código não pertence ao seu número de telefone. Por favor, utilize o código que foi enviado para você.`;
+
+        const { data: intSettings } = await supabase
+          .from("integrations_settings")
+          .select("zapi_instance_id, zapi_token, zapi_client_token, zapi_enabled, meta_cloud_enabled, meta_cloud_phone_number_id, meta_cloud_api_version, whatsapp_provider_active")
+          .limit(1)
+          .single();
+
+        const useMetaCloudForVerif = provider === 'meta_cloud' || 
+          (provider !== 'zapi' && intSettings?.whatsapp_provider_active === 'meta_cloud');
+
+        if (useMetaCloudForVerif && intSettings?.meta_cloud_enabled && intSettings.meta_cloud_phone_number_id) {
+          const metaToken = Deno.env.get("META_WA_ACCESS_TOKEN");
+          if (metaToken) await sendWhatsAppMessageMetaCloud(intSettings.meta_cloud_phone_number_id, intSettings.meta_cloud_api_version || "v20.0", metaToken, normalizedPhone, responseWrongCode, supabase);
+        } else if (intSettings?.zapi_enabled && intSettings.zapi_instance_id && intSettings.zapi_token) {
+          await sendWhatsAppMessage(intSettings.zapi_instance_id, intSettings.zapi_token, intSettings.zapi_client_token, normalizedPhone, responseWrongCode);
+        }
+
+        await supabase.from("whatsapp_chatbot_logs").insert({
+          leader_id: leader.id, phone: normalizedPhone, message_in: message,
+          message_out: responseWrongCode, keyword_matched: "CONFIRMAR", response_type: "verification_wrong_code",
+          processing_time_ms: Date.now() - startTime
+        });
+
+        return new Response(JSON.stringify({ success: true, responseType: "verification_wrong_code" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Code matches this leader - let the normal verification flow handle it (don't respond from chatbot)
+      console.log(`[whatsapp-chatbot] Code matches leader, deferring to verification flow`);
+      return new Response(JSON.stringify({ success: false, reason: "deferred_to_verification" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     let matchedKeyword: ChatbotKeyword | null = null;
 
     for (const kw of activeKeywords) {
@@ -677,8 +761,14 @@ ${leaderContext}
 
 ${keywordContext ? `Contexto adicional: ${keywordContext}` : ""}
 
-Responda de forma breve (máximo 300 caracteres) e amigável. Use emojis moderadamente.
-Se a pergunta for sobre dados específicos que você não tem, sugira usar comandos como ARVORE, CADASTROS, PONTOS ou RANKING.`;
+REGRAS OBRIGATÓRIAS:
+- Responda de forma breve (máximo 300 caracteres) e amigável. Use emojis moderadamente.
+- Se a pergunta for sobre dados específicos que você não tem, sugira usar comandos como ARVORE, CADASTROS, PONTOS ou RANKING.
+- NUNCA afirme que o líder "não tem cadastros" ou que "precisa encontrar/adicionar pessoas no sistema". Os cadastros são feitos por terceiros que se cadastram através do link de indicação do líder, NÃO pelo líder manualmente.
+- NUNCA sugira que o líder pode buscar, encontrar ou adicionar contatos/pessoas no sistema. O sistema NÃO permite isso.
+- Se o líder não tem cadastros ainda, diga apenas que ele pode compartilhar seu link de indicação para que novas pessoas se cadastrem.
+- NUNCA faça suposições sobre dados que você não tem. Se não sabe, diga que não tem a informação.
+- Se a mensagem parecer ser um código de verificação (ex: "CONFIRMAR ABC123"), NÃO responda como conversa normal. Informe que o sistema de verificação tratará a solicitação.`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
