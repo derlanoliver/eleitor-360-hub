@@ -31,22 +31,23 @@ export default function CoordinatorLogin() {
       });
 
       if (error) throw error;
-      const rows = data as any[];
-      if (!rows || rows.length === 0) throw new Error("Credenciais inválidas.");
 
-      const row = rows[0];
+      const result = data as any;
+      if (!result?.success) throw new Error(result?.error || "Credenciais inválidas.");
+
+      const coord = result.coordinator;
       login({
-        leader_id: row.leader_id,
-        nome_completo: row.nome_completo,
-        telefone: row.telefone,
-        email: row.email,
-        affiliate_token: row.affiliate_token,
-        pontuacao_total: row.pontuacao_total,
-        cadastros: row.cadastros,
-        hierarchy_level: row.hierarchy_level,
-        is_verified: row.is_verified,
-        cidade_nome: row.cidade_nome,
-        session_token: row.session_token,
+        leader_id: coord.id,
+        nome_completo: coord.nome_completo,
+        telefone: coord.telefone,
+        email: coord.email,
+        affiliate_token: coord.affiliate_token,
+        pontuacao_total: coord.pontuacao_total,
+        cadastros: coord.cadastros,
+        hierarchy_level: null,
+        is_verified: null,
+        cidade_nome: null,
+        session_token: crypto.randomUUID(),
       });
 
       toast.success("Login realizado com sucesso!");
