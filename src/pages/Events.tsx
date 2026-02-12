@@ -41,7 +41,8 @@ import {
   Activity,
   PieChart as PieChartIcon,
   Repeat,
-  Camera
+  Camera,
+  Crown
 } from "lucide-react";
 import { useEvents } from "@/hooks/events/useEvents";
 import { useCreateEvent } from "@/hooks/events/useCreateEvent";
@@ -428,6 +429,17 @@ const Events = () => {
     return Math.round((event.checkedin_count / event.registrations_count) * 100);
   };
 
+  // Resolve region: if it's a UUID (from coordinator portal), find city name
+  const getRegionName = (region: string) => {
+    if (!region) return "N/A";
+    // Check if region looks like a UUID
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(region)) {
+      const city = cities.find(c => c.id === region);
+      return city?.nome || region;
+    }
+    return region;
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 flex items-center justify-center">
@@ -773,6 +785,12 @@ const Events = () => {
                                   <Badge variant={event.status === "active" ? "default" : "secondary"}>
                                     {event.status === "active" ? "Ativo" : event.status === "completed" ? "Concluído" : "Cancelado"}
                                   </Badge>
+                                  {(event as any).coordinator && (
+                                    <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                                      <Crown className="h-3 w-3" />
+                                      {(event as any).coordinator.nome_completo}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex gap-2 flex-shrink-0">
@@ -832,7 +850,7 @@ const Events = () => {
                               </div>
                               <div className="flex items-center gap-1">
                                 <MapPin className="h-4 w-4" />
-                                {isDemoMode ? m.city(event.region) : event.region}
+                                {isDemoMode ? m.city(event.region) : getRegionName(event.region)}
                               </div>
                             </div>
 
