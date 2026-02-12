@@ -180,41 +180,9 @@ export default function EventRegistration() {
       console.warn('Tracking failed:', trackingError);
     }
 
-    // Verificar se precisa de verificação (para contatos indicados por líder)
-    let needsVerificationCheck = false;
-    
-    if (hasLeaderRef) {
-      try {
-        // Verificar se é líder
-        const { data: existingLeader } = await supabase
-          .from("lideres")
-          .select("id")
-          .or(`telefone.eq.${normalizedPhone},email.eq.${formData.email.trim().toLowerCase()}`)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (!existingLeader) {
-          // Buscar contato para verificar status
-          const { data: contactData } = await supabase
-            .from("office_contacts")
-            .select("id, is_verified, verification_code, source_type, pending_messages")
-            .eq("telefone_norm", normalizedPhone)
-            .maybeSingle();
-
-          if (contactData && !contactData.is_verified && contactData.source_type === 'lider') {
-            needsVerificationCheck = true;
-          } else if (!contactData) {
-            needsVerificationCheck = true;
-          }
-
-          if (needsVerificationCheck && contactData) {
-            await handleVerificationFlow(contactData, normalizedPhone, eventDate, qrCodeImageUrl);
-          }
-        }
-      } catch (verificationError) {
-        console.warn('Verification check failed:', verificationError);
-      }
-    }
+    // Cadastro via evento NÃO promove a líder - apenas contato comum
+    // Removida lógica de verificação de liderança via evento
+    const needsVerificationCheck = false;
 
     // Se não precisa de verificação, enviar mensagens de confirmação
     if (!needsVerificationCheck) {

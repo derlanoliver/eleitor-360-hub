@@ -77,6 +77,10 @@ import VerifyContact from "./pages/VerifyContact";
 import VerifyLeader from "./pages/VerifyLeader";
 import LeaderTree from "./pages/LeaderTree";
 import ShortUrlRedirect from "./pages/ShortUrlRedirect";
+import CoordinatorLogin from "./pages/coordinator/CoordinatorLogin";
+import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard";
+import CoordinatorEvents from "./pages/coordinator/CoordinatorEvents";
+import { CoordinatorAuthProvider } from "./contexts/CoordinatorAuthContext";
 
 const queryClient = new QueryClient();
 
@@ -131,6 +135,11 @@ const App = () => (
             <Route path="/v/:codigo" element={<VerifyContact />} />
             <Route path="/verificar-lider/:codigo" element={<VerifyLeader />} />
             <Route path="/s/:code" element={<ShortUrlRedirect />} />
+            
+            {/* Coordinator Portal (public, own auth) */}
+            <Route path="/coordenador/login" element={<CoordinatorAuthProvider><CoordinatorLogin /></CoordinatorAuthProvider>} />
+            <Route path="/coordenador/dashboard" element={<CoordinatorAuthProvider><CoordinatorDashboard /></CoordinatorAuthProvider>} />
+            <Route path="/coordenador/eventos" element={<CoordinatorAuthProvider><CoordinatorEvents /></CoordinatorAuthProvider>} />
             
             {/* Public check-in route with PIN protection */}
             <Route path="/checkin/:qrCode" element={<EventCheckin />} />

@@ -10,7 +10,7 @@ import {
   MapPin, Phone, Mail, CheckCircle, Clock, AlertCircle,
   MessageCircle, Send, Eye, XCircle, Globe, ExternalLink, ClipboardList,
   Download, Crown, Star, ChevronDown, GitBranch, FileText, ShieldCheck, ShieldAlert,
-  Link, UserCheck, RefreshCw, ChevronRight, Wallet, Loader2
+  Link, UserCheck, RefreshCw, ChevronRight, Wallet, Loader2, Shield
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
   const [loadingDetailedReport, setLoadingDetailedReport] = useState(false);
   const [includeAllLevels, setIncludeAllLevels] = useState(true);
   const [generatingPass, setGeneratingPass] = useState(false);
+  const [portalPassword, setPortalPassword] = useState("");
+  const [settingPassword, setSettingPassword] = useState(false);
   
   const { data: indicatedContacts, isLoading: loadingContacts } = useLeaderIndicatedContacts(open ? leader.id : undefined);
   const { data: subordinates, isLoading: loadingSubordinates } = useLeaderSubordinates(open ? leader.id : undefined);
@@ -266,6 +268,61 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                   </p>
                 )}
               </div>
+
+              {/* Seção Portal do Coordenador */}
+              {leader.is_coordinator && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Portal do Coordenador
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Defina a senha de acesso ao portal do coordenador
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="password"
+                      placeholder="Nova senha"
+                      value={portalPassword}
+                      onChange={(e) => setPortalPassword(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={settingPassword || !portalPassword || portalPassword.length < 4}
+                      onClick={async () => {
+                        setSettingPassword(true);
+                        try {
+                          const { error } = await (supabase.rpc as any)("coordinator_set_password", {
+                            p_leader_id: leader.id,
+                            p_password: portalPassword,
+                          });
+                          if (error) throw error;
+                          toast.success("Senha do portal definida com sucesso!");
+                          setPortalPassword("");
+                        } catch (err: any) {
+                          toast.error("Erro: " + (err?.message || "Falha ao definir senha"));
+                        } finally {
+                          setSettingPassword(false);
+                        }
+                      }}
+                    >
+                      {settingPassword ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Salvar"
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    O coordenador acessará via <strong>/coordenador/login</strong> com o telefone e esta senha.
+                  </p>
+                </div>
+              )}
             </TabsContent>
 
             {/* ABA VERIFICAÇÃO */}
