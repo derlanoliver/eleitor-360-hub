@@ -648,6 +648,7 @@ const Integrations = () => {
                 isConnected={zapiStatus?.connected || false}
                 isLoading={isCheckingZapi}
                 isConfigured={!!isZapiConfigured && zapiEnabled}
+                phone={zapiStatus?.phone}
               />
               <Button
                 variant="outline"

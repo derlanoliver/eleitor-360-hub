@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface ZapiConnectionStatus {
   connected: boolean;
   status?: string;
+  phone?: string;
 }
 
 export function useZapiConnectionStatus(
@@ -28,7 +29,8 @@ export function useZapiConnectionStatus(
       }
 
       const connected = data.data?.connected || data.data?.status === "connected";
-      return { connected, status: data.data?.status };
+      const phone = data.data?.phone || data.data?.phoneNumber || data.data?.smartphoneNumber || undefined;
+      return { connected, status: data.data?.status, phone };
     },
     enabled: enabled && !!instanceId && !!token,
     refetchInterval: 30000,
