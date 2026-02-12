@@ -413,6 +413,38 @@ export type Database = {
         }
         Relationships: []
       }
+      coordinator_credentials: {
+        Row: {
+          created_at: string
+          id: string
+          leader_id: string
+          password_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leader_id: string
+          password_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leader_id?: string
+          password_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coordinator_credentials_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: true
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           contact_id: string | null
