@@ -305,8 +305,10 @@ export default function CoordinatorEvents() {
                       <Badge
                         variant={ev.status === "active" ? "default" : ev.status === "cancelled" ? "destructive" : "secondary"}
                       >
-                        {ev.status === "active" ? "Ativo" : ev.status === "cancelled" ? "Cancelado" : ev.status === "completed" ? "Concluído" : ev.status}
+                        {ev.status === "active" ? "Ativo" : ev.status === "cancelled" ? "Cancelado" : ev.status === "completed" ? "Concluído" : (ev.status || "Sem status")}
                       </Badge>
+                      {/* Debug: */}
+                      {process.env.NODE_ENV === "development" && <span className="text-[10px] text-muted-foreground">({JSON.stringify(ev.status)})</span>}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(ev.date)}</span>
