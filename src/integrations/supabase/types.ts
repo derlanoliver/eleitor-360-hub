@@ -3364,38 +3364,27 @@ export type Database = {
         Args: { p_leader_id: string }
         Returns: string
       }
-      register_leader_from_affiliate:
-        | {
-            Args: {
-              p_cidade_id: string
-              p_data_nascimento: string
-              p_email: string
-              p_endereco: string
-              p_nome: string
-              p_referring_leader_id: string
-              p_telefone_norm: string
-            }
-            Returns: {
-              affiliate_token: string
-              already_referred_by_other_leader: boolean
-              hierarchy_level_exceeded: boolean
-              is_already_leader: boolean
-              leader_id: string
-              original_leader_name: string
-              verification_code: string
-            }[]
-          }
-        | {
-            Args: {
-              p_affiliate_token: string
-              p_cidade_id: string
-              p_data_nascimento?: string
-              p_email: string
-              p_nome_completo: string
-              p_telefone: string
-            }
-            Returns: Json
-          }
+      register_leader_from_affiliate: {
+        Args: {
+          p_cidade_id: string
+          p_data_nascimento: string
+          p_email: string
+          p_endereco: string
+          p_nome: string
+          p_referring_leader_id: string
+          p_telefone_norm: string
+        }
+        Returns: {
+          affiliate_token: string
+          already_referred_by_other_leader: boolean
+          hierarchy_level_exceeded: boolean
+          is_already_contact: boolean
+          is_already_leader: boolean
+          leader_id: string
+          original_leader_name: string
+          verification_code: string
+        }[]
+      }
       remove_from_tree: { Args: { _leader_id: string }; Returns: boolean }
       set_parent_leader: {
         Args: { _leader_id: string; _parent_id: string }

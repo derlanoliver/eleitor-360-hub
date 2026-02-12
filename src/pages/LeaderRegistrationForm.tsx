@@ -68,6 +68,7 @@ export default function LeaderRegistrationForm() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isNewLeader, setIsNewLeader] = useState(false);
   const [isAlreadyLeader, setIsAlreadyLeader] = useState(false);
+  const [isAlreadyContact, setIsAlreadyContact] = useState(false);
   const [alreadyReferredByOther, setAlreadyReferredByOther] = useState(false);
   const [hierarchyLevelExceeded, setHierarchyLevelExceeded] = useState(false);
   const [originalLeaderName, setOriginalLeaderName] = useState<string | null>(null);
@@ -194,6 +195,14 @@ export default function LeaderRegistrationForm() {
         setIsSuccess(true);
         setIsSubmitting(false);
         toast.info("Você já é um apoiador cadastrado!");
+        return;
+      }
+
+      // Já é contato cadastrado via evento? Bloqueado de virar líder.
+      if (leaderResult.is_already_contact) {
+        setIsAlreadyContact(true);
+        setIsSuccess(true);
+        setIsSubmitting(false);
         return;
       }
 
@@ -387,7 +396,21 @@ export default function LeaderRegistrationForm() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            {alreadyReferredByOther ? (
+            {isAlreadyContact ? (
+              <>
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <User className="h-8 w-8 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Você Já Está Cadastrado!</h2>
+                <p className="text-muted-foreground mb-4">
+                  Identificamos que você já possui um cadastro como contato em nosso sistema.
+                  Não é possível criar um novo cadastro como apoiador.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                  <p>Se acredita que isso é um erro, entre em contato com a equipe.</p>
+                </div>
+              </>
+            ) : alreadyReferredByOther ? (
               <>
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-blue-600" />
