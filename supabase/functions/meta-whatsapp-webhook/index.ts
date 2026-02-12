@@ -17,31 +17,70 @@ function normalizePhone(phone: string): string {
 }
 
 async function sendMetaCloudMessage(supabase: any, phone: string, message: string) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const accessToken = Deno.env.get('META_WA_ACCESS_TOKEN');
+  
+  if (!accessToken) {
+    console.error('[Meta Webhook] META_WA_ACCESS_TOKEN not configured');
+    return { success: false, error: 'META_WA_ACCESS_TOKEN not configured' };
+  }
+
+  // Get Meta Cloud settings
+  const { data: settings } = await supabase
+    .from('integrations_settings')
+    .select('meta_cloud_phone_number_id, meta_cloud_api_version')
+    .single();
+
+  if (!settings?.meta_cloud_phone_number_id) {
+    console.error('[Meta Webhook] meta_cloud_phone_number_id not configured');
+    return { success: false, error: 'Phone Number ID not configured' };
+  }
+
+  const apiVersion = settings.meta_cloud_api_version || 'v20.0';
+  const graphUrl = `https://graph.facebook.com/${apiVersion}/${settings.meta_cloud_phone_number_id}/messages`;
+
+  // Format phone for Graph API (country code without +)
+  const formattedPhone = phone.replace(/\D/g, '');
+
+  const body = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: formattedPhone,
+    type: 'text',
+    text: { body: message },
+  };
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/send-whatsapp`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          phone: phone.replace(/^\+/, ''),
-          message: message,
-          providerOverride: 'meta_cloud',
-        }),
-      }
-    );
-    const result = await response.json();
-    console.log('[Meta Webhook] sendMetaCloudMessage result:', result);
-    return result;
+    console.log('[Meta Webhook] Sending message to:', formattedPhone);
+    const response = await fetch(graphUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+    console.log('[Meta Webhook] Graph API response:', JSON.stringify(data));
+
+    if (!response.ok) {
+      return { success: false, error: data.error?.message || 'Graph API error' };
+    }
+
+    // Log outbound message
+    await supabase.from('whatsapp_messages').insert({
+      phone: formattedPhone,
+      message: message,
+      direction: 'outbound',
+      status: 'sent',
+      provider: 'meta_cloud',
+      metadata: { wamid: data.messages?.[0]?.id },
+    });
+
+    return { success: true, messageId: data.messages?.[0]?.id };
   } catch (error) {
     console.error('[Meta Webhook] sendMetaCloudMessage error:', error);
-    throw error;
+    return { success: false, error: String(error) };
   }
 }
 
