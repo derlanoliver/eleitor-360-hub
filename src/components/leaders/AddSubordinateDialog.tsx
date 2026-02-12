@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAvailableLeaders, useSetParentLeader } from "@/hooks/leaders/useLeaderTree";
+import { useSearchLeaders, useSetParentLeader } from "@/hooks/leaders/useLeaderTree";
 import { Search, UserPlus, User, Loader2 } from "lucide-react";
 
 interface AddSubordinateDialogProps {
@@ -24,14 +24,11 @@ export function AddSubordinateDialog({
   const [search, setSearch] = useState("");
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
   
-  const { data: availableLeaders, isLoading } = useAvailableLeaders();
+  const { data: searchResults, isLoading } = useSearchLeaders(open ? search : "");
   const setParentLeader = useSetParentLeader();
 
-  const filteredLeaders = availableLeaders?.filter(leader =>
-    leader.nome_completo.toLowerCase().includes(search.toLowerCase()) ||
-    leader.email?.toLowerCase().includes(search.toLowerCase()) ||
-    leader.telefone?.includes(search)
-  );
+  // Only show non-coordinators
+  const filteredLeaders = searchResults?.filter(l => !l.is_coordinator) || [];
 
   const handleAdd = async () => {
     if (!selectedLeaderId) return;
@@ -93,24 +90,28 @@ export function AddSubordinateDialog({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
+                  autoFocus
                 />
               </div>
 
               <ScrollArea className="h-[300px] rounded-md border">
-                {isLoading ? (
+                {search.trim().length < 2 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
+                    <Search className="h-8 w-8 mb-2 opacity-50" />
+                    <p className="text-sm text-center">Digite ao menos 2 caracteres para buscar</p>
+                  </div>
+                ) : isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : filteredLeaders?.length === 0 ? (
+                ) : filteredLeaders.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
                     <User className="h-8 w-8 mb-2" />
-                    <p className="text-sm text-center">
-                      {search ? "Nenhum líder encontrado" : "Não há líderes disponíveis"}
-                    </p>
+                    <p className="text-sm text-center">Nenhum líder encontrado</p>
                   </div>
                 ) : (
                   <div className="p-2 space-y-1">
-                    {filteredLeaders?.map((leader) => (
+                    {filteredLeaders.map((leader) => (
                       <button
                         key={leader.id}
                         onClick={() => setSelectedLeaderId(leader.id)}
@@ -124,12 +125,8 @@ export function AddSubordinateDialog({
                           <div>
                             <p className="font-medium">{leader.nome_completo}</p>
                             <p className="text-sm text-muted-foreground">
-                              {leader.cidade?.nome || "Sem região"}
+                              {leader.cidade_nome || "Sem região"}
                             </p>
-                          </div>
-                          <div className="text-right text-sm">
-                            <p className="text-muted-foreground">{leader.cadastros} cadastros</p>
-                            <p className="text-primary font-medium">{leader.pontuacao_total} pts</p>
                           </div>
                         </div>
                       </button>

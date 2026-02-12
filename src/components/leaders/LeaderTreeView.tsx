@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { Crown, User, UserPlus, UserMinus, ChevronDown, ChevronRight, MoreVertical, ArrowRightLeft } from "lucide-react";
 import { useDemoMask } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
@@ -28,15 +28,58 @@ interface LeaderTreeViewProps {
   highlightLeaderId?: string | null;
 }
 
+// Pre-compute the path to the highlighted node so only that branch is expanded
+function findPathToNode(node: LeaderTreeNode, targetId: string): Set<string> | null {
+  if (node.id === targetId) return new Set([node.id]);
+  if (node.children) {
+    for (const child of node.children) {
+      const path = findPathToNode(child, targetId);
+      if (path) {
+        path.add(node.id);
+        return path;
+      }
+    }
+  }
+  return null;
+}
+
 export function LeaderTreeView({ tree, highlightLeaderId }: LeaderTreeViewProps) {
+  // Compute which nodes should be initially expanded (only path to highlighted node, or just root)
+  const initialExpanded = useCallback(() => {
+    const set = new Set<string>();
+    set.add(tree.id); // Always expand root
+    if (highlightLeaderId) {
+      const path = findPathToNode(tree, highlightLeaderId);
+      if (path) {
+        path.forEach(id => set.add(id));
+      }
+    }
+    return set;
+  }, [tree, highlightLeaderId]);
+
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(initialExpanded);
+
+  // Reset expanded nodes when tree or highlight changes
+  useEffect(() => {
+    setExpandedNodes(initialExpanded());
+  }, [tree.id, highlightLeaderId]);
+
+  const toggleExpand = useCallback((nodeId: string) => {
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleHighlightedRef = useCallback((element: HTMLDivElement | null) => {
     if (element) {
-      // Pequeno delay para garantir que a árvore renderizou completamente
       setTimeout(() => {
-        element.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start'
-        });
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 150);
     }
   }, []);
@@ -48,7 +91,8 @@ export function LeaderTreeView({ tree, highlightLeaderId }: LeaderTreeViewProps)
         isRoot 
         highlightLeaderId={highlightLeaderId}
         onHighlightedNodeRef={handleHighlightedRef}
-        forceExpandAll={!!highlightLeaderId}
+        expandedNodes={expandedNodes}
+        toggleExpand={toggleExpand}
       />
     </div>
   );
@@ -59,12 +103,14 @@ interface TreeNodeProps {
   isRoot?: boolean;
   highlightLeaderId?: string | null;
   onHighlightedNodeRef?: (element: HTMLDivElement | null) => void;
-  forceExpandAll?: boolean;
+  expandedNodes: Set<string>;
+  toggleExpand: (nodeId: string) => void;
 }
 
-function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRef, forceExpandAll }: TreeNodeProps) {
+const TreeNode = memo(function TreeNode({ 
+  node, isRoot = false, highlightLeaderId, onHighlightedNodeRef, expandedNodes, toggleExpand 
+}: TreeNodeProps) {
   const { m } = useDemoMask();
-  const [isExpanded, setIsExpanded] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
@@ -73,18 +119,11 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
   
   const removeFromTree = useRemoveFromTree();
   const promoteToCoordinator = usePromoteToCoordinatorWithSubordinates();
-  const subordinatesCount = countSubordinates(node);
   
   const hasChildren = node.children && node.children.length > 0;
   const level = node.hierarchy_level || 1;
   const isHighlighted = highlightLeaderId === node.id;
-
-  // Forçar expansão quando há highlight ativo
-  useEffect(() => {
-    if (forceExpandAll && highlightLeaderId) {
-      setIsExpanded(true);
-    }
-  }, [forceExpandAll, highlightLeaderId]);
+  const isExpanded = expandedNodes.has(node.id);
 
   // Quando este nó for o destacado, reportar a ref para scroll
   useEffect(() => {
@@ -132,6 +171,9 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
     setShowPromoteDialog(false);
   };
 
+  // Lazy count: only compute when expanded or for display
+  const directChildrenCount = node.children?.length || 0;
+
   return (
     <div className="relative">
       {/* Connection line to parent */}
@@ -149,7 +191,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
             variant="ghost"
             size="icon"
             className="h-6 w-6 shrink-0"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => toggleExpand(node.id)}
           >
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" />
@@ -170,7 +212,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>
-                {node.children?.length || 0} {(node.children?.length || 0) === 1 ? 'indicação' : 'indicações'}
+                {directChildrenCount} {directChildrenCount === 1 ? 'indicação' : 'indicações'}
               </span>
               <span>{node.pontuacao_total} pts</span>
             </div>
@@ -213,7 +255,7 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
         </DropdownMenu>
       </div>
 
-      {/* Children */}
+      {/* Children - only rendered when expanded */}
       {hasChildren && isExpanded && (
         <div className="ml-8 border-l-2 border-muted-foreground/20 pl-4">
           {node.children!.map((child) => (
@@ -222,31 +264,36 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
               node={child} 
               highlightLeaderId={highlightLeaderId}
               onHighlightedNodeRef={onHighlightedNodeRef}
-              forceExpandAll={forceExpandAll}
+              expandedNodes={expandedNodes}
+              toggleExpand={toggleExpand}
             />
           ))}
         </div>
       )}
 
       {/* Add Subordinate Dialog */}
-      <AddSubordinateDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        parentId={node.id}
-        parentName={node.nome_completo}
-        parentLevel={level}
-      />
+      {showAddDialog && (
+        <AddSubordinateDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          parentId={node.id}
+          parentName={node.nome_completo}
+          parentLevel={level}
+        />
+      )}
 
       {/* Move Leader Dialog */}
-      <MoveLeaderDialog
-        open={showMoveDialog}
-        onOpenChange={setShowMoveDialog}
-        leaderId={node.id}
-        leaderName={node.nome_completo}
-        currentLevel={level}
-        currentParentId={node.parent_leader_id}
-        subordinatesCount={subordinatesCount}
-      />
+      {showMoveDialog && (
+        <MoveLeaderDialog
+          open={showMoveDialog}
+          onOpenChange={setShowMoveDialog}
+          leaderId={node.id}
+          leaderName={node.nome_completo}
+          currentLevel={level}
+          currentParentId={node.parent_leader_id}
+          subordinatesCount={countSubordinates(node)}
+        />
+      )}
 
       {/* Remove Confirmation Dialog */}
       <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
@@ -275,30 +322,32 @@ function TreeNode({ node, isRoot = false, highlightLeaderId, onHighlightedNodeRe
       </AlertDialog>
 
       {/* Promote to Coordinator Dialog */}
-      <AlertDialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Promover a Coordenador</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja promover <strong>{m.name(node.nome_completo)}</strong> a Coordenador?
-              {subordinatesCount > 0 && (
-                <span className="block mt-2 text-blue-600">
-                  {subordinatesCount} subordinado(s) serão mantidos e terão seus níveis ajustados automaticamente.
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handlePromoteToCoordinator}
-              disabled={promoteToCoordinator.isPending}
-            >
-              {promoteToCoordinator.isPending ? "Promovendo..." : "Promover"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {showPromoteDialog && (
+        <AlertDialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Promover a Coordenador</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja promover <strong>{m.name(node.nome_completo)}</strong> a Coordenador?
+                {countSubordinates(node) > 0 && (
+                  <span className="block mt-2 text-blue-600">
+                    {countSubordinates(node)} subordinado(s) serão mantidos e terão seus níveis ajustados automaticamente.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handlePromoteToCoordinator}
+                disabled={promoteToCoordinator.isPending}
+              >
+                {promoteToCoordinator.isPending ? "Promovendo..." : "Promover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
-}
+});
