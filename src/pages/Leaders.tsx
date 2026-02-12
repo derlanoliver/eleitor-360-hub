@@ -33,7 +33,10 @@ import {
   Bell,
   Smartphone,
   RefreshCw,
+  ShieldCheck,
+  Upload,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import QRCode from "qrcode";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -409,24 +412,53 @@ const Leaders = () => {
                 Ver Ranking
               </Link>
             </Button>
-            <SendPassNotificationDialog
-              allVerifiedCount={verifiedLeadersCount || 0}
-              onSendToAll={fetchAllVerifiedLeaderIds}
-            >
-              <Button variant="outline" data-tutorial="leaders-push-btn">
-                <Bell className="h-4 w-4 mr-2" />
-                Notificação Push
-              </Button>
-            </SendPassNotificationDialog>
-            <div data-tutorial="leaders-import-btn">
-              <ImportLeadersDialog />
-            </div>
-            <LeaderRegistrationQRDialog>
-              <Button variant="outline" data-tutorial="leaders-form-btn">
-                <QrCode className="h-4 w-4 mr-2" />
-                Formulário
-              </Button>
-            </LeaderRegistrationQRDialog>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span data-tutorial="leaders-push-btn">
+                    <SendPassNotificationDialog
+                      allVerifiedCount={verifiedLeadersCount || 0}
+                      onSendToAll={fetchAllVerifiedLeaderIds}
+                    >
+                      <Button variant="outline" size="icon">
+                        <Bell className="h-4 w-4" />
+                      </Button>
+                    </SendPassNotificationDialog>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Notificação Push</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span data-tutorial="leaders-import-btn">
+                    <ImportLeadersDialog />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Importar Líderes</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span data-tutorial="leaders-form-btn">
+                    <LeaderRegistrationQRDialog>
+                      <Button variant="outline" size="icon">
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    </LeaderRegistrationQRDialog>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Formulário</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" asChild data-tutorial="leaders-verify-btn">
+                    <Link to="/coordenador/verificar" target="_blank">
+                      <ShieldCheck className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Verificação via WhatsApp</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <AddLeaderDialog>
               <Button variant="outline" data-tutorial="leaders-add-btn">
                 <Users className="h-4 w-4 mr-2" />
