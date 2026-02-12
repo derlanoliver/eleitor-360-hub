@@ -1,20 +1,11 @@
 /**
- * Gera link do WhatsApp compatível com desktop e mobile.
- * - Mobile: usa wa.me (abre o app diretamente)
- * - Desktop: usa web.whatsapp.com/send (evita bloqueio do api.whatsapp.com)
+ * Gera link do WhatsApp usando api.whatsapp.com/send
  */
 export function buildWhatsAppLink(phone: string, message?: string): string {
   const cleanPhone = phone.replace(/\D/g, "");
-  const isMobile = typeof navigator !== "undefined" &&
-    /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    const params = message ? `?text=${encodeURIComponent(message)}` : "";
-    return `https://wa.me/${cleanPhone}${params}`;
+  const params = new URLSearchParams({ phone: cleanPhone });
+  if (message) {
+    params.set("text", message);
   }
-
-  const params = message
-    ? `?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
-    : `?phone=${cleanPhone}`;
-  return `https://web.whatsapp.com/send${params}`;
+  return `https://api.whatsapp.com/send/?${params.toString()}`;
 }
