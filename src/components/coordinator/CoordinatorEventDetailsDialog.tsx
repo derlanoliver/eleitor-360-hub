@@ -9,7 +9,7 @@ import { useEventRegistrations, useUpdateCheckIn } from "@/hooks/events/useEvent
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Search, Users, UserCheck, Copy, QrCode, KeyRound, Lock,
+  Search, Users, UserCheck, Copy, KeyRound, Lock,
   Calendar, Clock, MapPin,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -124,15 +124,45 @@ export function CoordinatorEventDetailsDialog({ event, onClose }: CoordinatorEve
             </Card>
           </div>
 
-          {/* PIN Section for Check-in */}
+          {/* PIN Display - Coordinator can see and share */}
+          {event.checkin_pin && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">PIN para Check-in</p>
+                      <p className="text-2xl font-bold font-mono tracking-widest">{event.checkin_pin}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(event.checkin_pin);
+                      toast.success("PIN copiado!");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Compartilhe este PIN com a equipe de recepção para habilitar check-ins.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* PIN Validation for Check-in Actions */}
           {!wasPinValidated && event.status === "active" && (
-            <Card className="border-primary/20 bg-primary/5">
+            <Card className="border-muted">
               <CardContent className="py-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <Lock className="h-5 w-5 text-primary" />
+                  <Lock className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="font-medium text-sm">Desbloquear Check-in</p>
-                    <p className="text-xs text-muted-foreground">Digite o PIN do evento para poder fazer check-ins nesta tela.</p>
+                    <p className="text-xs text-muted-foreground">Digite o PIN acima para fazer check-ins nesta tela.</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
