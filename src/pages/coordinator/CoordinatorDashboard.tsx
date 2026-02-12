@@ -59,6 +59,23 @@ export default function CoordinatorDashboard() {
     try { return format(new Date(d), "dd/MM/yyyy", { locale: ptBR }); } catch { return "—"; }
   };
 
+  const translateStatus = (status: string) => {
+    const map: Record<string, string> = {
+      sent: "Enviado",
+      delivered: "Entregue",
+      read: "Lido",
+      failed: "Falhou",
+      pending: "Pendente",
+      queued: "Na fila",
+      error: "Erro",
+      sending: "Enviando",
+      opened: "Aberto",
+      clicked: "Clicado",
+      bounced: "Rejeitado",
+    };
+    return map[status?.toLowerCase()] || status;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       {/* Header */}
@@ -280,7 +297,7 @@ export default function CoordinatorDashboard() {
                           <div key={i} className="flex items-center justify-between border rounded-lg p-3">
                             <p className="text-sm truncate max-w-[200px]">{comm.subject || "—"}</p>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs capitalize">{comm.status}</Badge>
+                              <Badge variant="outline" className="text-xs">{translateStatus(comm.status)}</Badge>
                               <p className="text-xs text-muted-foreground">{formatDate(comm.sent_at)}</p>
                               <Button
                                 size="icon"
