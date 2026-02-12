@@ -2625,6 +2625,7 @@ export type Database = {
           id: string
           message: string
           message_id: string | null
+          metadata: Json | null
           phone: string
           provider: string | null
           read_at: string | null
@@ -2643,6 +2644,7 @@ export type Database = {
           id?: string
           message: string
           message_id?: string | null
+          metadata?: Json | null
           phone: string
           provider?: string | null
           read_at?: string | null
@@ -2661,6 +2663,7 @@ export type Database = {
           id?: string
           message?: string
           message_id?: string | null
+          metadata?: Json | null
           phone?: string
           provider?: string | null
           read_at?: string | null
