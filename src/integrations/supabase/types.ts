@@ -718,6 +718,7 @@ export type Database = {
           checkin_pin: string | null
           cover_image_url: string | null
           created_at: string | null
+          created_by_coordinator_id: string | null
           date: string
           description: string | null
           id: string
@@ -740,6 +741,7 @@ export type Database = {
           checkin_pin?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          created_by_coordinator_id?: string | null
           date: string
           description?: string | null
           id?: string
@@ -762,6 +764,7 @@ export type Database = {
           checkin_pin?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          created_by_coordinator_id?: string | null
           date?: string
           description?: string | null
           id?: string
@@ -776,7 +779,15 @@ export type Database = {
           time?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_created_by_coordinator_id_fkey"
+            columns: ["created_by_coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integrations_settings: {
         Row: {
