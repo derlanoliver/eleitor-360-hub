@@ -42,6 +42,15 @@ export function CoordinatorMessageDetailsDialog({ message, open, onOpenChange }:
     }
   };
 
+  const translateStatus = (status: string) => {
+    const map: Record<string, string> = {
+      sent: "Enviado", delivered: "Entregue", read: "Lido", failed: "Falhou",
+      pending: "Pendente", queued: "Na fila", error: "Erro", sending: "Enviando",
+      opened: "Aberto", clicked: "Clicado", bounced: "Rejeitado",
+    };
+    return map[status?.toLowerCase()] || status;
+  };
+
   const channelIcon = {
     whatsapp: <MessageCircle className="h-4 w-4 text-green-600" />,
     email: <Mail className="h-4 w-4 text-blue-600" />,
@@ -71,7 +80,7 @@ export function CoordinatorMessageDetailsDialog({ message, open, onOpenChange }:
               <span className="text-sm text-muted-foreground">Canal:</span>
               <Badge variant="outline">{channelLabel}</Badge>
             </div>
-            <Badge variant="secondary" className="capitalize">{message.status}</Badge>
+            <Badge variant="secondary">{translateStatus(message.status)}</Badge>
           </div>
 
           <Separator />
