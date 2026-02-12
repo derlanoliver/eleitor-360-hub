@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCoordinatorAuth } from "@/contexts/CoordinatorAuthContext";
 import { useCoordinatorDashboard } from "@/hooks/coordinator/useCoordinatorDashboard";
@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Users, Calendar, MessageSquare, LogOut, Star,
   CheckCircle, Clock, GitBranch, Plus, ShieldCheck, ShieldAlert,
-  Mail, Phone, MessageCircle, Eye, Loader2,
+  Mail, Phone, MessageCircle, Eye, Loader2, Search,
 } from "lucide-react";
 import { CoordinatorMessageDetailsDialog } from "@/components/coordinator/CoordinatorMessageDetailsDialog";
 import { format } from "date-fns";
@@ -31,6 +32,20 @@ export default function CoordinatorDashboard() {
   const navigate = useNavigate();
   const { data: dashboard, isLoading } = useCoordinatorDashboard(session?.leader_id);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [subSearch, setSubSearch] = useState("");
+  const [subFilter, setSubFilter] = useState<"all" | "verified" | "pending">("all");
+
+  const allSubordinates = (dashboard?.subordinates as any[]) || [];
+  const subordinates = useMemo(() => {
+    let filtered = allSubordinates;
+    if (subFilter === "verified") filtered = filtered.filter((s: any) => s.is_verified);
+    if (subFilter === "pending") filtered = filtered.filter((s: any) => !s.is_verified);
+    if (subSearch.trim()) {
+      const q = subSearch.trim().toLowerCase();
+      filtered = filtered.filter((s: any) => s.nome_completo?.toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [allSubordinates, subSearch, subFilter]);
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/coordenador/login", { replace: true });
@@ -44,8 +59,6 @@ export default function CoordinatorDashboard() {
   const nextLevel = getNextLevel(points, levels);
   const pointsToNext = getPointsToNextLevel(points, levels);
   const progress = getProgressToNextLevel(points, levels);
-
-  const subordinates = (dashboard?.subordinates as any[]) || [];
   const eventsParticipated = (dashboard?.events_participated as any[]) || [];
   const eventsCreated = (dashboard?.events_created as any[]) || [];
   const commsGrouped = dashboard?.communications || { whatsapp: [], email: [], sms: [] };
@@ -214,17 +227,50 @@ export default function CoordinatorDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="h-5 w-5" /> Indicações ({subordinates.length})
+              <Users className="h-5 w-5" /> Indicações ({allSubordinates.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Carregando...</p>
-            ) : subordinates.length === 0 ? (
+            ) : allSubordinates.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma indicação ainda.</p>
             ) : (
-              <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                {subordinates.map((sub: any) => (
+              <>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome..."
+                      value={subSearch}
+                      onChange={(e) => setSubSearch(e.target.value)}
+                      className="pl-9 h-9"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    {([
+                      { value: "all", label: "Todos" },
+                      { value: "verified", label: "Verificados" },
+                      { value: "pending", label: "Pendentes" },
+                    ] as const).map((f) => (
+                      <Button
+                        key={f.value}
+                        size="sm"
+                        variant={subFilter === f.value ? "default" : "outline"}
+                        onClick={() => setSubFilter(f.value)}
+                        className="text-xs h-9"
+                      >
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {subordinates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum resultado encontrado.</p>
+                ) : (
+                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                  <p className="text-xs text-muted-foreground">{subordinates.length} resultado(s)</p>
+                  {subordinates.map((sub: any) => (
                   <div key={sub.id} className="flex items-center justify-between border rounded-lg p-3">
                     <div className="flex items-center gap-3">
                       {sub.is_verified ? (
@@ -245,7 +291,9 @@ export default function CoordinatorDashboard() {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
