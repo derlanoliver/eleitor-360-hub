@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Calendar, Users, CheckCircle2, TrendingUp, RefreshCcw } from "lucide-react";
+import { Download, Calendar, Users, CheckCircle2, TrendingUp, RefreshCcw, Crown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,19 +11,51 @@ import { ptBR } from "date-fns/locale";
 import { useEventDetailedReport } from "@/hooks/reports/useEventDetailedReport";
 import { EventDetailedReportPanel } from "./EventDetailedReportPanel";
 import { exportEventDetailedReport } from "@/utils/eventReportsExport";
+import { Badge } from "@/components/ui/badge";
 
 export function EventsReportTab() {
   const [period, setPeriod] = useState("30");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [coordinatorFilter, setCoordinatorFilter] = useState<string>("all");
 
-  // Buscar lista de eventos
-  const { data: eventsList } = useQuery({
-    queryKey: ['events_list_for_report'],
+  // Buscar lista de coordenadores que criaram eventos
+  const { data: coordinatorCreators } = useQuery({
+    queryKey: ['event_coordinator_creators'],
     queryFn: async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, name, date')
+        .select('created_by_coordinator_id')
+        .not('created_by_coordinator_id', 'is', null);
+      
+      const uniqueIds = [...new Set(data?.map(e => e.created_by_coordinator_id).filter(Boolean) as string[])];
+      if (uniqueIds.length === 0) return [];
+
+      const { data: leaders } = await supabase
+        .from('lideres')
+        .select('id, nome_completo')
+        .in('id', uniqueIds)
+        .order('nome_completo');
+      
+      return leaders || [];
+    }
+  });
+
+  // Buscar lista de eventos
+  const { data: eventsList } = useQuery({
+    queryKey: ['events_list_for_report', coordinatorFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('events')
+        .select('id, name, date, created_by_coordinator_id')
         .order('date', { ascending: false });
+      
+      if (coordinatorFilter === "admin") {
+        query = query.is('created_by_coordinator_id', null);
+      } else if (coordinatorFilter !== "all") {
+        query = query.eq('created_by_coordinator_id', coordinatorFilter);
+      }
+
+      const { data } = await query;
       return data;
     }
   });
@@ -163,6 +195,33 @@ export function EventsReportTab() {
       {/* Filtros e Exportação */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-wrap gap-3">
+          {/* Filtro por coordenador criador */}
+          {coordinatorCreators && coordinatorCreators.length > 0 && (
+            <Select 
+              value={coordinatorFilter} 
+              onValueChange={(val) => {
+                setCoordinatorFilter(val);
+                setSelectedEventId(null);
+              }}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Criado por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os criadores</SelectItem>
+                <SelectItem value="admin">🛡️ Criados pelo Admin</SelectItem>
+                {coordinatorCreators.map((coord) => (
+                  <SelectItem key={coord.id} value={coord.id}>
+                    <span className="flex items-center gap-1">
+                      <Crown className="h-3 w-3 text-amber-500" />
+                      {coord.nome_completo}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select 
             value={selectedEventId || "all"} 
             onValueChange={(val) => setSelectedEventId(val === "all" ? null : val)}
@@ -174,7 +233,10 @@ export function EventsReportTab() {
               <SelectItem value="all">📊 Visão Geral (Todos os eventos)</SelectItem>
               {eventsList?.map((event) => (
                 <SelectItem key={event.id} value={event.id}>
-                  {event.name} - {format(new Date(event.date), "dd/MM/yy")}
+                  <span className="flex items-center gap-1">
+                    {event.created_by_coordinator_id && <Crown className="h-3 w-3 text-amber-500" />}
+                    {event.name} - {format(new Date(event.date), "dd/MM/yy")}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -217,6 +279,11 @@ export function EventsReportTab() {
             report={eventReport} 
             eventName={selectedEvent?.name || ''} 
             isLoading={isLoadingReport}
+            coordinatorName={
+              selectedEvent?.created_by_coordinator_id
+                ? coordinatorCreators?.find(c => c.id === selectedEvent.created_by_coordinator_id)?.nome_completo || null
+                : null
+            }
           />
         )
       ) : (
