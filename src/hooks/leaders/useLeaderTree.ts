@@ -205,7 +205,7 @@ export function useAllLeadersForSearch() {
   });
 }
 
-// Fetch available leaders (not in any tree)
+// Fetch available leaders for promotion to coordinator
 export function useAvailableLeaders() {
   return useQuery({
     queryKey: ["available-leaders"],
@@ -213,7 +213,6 @@ export function useAvailableLeaders() {
       const { data, error } = await supabase
         .from("lideres")
         .select("id, nome_completo, email, telefone, cadastros, pontuacao_total, cidade:office_cities(nome)")
-        .is("parent_leader_id", null)
         .eq("is_coordinator", false)
         .eq("is_active", true)
         .order("nome_completo");
