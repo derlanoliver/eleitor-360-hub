@@ -62,6 +62,14 @@ export default function CoordinatorEvents() {
 
   const eventsCreated = coordinatorEvents;
 
+  // Calcula equipe necessária para check-in (1 pessoa a cada 30 participantes esperados)
+  const getCheckInStaffNeeded = (registrations: number) => {
+    const RATIO = 30;
+    const rate = 70; // taxa média padrão de conversão
+    const expectedAttendees = Math.round(registrations * (rate / 100));
+    return Math.max(1, Math.ceil(expectedAttendees / RATIO));
+  };
+
   // Fixed cover image from affiliate form settings
   const fixedCoverUrl = (appSettings as any)?.affiliate_form_cover_url || null;
 
@@ -327,6 +335,16 @@ export default function CoordinatorEvents() {
                         {pendingCheckins > 0 && ev.status === "active" && (
                           <Badge variant="outline" className="gap-1 border-orange-300 text-orange-600">
                             {pendingCheckins} pendente{pendingCheckins !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                        {ev.status === "active" && (
+                          <Badge
+                            variant="outline"
+                            className="gap-1 border-orange-500 text-orange-600"
+                            title={`Baseado em ${ev.registrations_count || 0} inscritos, taxa média de 70% = ~${Math.round((ev.registrations_count || 0) * 0.7)} pessoas esperadas. 1 atendente a cada 30.`}
+                          >
+                            <Users className="h-3 w-3" />
+                            {getCheckInStaffNeeded(ev.registrations_count || 0)} p/ check-in
                           </Badge>
                         )}
                       </div>
