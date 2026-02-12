@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Users, Calendar, MessageSquare, LogOut, Star,
   CheckCircle, Clock, GitBranch, Plus, ShieldCheck, ShieldAlert,
-  Mail, Phone, MessageCircle, Eye,
+  Mail, Phone, MessageCircle, Eye, Loader2,
 } from "lucide-react";
 import { CoordinatorMessageDetailsDialog } from "@/components/coordinator/CoordinatorMessageDetailsDialog";
 import { format } from "date-fns";
@@ -113,6 +114,45 @@ export default function CoordinatorDashboard() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {isLoading ? (
+          <>
+            {/* Loading skeleton */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="w-14 h-14 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="h-4 w-56" />
+                  </div>
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </CardContent>
+            </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[1,2,3,4].map(i => (
+                <Card key={i}>
+                  <CardContent className="pt-4 pb-3 flex flex-col items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded" />
+                    <Skeleton className="h-7 w-12" />
+                    <Skeleton className="h-3 w-16" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Card>
+              <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+              <CardContent className="space-y-3">
+                {[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+              </CardContent>
+            </Card>
+            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Carregando dados do painel...</span>
+            </div>
+          </>
+        ) : (
+          <>
         {/* Status & Progress */}
         <Card>
           <CardContent className="pt-6">
@@ -342,6 +382,8 @@ export default function CoordinatorDashboard() {
           open={!!selectedMessage}
           onOpenChange={(open) => { if (!open) setSelectedMessage(null); }}
         />
+        </>
+        )}
       </div>
     </div>
   );
