@@ -2743,6 +2743,10 @@ export type Database = {
         Returns: boolean
       }
       checkin_visit_by_qr: { Args: { _qr_code: string }; Returns: boolean }
+      coordinator_set_password: {
+        Args: { p_leader_id: string; p_password: string }
+        Returns: Json
+      }
       create_event_registration:
         | {
             Args: {
