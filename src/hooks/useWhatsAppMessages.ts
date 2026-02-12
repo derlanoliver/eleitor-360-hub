@@ -46,51 +46,62 @@ export function useWhatsAppMessages(filters: WhatsAppFilters) {
   return useQuery({
     queryKey: ["whatsapp-messages", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("whatsapp_messages")
-        .select(`
-          *,
-          contact:office_contacts(nome, telefone_norm),
-          visit:office_visits(protocolo)
-        `)
-        .order("phone", { ascending: true })
-        .order("created_at", { ascending: false });
-
-      // Filter by direction
-      if (filters.direction !== "all") {
-        query = query.eq("direction", filters.direction);
-      }
-
-      // Filter by status
-      if (filters.status !== "all") {
-        query = query.eq("status", filters.status);
-      }
-
-      // Filter by period
+      let startDate: string | null = null;
       if (filters.period !== "all") {
         const now = new Date();
-        let startDate: Date;
-
+        let sd: Date;
         switch (filters.period) {
           case "today":
-            startDate = new Date(now.setHours(0, 0, 0, 0));
+            sd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
           case "7days":
-            startDate = new Date(now.setDate(now.getDate() - 7));
+            sd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             break;
           case "30days":
-            startDate = new Date(now.setDate(now.getDate() - 30));
+            sd = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
             break;
           default:
-            startDate = new Date(0);
+            sd = new Date(0);
         }
-
-        query = query.gte("created_at", startDate.toISOString());
+        startDate = sd.toISOString();
       }
 
-      const { data, error } = await query;
+      // Fetch ALL messages in batches to avoid the 1000-row limit
+      const pageSize = 1000;
+      const allMessages: any[] = [];
+      let from = 0;
 
-      if (error) throw error;
+      while (true) {
+        let query = supabase
+          .from("whatsapp_messages")
+          .select(`
+            *,
+            contact:office_contacts(nome, telefone_norm),
+            visit:office_visits(protocolo)
+          `)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (filters.direction !== "all") {
+          query = query.eq("direction", filters.direction);
+        }
+        if (filters.status !== "all") {
+          query = query.eq("status", filters.status);
+        }
+        if (startDate) {
+          query = query.gte("created_at", startDate);
+        }
+
+        const { data: page, error } = await query;
+        if (error) throw error;
+        if (!page || page.length === 0) break;
+
+        allMessages.push(...page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+
+      const data = allMessages;
 
       let filteredData = data as WhatsAppMessage[];
 
