@@ -2775,6 +2775,10 @@ export type Database = {
         Returns: boolean
       }
       checkin_visit_by_qr: { Args: { _qr_code: string }; Returns: boolean }
+      coordinator_get_dashboard: {
+        Args: { p_leader_id: string }
+        Returns: Json
+      }
       coordinator_login: {
         Args: { p_password: string; p_phone: string }
         Returns: Json
