@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useCoordinatorAuth } from "@/contexts/CoordinatorAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, CheckCircle, Loader2, MessageCircle, Phone,
+  CheckCircle, Loader2, MessageCircle, Phone,
   ShieldCheck, ShieldAlert, AlertCircle,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsappLink";
@@ -33,18 +31,12 @@ type VerificationState =
   | { status: "error"; message: string };
 
 export default function CoordinatorVerifyLeader() {
-  const navigate = useNavigate();
-  const { isAuthenticated, session } = useCoordinatorAuth();
   const [phoneInput, setPhoneInput] = useState("");
   const [state, setState] = useState<VerificationState>({ status: "idle" });
 
-  if (!isAuthenticated || !session) return null;
-
-  const normalizeDigits = (phone: string) => phone.replace(/\D/g, "");
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const digits = normalizeDigits(phoneInput);
+    const digits = phoneInput.replace(/\D/g, "");
 
     if (digits.length < 10) {
       setState({ status: "error", message: "Número inválido. Digite DDD + número." });
@@ -54,80 +46,35 @@ export default function CoordinatorVerifyLeader() {
     setState({ status: "loading" });
 
     try {
-      // Normalizar para encontrar: tentar com +55, sem +55, etc
-      const possiblePhones: string[] = [];
-      if (digits.length === 11) {
-        possiblePhones.push(`+55${digits}`, `55${digits}`, digits);
-      } else if (digits.length === 13 && digits.startsWith("55")) {
-        possiblePhones.push(`+${digits}`, digits, digits.slice(2));
-      } else {
-        possiblePhones.push(digits);
-      }
-
-      // Buscar por last 8 digits para match flexível (como o sistema faz)
-      const last8 = digits.slice(-8);
-
-      const { data: leaders, error } = await supabase
-        .from("lideres")
-        .select("id, nome_completo, telefone, verification_code, is_verified, verified_at")
-        .or(possiblePhones.map(p => `telefone.eq.${p}`).join(","));
-
-      // Se não achou com match exato, tentar por últimos 8 dígitos
-      let matched = leaders && leaders.length > 0 ? leaders : null;
-
-      if (!matched) {
-        const { data: allLeaders } = await supabase
-          .from("lideres")
-          .select("id, nome_completo, telefone, verification_code, is_verified, verified_at")
-          .not("telefone", "is", null);
-
-        if (allLeaders) {
-          const found = allLeaders.filter(l => {
-            const lDigits = normalizeDigits(l.telefone || "");
-            return lDigits.slice(-8) === last8 && lDigits.length >= 10;
-          });
-          if (found.length > 0) matched = found;
-        }
-      }
-
-      if (!matched || matched.length === 0) {
-        setState({ status: "not_found" });
-        return;
-      }
-
-      const leader = matched[0];
-
-      if (leader.is_verified || leader.verified_at) {
-        setState({ status: "already_verified", nome: leader.nome_completo });
-        return;
-      }
-
-      if (!leader.verification_code) {
-        setState({ status: "error", message: "Este líder não possui código de verificação. Contate o administrador." });
-        return;
-      }
-
-      // Buscar keyword e telefone do WhatsApp das configurações
-      const { data: settings } = await supabase
-        .from("integrations_settings")
-        .select("verification_wa_keyword, verification_wa_zapi_phone")
-        .limit(1)
-        .single();
-
-      setState({
-        status: "ready",
-        leader: {
-          id: leader.id,
-          nome_completo: leader.nome_completo,
-          telefone: leader.telefone || "",
-          verification_code: leader.verification_code,
-        },
-        keyword: settings?.verification_wa_keyword || "CONFIRMAR",
-        whatsAppPhone: settings?.verification_wa_zapi_phone || "5561981894692",
+      const { data, error } = await supabase.rpc("lookup_leader_for_verification", {
+        phone_digits: digits,
       });
+
+      if (error) {
+        console.error("[VerifyLeader] RPC error:", error);
+        setState({ status: "error", message: "Erro ao buscar apoiador. Tente novamente." });
+        return;
+      }
+
+      const result = data as any;
+
+      if (result.status === "not_found") {
+        setState({ status: "not_found" });
+      } else if (result.status === "already_verified") {
+        setState({ status: "already_verified", nome: result.nome });
+      } else if (result.status === "error") {
+        setState({ status: "error", message: result.message });
+      } else if (result.status === "ready") {
+        setState({
+          status: "ready",
+          leader: result.leader,
+          keyword: result.keyword,
+          whatsAppPhone: result.whatsAppPhone,
+        });
+      }
     } catch (err: any) {
-      console.error("[CoordinatorVerifyLeader] Error:", err);
-      setState({ status: "error", message: "Erro ao buscar líder. Tente novamente." });
+      console.error("[VerifyLeader] Error:", err);
+      setState({ status: "error", message: "Erro ao buscar apoiador. Tente novamente." });
     }
   };
 
@@ -141,9 +88,6 @@ export default function CoordinatorVerifyLeader() {
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/coordenador/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <img src={logo} alt="Logo" className="h-8 w-auto" />
           <div className="flex-1">
             <h1 className="text-lg font-semibold">Verificação de Apoiador</h1>
@@ -153,7 +97,7 @@ export default function CoordinatorVerifyLeader() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Formulário de busca */}
+        {/* Search form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -198,7 +142,7 @@ export default function CoordinatorVerifyLeader() {
           </CardContent>
         </Card>
 
-        {/* Resultado: Já verificado */}
+        {/* Already verified */}
         {state.status === "already_verified" && (
           <Card className="border-green-200 bg-green-50/50">
             <CardContent className="pt-6">
@@ -224,7 +168,7 @@ export default function CoordinatorVerifyLeader() {
           </Card>
         )}
 
-        {/* Resultado: Não encontrado */}
+        {/* Not found */}
         {state.status === "not_found" && (
           <Card className="border-amber-200 bg-amber-50/50">
             <CardContent className="pt-6">
@@ -246,7 +190,7 @@ export default function CoordinatorVerifyLeader() {
           </Card>
         )}
 
-        {/* Resultado: Erro */}
+        {/* Error */}
         {state.status === "error" && (
           <Card className="border-red-200 bg-red-50/50">
             <CardContent className="pt-6">
@@ -266,7 +210,7 @@ export default function CoordinatorVerifyLeader() {
           </Card>
         )}
 
-        {/* Resultado: Pronto para verificar */}
+        {/* Ready to verify */}
         {state.status === "ready" && (
           <Card className="border-green-200 bg-green-50/50">
             <CardContent className="pt-6">

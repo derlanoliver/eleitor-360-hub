@@ -141,7 +141,7 @@ const App = () => (
             <Route path="/coordenador/login" element={<CoordinatorAuthProvider><CoordinatorLogin /></CoordinatorAuthProvider>} />
             <Route path="/coordenador/dashboard" element={<CoordinatorAuthProvider><CoordinatorDashboard /></CoordinatorAuthProvider>} />
             <Route path="/coordenador/eventos" element={<CoordinatorAuthProvider><CoordinatorEvents /></CoordinatorAuthProvider>} />
-            <Route path="/coordenador/verificar" element={<CoordinatorAuthProvider><CoordinatorVerifyLeader /></CoordinatorAuthProvider>} />
+            <Route path="/coordenador/verificar" element={<CoordinatorVerifyLeader />} />
             
             {/* Public check-in route with PIN protection */}
             <Route path="/checkin/:qrCode" element={<EventCheckin />} />
