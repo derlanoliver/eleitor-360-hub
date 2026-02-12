@@ -8,6 +8,43 @@ const corsHeaders = {
 
 const VERIFY_TOKEN = "LOVABLE_META_WEBHOOK_2024";
 
+function normalizePhone(phone: string): string {
+  let clean = phone.replace(/\D/g, "");
+  if (!clean.startsWith("55") && clean.length <= 11) {
+    clean = "55" + clean;
+  }
+  return "+" + clean;
+}
+
+async function sendMetaCloudMessage(supabase: any, phone: string, message: string) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/send-whatsapp`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          phone: phone.replace(/^\+/, ''),
+          message: message,
+          providerOverride: 'meta_cloud',
+        }),
+      }
+    );
+    const result = await response.json();
+    console.log('[Meta Webhook] sendMetaCloudMessage result:', result);
+    return result;
+  } catch (error) {
+    console.error('[Meta Webhook] sendMetaCloudMessage error:', error);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   const url = new URL(req.url);
   
@@ -17,7 +54,6 @@ serve(async (req) => {
   }
 
   // ===== WEBHOOK VERIFICATION (GET) =====
-  // Meta sends a GET request to verify the webhook URL
   if (req.method === 'GET') {
     const mode = url.searchParams.get('hub.mode');
     const token = url.searchParams.get('hub.verify_token');
@@ -43,7 +79,6 @@ serve(async (req) => {
       const body = await req.json();
       console.log('[Meta Webhook] Received payload:', JSON.stringify(body, null, 2));
 
-      // Validate it's a WhatsApp message
       if (body.object !== 'whatsapp_business_account') {
         console.log('[Meta Webhook] Not a WhatsApp event, ignoring');
         return new Response('OK', { status: 200, headers: corsHeaders });
@@ -53,7 +88,6 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Process each entry
       for (const entry of body.entry || []) {
         for (const change of entry.changes || []) {
           if (change.field !== 'messages') continue;
@@ -63,7 +97,7 @@ serve(async (req) => {
           // Process incoming messages
           if (value.messages) {
             for (const message of value.messages) {
-              const from = message.from; // Phone number in E.164 format
+              const from = message.from;
               const messageId = message.id;
               const timestamp = message.timestamp;
               const messageType = message.type;
@@ -78,8 +112,11 @@ serve(async (req) => {
                               message.interactive?.list_reply?.title || '';
               }
 
+              const normalizedPhone = normalizePhone(from);
+
               console.log('[Meta Webhook] Processing message:', {
                 from,
+                normalizedPhone,
                 messageId,
                 messageType,
                 messageText: messageText.substring(0, 100),
@@ -92,7 +129,6 @@ serve(async (req) => {
                 direction: 'inbound',
                 status: 'received',
                 provider: 'meta_cloud',
-                external_id: messageId,
                 metadata: {
                   type: messageType,
                   timestamp,
@@ -100,7 +136,179 @@ serve(async (req) => {
                 },
               });
 
-              // Check for verification keywords
+              // Try to find associated contact by phone
+              const { data: contact } = await supabase
+                .from('office_contacts')
+                .select('id, nome, is_verified, verification_code, is_active, telefone_norm')
+                .eq('telefone_norm', normalizedPhone)
+                .limit(1)
+                .single();
+
+              // Clean message for keyword matching
+              const cleanMessage = messageText
+                .replace(/[*_~`]/g, '')
+                .trim()
+                .toUpperCase();
+
+              // === OPT-OUT COMMANDS ===
+              const optOutCommands = ["SAIR", "PARAR", "CANCELAR", "DESCADASTRAR", "STOP", "UNSUBSCRIBE"];
+              if (optOutCommands.includes(cleanMessage)) {
+                console.log(`[Meta Webhook] Opt-out command detected: ${cleanMessage}`);
+                if (contact && contact.is_active !== false) {
+                  await supabase
+                    .from('office_contacts')
+                    .update({
+                      is_active: false,
+                      opted_out_at: new Date().toISOString(),
+                      opt_out_reason: `Solicitação via WhatsApp: ${cleanMessage}`,
+                      opt_out_channel: 'whatsapp',
+                    })
+                    .eq('id', contact.id);
+                  
+                  await sendMetaCloudMessage(supabase, normalizedPhone, 
+                    `Você foi removido(a) da nossa lista. Para voltar a receber mensagens, envie VOLTAR.`
+                  );
+                }
+                continue;
+              }
+
+              // === RE-SUBSCRIBE COMMAND ===
+              if (cleanMessage === "VOLTAR" && contact && contact.is_active === false) {
+                await supabase
+                  .from('office_contacts')
+                  .update({
+                    is_active: true,
+                    opted_out_at: null,
+                    opt_out_reason: null,
+                    opt_out_channel: null,
+                  })
+                  .eq('id', contact.id);
+                
+                await sendMetaCloudMessage(supabase, normalizedPhone,
+                  `Você foi adicionado(a) novamente à nossa lista. Bem-vindo(a) de volta!`
+                );
+                continue;
+              }
+
+              // === CONFIRMAR [TOKEN] FLOW ===
+              const confirmMatch = cleanMessage.match(/^CONFIRMAR\s+([A-Z0-9]{5,6})$/);
+              if (confirmMatch) {
+                const token = confirmMatch[1];
+                console.log(`[Meta Webhook] Detected CONFIRMAR command with token: ${token}`);
+
+                const { data: verifyResult, error: verifyError } = await supabase.rpc("process_verification_keyword", {
+                  _token: token,
+                  _phone: normalizedPhone,
+                });
+
+                console.log(`[Meta Webhook] process_verification_keyword result:`, verifyResult, verifyError);
+
+                if (verifyResult?.[0]?.success) {
+                  const consentMessage = `Olá ${verifyResult[0].contact_name}! 👋\n\nPara confirmar seu cadastro como apoiador(a), responda *SIM* para esta mensagem.`;
+                  console.log(`[Meta Webhook] Sending consent question to ${normalizedPhone}`);
+
+                  try {
+                    await sendMetaCloudMessage(supabase, normalizedPhone, consentMessage);
+                    
+                    await supabase
+                      .from('contact_verifications')
+                      .update({ consent_question_sent_at: new Date().toISOString() })
+                      .eq('token', token);
+                  } catch (sendError) {
+                    console.error(`[Meta Webhook] Failed to send consent message:`, sendError);
+                  }
+                } else {
+                  let errorMessage: string;
+                  if (verifyResult?.[0]?.error_code === 'already_verified') {
+                    errorMessage = `Seu cadastro já foi verificado anteriormente. Se precisar de ajuda, entre em contato conosco.`;
+                  } else if (verifyResult?.[0]?.error_code === 'token_not_found') {
+                    errorMessage = `Código não encontrado. Por favor, verifique se você já completou seu cadastro e se digitou o código corretamente.`;
+                  } else {
+                    errorMessage = `Não encontramos um cadastro pendente com esse código. Verifique se digitou corretamente ou entre em contato conosco.`;
+                  }
+                  await sendMetaCloudMessage(supabase, normalizedPhone, errorMessage);
+                }
+                continue;
+              }
+
+              // === SIM (CONSENT CONFIRMATION) ===
+              if (cleanMessage === "SIM") {
+                console.log(`[Meta Webhook] Detected SIM consent response from ${normalizedPhone}`);
+
+                const { data: consentResult, error: consentError } = await supabase.rpc("process_verification_consent", {
+                  _phone: normalizedPhone,
+                });
+
+                console.log(`[Meta Webhook] process_verification_consent result:`, consentResult, consentError);
+
+                if (consentResult?.[0]?.success) {
+                  const confirmMessage = `✅ Cadastro confirmado com sucesso!\n\nVocê receberá seu link de indicação em instantes.`;
+                  await sendMetaCloudMessage(supabase, normalizedPhone, confirmMessage);
+
+                  // Call edge function to send affiliate links
+                  try {
+                    console.log(`[Meta Webhook] Calling send-leader-affiliate-links for ${consentResult[0].contact_type} ${consentResult[0].contact_id}`);
+
+                    const response = await fetch(
+                      `${supabaseUrl}/functions/v1/send-leader-affiliate-links`,
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${supabaseKey}`,
+                        },
+                        body: JSON.stringify({
+                          leader_id: consentResult[0].contact_id,
+                        }),
+                      }
+                    );
+
+                    const result = await response.json();
+                    console.log(`[Meta Webhook] send-leader-affiliate-links result:`, result);
+                  } catch (affiliateError) {
+                    console.error(`[Meta Webhook] Error sending affiliate links:`, affiliateError);
+                  }
+                  continue;
+                }
+                // If no pending consent found, fall through to chatbot
+              }
+
+              // === LEGACY CODE DETECTION (5-6 char codes) ===
+              const codeMatch = cleanMessage.match(/^[A-Z0-9]{5,6}$/);
+              if (codeMatch && cleanMessage !== "SIM") {
+                const code = codeMatch[0];
+                console.log(`[Meta Webhook] Detected potential code: ${code}. Guiding to CONFIRMAR flow.`);
+
+                // Check if it matches a contact or leader verification code
+                const { data: contactToVerify } = await supabase
+                  .from('office_contacts')
+                  .select('id')
+                  .eq('verification_code', code)
+                  .limit(1)
+                  .single();
+
+                const { data: leaderToVerify } = !contactToVerify ? await supabase
+                  .from('lideres')
+                  .select('id, is_verified')
+                  .eq('verification_code', code)
+                  .limit(1)
+                  .single() : { data: null };
+
+                if (contactToVerify || leaderToVerify) {
+                  if (leaderToVerify?.is_verified) {
+                    await sendMetaCloudMessage(supabase, normalizedPhone,
+                      `Seu cadastro já foi verificado! Se você precisa do seu link de indicação, entre em contato com nossa equipe.`
+                    );
+                  } else {
+                    await sendMetaCloudMessage(supabase, normalizedPhone,
+                      `Para confirmar seu cadastro, use o formato: CONFIRMAR [código]\n\nExemplo: CONFIRMAR ${code}`
+                    );
+                  }
+                  continue;
+                }
+              }
+
+              // === CHECK VERIFICATION SETTINGS (simple keyword flow) ===
               const { data: settings } = await supabase
                 .from('integrations_settings')
                 .select('verification_wa_keyword, verification_wa_enabled')
@@ -110,61 +318,61 @@ serve(async (req) => {
 
               if (settings?.verification_wa_enabled) {
                 const keyword = settings.verification_wa_keyword?.toUpperCase() || 'CONFIRMAR';
-                const normalizedMessage = messageText.toUpperCase().trim();
-
-                if (normalizedMessage === keyword || normalizedMessage.startsWith(keyword)) {
-                  console.log('[Meta Webhook] Verification keyword detected from:', from);
-                  handledAsVerification = true;
-                  
-                  // Find pending verification for this phone
-                  const normalizedPhone = from.replace(/\D/g, '');
-                  const { data: verification } = await supabase
-                    .from('contact_verifications')
-                    .select('*')
-                    .eq('phone', normalizedPhone)
-                    .eq('status', 'pending')
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
-
-                  if (verification) {
-                    // Update verification status
-                    await supabase
+                
+                if (cleanMessage === keyword || cleanMessage.startsWith(keyword + ' ')) {
+                  // Already handled by CONFIRMAR [TOKEN] flow above if it had a token
+                  // This catches bare "CONFIRMAR" without token
+                  if (cleanMessage === keyword) {
+                    console.log('[Meta Webhook] Bare keyword detected without token from:', from);
+                    handledAsVerification = true;
+                    
+                    // Find pending verification for this phone
+                    const { data: verification } = await supabase
                       .from('contact_verifications')
-                      .update({
-                        status: 'verified',
-                        verified_at: new Date().toISOString(),
-                        keyword_received_at: new Date().toISOString(),
-                        consent_channel: 'whatsapp',
-                        consent_received_at: new Date().toISOString(),
-                      })
-                      .eq('id', verification.id);
+                      .select('*')
+                      .eq('phone', normalizedPhone)
+                      .eq('status', 'pending')
+                      .order('created_at', { ascending: false })
+                      .limit(1)
+                      .single();
 
-                    // Update the contact/leader as verified
-                    if (verification.contact_type === 'contact') {
+                    if (verification) {
                       await supabase
-                        .from('office_contacts')
+                        .from('contact_verifications')
                         .update({
-                          is_verified: true,
+                          status: 'verified',
                           verified_at: new Date().toISOString(),
+                          keyword_received_at: new Date().toISOString(),
+                          consent_channel: 'whatsapp',
+                          consent_received_at: new Date().toISOString(),
                         })
-                        .eq('id', verification.contact_id);
-                    } else if (verification.contact_type === 'leader') {
-                      await supabase
-                        .from('lideres')
-                        .update({
-                          is_verified: true,
-                          verified_at: new Date().toISOString(),
-                        })
-                        .eq('id', verification.contact_id);
+                        .eq('id', verification.id);
+
+                      if (verification.contact_type === 'contact') {
+                        await supabase
+                          .from('office_contacts')
+                          .update({
+                            is_verified: true,
+                            verified_at: new Date().toISOString(),
+                          })
+                          .eq('id', verification.contact_id);
+                      } else if (verification.contact_type === 'leader') {
+                        await supabase
+                          .from('lideres')
+                          .update({
+                            is_verified: true,
+                            verified_at: new Date().toISOString(),
+                          })
+                          .eq('id', verification.contact_id);
+                      }
+
+                      console.log('[Meta Webhook] ✅ Verification completed for:', from);
                     }
-
-                    console.log('[Meta Webhook] ✅ Verification completed for:', from);
                   }
                 }
               }
 
-              // If not a verification message, try the chatbot
+              // === CHATBOT FALLBACK ===
               if (!handledAsVerification && messageText.trim()) {
                 console.log('[Meta Webhook] Forwarding to chatbot for:', from);
                 try {
@@ -180,7 +388,7 @@ serve(async (req) => {
                         phone: from,
                         message: messageText,
                         messageId: messageId,
-                        provider: 'meta_cloud', // Signal to use Meta Cloud API for response
+                        provider: 'meta_cloud',
                       }),
                     }
                   );
@@ -197,22 +405,35 @@ serve(async (req) => {
           if (value.statuses) {
             for (const status of value.statuses) {
               const messageId = status.id;
-              const statusValue = status.status; // sent, delivered, read, failed
+              const statusValue = status.status;
               const recipientId = status.recipient_id;
 
               console.log('[Meta Webhook] Status update:', { messageId, status: statusValue, recipientId });
 
-              // Update message status in database
-              const { error } = await supabase
+              // Try updating by metadata external_id (stored as JSON)
+              const { data: msgs } = await supabase
                 .from('whatsapp_messages')
-                .update({
-                  status: statusValue,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('external_id', messageId);
+                .select('id, metadata')
+                .eq('direction', 'outbound')
+                .eq('phone', recipientId)
+                .order('created_at', { ascending: false })
+                .limit(20);
 
-              if (error) {
-                console.error('[Meta Webhook] Error updating status:', error);
+              if (msgs) {
+                for (const msg of msgs) {
+                  const meta = msg.metadata as any;
+                  if (meta?.wamid === messageId || meta?.messageId === messageId) {
+                    await supabase
+                      .from('whatsapp_messages')
+                      .update({
+                        status: statusValue,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq('id', msg.id);
+                    console.log(`[Meta Webhook] Updated status for message ${msg.id} to ${statusValue}`);
+                    break;
+                  }
+                }
               }
             }
           }
