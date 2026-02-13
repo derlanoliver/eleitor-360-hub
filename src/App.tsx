@@ -82,6 +82,7 @@ import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard";
 import CoordinatorEvents from "./pages/coordinator/CoordinatorEvents";
 import CoordinatorVerifyLeader from "./pages/coordinator/CoordinatorVerifyLeader";
 import { CoordinatorAuthProvider } from "./contexts/CoordinatorAuthContext";
+import { DynamicMetaTags } from "./components/DynamicMetaTags";
 
 const queryClient = new QueryClient();
 
@@ -105,6 +106,7 @@ const App = () => (
       <TutorialProvider>
         <Toaster />
         <Sonner />
+        <DynamicMetaTags />
         <TrackingProvider>
           <BrowserRouter
           future={{
