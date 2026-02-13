@@ -28,6 +28,7 @@ interface MoveLeaderDialogProps {
   currentLevel: number;
   currentParentId: string | null;
   subordinatesCount: number;
+  maxSubtreeDepth?: number;
 }
 
 export function MoveLeaderDialog({
@@ -38,6 +39,7 @@ export function MoveLeaderDialog({
   currentLevel,
   currentParentId,
   subordinatesCount,
+  maxSubtreeDepth = 0,
 }: MoveLeaderDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -74,9 +76,9 @@ export function MoveLeaderDialog({
   // Check if move would exceed depth limit
   const wouldExceedLimit = useMemo(() => {
     if (!newLevel) return false;
-    const subtreeDepth = 6 - currentLevel;
-    return (newLevel + subtreeDepth) > 6;
-  }, [newLevel, currentLevel]);
+    // maxSubtreeDepth = how many levels below the leader being moved (0 if no subordinates)
+    return (newLevel + maxSubtreeDepth) > 6;
+  }, [newLevel, maxSubtreeDepth]);
 
   const handleConfirm = async () => {
     if (!selectedParentId) return;
@@ -164,7 +166,7 @@ export function MoveLeaderDialog({
               {possibleParents.map((leader) => {
                 const level = leader.hierarchy_level ?? (leader.is_coordinator ? 1 : 2);
                 const isCurrentParent = leader.id === currentParentId;
-                const wouldExceed = (level + 1 + (6 - currentLevel)) > 6;
+                const wouldExceed = (level + 1 + maxSubtreeDepth) > 6;
 
                 return (
                     <div
