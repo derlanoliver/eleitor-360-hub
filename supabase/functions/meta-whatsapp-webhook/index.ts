@@ -259,7 +259,9 @@ serve(async (req) => {
                 } else {
                   let errorMessage: string;
                   if (verifyResult?.[0]?.error_code === 'already_verified') {
-                    errorMessage = `Seu cadastro já foi verificado anteriormente. Se precisar de ajuda, entre em contato conosco.`;
+                    errorMessage = `Seu cadastro já foi verificado anteriormente. ✅\n\nSe precisar de ajuda, entre em contato conosco.`;
+                  } else if (verifyResult?.[0]?.error_code === 'phone_mismatch') {
+                    errorMessage = `⚠️ Esse código de verificação não pertence a este número de telefone.\n\nO código deve ser enviado pelo número que foi cadastrado. Se precisar de ajuda, entre em contato conosco.`;
                   } else if (verifyResult?.[0]?.error_code === 'token_not_found') {
                     errorMessage = `Código não encontrado. Por favor, verifique se você já completou seu cadastro e se digitou o código corretamente.`;
                   } else {
