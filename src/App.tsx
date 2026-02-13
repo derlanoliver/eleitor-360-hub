@@ -107,13 +107,13 @@ const App = () => (
         <Toaster />
         <Sonner />
         <DynamicMetaTags />
-        <TrackingProvider>
           <BrowserRouter
           future={{
             v7_startTransition: true,
             v7_relativeSplatPath: true,
           }}
         >
+          <TrackingProvider>
           <AuthProvider>
           <DemoModeProvider>
           <Routes>
@@ -471,8 +471,8 @@ const App = () => (
           </Routes>
         </DemoModeProvider>
         </AuthProvider>
-          </BrowserRouter>
         </TrackingProvider>
+          </BrowserRouter>
       </TutorialProvider>
     </TooltipProvider>
   </QueryClientProvider>

@@ -12,25 +12,40 @@ export function TrackingProvider({ children }: TrackingProviderProps) {
   useEffect(() => {
     if (!settings) return;
 
-    // Initialize Facebook Pixel
-    if (settings.facebook_pixel_id) {
-      // Check if custom pixel code is provided
-      if (settings.facebook_pixel_code) {
-        try {
-          // Execute custom pixel code
+    // Initialize custom pixel code (takes priority)
+    if (settings.facebook_pixel_code) {
+      try {
+        // Parse and inject script tags and inline code
+        const container = document.createElement('div');
+        container.innerHTML = settings.facebook_pixel_code;
+        
+        // Handle <script> tags with src attributes
+        const scripts = container.querySelectorAll('script');
+        scripts.forEach((script) => {
+          const newScript = document.createElement('script');
+          if (script.src) {
+            newScript.src = script.src;
+            newScript.async = true;
+          } else {
+            newScript.innerHTML = script.innerHTML;
+          }
+          document.head.appendChild(newScript);
+        });
+
+        // If no script tags found, try injecting as raw script
+        if (scripts.length === 0) {
           const scriptElement = document.createElement('script');
           scriptElement.innerHTML = settings.facebook_pixel_code;
           document.head.appendChild(scriptElement);
-          console.log('Custom Facebook Pixel code loaded');
-        } catch (error) {
-          console.error('Error loading custom Facebook Pixel code:', error);
-          // Fallback to standard initialization
-          initFacebookPixel(settings.facebook_pixel_id);
         }
-      } else {
-        // Use standard initialization
-        initFacebookPixel(settings.facebook_pixel_id);
+
+        console.log('Custom Facebook Pixel code loaded');
+      } catch (error) {
+        console.error('Error loading custom Facebook Pixel code:', error);
       }
+    } else if (settings.facebook_pixel_id) {
+      // Use standard initialization only if no custom code
+      initFacebookPixel(settings.facebook_pixel_id);
     }
 
     // Initialize Google Tag Manager
