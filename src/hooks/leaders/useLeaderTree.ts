@@ -413,3 +413,9 @@ export function countSubordinates(node: LeaderTreeNode): number {
   if (!node.children || node.children.length === 0) return 0;
   return node.children.reduce((acc, child) => acc + 1 + countSubordinates(child), 0);
 }
+
+// Calculate max depth of subordinate subtree (0 = no children)
+export function maxSubtreeDepth(node: LeaderTreeNode): number {
+  if (!node.children || node.children.length === 0) return 0;
+  return 1 + Math.max(...node.children.map(maxSubtreeDepth));
+}

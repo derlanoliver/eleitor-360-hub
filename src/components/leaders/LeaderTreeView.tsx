@@ -9,7 +9,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LeaderTreeNode, useRemoveFromTree, usePromoteToCoordinatorWithSubordinates, countSubordinates } from "@/hooks/leaders/useLeaderTree";
+import { LeaderTreeNode, useRemoveFromTree, usePromoteToCoordinatorWithSubordinates, countSubordinates, maxSubtreeDepth } from "@/hooks/leaders/useLeaderTree";
 import { AddSubordinateDialog } from "./AddSubordinateDialog";
 import { MoveLeaderDialog } from "./MoveLeaderDialog";
 import {
@@ -292,6 +292,7 @@ const TreeNode = memo(function TreeNode({
           currentLevel={level}
           currentParentId={node.parent_leader_id}
           subordinatesCount={countSubordinates(node)}
+          maxSubtreeDepth={maxSubtreeDepth(node)}
         />
       )}
 
