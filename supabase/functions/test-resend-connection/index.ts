@@ -33,7 +33,24 @@ serve(async (req) => {
       },
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error('Resend returned non-JSON response:', responseText.substring(0, 200));
+      // If we get HTML back but status is 403, the key likely works but is restricted
+      if (response.status === 403) {
+        return new Response(
+          JSON.stringify({ success: true, connected: true, message: 'API Key válida (restrita para envio de emails)' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: false, error: `Resposta inesperada da API (HTTP ${response.status})`, connected: false }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!response.ok) {
       // Check if it's a permission error (key is valid but restricted)
