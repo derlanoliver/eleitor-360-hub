@@ -244,6 +244,13 @@ export default function LeadCaptureLanding() {
       // Send WhatsApp welcome message (captacao-boas-vindas)
       if (telefone_norm && telefone_norm !== '+5500000000000') {
         try {
+          // Build download URL for WhatsApp message
+          const waSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          let waDownloadUrl = `${waSupabaseUrl}/functions/v1/download-material?funnel_id=${funnel.id}`;
+          if (contactData?.id) {
+            waDownloadUrl += `&contact_id=${contactData.id}`;
+          }
+
           await supabase.functions.invoke('send-whatsapp', {
             body: {
               phone: telefone_norm,
@@ -251,6 +258,7 @@ export default function LeadCaptureLanding() {
               variables: {
                 nome: data.nome,
                 material_nome: funnel.lead_magnet_nome,
+                download_url: waDownloadUrl,
               },
               contactId: contactData?.id,
             },
@@ -264,6 +272,13 @@ export default function LeadCaptureLanding() {
       // Send Email welcome message (captacao-boas-vindas)
       if (data.email) {
         try {
+          // Build download URL for the email
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          let downloadUrl = `${supabaseUrl}/functions/v1/download-material?funnel_id=${funnel.id}`;
+          if (contactData?.id) {
+            downloadUrl += `&contact_id=${contactData.id}`;
+          }
+
           await supabase.functions.invoke('send-email', {
             body: {
               templateSlug: 'captacao-boas-vindas',
@@ -272,6 +287,7 @@ export default function LeadCaptureLanding() {
               variables: {
                 nome: data.nome,
                 material_nome: funnel.lead_magnet_nome,
+                download_url: downloadUrl,
               },
               contactId: contactData?.id,
             },
