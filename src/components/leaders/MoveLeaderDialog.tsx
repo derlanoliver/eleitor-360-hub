@@ -117,7 +117,7 @@ export function MoveLeaderDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl w-[95vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5" />
@@ -167,9 +167,9 @@ export function MoveLeaderDialog({
                 const wouldExceed = (level + 1 + (6 - currentLevel)) > 6;
 
                 return (
-                  <div
+                    <div
                     key={leader.id}
-                    className={`flex items-center space-x-3 p-3 rounded-lg border ${
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${
                       isCurrentParent || wouldExceed ? "opacity-50" : "hover:bg-accent"
                     } transition-colors`}
                   >
@@ -177,35 +177,35 @@ export function MoveLeaderDialog({
                       value={leader.id}
                       id={leader.id}
                       disabled={isCurrentParent || wouldExceed}
+                      className="shrink-0"
                     />
                     <Label
                       htmlFor={leader.id}
-                      className="flex-1 flex items-center gap-2 cursor-pointer"
+                      className="flex-1 flex items-center gap-2 cursor-pointer min-w-0"
                     >
-                      {leader.is_coordinator ? (
-                        <Crown className="h-4 w-4 text-amber-600" />
-                      ) : (
-                        <User className="h-4 w-4 text-blue-600" />
-                      )}
+                      <div className="shrink-0">
+                        {leader.is_coordinator ? (
+                          <Crown className="h-4 w-4 text-amber-600" />
+                        ) : (
+                          <User className="h-4 w-4 text-blue-600" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <span className="block truncate">{leader.nome_completo}</span>
                         {leader.cidade_nome && (
                           <span className="text-xs text-muted-foreground">{leader.cidade_nome}</span>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {getLevelLabel(level)}
-                      </Badge>
-                      {isCurrentParent && (
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          Atual
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className="text-xs">
+                          {getLevelLabel(level)}
                         </Badge>
-                      )}
-                      {wouldExceed && !isCurrentParent && (
-                        <Badge variant="destructive" className="text-xs shrink-0">
-                          Excede limite
-                        </Badge>
-                      )}
+                        {isCurrentParent && (
+                          <Badge variant="secondary" className="text-xs">
+                            Atual
+                          </Badge>
+                        )}
+                      </div>
                     </Label>
                   </div>
                 );
