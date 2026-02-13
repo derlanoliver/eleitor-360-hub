@@ -9,17 +9,45 @@ interface TrackingProviderProps {
 export function TrackingProvider({ children }: TrackingProviderProps) {
   const { data: settings } = useAppSettings();
 
+  // Suppress unhandled errors from external tracking scripts (e.g. AdPilot CORS 403)
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      if (
+        event.message?.includes('Origin not allowed') ||
+        event.filename?.includes('capi-ingest') ||
+        event.filename?.includes('capi-pixel-loader')
+      ) {
+        event.preventDefault();
+        console.warn('[Tracking] External tracking script error suppressed:', event.message);
+        return true;
+      }
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = String(event.reason || '');
+      if (reason.includes('Origin not allowed') || reason.includes('capi-ingest')) {
+        event.preventDefault();
+        console.warn('[Tracking] External tracking promise rejection suppressed:', reason);
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   useEffect(() => {
     if (!settings) return;
 
     // Initialize custom pixel code (takes priority)
     if (settings.facebook_pixel_code) {
       try {
-        // Parse and inject script tags and inline code
         const container = document.createElement('div');
         container.innerHTML = settings.facebook_pixel_code;
         
-        // Handle <script> tags with src attributes
         const scripts = container.querySelectorAll('script');
         scripts.forEach((script) => {
           const newScript = document.createElement('script');
@@ -32,7 +60,6 @@ export function TrackingProvider({ children }: TrackingProviderProps) {
           document.head.appendChild(newScript);
         });
 
-        // If no script tags found, try injecting as raw script
         if (scripts.length === 0) {
           const scriptElement = document.createElement('script');
           scriptElement.innerHTML = settings.facebook_pixel_code;
@@ -44,11 +71,9 @@ export function TrackingProvider({ children }: TrackingProviderProps) {
         console.error('Error loading custom Facebook Pixel code:', error);
       }
     } else if (settings.facebook_pixel_id) {
-      // Use standard initialization only if no custom code
       initFacebookPixel(settings.facebook_pixel_id);
     }
 
-    // Initialize Google Tag Manager
     if (settings.gtm_id) {
       initGTM(settings.gtm_id);
     }
