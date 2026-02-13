@@ -167,6 +167,13 @@ serve(async (req) => {
         finalHtml = finalHtml.replace(regex, value || '');
         finalSubject = finalSubject.replace(regex, value || '');
       });
+
+      // Clean up any remaining unreplaced variables (safety net)
+      finalHtml = finalHtml.replace(/\{\{[a-zA-Z_]+\}\}/g, (match) => {
+        console.warn(`[send-email] Unreplaced variable found: ${match} in template ${templateSlug || templateId}`);
+        return '';
+      });
+      finalSubject = finalSubject.replace(/\{\{[a-zA-Z_]+\}\}/g, '');
     }
 
     // Generate unsubscribe link if contact exists
