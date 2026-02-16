@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,16 +24,27 @@ import { SurveyResultsCharts } from "@/components/surveys/SurveyResultsCharts";
 import { SurveyAIAnalysisPanel } from "@/components/surveys/SurveyAIAnalysisPanel";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useDemoMode } from "@/hooks/useDemoMode";
+import { DEMO_SURVEYS } from "@/data/surveys/demoSurveys";
+import { DEMO_SURVEY_QUESTIONS, getDemoSurveyResponses } from "@/data/surveys/demoSurveyResults";
 
 export default function SurveyResults() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isDemoMode } = useDemoMode();
   
-  const { data: survey, isLoading: loadingSurvey } = useSurvey(id);
-  const { data: questions, isLoading: loadingQuestions } = useSurveyQuestions(id);
-  const { data: responses, isLoading: loadingResponses, refetch } = useSurveyResponses(id);
+  // Use "demo-" prefix as definitive check to avoid race condition with async isDemoMode
+  const isDemo = !!id?.startsWith("demo-");
 
-  const isLoading = loadingSurvey || loadingQuestions || loadingResponses;
+  const { data: dbSurvey, isLoading: loadingSurvey } = useSurvey(isDemo ? undefined : id);
+  const { data: dbQuestions, isLoading: loadingQuestions } = useSurveyQuestions(isDemo ? undefined : id);
+  const { data: dbResponses, isLoading: loadingResponses, refetch } = useSurveyResponses(isDemo ? undefined : id);
+
+  const survey = isDemo ? (DEMO_SURVEYS.find(s => s.id === id) || null) : dbSurvey;
+  const questions = isDemo ? (DEMO_SURVEY_QUESTIONS[id!] || []) : dbQuestions;
+  const responses = useMemo(() => isDemo ? getDemoSurveyResponses(id!) : dbResponses, [isDemo, id, dbResponses]);
+
+  const isLoading = !isDemo && (loadingSurvey || loadingQuestions || loadingResponses);
 
   if (isLoading) {
     return (
@@ -89,7 +100,7 @@ export default function SurveyResults() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Respostas</p>
-              <p className="text-2xl font-bold">{survey.total_respostas}</p>
+              <p className="text-2xl font-bold">{isDemo ? (responses?.length || 0) : survey.total_respostas}</p>
             </div>
           </CardContent>
         </Card>
