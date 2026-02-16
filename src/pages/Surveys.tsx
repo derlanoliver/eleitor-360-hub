@@ -86,7 +86,7 @@ export default function Surveys() {
   const { restartTutorial } = useTutorial("surveys", surveysTutorialSteps);
   const { isDemoMode } = useDemoMask();
 
-  const surveys = isDemoMode ? DEMO_SURVEYS : dbSurveys;
+  const surveys = isDemoMode ? [...DEMO_SURVEYS, ...(dbSurveys || [])] : dbSurveys;
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
