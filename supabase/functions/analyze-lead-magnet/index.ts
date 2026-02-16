@@ -24,13 +24,20 @@ serve(async (req) => {
       throw new Error("No file provided");
     }
 
+    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB limit for edge function memory
     console.log(`Analyzing file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+
+    if (file.size > MAX_FILE_SIZE) {
+      console.log(`File too large (${Math.round(file.size / 1024 / 1024)}MB), reading only first ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    }
 
     let extractedText = "";
     const fileType = file.name.toLowerCase();
 
-    // Read file content
-    const arrayBuffer = await file.arrayBuffer();
+    // Read file content - limit to MAX_FILE_SIZE to avoid memory issues
+    const arrayBuffer = file.size > MAX_FILE_SIZE 
+      ? await file.slice(0, MAX_FILE_SIZE).arrayBuffer()
+      : await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
     // Extract text based on file type
