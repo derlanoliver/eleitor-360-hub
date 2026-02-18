@@ -1764,6 +1764,363 @@ export type Database = {
         }
         Relationships: []
       }
+      po_collection_configs: {
+        Row: {
+          config: Json | null
+          created_at: string
+          entity_id: string
+          id: string
+          is_active: boolean | null
+          last_error: string | null
+          last_run_at: string | null
+          next_run_at: string | null
+          provider: string
+          run_interval_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          provider: string
+          run_interval_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          provider?: string
+          run_interval_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_collection_configs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_daily_snapshots: {
+        Row: {
+          avg_sentiment_score: number | null
+          created_at: string
+          engagement_total: Json | null
+          entity_id: string
+          id: string
+          negative_count: number | null
+          neutral_count: number | null
+          positive_count: number | null
+          snapshot_date: string
+          source_breakdown: Json | null
+          top_emotions: string[] | null
+          top_topics: string[] | null
+          total_mentions: number | null
+        }
+        Insert: {
+          avg_sentiment_score?: number | null
+          created_at?: string
+          engagement_total?: Json | null
+          entity_id: string
+          id?: string
+          negative_count?: number | null
+          neutral_count?: number | null
+          positive_count?: number | null
+          snapshot_date: string
+          source_breakdown?: Json | null
+          top_emotions?: string[] | null
+          top_topics?: string[] | null
+          total_mentions?: number | null
+        }
+        Update: {
+          avg_sentiment_score?: number | null
+          created_at?: string
+          engagement_total?: Json | null
+          entity_id?: string
+          id?: string
+          negative_count?: number | null
+          neutral_count?: number | null
+          positive_count?: number | null
+          snapshot_date?: string
+          source_breakdown?: Json | null
+          top_emotions?: string[] | null
+          top_topics?: string[] | null
+          total_mentions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_daily_snapshots_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_events: {
+        Row: {
+          ai_analysis: string | null
+          created_at: string
+          data_evento: string
+          descricao: string | null
+          entity_id: string
+          id: string
+          impacto_score: number | null
+          is_active: boolean | null
+          sentiment_negativo_pct: number | null
+          sentiment_neutro_pct: number | null
+          sentiment_positivo_pct: number | null
+          tags: string[] | null
+          tipo: string
+          titulo: string
+          total_mentions: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          created_at?: string
+          data_evento: string
+          descricao?: string | null
+          entity_id: string
+          id?: string
+          impacto_score?: number | null
+          is_active?: boolean | null
+          sentiment_negativo_pct?: number | null
+          sentiment_neutro_pct?: number | null
+          sentiment_positivo_pct?: number | null
+          tags?: string[] | null
+          tipo?: string
+          titulo: string
+          total_mentions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          created_at?: string
+          data_evento?: string
+          descricao?: string | null
+          entity_id?: string
+          id?: string
+          impacto_score?: number | null
+          is_active?: boolean | null
+          sentiment_negativo_pct?: number | null
+          sentiment_neutro_pct?: number | null
+          sentiment_positivo_pct?: number | null
+          tags?: string[] | null
+          tipo?: string
+          titulo?: string
+          total_mentions?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_events_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_mentions: {
+        Row: {
+          author_handle: string | null
+          author_name: string | null
+          collected_at: string
+          content: string
+          created_at: string
+          engagement: Json | null
+          entity_id: string
+          hashtags: string[] | null
+          id: string
+          media_urls: string[] | null
+          published_at: string | null
+          raw_data: Json | null
+          source: string
+          source_url: string | null
+        }
+        Insert: {
+          author_handle?: string | null
+          author_name?: string | null
+          collected_at?: string
+          content: string
+          created_at?: string
+          engagement?: Json | null
+          entity_id: string
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          published_at?: string | null
+          raw_data?: Json | null
+          source: string
+          source_url?: string | null
+        }
+        Update: {
+          author_handle?: string | null
+          author_name?: string | null
+          collected_at?: string
+          content?: string
+          created_at?: string
+          engagement?: Json | null
+          entity_id?: string
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          published_at?: string | null
+          raw_data?: Json | null
+          source?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_mentions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_monitored_entities: {
+        Row: {
+          avatar_url: string | null
+          cargo: string | null
+          created_at: string
+          hashtags: string[] | null
+          id: string
+          is_active: boolean | null
+          is_principal: boolean | null
+          nome: string
+          palavras_chave: string[] | null
+          partido: string | null
+          redes_sociais: Json | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_principal?: boolean | null
+          nome: string
+          palavras_chave?: string[] | null
+          partido?: string | null
+          redes_sociais?: Json | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_principal?: boolean | null
+          nome?: string
+          palavras_chave?: string[] | null
+          partido?: string | null
+          redes_sociais?: Json | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      po_sentiment_analyses: {
+        Row: {
+          adversary_entity_id: string | null
+          ai_model: string | null
+          ai_summary: string | null
+          analyzed_at: string
+          category: string | null
+          confidence: number | null
+          created_at: string
+          emotions: string[] | null
+          entity_id: string
+          id: string
+          is_about_adversary: boolean | null
+          mention_id: string
+          sentiment: string
+          sentiment_score: number | null
+          subcategory: string | null
+          topics: string[] | null
+        }
+        Insert: {
+          adversary_entity_id?: string | null
+          ai_model?: string | null
+          ai_summary?: string | null
+          analyzed_at?: string
+          category?: string | null
+          confidence?: number | null
+          created_at?: string
+          emotions?: string[] | null
+          entity_id: string
+          id?: string
+          is_about_adversary?: boolean | null
+          mention_id: string
+          sentiment: string
+          sentiment_score?: number | null
+          subcategory?: string | null
+          topics?: string[] | null
+        }
+        Update: {
+          adversary_entity_id?: string | null
+          ai_model?: string | null
+          ai_summary?: string | null
+          analyzed_at?: string
+          category?: string | null
+          confidence?: number | null
+          created_at?: string
+          emotions?: string[] | null
+          entity_id?: string
+          id?: string
+          is_about_adversary?: boolean | null
+          mention_id?: string
+          sentiment?: string
+          sentiment_score?: number | null
+          subcategory?: string | null
+          topics?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_sentiment_analyses_adversary_entity_id_fkey"
+            columns: ["adversary_entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_sentiment_analyses_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_sentiment_analyses_mention_id_fkey"
+            columns: ["mention_id"]
+            isOneToOne: false
+            referencedRelation: "po_mentions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

@@ -4,15 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { COMMENTS_DATA } from "@/data/public-opinion/demoPublicOpinionData";
+import { useMonitoredEntities, useMentions, useSentimentAnalyses } from "@/hooks/public-opinion/usePublicOpinion";
 import { ThumbsUp, ThumbsDown, Minus, Share2, Heart, Search, ExternalLink } from "lucide-react";
 
 const sourceIcons: Record<string, string> = {
-  twitter: '𝕏',
-  instagram: '📸',
-  facebook: '📘',
-  youtube: '▶️',
-  tiktok: '🎵',
-  portal: '📰',
+  twitter: '𝕏', instagram: '📸', facebook: '📘', youtube: '▶️', tiktok: '🎵', portal: '📰', news: '📰',
 };
 
 const Comments = () => {
@@ -21,7 +17,37 @@ const Comments = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
 
-  const filtered = COMMENTS_DATA.filter((c) => {
+  const { data: entities } = useMonitoredEntities();
+  const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
+  const { data: mentions } = useMentions(principalEntity?.id, undefined, 100);
+  const { data: analyses } = useSentimentAnalyses(principalEntity?.id);
+
+  // Build analysis map
+  const analysisMap = new Map(analyses?.map(a => [a.mention_id, a]) || []);
+
+  // If we have real mentions, use them; otherwise fallback to demo
+  const hasRealData = mentions && mentions.length > 0;
+
+  const realComments = hasRealData
+    ? mentions.map(m => {
+        const a = analysisMap.get(m.id);
+        return {
+          id: m.id,
+          author: m.author_name || m.author_handle || 'Anônimo',
+          source: m.source,
+          content: m.content,
+          sentiment: a?.sentiment === 'positivo' ? 'positive' : a?.sentiment === 'negativo' ? 'negative' : 'neutral',
+          category: a?.category || 'sem categoria',
+          date: m.published_at || m.collected_at,
+          likes: m.engagement?.likes || 0,
+          shares: m.engagement?.shares || 0,
+          url: m.source_url || '#',
+          location: null,
+        };
+      })
+    : COMMENTS_DATA;
+
+  const filtered = realComments.filter((c) => {
     if (searchTerm && !c.content.toLowerCase().includes(searchTerm.toLowerCase()) && !c.author.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (sentimentFilter !== 'all' && c.sentiment !== sentimentFilter) return false;
     if (categoryFilter !== 'all' && c.category !== categoryFilter) return false;
@@ -33,7 +59,10 @@ const Comments = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Comentários & Menções</h1>
-        <p className="text-gray-500 mt-1">Todas as menções coletadas, classificadas por sentimento e categoria</p>
+        <p className="text-gray-500 mt-1">
+          Todas as menções coletadas, classificadas por sentimento e categoria
+          {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
+        </p>
       </div>
 
       {/* Filters */}
@@ -61,7 +90,7 @@ const Comments = () => {
                 <SelectItem value="reclamação">Reclamação</SelectItem>
                 <SelectItem value="dúvida">Dúvida</SelectItem>
                 <SelectItem value="sugestão">Sugestão</SelectItem>
-                <SelectItem value="comparação">Comparação</SelectItem>
+                <SelectItem value="ataque">Ataque</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
@@ -72,8 +101,7 @@ const Comments = () => {
                 <SelectItem value="instagram">Instagram</SelectItem>
                 <SelectItem value="facebook">Facebook</SelectItem>
                 <SelectItem value="youtube">YouTube</SelectItem>
-                <SelectItem value="tiktok">TikTok</SelectItem>
-                <SelectItem value="portal">Portais</SelectItem>
+                <SelectItem value="news">Portais</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -82,7 +110,6 @@ const Comments = () => {
 
       <p className="text-sm text-muted-foreground">{filtered.length} menções encontradas</p>
 
-      {/* Comments list */}
       <div className="space-y-3">
         {filtered.map((c) => (
           <Card key={c.id}>
@@ -106,7 +133,11 @@ const Comments = () => {
                     <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.likes}</span>
                     <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {c.shares}</span>
                     <span>{new Date(c.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    <a href={c.url} className="flex items-center gap-1 text-primary hover:underline"><ExternalLink className="h-3 w-3" /> Ver original</a>
+                    {c.url && c.url !== '#' && (
+                      <a href={c.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                        <ExternalLink className="h-3 w-3" /> Ver original
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

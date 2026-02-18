@@ -1,34 +1,79 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Users, MessageSquare, ThumbsUp, ThumbsDown, Minus, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, Users, MessageSquare, ThumbsUp, Eye, Loader2, RefreshCw } from "lucide-react";
 import { SENTIMENT_OVERVIEW, SENTIMENT_TIMELINE } from "@/data/public-opinion/demoPublicOpinionData";
+import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useDailySnapshots } from "@/hooks/public-opinion/usePublicOpinion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
 const sourceColors: Record<string, string> = {
-  twitter: '#1DA1F2',
-  instagram: '#E4405F',
-  facebook: '#1877F2',
-  youtube: '#FF0000',
-  tiktok: '#000000',
-  portais: '#6B7280',
+  twitter: '#1DA1F2', instagram: '#E4405F', facebook: '#1877F2',
+  youtube: '#FF0000', tiktok: '#000000', news: '#6B7280', portais: '#6B7280',
 };
-
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
 const Overview = () => {
-  const data = SENTIMENT_OVERVIEW;
+  const { data: entities } = useMonitoredEntities();
+  const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
+  const { stats, snapshots, analyses } = usePoOverviewStats(principalEntity?.id);
+  const collectMentions = useCollectMentions();
+
+  const hasRealData = !!stats && stats.total > 0;
+
+  // Use real data or fallback to mock
+  const overviewData = hasRealData ? {
+    total_mentions: stats.total,
+    sentiment_score: Math.round((stats.avgScore + 1) * 5 * 10) / 10, // normalize -1..1 to 0..10
+    positive_pct: Math.round(stats.positive / stats.total * 100),
+    negative_pct: Math.round(stats.negative / stats.total * 100),
+    neutral_pct: Math.round(stats.neutral / stats.total * 100),
+    trend: stats.avgScore >= 0 ? 'up' as const : 'down' as const,
+    trend_pct: Math.abs(Math.round(stats.avgScore * 100)),
+  } : SENTIMENT_OVERVIEW;
+
   const sentimentPie = [
-    { name: 'Positivo', value: data.positive_pct },
-    { name: 'Negativo', value: data.negative_pct },
-    { name: 'Neutro', value: data.neutral_pct },
+    { name: 'Positivo', value: overviewData.positive_pct },
+    { name: 'Negativo', value: overviewData.negative_pct },
+    { name: 'Neutro', value: overviewData.neutral_pct },
   ];
-  const sourceData = Object.entries(data.sources).map(([key, value]) => ({ name: key, value }));
+
+  // Source breakdown from real data or mock
+  const sourceData = hasRealData && snapshots?.length
+    ? Object.entries(snapshots[snapshots.length - 1]?.source_breakdown || {}).map(([name, value]) => ({ name, value: value as number }))
+    : Object.entries(SENTIMENT_OVERVIEW.sources).map(([name, value]) => ({ name, value }));
+
+  // Timeline from snapshots or mock
+  const timelineData = hasRealData && snapshots?.length
+    ? snapshots.map(s => ({
+        date: s.snapshot_date,
+        positive: s.positive_count,
+        negative: s.negative_count,
+        neutral: s.neutral_count,
+      }))
+    : SENTIMENT_TIMELINE;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Visão Geral — Opinião Pública</h1>
-        <p className="text-gray-500 mt-1">{data.period}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Visão Geral — Opinião Pública</h1>
+          <p className="text-gray-500 mt-1">
+            {principalEntity ? `Monitorando: ${principalEntity.nome}` : 'Dados demonstrativos'}
+            {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
+          </p>
+        </div>
+        {principalEntity && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={collectMentions.isPending}
+            onClick={() => collectMentions.mutate({ entity_id: principalEntity.id })}
+          >
+            {collectMentions.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Coletar Menções
+          </Button>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -38,7 +83,7 @@ const Overview = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Menções Totais</p>
-                <p className="text-3xl font-bold">{data.total_mentions.toLocaleString()}</p>
+                <p className="text-3xl font-bold">{overviewData.total_mentions.toLocaleString()}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-primary" />
             </div>
@@ -49,10 +94,10 @@ const Overview = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Score de Sentimento</p>
-                <p className="text-3xl font-bold">{data.sentiment_score}/10</p>
+                <p className="text-3xl font-bold">{overviewData.sentiment_score}/10</p>
                 <div className="flex items-center gap-1 mt-1">
-                  {data.trend === 'up' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
-                  <span className="text-sm text-green-600">+{data.trend_pct}%</span>
+                  {overviewData.trend === 'up' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                  <span className="text-sm text-green-600">+{overviewData.trend_pct}%</span>
                 </div>
               </div>
               <ThumbsUp className="h-8 w-8 text-green-500" />
@@ -64,7 +109,7 @@ const Overview = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Alcance Estimado</p>
-                <p className="text-3xl font-bold">{(data.reach_estimate / 1000000).toFixed(1)}M</p>
+                <p className="text-3xl font-bold">{hasRealData ? `${(stats.total * 150 / 1000).toFixed(1)}K` : `${(SENTIMENT_OVERVIEW.reach_estimate / 1000000).toFixed(1)}M`}</p>
               </div>
               <Eye className="h-8 w-8 text-blue-500" />
             </div>
@@ -75,7 +120,7 @@ const Overview = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Engajamento</p>
-                <p className="text-3xl font-bold">{data.engagement_rate}%</p>
+                <p className="text-3xl font-bold">{hasRealData ? `${Math.round(stats.positive / stats.total * 100)}%` : `${SENTIMENT_OVERVIEW.engagement_rate}%`}</p>
               </div>
               <Users className="h-8 w-8 text-purple-500" />
             </div>
@@ -85,7 +130,6 @@ const Overview = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sentiment Distribution */}
         <Card>
           <CardHeader><CardTitle>Distribuição de Sentimento</CardTitle></CardHeader>
           <CardContent>
@@ -101,8 +145,6 @@ const Overview = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Sources */}
         <Card>
           <CardHeader><CardTitle>Menções por Fonte</CardTitle></CardHeader>
           <CardContent>
@@ -131,7 +173,7 @@ const Overview = () => {
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={SENTIMENT_TIMELINE}>
+              <AreaChart data={timelineData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} />
                 <YAxis />
@@ -146,22 +188,41 @@ const Overview = () => {
         </CardContent>
       </Card>
 
-      {/* Top Hashtags */}
-      <Card>
-        <CardHeader><CardTitle>Hashtags em Destaque</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            {data.top_hashtags.map((h) => (
-              <div key={h.tag} className="flex items-center gap-2 border rounded-lg px-4 py-2">
-                <span className="font-semibold text-primary">{h.tag}</span>
-                <Badge variant={h.sentiment > 0.5 ? 'default' : h.sentiment < 0 ? 'destructive' : 'secondary'}>
-                  {h.count.toLocaleString()} menções
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Top Topics from real data */}
+      {hasRealData && stats.topTopics.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Temas em Destaque</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {stats.topTopics.map((t) => (
+                <div key={t.name} className="flex items-center gap-2 border rounded-lg px-4 py-2">
+                  <span className="font-semibold text-primary capitalize">{t.name}</span>
+                  <Badge variant="secondary">{t.count} menções</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Fallback hashtags for demo */}
+      {!hasRealData && (
+        <Card>
+          <CardHeader><CardTitle>Hashtags em Destaque</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {SENTIMENT_OVERVIEW.top_hashtags.map((h) => (
+                <div key={h.tag} className="flex items-center gap-2 border rounded-lg px-4 py-2">
+                  <span className="font-semibold text-primary">{h.tag}</span>
+                  <Badge variant={h.sentiment > 0.5 ? 'default' : h.sentiment < 0 ? 'destructive' : 'secondary'}>
+                    {h.count.toLocaleString()} menções
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
