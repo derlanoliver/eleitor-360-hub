@@ -136,19 +136,15 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false);
   }, [location.pathname, isMobile, setOpenMobile]);
   
-  const getNavCls = (isActive: boolean) =>
-    isActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "text-gray-700 hover:bg-primary-100 hover:text-primary-700";
-
   const renderMenuItem = (item: MenuItem | SubMenuItem) => {
+    const active = currentPath === item.url;
+
     const content = (
-      <SidebarMenuButton asChild>
+      <SidebarMenuButton asChild isActive={active}>
         <NavLink 
           to={item.url} 
           end 
-          className={({ isActive }) => `
-            ${getNavCls(isActive)} 
-            flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'px-3 py-2'} rounded-lg text-sm font-medium transition-colors w-full
-          `}
+          className={`flex items-center ${isCollapsed ? 'justify-center px-2.5 py-3' : 'px-3 py-2'} rounded-lg text-sm font-medium transition-colors w-full`}
         >
           <item.icon className={`${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} shrink-0`} />
           {!isCollapsed && <span className="ml-3">{item.title}</span>}
@@ -223,15 +219,12 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <div className="relative group/po">
                       {isCollapsed ? (
-                        <Tooltip>
+                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <SidebarMenuButton asChild>
+                            <SidebarMenuButton asChild isActive={isPublicOpinionActive}>
                               <NavLink
                                 to="/public-opinion"
-                                className={({ isActive }) => `
-                                  ${getNavCls(isPublicOpinionActive)}
-                                  flex items-center justify-center px-2.5 py-3 rounded-lg text-sm font-medium transition-colors w-full
-                                `}
+                                className="flex items-center justify-center px-2.5 py-3 rounded-lg text-sm font-medium transition-colors w-full"
                               >
                                 <Globe className="h-6 w-6 shrink-0" />
                               </NavLink>
@@ -240,14 +233,11 @@ export function AppSidebar() {
                           <TooltipContent side="right" className="font-medium">Opinião Pública</TooltipContent>
                         </Tooltip>
                       ) : (
-                        <SidebarMenuButton asChild>
+                        <SidebarMenuButton asChild isActive={isPublicOpinionActive}>
                           <button
                             ref={poButtonRef}
                             onClick={() => setPoOpen(!poOpen)}
-                            className={`
-                              ${getNavCls(isPublicOpinionActive)}
-                              flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full
-                            `}
+                            className="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full"
                           >
                             <Globe className="h-5 w-5 shrink-0" />
                             <span className="ml-3 flex-1 text-left">Opinião Pública</span>
