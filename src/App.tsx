@@ -84,6 +84,17 @@ import CoordinatorVerifyLeader from "./pages/coordinator/CoordinatorVerifyLeader
 import { CoordinatorAuthProvider } from "./contexts/CoordinatorAuthContext";
 import { DynamicMetaTags } from "./components/DynamicMetaTags";
 
+// Public Opinion module
+import PublicOpinionOverview from "./pages/public-opinion/Overview";
+import PublicOpinionSentiment from "./pages/public-opinion/SentimentAnalysis";
+import PublicOpinionTimeline from "./pages/public-opinion/Timeline";
+import PublicOpinionComparison from "./pages/public-opinion/Comparison";
+import PublicOpinionDemographics from "./pages/public-opinion/Demographics";
+import PublicOpinionComments from "./pages/public-opinion/Comments";
+import PublicOpinionInsights from "./pages/public-opinion/Insights";
+import PublicOpinionEvents from "./pages/public-opinion/AnalyzedEvents";
+import PublicOpinionReports from "./pages/public-opinion/Reports";
+
 const queryClient = new QueryClient();
 
 const CadastroRedirect = () => {
@@ -466,6 +477,54 @@ const App = () => (
               </RoleProtectedRoute>
             } />
             
+            
+            {/* Public Opinion module - super_admin only */}
+            <Route path="/public-opinion" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionOverview /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/sentiment" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionSentiment /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/timeline" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionTimeline /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/comparison" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionComparison /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/demographics" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionDemographics /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/comments" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionComments /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/insights" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionInsights /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/events" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionEvents /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/reports" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionReports /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
