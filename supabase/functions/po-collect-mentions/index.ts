@@ -6,20 +6,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const APIFY_BASE = "https://api.apify.com/v2";
+
+// Map source names to Apify actor IDs
+const APIFY_ACTORS: Record<string, string> = {
+  twitter: "desearch~ai-twitter-search",
+  instagram: "apify~instagram-scraper",
+  facebook: "scraper-engine~facebook-posts-scraper",
+  google_news: "dlaf~google-news-free",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
     const ZENSCRAPE_API_KEY = Deno.env.get("ZENSCRAPE_API_KEY");
-    const DATASTREAM_API_KEY = Deno.env.get("DATASTREAM_API_KEY");
-    const DATASTREAM_PIPELINE_ID = Deno.env.get("DATASTREAM_PIPELINE_ID");
-    const DATASTREAM_COMPONENT_ID = Deno.env.get("DATASTREAM_COMPONENT_ID");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { entity_id, sources, query, mode } = await req.json();
+    const { entity_id, sources, query } = await req.json();
     if (!entity_id) throw new Error("entity_id is required");
 
     const { data: entity, error: entityError } = await supabase
@@ -33,155 +41,44 @@ serve(async (req) => {
     const searchQuery = query || `"${entity.nome}"`;
     const targetSources = sources || ["news"];
 
-    console.log(`Collecting for "${entity.nome}", query: ${searchQuery}, sources: ${targetSources.join(",")}, mode: ${mode || "collect"}`);
+    console.log(`Collecting for "${entity.nome}", query: ${searchQuery}, sources: ${targetSources.join(",")}`);
 
     const collectedMentions: any[] = [];
 
-    // ── 1. Zenscrape - news scraping ──
+    // ── 1. Zenscrape - news scraping (Bing + Yahoo) ──
     if (targetSources.includes("news") && ZENSCRAPE_API_KEY) {
-      const urls = [
-        `https://www.bing.com/news/search?q=${encodeURIComponent(searchQuery)}&setlang=pt-br`,
-        `https://search.yahoo.com/search?p=${encodeURIComponent(searchQuery)}&vt=news`,
-      ];
-
-      for (const targetUrl of urls) {
-        try {
-          const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(targetUrl)}`;
-          console.log(`Zenscrape: fetching ${targetUrl}`);
-
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 20000);
-
-          const res = await fetch(zenscrapeUrl, {
-            headers: { "apikey": ZENSCRAPE_API_KEY },
-            signal: controller.signal,
-          }).catch(e => {
-            console.error("Zenscrape fetch error:", e.message);
-            return null;
-          });
-
-          clearTimeout(timeout);
-
-          if (res?.ok) {
-            const html = await res.text();
-            console.log(`Zenscrape: received ${html.length} chars`);
-            const extracted = extractMentionsFromHTML(html, entity.nome, "news", entity_id);
-            collectedMentions.push(...extracted);
-            console.log(`Zenscrape: extracted ${extracted.length} mentions`);
-          } else if (res) {
-            const errBody = await res.text();
-            console.error(`Zenscrape error ${res.status}: ${errBody.substring(0, 200)}`);
-          }
-        } catch (e) {
-          console.error("Zenscrape error:", e);
-        }
-      }
+      const mentions = await collectViaZenscrape(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
     }
 
-    // ── 2. Datastream - social media via Jobs API + Search API ──
-    const socialSources = targetSources.filter((s: string) => s !== "news");
-    if (DATASTREAM_API_KEY && DATASTREAM_PIPELINE_ID && DATASTREAM_COMPONENT_ID && socialSources.length > 0) {
-      const requestMode = mode || "collect";
+    // ── 2. Apify - Google News ──
+    if (targetSources.includes("google_news") && APIFY_API_TOKEN) {
+      const mentions = await collectGoogleNews(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
 
-      if (requestMode === "collect" || requestMode === "create_job") {
-        // Step 1: Create a job on Datastreamer
-        const jobResult = await createDatastreamJob(
-          DATASTREAM_API_KEY,
-          DATASTREAM_PIPELINE_ID,
-          DATASTREAM_COMPONENT_ID,
-          searchQuery,
-          socialSources[0] // one job per data_source
-        );
+    // ── 3. Apify - Twitter/X ──
+    if (targetSources.includes("twitter") && APIFY_API_TOKEN) {
+      const mentions = await collectTwitter(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
 
-        if (jobResult.success) {
-          console.log(`Datastream: job created - ${jobResult.job_id}`);
+    // ── 4. Apify - Instagram ──
+    if (targetSources.includes("instagram") && APIFY_API_TOKEN) {
+      const mentions = await collectInstagram(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
 
-          // If mode is "collect", wait briefly and try to fetch results via Search API
-          if (requestMode === "collect") {
-            // Wait 5s for job to start processing
-            await new Promise(resolve => setTimeout(resolve, 5000));
-
-            const searchResults = await searchDatastream(
-              DATASTREAM_API_KEY,
-              searchQuery,
-              socialSources,
-              50
-            );
-
-            for (const r of searchResults) {
-              collectedMentions.push({
-                entity_id,
-                source: r.data_source || r.source || "social",
-                source_url: r.url || r.source_url || null,
-                author_name: r.author?.name || r.author_name || null,
-                author_handle: r.author?.screen_name || r.author?.handle || r.author_handle || null,
-                content: (r.content?.body || r.text || r.content || "").substring(0, 2000),
-                published_at: r.doc_date || r.published_at || new Date().toISOString(),
-                engagement: {
-                  likes: r.content?.likes || r.likes || 0,
-                  shares: r.content?.shares || r.shares || 0,
-                  comments: r.content?.comments || r.comments || 0,
-                  views: r.content?.views || r.views || 0,
-                },
-                hashtags: r.content?.hashtags || r.hashtags || [],
-                media_urls: r.content?.media || r.media || [],
-                raw_data: { source: "datastream", job_id: jobResult.job_id, doc_id: r.id },
-              });
-            }
-            console.log(`Datastream Search: ${searchResults.length} results`);
-          }
-
-          // Return job info so frontend can poll later if needed
-          if (requestMode === "create_job" || collectedMentions.length === 0) {
-            return new Response(JSON.stringify({
-              success: true,
-              collected: 0,
-              job_created: true,
-              job_id: jobResult.job_id,
-              message: "Job criado no Datastream. Os dados estarão disponíveis em alguns minutos. Use mode='fetch_results' para buscar.",
-            }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-        } else {
-          console.error(`Datastream job creation failed: ${jobResult.error}`);
-        }
-      } else if (requestMode === "fetch_results") {
-        // Step 2: Just fetch results from Search API (called after job completes)
-        const searchResults = await searchDatastream(
-          DATASTREAM_API_KEY,
-          searchQuery,
-          socialSources,
-          50
-        );
-
-        for (const r of searchResults) {
-          collectedMentions.push({
-            entity_id,
-            source: r.data_source || r.source || "social",
-            source_url: r.url || r.source_url || null,
-            author_name: r.author?.name || r.author_name || null,
-            author_handle: r.author?.screen_name || r.author?.handle || r.author_handle || null,
-            content: (r.content?.body || r.text || r.content || "").substring(0, 2000),
-            published_at: r.doc_date || r.published_at || new Date().toISOString(),
-            engagement: {
-              likes: r.content?.likes || r.likes || 0,
-              shares: r.content?.shares || r.shares || 0,
-              comments: r.content?.comments || r.comments || 0,
-              views: r.content?.views || r.views || 0,
-            },
-            hashtags: r.content?.hashtags || r.hashtags || [],
-            media_urls: r.content?.media || r.media || [],
-            raw_data: { source: "datastream", doc_id: r.id },
-          });
-        }
-        console.log(`Datastream Search (fetch_results): ${searchResults.length} results`);
-      }
+    // ── 5. Apify - Facebook ──
+    if (targetSources.includes("facebook") && APIFY_API_TOKEN) {
+      const mentions = await collectFacebook(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
     }
 
     console.log(`Total collected (before dedupe): ${collectedMentions.length}`);
 
     // ── Dedupe: remove mentions whose content already exists in DB ──
     if (collectedMentions.length > 0) {
-      const contentKeys = collectedMentions.map(m => m.content.substring(0, 200));
       const { data: existing } = await supabase
         .from("po_mentions")
         .select("content")
@@ -227,7 +124,8 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({
-        success: true, collected: inserted?.length || 0, duplicates_removed: dupeCount, sources_queried: targetSources, analysis_triggered: mentionIds.length > 0,
+        success: true, collected: inserted?.length || 0, duplicates_removed: dupeCount,
+        sources_queried: targetSources, analysis_triggered: mentionIds.length > 0,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -243,116 +141,204 @@ serve(async (req) => {
   }
 });
 
-// ── Datastream: Create Job ──
-async function createDatastreamJob(
-  apiKey: string,
-  pipelineId: string,
-  componentId: string,
-  query: string,
-  dataSource: string
-): Promise<{ success: boolean; job_id?: string; error?: string }> {
+// ══════════════════════════════════════════════════
+// APIFY HELPERS
+// ══════════════════════════════════════════════════
+
+async function runApifyActor(token: string, actorId: string, input: Record<string, any>, timeoutSecs = 120): Promise<any[]> {
+  const url = `${APIFY_BASE}/acts/${actorId}/run-sync-get-dataset-items?token=${token}&timeout=${timeoutSecs}&format=json`;
+  console.log(`Apify: running ${actorId}`);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), (timeoutSecs + 30) * 1000);
+
   try {
-    const url = `https://api.platform.datastreamer.io/api/pipelines/${pipelineId}/components/${componentId}/jobs?ready=true`;
-    console.log(`Datastream: creating job at ${url}`);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "apikey": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        job_name: crypto.randomUUID(),
-        query: { query },
-        data_source: dataSource,
-        job_type: "one_time",
-        priority: "normal",
-        max_documents: 100,
-        job_state: "ready",
-        state: "ready",
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
       signal: controller.signal,
-    }).catch(e => {
-      console.error("Datastream job fetch error:", e.message);
-      return null;
     });
 
     clearTimeout(timeout);
 
-    if (!res) return { success: false, error: "Network error" };
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`Apify ${actorId} error ${res.status}: ${errBody.substring(0, 300)}`);
+      return [];
+    }
 
-    const body = await res.text();
-    console.log(`Datastream job response ${res.status}: ${body.substring(0, 300)}`);
+    const data = await res.json();
+    console.log(`Apify ${actorId}: received ${Array.isArray(data) ? data.length : 0} items`);
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error(`Apify ${actorId} error:`, e instanceof Error ? e.message : e);
+    return [];
+  }
+}
 
-    if (res.ok) {
-      try {
-        const data = JSON.parse(body);
-        return { success: true, job_id: data.job_id || data.id || "unknown" };
-      } catch {
-        return { success: true, job_id: "created" };
+// ── Google News via Apify ──
+async function collectGoogleNews(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const searchTerm = query.replace(/"/g, "");
+  const items = await runApifyActor(token, APIFY_ACTORS.google_news, {
+    query: searchTerm,
+    language: "pt",
+    region: "BR",
+    maxArticles: 30,
+    timeRange: "7d",
+    mode: "lightweight",
+    deduplication: true,
+  });
+
+  return items.map(item => ({
+    entity_id: entityId,
+    source: "google_news",
+    source_url: item.link || item.url || null,
+    author_name: item.source || item.publisher || null,
+    author_handle: null,
+    content: (item.title ? `${item.title}. ${item.snippet || item.description || ""}` : item.snippet || item.description || "").substring(0, 2000),
+    published_at: item.publishedAt || item.date || item.published_date || new Date().toISOString(),
+    engagement: {},
+    hashtags: [],
+    media_urls: item.image ? [item.image] : [],
+    raw_data: { source: "apify_google_news" },
+  })).filter(m => m.content.length > 10);
+}
+
+// ── Twitter/X via Apify ──
+async function collectTwitter(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const searchTerm = query.replace(/"/g, "");
+  const items = await runApifyActor(token, APIFY_ACTORS.twitter, {
+    query: searchTerm,
+    lang: "pt",
+    min_likes: 0,
+  });
+
+  return items.map(item => ({
+    entity_id: entityId,
+    source: "twitter",
+    source_url: item.url || item.tweet_url || null,
+    author_name: item.author_name || item.user_name || item.name || null,
+    author_handle: item.author_handle || item.screen_name || item.username || null,
+    content: (item.text || item.full_text || item.content || "").substring(0, 2000),
+    published_at: item.created_at || item.date || new Date().toISOString(),
+    engagement: {
+      likes: item.like_count || item.likes || item.favorite_count || 0,
+      shares: item.retweet_count || item.retweets || 0,
+      comments: item.reply_count || item.replies || 0,
+      views: item.view_count || item.views || 0,
+    },
+    hashtags: item.hashtags || [],
+    media_urls: item.media?.map((m: any) => m.url || m) || [],
+    raw_data: { source: "apify_twitter" },
+  })).filter(m => m.content.length > 5);
+}
+
+// ── Instagram via Apify ──
+async function collectInstagram(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const searchTerm = query.replace(/"/g, "");
+  const items = await runApifyActor(token, APIFY_ACTORS.instagram, {
+    search: searchTerm,
+    searchType: "hashtag",
+    resultsLimit: 30,
+  });
+
+  return items.map(item => ({
+    entity_id: entityId,
+    source: "instagram",
+    source_url: item.url || item.postUrl || null,
+    author_name: item.ownerFullName || item.owner?.fullName || null,
+    author_handle: item.ownerUsername || item.owner?.username || null,
+    content: (item.caption || item.text || item.alt || "").substring(0, 2000),
+    published_at: item.timestamp || item.takenAtTimestamp ? new Date((item.takenAtTimestamp || 0) * 1000).toISOString() : new Date().toISOString(),
+    engagement: {
+      likes: item.likesCount || item.likes || 0,
+      comments: item.commentsCount || item.comments || 0,
+      views: item.videoViewCount || item.views || 0,
+      shares: 0,
+    },
+    hashtags: item.hashtags || [],
+    media_urls: item.displayUrl ? [item.displayUrl] : item.images || [],
+    raw_data: { source: "apify_instagram", apify_id: item.id },
+  })).filter(m => m.content.length > 5);
+}
+
+// ── Facebook via Apify ──
+async function collectFacebook(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const searchTerm = query.replace(/"/g, "");
+  const items = await runApifyActor(token, APIFY_ACTORS.facebook, {
+    searchQuery: searchTerm,
+    maxPosts: 30,
+  });
+
+  return items.map(item => ({
+    entity_id: entityId,
+    source: "facebook",
+    source_url: item.url || item.postUrl || null,
+    author_name: item.user?.name || item.pageName || item.authorName || null,
+    author_handle: item.user?.url || item.pageUrl || null,
+    content: (item.text || item.message || item.postText || "").substring(0, 2000),
+    published_at: item.time || item.timestamp || item.date || new Date().toISOString(),
+    engagement: {
+      likes: item.likes || item.reactionsCount || 0,
+      shares: item.shares || item.sharesCount || 0,
+      comments: item.comments || item.commentsCount || 0,
+      views: item.views || 0,
+    },
+    hashtags: [],
+    media_urls: item.media?.map((m: any) => m.thumbnail || m.url || m) || [],
+    raw_data: { source: "apify_facebook", apify_id: item.id },
+  })).filter(m => m.content.length > 5);
+}
+
+// ══════════════════════════════════════════════════
+// ZENSCRAPE (kept for Bing/Yahoo news)
+// ══════════════════════════════════════════════════
+
+async function collectViaZenscrape(apiKey: string, searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
+  const collectedMentions: any[] = [];
+  const urls = [
+    `https://www.bing.com/news/search?q=${encodeURIComponent(searchQuery)}&setlang=pt-br`,
+    `https://search.yahoo.com/search?p=${encodeURIComponent(searchQuery)}&vt=news`,
+  ];
+
+  for (const targetUrl of urls) {
+    try {
+      const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(targetUrl)}`;
+      console.log(`Zenscrape: fetching ${targetUrl}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(zenscrapeUrl, {
+        headers: { "apikey": apiKey },
+        signal: controller.signal,
+      }).catch(e => {
+        console.error("Zenscrape fetch error:", e.message);
+        return null;
+      });
+
+      clearTimeout(timeout);
+
+      if (res?.ok) {
+        const html = await res.text();
+        console.log(`Zenscrape: received ${html.length} chars`);
+        const extracted = extractMentionsFromHTML(html, entityName, "news", entityId);
+        collectedMentions.push(...extracted);
+        console.log(`Zenscrape: extracted ${extracted.length} mentions`);
+      } else if (res) {
+        const errBody = await res.text();
+        console.error(`Zenscrape error ${res.status}: ${errBody.substring(0, 200)}`);
       }
+    } catch (e) {
+      console.error("Zenscrape error:", e);
     }
-
-    return { success: false, error: `${res.status}: ${body.substring(0, 200)}` };
-  } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }
+
+  return collectedMentions;
 }
 
-// ── Datastream: Search API ──
-async function searchDatastream(
-  apiKey: string,
-  query: string,
-  dataSources: string[],
-  size: number
-): Promise<any[]> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const res = await fetch("https://api.platform.datastreamer.io/api/search", {
-      method: "POST",
-      headers: {
-        "apikey": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: {
-          from: 0,
-          size,
-          query,
-          data_sources: dataSources,
-        },
-      }),
-      signal: controller.signal,
-    }).catch(e => {
-      console.error("Datastream search error:", e.message);
-      return null;
-    });
-
-    clearTimeout(timeout);
-
-    if (!res) return [];
-
-    if (res.ok) {
-      const data = await res.json();
-      console.log(`Datastream search: ${data.results?.length || 0} results`);
-      return data.results || [];
-    }
-
-    const errBody = await res.text();
-    console.error(`Datastream search error ${res.status}: ${errBody.substring(0, 200)}`);
-    return [];
-  } catch (e) {
-    console.error("Datastream search error:", e);
-    return [];
-  }
-}
-
-// ── Zenscrape: HTML extraction ──
 function extractMentionsFromHTML(html: string, entityName: string, source: string, entityId: string): any[] {
   const mentions: any[] = [];
   const nameLower = entityName.toLowerCase();
