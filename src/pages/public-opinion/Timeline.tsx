@@ -1,24 +1,66 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SENTIMENT_TIMELINE, ANALYZED_EVENTS } from "@/data/public-opinion/demoPublicOpinionData";
+import { useMonitoredEntities, useDailySnapshots, usePoEvents } from "@/hooks/public-opinion/usePublicOpinion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ReferenceLine } from "recharts";
 import { Calendar, TrendingUp, TrendingDown } from "lucide-react";
 
 const Timeline = () => {
+  const { data: entities } = useMonitoredEntities();
+  const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
+  const { data: snapshots } = useDailySnapshots(principalEntity?.id, 60);
+  const { data: poEvents } = usePoEvents(principalEntity?.id);
+
+  const hasRealSnapshots = snapshots && snapshots.length > 0;
+  const hasRealEvents = poEvents && poEvents.length > 0;
+
+  // Timeline data from real snapshots or mock
+  const timelineData = hasRealSnapshots
+    ? snapshots.map(s => ({
+        date: s.snapshot_date,
+        positive: s.positive_count > 0 ? Math.round(s.positive_count / s.total_mentions * 100) : 0,
+        negative: s.negative_count > 0 ? Math.round(s.negative_count / s.total_mentions * 100) : 0,
+        neutral: s.neutral_count > 0 ? Math.round(s.neutral_count / s.total_mentions * 100) : 0,
+        mentions: s.total_mentions,
+      }))
+    : SENTIMENT_TIMELINE;
+
+  // Events from real po_events or mock
+  const eventsData = hasRealEvents
+    ? poEvents.map(e => ({
+        id: e.id,
+        title: e.titulo,
+        date: e.data_evento,
+        type: e.tipo,
+        summary: e.descricao || e.ai_analysis || '',
+        sentiment_before: 0.5,
+        sentiment_after: (e.sentiment_positivo_pct - e.sentiment_negativo_pct) / 100,
+        mentions_before: 0,
+        mentions_after: e.total_mentions,
+        reach: e.total_mentions * 150,
+        impact_score: e.impacto_score || 0,
+      }))
+    : ANALYZED_EVENTS;
+
+  const isDemo = !hasRealSnapshots && !hasRealEvents;
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Linha do Tempo</h1>
-        <p className="text-gray-500 mt-1">Cronologia de menções e sentimentos correlacionados com eventos públicos</p>
+        <p className="text-gray-500 mt-1">
+          Cronologia de menções e sentimentos correlacionados com eventos públicos
+          {isDemo && <Badge variant="outline" className="ml-2">Demo</Badge>}
+        </p>
       </div>
 
-      {/* Mentions over time with event markers */}
+      {/* Mentions over time */}
       <Card>
         <CardHeader><CardTitle>Volume de Menções ao Longo do Tempo</CardTitle></CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={SENTIMENT_TIMELINE}>
+              <BarChart data={timelineData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} />
                 <YAxis />
@@ -36,7 +78,7 @@ const Timeline = () => {
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={SENTIMENT_TIMELINE}>
+              <LineChart data={timelineData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} />
                 <YAxis domain={[0, 100]} />
@@ -58,7 +100,7 @@ const Timeline = () => {
           <div className="relative">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
             <div className="space-y-6">
-              {ANALYZED_EVENTS.map((event) => {
+              {eventsData.map((event) => {
                 const sentimentDiff = event.sentiment_after - event.sentiment_before;
                 return (
                   <div key={event.id} className="relative flex gap-4 pl-10">

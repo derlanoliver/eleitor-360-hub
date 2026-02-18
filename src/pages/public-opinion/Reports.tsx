@@ -1,8 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { REPORT_TEMPLATES } from "@/data/public-opinion/demoPublicOpinionData";
-import { FileText, Download, Calendar, Clock } from "lucide-react";
+import { useMonitoredEntities, usePoOverviewStats } from "@/hooks/public-opinion/usePublicOpinion";
+import { FileText, Download, Calendar, Clock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
@@ -12,12 +13,37 @@ const typeLabels: Record<string, string> = {
 };
 
 const Reports = () => {
+  const { data: entities } = useMonitoredEntities();
+  const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
+  const { stats } = usePoOverviewStats(principalEntity?.id);
+  const hasRealData = !!stats && stats.total > 0;
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
-        <p className="text-gray-500 mt-1">Gere e baixe relatórios de opinião pública para tomada de decisão</p>
+        <p className="text-gray-500 mt-1">
+          Gere e baixe relatórios de opinião pública para tomada de decisão
+          {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
+        </p>
       </div>
+
+      {hasRealData && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-primary mt-1" />
+              <div>
+                <h3 className="font-semibold text-primary">Dados Disponíveis</h3>
+                <p className="text-sm text-gray-700 mt-1">
+                  {stats.total} menções analisadas nos últimos 30 dias — {stats.positive} positivas, {stats.negative} negativas, {stats.neutral} neutras.
+                  Os relatórios serão gerados com base nesses dados reais.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {REPORT_TEMPLATES.map((r) => (
@@ -57,7 +83,11 @@ const Reports = () => {
         <CardContent className="pt-6 text-center text-muted-foreground">
           <Calendar className="h-8 w-8 mx-auto mb-2" />
           <p className="font-medium">Relatórios Automatizados</p>
-          <p className="text-sm mt-1">Após a integração com as APIs de coleta (Zenscrape e Datastream), os relatórios serão gerados automaticamente com dados reais.</p>
+          <p className="text-sm mt-1">
+            {hasRealData
+              ? 'Com dados reais disponíveis, os relatórios podem ser gerados com informações atualizadas.'
+              : 'Após a integração com as APIs de coleta, os relatórios serão gerados automaticamente com dados reais.'}
+          </p>
         </CardContent>
       </Card>
     </div>
