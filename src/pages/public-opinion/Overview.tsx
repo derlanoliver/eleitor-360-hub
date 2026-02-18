@@ -58,10 +58,10 @@ const Overview = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Visão Geral — Opinião Pública</h1>
-          <p className="text-gray-500 mt-1">
-            {principalEntity ? `Monitorando: ${principalEntity.nome}` : 'Dados demonstrativos'}
-            {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
-          </p>
+          <div className="text-gray-500 mt-1 flex items-center gap-2">
+            <span>{principalEntity ? `Monitorando: ${principalEntity.nome}` : 'Dados demonstrativos'}</span>
+            {!hasRealData && <Badge variant="outline">Demo</Badge>}
+          </div>
         </div>
         {principalEntity && (
           <Button

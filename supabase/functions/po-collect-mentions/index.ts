@@ -13,9 +13,6 @@ serve(async (req) => {
     const ZENSCRAPE_API_KEY = Deno.env.get("ZENSCRAPE_API_KEY");
     const DATASTREAM_API_KEY = Deno.env.get("DATASTREAM_API_KEY");
 
-    if (!ZENSCRAPE_API_KEY) throw new Error("ZENSCRAPE_API_KEY not configured");
-    if (!DATASTREAM_API_KEY) throw new Error("DATASTREAM_API_KEY not configured");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -24,7 +21,6 @@ serve(async (req) => {
 
     if (!entity_id) throw new Error("entity_id is required");
 
-    // Fetch entity for keywords
     const { data: entity, error: entityError } = await supabase
       .from("po_monitored_entities")
       .select("*")
@@ -42,32 +38,42 @@ serve(async (req) => {
     const searchQuery = query || searchTerms.join(" OR ");
     const targetSources = sources || ["news", "twitter", "instagram"];
 
+    console.log(`Collecting mentions for "${entity.nome}" with query: ${searchQuery}`);
+    console.log(`Target sources: ${targetSources.join(", ")}`);
+    console.log(`API keys present - Zenscrape: ${!!ZENSCRAPE_API_KEY}, Datastream: ${!!DATASTREAM_API_KEY}`);
+
     const collectedMentions: any[] = [];
 
     // 1. Zenscrape - Web scraping for news sites
-    if (targetSources.includes("news")) {
+    if (targetSources.includes("news") && ZENSCRAPE_API_KEY) {
       try {
-        const newsUrls = [
-          `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=nws&tbs=qdr:d`,
-          `https://www.google.com/search?q=${encodeURIComponent(entity.nome + " política")}&tbm=nws&tbs=qdr:d`,
-        ];
+        const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=nws&tbs=qdr:d`;
+        console.log(`Zenscrape: fetching ${url}`);
 
-        for (const url of newsUrls) {
-          const zenscrapeRes = await fetch(
-            `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(url)}&render=true&premium=true`,
-            {
-              headers: { "apikey": ZENSCRAPE_API_KEY },
-            }
-          );
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
 
-          if (zenscrapeRes.ok) {
-            const html = await zenscrapeRes.text();
-            // Extract mentions from HTML content
-            const extractedMentions = extractMentionsFromHTML(html, entity.nome, "news");
-            collectedMentions.push(...extractedMentions);
-          } else {
-            console.error("Zenscrape error:", zenscrapeRes.status, await zenscrapeRes.text());
+        const zenscrapeRes = await fetch(
+          `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(url)}&render=false`,
+          {
+            headers: { "apikey": ZENSCRAPE_API_KEY },
+            signal: controller.signal,
           }
+        ).catch(e => {
+          console.error("Zenscrape fetch error:", e.message);
+          return null;
+        });
+
+        clearTimeout(timeout);
+
+        if (zenscrapeRes?.ok) {
+          const html = await zenscrapeRes.text();
+          console.log(`Zenscrape: received ${html.length} chars`);
+          const extracted = extractMentionsFromHTML(html, entity.nome, "news", entity_id);
+          collectedMentions.push(...extracted);
+          console.log(`Zenscrape: extracted ${extracted.length} mentions`);
+        } else if (zenscrapeRes) {
+          console.error("Zenscrape error:", zenscrapeRes.status);
         }
       } catch (e) {
         console.error("Zenscrape collection error:", e);
@@ -75,9 +81,13 @@ serve(async (req) => {
     }
 
     // 2. Datastream - Social media monitoring
-    if (targetSources.some((s: string) => ["twitter", "instagram", "facebook"].includes(s))) {
+    if (DATASTREAM_API_KEY && targetSources.some((s: string) => ["twitter", "instagram", "facebook"].includes(s))) {
       try {
-        // Search for social media mentions
+        console.log("Datastream: searching social mentions...");
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
         const datastreamRes = await fetch(
           "https://api.datastreamer.io/v1/search",
           {
@@ -89,15 +99,22 @@ serve(async (req) => {
             body: JSON.stringify({
               query: searchQuery,
               sources: targetSources.filter((s: string) => s !== "news"),
-              limit: 100,
+              limit: 50,
               language: "pt",
               sort: "date",
             }),
+            signal: controller.signal,
           }
-        );
+        ).catch(e => {
+          console.error("Datastream fetch error:", e.message);
+          return null;
+        });
 
-        if (datastreamRes.ok) {
+        clearTimeout(timeout);
+
+        if (datastreamRes?.ok) {
           const datastreamData = await datastreamRes.json();
+          console.log(`Datastream: received ${datastreamData.results?.length || 0} results`);
           if (datastreamData.results) {
             for (const result of datastreamData.results) {
               collectedMentions.push({
@@ -106,7 +123,7 @@ serve(async (req) => {
                 source_url: result.url || null,
                 author_name: result.author?.name || result.author_name || null,
                 author_handle: result.author?.handle || result.author_handle || null,
-                content: result.text || result.content || "",
+                content: (result.text || result.content || "").substring(0, 2000),
                 published_at: result.published_at || result.date || new Date().toISOString(),
                 engagement: {
                   likes: result.likes || 0,
@@ -120,13 +137,16 @@ serve(async (req) => {
               });
             }
           }
-        } else {
-          console.error("Datastream error:", datastreamRes.status, await datastreamRes.text());
+        } else if (datastreamRes) {
+          const errText = await datastreamRes.text();
+          console.error("Datastream error:", datastreamRes.status, errText);
         }
       } catch (e) {
         console.error("Datastream collection error:", e);
       }
     }
+
+    console.log(`Total collected mentions: ${collectedMentions.length}`);
 
     // Save collected mentions to database
     if (collectedMentions.length > 0) {
@@ -140,23 +160,18 @@ serve(async (req) => {
         throw insertError;
       }
 
-      // Trigger sentiment analysis for new mentions
+      // Trigger sentiment analysis in background (fire and forget)
       const mentionIds = inserted?.map(m => m.id) || [];
-      
       if (mentionIds.length > 0) {
-        // Call analyze-sentiment in background
         const analyzeUrl = `${supabaseUrl}/functions/v1/analyze-sentiment`;
-        
-        EdgeRuntime.waitUntil(
-          fetch(analyzeUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({ mention_ids: mentionIds, entity_id }),
-          }).catch(err => console.error("Background analysis error:", err))
-        );
+        fetch(analyzeUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({ mention_ids: mentionIds, entity_id }),
+        }).catch(err => console.error("Background analysis error:", err));
       }
 
       return new Response(JSON.stringify({
@@ -188,10 +203,8 @@ serve(async (req) => {
   }
 });
 
-function extractMentionsFromHTML(html: string, entityName: string, source: string): any[] {
+function extractMentionsFromHTML(html: string, entityName: string, source: string, entityId: string): any[] {
   const mentions: any[] = [];
-  
-  // Simple extraction - look for text blocks that mention the entity
   const textBlocks = html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -200,14 +213,13 @@ function extractMentionsFromHTML(html: string, entityName: string, source: strin
     .map(line => line.trim())
     .filter(line => line.length > 30 && line.toLowerCase().includes(entityName.toLowerCase()));
 
-  // Deduplicate and take top results
   const seen = new Set<string>();
-  for (const block of textBlocks.slice(0, 50)) {
+  for (const block of textBlocks.slice(0, 20)) {
     const key = block.substring(0, 100);
     if (seen.has(key)) continue;
     seen.add(key);
-
     mentions.push({
+      entity_id: entityId,
       source,
       source_url: null,
       author_name: null,
@@ -220,6 +232,5 @@ function extractMentionsFromHTML(html: string, entityName: string, source: strin
       raw_data: { extracted_from: "zenscrape" },
     });
   }
-
   return mentions;
 }
