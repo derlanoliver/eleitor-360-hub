@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, UserCheck, Calendar, Target, FolderKanban, Bot, Settings, Shield,
   Building, LogOut, UserPlus, List, History as HistoryIcon, MessageSquare, Mail, HelpCircle,
   Ticket, Map, ClipboardList, Smartphone, GitBranch, Clock, CalendarDays, Globe,
-  ChevronDown, Eye, Heart, GitCompare, UsersRound, MessageCircle, Sparkles, CalendarCheck, FileBarChart
+  ChevronDown, Eye, Heart, GitCompare, UsersRound, MessageCircle, Sparkles, CalendarCheck, FileBarChart, Settings2
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 import {
@@ -50,6 +50,7 @@ const publicOpinionSubItems: SubMenuItem[] = [
   { title: "Insights IA", url: "/public-opinion/insights", icon: Sparkles },
   { title: "Eventos", url: "/public-opinion/events", icon: CalendarCheck },
   { title: "Relatórios", url: "/public-opinion/reports", icon: FileBarChart },
+  { title: "Configurações", url: "/public-opinion/settings", icon: Settings2 },
 ];
 
 const communicationItems: MenuItem[] = [

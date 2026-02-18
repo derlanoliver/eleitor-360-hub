@@ -94,6 +94,7 @@ import PublicOpinionComments from "./pages/public-opinion/Comments";
 import PublicOpinionInsights from "./pages/public-opinion/Insights";
 import PublicOpinionEvents from "./pages/public-opinion/AnalyzedEvents";
 import PublicOpinionReports from "./pages/public-opinion/Reports";
+import PublicOpinionSettings from "./pages/public-opinion/Settings";
 
 const queryClient = new QueryClient();
 
@@ -522,6 +523,11 @@ const App = () => (
             <Route path="/public-opinion/reports" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <DashboardLayout><PublicOpinionReports /></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+            <Route path="/public-opinion/settings" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout><PublicOpinionSettings /></DashboardLayout>
               </RoleProtectedRoute>
             } />
 
