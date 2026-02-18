@@ -137,7 +137,7 @@ export function AppSidebar() {
   }, [location.pathname, isMobile, setOpenMobile]);
   
   const getNavCls = (isActive: boolean) =>
-    isActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "hover:bg-gray-100 text-gray-700";
+    isActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "text-gray-700 hover:bg-primary-100 hover:text-primary-700";
 
   const renderMenuItem = (item: MenuItem | SubMenuItem) => {
     const content = (
