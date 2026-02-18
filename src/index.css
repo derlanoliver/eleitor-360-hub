@@ -55,6 +55,16 @@
     --input: var(--gray-200);
     --ring: var(--color-primary-500);
     --radius: 0.75rem;
+
+    /* Sidebar tokens */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: var(--color-primary-500);
+    --sidebar-primary-foreground: var(--on-primary);
+    --sidebar-accent: 15 100% 96%;
+    --sidebar-accent-foreground: 15 77% 44%;
+    --sidebar-border: var(--gray-200);
+    --sidebar-ring: var(--color-primary-500);
   }
 
   .dark {
