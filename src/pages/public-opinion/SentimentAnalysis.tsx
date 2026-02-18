@@ -21,7 +21,7 @@ const sentimentIcon = (s: string) => {
 
 const SentimentAnalysis = () => {
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Análise de Sentimento</h1>
         <p className="text-gray-500 mt-1">Análise detalhada do sentimento público por categoria e ao longo do tempo</p>

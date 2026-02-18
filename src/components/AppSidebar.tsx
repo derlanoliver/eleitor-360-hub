@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 
 type AppRole = 'super_admin' | 'admin' | 'atendente' | 'checkin_operator';
 
@@ -94,10 +95,37 @@ export function AppSidebar() {
 
   const isPublicOpinionActive = currentPath.startsWith('/public-opinion');
   const [poOpen, setPoOpen] = useState(isPublicOpinionActive);
+  const poButtonRef = useRef<HTMLButtonElement>(null);
+  const poMenuRef = useRef<HTMLDivElement>(null);
+  const [poMenuPos, setPoMenuPos] = useState({ top: 0, left: 0 });
 
+  // Close submenu on route change
   useEffect(() => {
-    if (isPublicOpinionActive) setPoOpen(true);
-  }, [isPublicOpinionActive]);
+    setPoOpen(false);
+  }, [currentPath]);
+
+  // Update floating menu position when opened
+  useEffect(() => {
+    if (poOpen && poButtonRef.current) {
+      const rect = poButtonRef.current.getBoundingClientRect();
+      setPoMenuPos({ top: rect.top, left: rect.right + 8 });
+    }
+  }, [poOpen]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!poOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        poButtonRef.current && !poButtonRef.current.contains(e.target as Node) &&
+        poMenuRef.current && !poMenuRef.current.contains(e.target as Node)
+      ) {
+        setPoOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [poOpen]);
 
   const filterByRole = (items: MenuItem[]) => {
     if (!role) return [];
@@ -193,53 +221,66 @@ export function AppSidebar() {
                 {/* Public Opinion Collapsible - before Agente IA */}
                 {showPublicOpinion && (
                   <SidebarMenuItem>
-                    {isCollapsed ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton asChild>
-                            <NavLink
-                              to="/public-opinion"
-                              className={({ isActive }) => `
-                                ${isPublicOpinionActive ? "bg-primary-100 text-primary-700 font-medium border-r-2 border-primary-500" : "hover:bg-gray-100 text-gray-700"}
-                                flex items-center justify-center px-2.5 py-3 rounded-lg text-sm font-medium transition-colors w-full
-                              `}
-                            >
-                              <Globe className="h-6 w-6 shrink-0" />
-                            </NavLink>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="font-medium">Opinião Pública</TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <Collapsible open={poOpen} onOpenChange={setPoOpen}>
-                        <CollapsibleTrigger className={`
-                          ${isPublicOpinionActive ? "bg-primary-100 text-primary-700 font-medium" : "hover:bg-gray-100 text-gray-700"}
-                          flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full
-                        `}>
-                          <Globe className="h-5 w-5 shrink-0" />
-                          <span className="ml-3 flex-1 text-left">Opinião Pública</span>
-                          <ChevronDown className={`h-4 w-4 transition-transform ${poOpen ? 'rotate-180' : ''}`} />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-gray-200 pl-3">
-                            {publicOpinionSubItems.map((sub) => (
+                    <div className="relative group/po">
+                      {isCollapsed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <SidebarMenuButton asChild>
                               <NavLink
-                                key={sub.url}
-                                to={sub.url}
-                                end
+                                to="/public-opinion"
                                 className={({ isActive }) => `
-                                  ${isActive ? "text-primary-700 font-medium bg-primary-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"}
-                                  flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors
+                                  ${getNavCls(isPublicOpinionActive)}
+                                  flex items-center justify-center px-2.5 py-3 rounded-lg text-sm font-medium transition-colors w-full
                                 `}
                               >
-                                <sub.icon className="h-3.5 w-3.5 shrink-0" />
-                                {sub.title}
+                                <Globe className="h-6 w-6 shrink-0" />
                               </NavLink>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                            </SidebarMenuButton>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="font-medium">Opinião Pública</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <SidebarMenuButton asChild>
+                          <button
+                            ref={poButtonRef}
+                            onClick={() => setPoOpen(!poOpen)}
+                            className={`
+                              ${getNavCls(isPublicOpinionActive)}
+                              flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full
+                            `}
+                          >
+                            <Globe className="h-5 w-5 shrink-0" />
+                            <span className="ml-3 flex-1 text-left">Opinião Pública</span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${poOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                        </SidebarMenuButton>
+                      )}
+                      {/* Floating submenu via portal */}
+                      {poOpen && !isCollapsed && createPortal(
+                        <div
+                          ref={poMenuRef}
+                          className="fixed z-[9999] w-52 bg-white border border-border rounded-lg shadow-lg py-2"
+                          style={{ top: poMenuPos.top, left: poMenuPos.left }}
+                        >
+                          {publicOpinionSubItems.map((sub) => (
+                            <NavLink
+                              key={sub.url}
+                              to={sub.url}
+                              end
+                              onClick={() => setPoOpen(false)}
+                              className={({ isActive }) => `
+                                ${isActive ? "text-primary bg-primary/5 font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted"}
+                                flex items-center gap-2 px-3 py-2 text-sm transition-colors
+                              `}
+                            >
+                              <sub.icon className="h-4 w-4 shrink-0" />
+                              {sub.title}
+                            </NavLink>
+                          ))}
+                        </div>,
+                        document.body
+                      )}
+                    </div>
                   </SidebarMenuItem>
                 )}
                 {filteredCommunicationItems.map((item) => (

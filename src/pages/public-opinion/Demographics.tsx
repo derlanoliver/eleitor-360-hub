@@ -9,7 +9,7 @@ const Demographics = () => {
   const { gender, age, regions, topics_interest } = DEMOGRAPHIC_DATA;
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Perfil do Público & Demografia</h1>
         <p className="text-gray-500 mt-1">Entenda quem fala sobre você e de onde vem a opinião pública</p>
