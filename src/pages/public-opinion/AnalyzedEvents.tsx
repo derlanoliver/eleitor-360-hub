@@ -1,11 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ANALYZED_EVENTS } from "@/data/public-opinion/demoPublicOpinionData";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from "recharts";
+import { useMonitoredEntities, usePoEvents } from "@/hooks/public-opinion/usePublicOpinion";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Calendar, TrendingUp, TrendingDown, Eye, MessageSquare, Award } from "lucide-react";
 
 const AnalyzedEvents = () => {
-  const impactData = ANALYZED_EVENTS.map(e => ({
+  const { data: entities } = useMonitoredEntities();
+  const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
+  const { data: poEvents } = usePoEvents(principalEntity?.id);
+
+  const hasRealData = poEvents && poEvents.length > 0;
+
+  const eventsData = hasRealData
+    ? poEvents.map(e => ({
+        id: e.id,
+        title: e.titulo,
+        date: e.data_evento,
+        type: e.tipo,
+        mentions_before: 0,
+        mentions_after: e.total_mentions,
+        sentiment_before: 0.5,
+        sentiment_after: e.sentiment_positivo_pct / 100,
+        reach: e.total_mentions * 150,
+        top_reaction: e.sentiment_positivo_pct > 60 ? 'Aprovação' : e.sentiment_negativo_pct > 40 ? 'Crítica' : 'Divisão',
+        impact_score: e.impacto_score || 5,
+        summary: e.descricao || e.ai_analysis || 'Sem descrição disponível.',
+      }))
+    : ANALYZED_EVENTS;
+
+  const impactData = eventsData.map(e => ({
     name: e.title.substring(0, 20) + '...',
     impact: e.impact_score,
     mentions: e.mentions_after,
@@ -15,7 +39,10 @@ const AnalyzedEvents = () => {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Eventos Analisados</h1>
-        <p className="text-gray-500 mt-1">Análise do impacto de eventos públicos na opinião popular</p>
+        <p className="text-gray-500 mt-1">
+          Análise do impacto de eventos públicos na opinião popular
+          {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
+        </p>
       </div>
 
       {/* Impact Chart */}
@@ -30,8 +57,8 @@ const AnalyzedEvents = () => {
                 <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey="impact" name="Score de Impacto" radius={[0, 4, 4, 0]}>
-                  {impactData.map((_, i) => (
-                    <Cell key={i} fill={ANALYZED_EVENTS[i].impact_score >= 8 ? '#22c55e' : ANALYZED_EVENTS[i].impact_score >= 6 ? '#f59e0b' : '#ef4444'} />
+                  {impactData.map((entry, i) => (
+                    <Cell key={i} fill={eventsData[i]?.impact_score >= 8 ? '#22c55e' : eventsData[i]?.impact_score >= 6 ? '#f59e0b' : '#ef4444'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -42,9 +69,11 @@ const AnalyzedEvents = () => {
 
       {/* Event Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {ANALYZED_EVENTS.map((event) => {
+        {eventsData.map((event) => {
           const sentDiff = event.sentiment_after - event.sentiment_before;
-          const mentionIncrease = ((event.mentions_after - event.mentions_before) / event.mentions_before * 100).toFixed(0);
+          const mentionIncrease = event.mentions_before > 0
+            ? ((event.mentions_after - event.mentions_before) / event.mentions_before * 100).toFixed(0)
+            : event.mentions_after > 0 ? '∞' : '0';
           return (
             <Card key={event.id}>
               <CardHeader className="pb-3">
