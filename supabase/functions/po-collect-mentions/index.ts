@@ -13,6 +13,7 @@ const APIFY_ACTORS: Record<string, string> = {
   twitter: "desearch~ai-twitter-search",
   instagram: "apify~instagram-scraper",
   facebook: "tropical_quince~facebook-page-scraper",
+  facebook_posts: "alizarin_refrigerator-owner~facebook-page-post-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
   google_news: "dlaf~google-news-free",
 };
@@ -395,59 +396,57 @@ function extractMentionsFromHTML(html: string, entityName: string, source: strin
 
 // ══════════════════════════════════════════════════
 // FACEBOOK COMMENTS (from entity's own page)
+// Two-stage: 1) list posts via scrapier actor, 2) extract comments via apify actor
 // ══════════════════════════════════════════════════
 
 async function collectFacebookComments(token: string, fbHandle: string, entityName: string, entityId: string): Promise<any[]> {
-  // Step 1: Get recent posts from the page
   const handle = fbHandle.replace(/^@/, "");
   const pageUrl = `https://www.facebook.com/${handle}`;
-  console.log(`Facebook Comments: fetching posts from ${pageUrl}`);
+  console.log(`Facebook Comments: Stage 1 - fetching posts from ${pageUrl}`);
 
-  const posts = await runApifyActor(token, APIFY_ACTORS.facebook, {
-    pageUrls: [pageUrl],
+  // Stage 1: Get recent posts using alizarin actor ($0.01/1000 results - cheapest)
+  const posts = await runApifyActor(token, APIFY_ACTORS.facebook_posts, {
+    startUrls: [pageUrl],
     maxPosts: 30,
-  }, 90);
+  }, 60);
 
   if (!posts.length) {
     console.log("Facebook Comments: no posts found from page");
     return [];
   }
 
-  // Log first post to understand data structure
+  console.log(`Facebook Comments: Stage 1 got ${posts.length} posts`);
   console.log(`Facebook Comments: sample post keys: ${Object.keys(posts[0]).join(", ")}`);
-  console.log(`Facebook Comments: sample post: ${JSON.stringify(posts[0]).substring(0, 500)}`);
 
-  // Collect post URLs - try multiple field names
+  // Extract post URLs from results
   const postUrls = posts
     .map((p: any) => p.postUrl || p.url || p.link || p.permalink)
-    .filter((url: string) => url && url.includes("/posts/"))
+    .filter((url: string | undefined): url is string => !!url && url !== pageUrl)
     .slice(0, 30);
 
-  // If no /posts/ URLs found, try all URLs except page URLs
-  const finalUrls = postUrls.length > 0 ? postUrls : posts
-    .map((p: any) => p.postUrl || p.url || p.link || p.permalink)
-    .filter((url: string) => url && url !== pageUrl)
-    .slice(0, 30);
+  console.log(`Facebook Comments: found ${postUrls.length} post URLs`);
+  if (postUrls.length > 0) {
+    console.log(`Facebook Comments: sample URL: ${postUrls[0]}`);
+  }
 
-  console.log(`Facebook Comments: found ${finalUrls.length} post URLs`);
+  if (!postUrls.length) return [];
 
-  if (!finalUrls.length) return [];
-
-  // Step 2: Extract comments from posts
+  // Stage 2: Extract comments - limit to 10 posts to avoid timeout
+  const urlsForComments = postUrls.slice(0, 10);
+  console.log(`Facebook Comments: Stage 2 - extracting comments from ${urlsForComments.length} posts`);
   const commentItems = await runApifyActor(token, APIFY_ACTORS.facebook_comments, {
-    startUrls: postUrls.map((url: string) => ({ url })),
-    maxComments: 50,
-    includeReplies: true,
-  }, 120);
+    startUrls: urlsForComments.map((url: string) => ({ url })),
+    resultsLimit: 50,
+    includeNestedComments: false,
+    viewType: "RANKED_UNFILTERED",
+  }, 90);
 
-  console.log(`Facebook Comments: extracted ${commentItems.length} comments`);
+  console.log(`Facebook Comments: Stage 2 got ${commentItems.length} comments`);
   if (commentItems.length > 0) {
-    console.log(`Facebook Comments: sample item keys: ${Object.keys(commentItems[0]).join(", ")}`);
-    console.log(`Facebook Comments: sample item: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
+    console.log(`Facebook Comments: sample comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
   }
 
   return commentItems.map((item: any) => {
-    // Try multiple possible field names for comment text
     const content = (
       item.text || item.comment || item.body || item.message ||
       item.commentText || item.content || item.comment_text || ""
