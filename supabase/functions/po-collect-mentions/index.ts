@@ -79,7 +79,8 @@ serve(async (req) => {
     }
 
     // 2. Datastream - social media
-    if (DATASTREAM_API_KEY && targetSources.some((s: string) => ["twitter", "instagram", "facebook"].includes(s))) {
+    const socialSources = targetSources.filter((s: string) => s !== "news");
+    if (DATASTREAM_API_KEY && socialSources.length > 0) {
       try {
         console.log("Datastream: searching...");
         const controller = new AbortController();
@@ -88,16 +89,16 @@ serve(async (req) => {
         const res = await fetch("https://api.platform.datastreamer.io/api/search", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${DATASTREAM_API_KEY}`,
-            "x-api-key": DATASTREAM_API_KEY,
+            "apikey": DATASTREAM_API_KEY,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            query: searchQuery,
-            sources: targetSources.filter((s: string) => s !== "news"),
-            limit: 50,
-            language: "pt",
-            sort: "date",
+            query: {
+              from: 0,
+              size: 50,
+              query: searchQuery,
+              data_sources: socialSources,
+            },
           }),
           signal: controller.signal,
         }).catch(e => {
