@@ -85,10 +85,11 @@ serve(async (req) => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
 
-        const res = await fetch("https://api.datastreamer.io/v1/search", {
+        const res = await fetch("https://api.platform.datastreamer.io/api/search", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${DATASTREAM_API_KEY}`,
+            "x-api-key": DATASTREAM_API_KEY,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
