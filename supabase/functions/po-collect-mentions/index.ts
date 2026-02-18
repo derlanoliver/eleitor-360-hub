@@ -177,12 +177,39 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Total collected: ${collectedMentions.length}`);
+    console.log(`Total collected (before dedupe): ${collectedMentions.length}`);
 
+    // ── Dedupe: remove mentions whose content already exists in DB ──
     if (collectedMentions.length > 0) {
+      const contentKeys = collectedMentions.map(m => m.content.substring(0, 200));
+      const { data: existing } = await supabase
+        .from("po_mentions")
+        .select("content")
+        .eq("entity_id", entity_id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      const existingSet = new Set(
+        (existing || []).map((e: any) => e.content.substring(0, 200))
+      );
+
+      const uniqueMentions = collectedMentions.filter(
+        m => !existingSet.has(m.content.substring(0, 200))
+      );
+
+      const dupeCount = collectedMentions.length - uniqueMentions.length;
+      console.log(`Dedupe: ${dupeCount} duplicates removed, ${uniqueMentions.length} unique`);
+
+      if (uniqueMentions.length === 0) {
+        return new Response(JSON.stringify({
+          success: true, collected: 0, duplicates_removed: dupeCount,
+          message: "Todas as menções já existiam no banco.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const { data: inserted, error: insertError } = await supabase
         .from("po_mentions")
-        .insert(collectedMentions)
+        .insert(uniqueMentions)
         .select("id");
 
       if (insertError) {
@@ -200,7 +227,7 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({
-        success: true, collected: inserted?.length || 0, sources_queried: targetSources, analysis_triggered: mentionIds.length > 0,
+        success: true, collected: inserted?.length || 0, duplicates_removed: dupeCount, sources_queried: targetSources, analysis_triggered: mentionIds.length > 0,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
