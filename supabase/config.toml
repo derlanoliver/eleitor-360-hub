@@ -137,3 +137,12 @@ verify_jwt = false
 
 [functions.dialog360-webhook]
 verify_jwt = false
+
+[functions.analyze-sentiment]
+verify_jwt = false
+
+[functions.po-collect-mentions]
+verify_jwt = false
+
+[functions.po-generate-insights]
+verify_jwt = false

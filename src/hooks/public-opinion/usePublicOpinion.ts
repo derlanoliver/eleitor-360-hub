@@ -1,0 +1,278 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+// ── Types ──
+export interface MonitoredEntity {
+  id: string;
+  nome: string;
+  tipo: string;
+  partido: string | null;
+  cargo: string | null;
+  redes_sociais: Record<string, string>;
+  hashtags: string[];
+  palavras_chave: string[];
+  is_principal: boolean;
+  is_active: boolean;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface Mention {
+  id: string;
+  entity_id: string;
+  source: string;
+  source_url: string | null;
+  author_name: string | null;
+  author_handle: string | null;
+  content: string;
+  published_at: string | null;
+  collected_at: string;
+  engagement: Record<string, number>;
+  hashtags: string[];
+}
+
+export interface SentimentAnalysis {
+  id: string;
+  mention_id: string;
+  entity_id: string;
+  sentiment: string;
+  sentiment_score: number | null;
+  category: string | null;
+  subcategory: string | null;
+  topics: string[];
+  emotions: string[];
+  is_about_adversary: boolean;
+  adversary_entity_id: string | null;
+  confidence: number | null;
+  ai_summary: string | null;
+  analyzed_at: string;
+}
+
+export interface DailySnapshot {
+  id: string;
+  entity_id: string;
+  snapshot_date: string;
+  total_mentions: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
+  avg_sentiment_score: number;
+  top_topics: string[];
+  top_emotions: string[];
+  source_breakdown: Record<string, number>;
+}
+
+export interface PoEvent {
+  id: string;
+  entity_id: string;
+  titulo: string;
+  descricao: string | null;
+  data_evento: string;
+  tipo: string;
+  impacto_score: number | null;
+  total_mentions: number;
+  sentiment_positivo_pct: number;
+  sentiment_negativo_pct: number;
+  sentiment_neutro_pct: number;
+  ai_analysis: string | null;
+  tags: string[];
+}
+
+// ── Entities ──
+export function useMonitoredEntities() {
+  return useQuery({
+    queryKey: ["po_monitored_entities"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("po_monitored_entities")
+        .select("*")
+        .eq("is_active", true)
+        .order("is_principal", { ascending: false });
+      if (error) throw error;
+      return data as MonitoredEntity[];
+    },
+  });
+}
+
+export function useCreateEntity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (entity: Partial<MonitoredEntity>) => {
+      const { data, error } = await supabase
+        .from("po_monitored_entities")
+        .insert([entity as any])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["po_monitored_entities"] });
+      toast.success("Entidade cadastrada com sucesso");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Mentions ──
+export function useMentions(entityId?: string, source?: string, limit = 50) {
+  return useQuery({
+    queryKey: ["po_mentions", entityId, source, limit],
+    enabled: !!entityId,
+    queryFn: async () => {
+      let q = supabase
+        .from("po_mentions")
+        .select("*")
+        .eq("entity_id", entityId!)
+        .order("published_at", { ascending: false })
+        .limit(limit);
+      if (source) q = q.eq("source", source);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as Mention[];
+    },
+  });
+}
+
+// ── Sentiment Analyses ──
+export function useSentimentAnalyses(entityId?: string, days = 30) {
+  return useQuery({
+    queryKey: ["po_sentiment_analyses", entityId, days],
+    enabled: !!entityId,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const { data, error } = await supabase
+        .from("po_sentiment_analyses")
+        .select("*")
+        .eq("entity_id", entityId!)
+        .gte("analyzed_at", since.toISOString())
+        .order("analyzed_at", { ascending: false });
+      if (error) throw error;
+      return data as SentimentAnalysis[];
+    },
+  });
+}
+
+// ── Daily Snapshots ──
+export function useDailySnapshots(entityId?: string, days = 30) {
+  return useQuery({
+    queryKey: ["po_daily_snapshots", entityId, days],
+    enabled: !!entityId,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const { data, error } = await supabase
+        .from("po_daily_snapshots")
+        .select("*")
+        .eq("entity_id", entityId!)
+        .gte("snapshot_date", since.toISOString().split("T")[0])
+        .order("snapshot_date", { ascending: true });
+      if (error) throw error;
+      return data as DailySnapshot[];
+    },
+  });
+}
+
+// ── Events ──
+export function usePoEvents(entityId?: string) {
+  return useQuery({
+    queryKey: ["po_events", entityId],
+    enabled: !!entityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("po_events")
+        .select("*")
+        .eq("entity_id", entityId!)
+        .eq("is_active", true)
+        .order("data_evento", { ascending: false });
+      if (error) throw error;
+      return data as PoEvent[];
+    },
+  });
+}
+
+export function useCreatePoEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (event: Partial<PoEvent>) => {
+      const { data, error } = await supabase
+        .from("po_events")
+        .insert([event as any])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["po_events"] });
+      toast.success("Evento registrado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Collection ──
+export function useCollectMentions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { entity_id: string; sources?: string[]; query?: string }) => {
+      const { data, error } = await supabase.functions.invoke("po-collect-mentions", {
+        body: params,
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["po_mentions"] });
+      qc.invalidateQueries({ queryKey: ["po_sentiment_analyses"] });
+      toast.success(`${data.collected} menções coletadas e enviadas para análise`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Insights ──
+export function useGenerateInsights() {
+  return useMutation({
+    mutationFn: async (params: { entity_id: string; period_days?: number }) => {
+      const { data, error } = await supabase.functions.invoke("po-generate-insights", {
+        body: params,
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Stats helpers ──
+export function usePoOverviewStats(entityId?: string) {
+  const { data: analyses } = useSentimentAnalyses(entityId, 30);
+  const { data: snapshots } = useDailySnapshots(entityId, 30);
+
+  const stats = analyses?.length ? {
+    total: analyses.length,
+    positive: analyses.filter(a => a.sentiment === "positivo").length,
+    negative: analyses.filter(a => a.sentiment === "negativo").length,
+    neutral: analyses.filter(a => a.sentiment === "neutro").length,
+    avgScore: analyses.reduce((s, a) => s + (a.sentiment_score || 0), 0) / analyses.length,
+    topTopics: getTopItems(analyses.flatMap(a => a.topics || []), 5),
+    topEmotions: getTopItems(analyses.flatMap(a => a.emotions || []), 5),
+    topCategories: getTopItems(analyses.map(a => a.category).filter(Boolean) as string[], 5),
+  } : null;
+
+  return { stats, snapshots, analyses };
+}
+
+function getTopItems(items: string[], limit: number) {
+  const counts: Record<string, number> = {};
+  items.forEach(i => counts[i] = (counts[i] || 0) + 1);
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }));
+}
