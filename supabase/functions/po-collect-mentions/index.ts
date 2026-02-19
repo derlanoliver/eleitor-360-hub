@@ -13,7 +13,7 @@ const APIFY_ACTORS: Record<string, string> = {
   twitter: "desearch~ai-twitter-search",
   instagram: "apify~instagram-scraper",
   facebook: "tropical_quince~facebook-page-scraper",
-  facebook_posts: "powerai~facebook-page-posts-scraper",
+  facebook_posts: "scraper-engine~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
   google_news: "dlaf~google-news-free",
 };
@@ -405,8 +405,8 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   console.log(`Facebook Comments: fetching posts from ${pageUrl}`);
 
   const posts = await runApifyActor(token, APIFY_ACTORS.facebook_posts, {
-    page_id: handle,
-    maxResults: 30,
+    startUrls: [handle],
+    maxPosts: 30,
   }, 90);
 
   if (!posts.length) {
