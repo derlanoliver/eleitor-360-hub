@@ -8,8 +8,12 @@ import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useDailyS
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
 const sourceColors: Record<string, string> = {
-  twitter: '#1DA1F2', instagram: '#E4405F', facebook: '#1877F2',
-  youtube: '#FF0000', tiktok: '#000000', news: '#6B7280', portais: '#6B7280',
+  twitter: '#1DA1F2', twitter_comments: '#1DA1F2',
+  instagram: '#E4405F', instagram_comments: '#E4405F',
+  facebook: '#1877F2', facebook_comments: '#1877F2',
+  youtube: '#FF0000', youtube_comments: '#FF0000',
+  tiktok: '#000000', tiktok_comments: '#000000',
+  news: '#6B7280', google_news: '#F59E0B', portais: '#6B7280',
 };
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
