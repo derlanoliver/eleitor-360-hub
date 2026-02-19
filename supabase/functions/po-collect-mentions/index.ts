@@ -12,6 +12,7 @@ const APIFY_BASE = "https://api.apify.com/v2";
 const APIFY_ACTORS: Record<string, string> = {
   twitter: "desearch~ai-twitter-search",
   instagram: "apify~instagram-scraper",
+  instagram_comments: "apify~instagram-comment-scraper",
   facebook: "tropical_quince~facebook-page-scraper",
   facebook_posts: "apify~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
@@ -87,6 +88,18 @@ serve(async (req) => {
         console.log("facebook_comments: no Facebook handle configured for entity");
       }
     }
+
+    // ── 7. Instagram Comments (from entity's own profile) ──
+    if (targetSources.includes("instagram_comments") && APIFY_API_TOKEN) {
+      const igHandle = entity.redes_sociais?.instagram;
+      if (igHandle) {
+        const mentions = await collectInstagramComments(APIFY_API_TOKEN, igHandle, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("instagram_comments: no Instagram handle configured for entity");
+      }
+    }
+
 
     console.log(`Total collected (before dedupe): ${collectedMentions.length}`);
 
@@ -275,6 +288,114 @@ async function collectInstagram(token: string, query: string, entityName: string
     media_urls: item.displayUrl ? [item.displayUrl] : item.images || [],
     raw_data: { source: "apify_instagram", apify_id: item.id },
   })).filter(m => m.content.length > 5);
+}
+
+// ══════════════════════════════════════════════════
+// INSTAGRAM COMMENTS (from entity's own profile)
+// Two-stage: fetch posts → extract comments
+// ══════════════════════════════════════════════════
+
+async function collectInstagramComments(token: string, igHandle: string, entityName: string, entityId: string): Promise<any[]> {
+  const handle = igHandle.replace(/^@/, "");
+  const profileUrl = `https://www.instagram.com/${handle}`;
+  console.log(`Instagram Comments: Stage 1 - fetching posts from ${profileUrl}`);
+
+  // Stage 1: Get recent posts from the profile
+  const posts = await runApifyActor(token, APIFY_ACTORS.instagram, {
+    directUrls: [profileUrl],
+    resultsType: "posts",
+    resultsLimit: 10,
+  }, 40);
+
+  if (!posts.length) {
+    console.log("Instagram Comments: no posts found");
+    return [];
+  }
+
+  const postUrls = posts
+    .map(p => p.url || p.postUrl || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : null))
+    .filter(Boolean)
+    .slice(0, 10);
+
+  console.log(`Instagram Comments: Stage 1 got ${posts.length} posts, ${postUrls.length} URLs`);
+
+  if (postUrls.length === 0) return [];
+
+  // Stage 2: Get comments from those posts
+  console.log(`Instagram Comments: Stage 2 - fetching comments from ${postUrls.length} posts`);
+  const commentItems = await runApifyActor(token, APIFY_ACTORS.instagram_comments, {
+    directUrls: postUrls,
+    maxComments: 100,
+    maxReplies: 0,
+  }, 90);
+
+  console.log(`Instagram Comments: Stage 2 got ${commentItems.length} comment items`);
+  if (commentItems.length > 0) {
+    console.log(`Instagram Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
+    console.log(`Instagram Comments: sample: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
+  }
+
+  const mentions: any[] = [];
+
+  for (const comment of commentItems) {
+    const content = (comment.text || comment.comment || comment.body || comment.message || "").substring(0, 2000);
+    if (content.length < 3) continue;
+
+    const postUrl = comment.postUrl || comment.inputUrl || null;
+    mentions.push({
+      entity_id: entityId,
+      source: "instagram_comments",
+      source_url: postUrl,
+      author_name: comment.ownerFullName || comment.fullName || comment.userFullName || null,
+      author_handle: comment.ownerUsername || comment.username || null,
+      content,
+      published_at: comment.timestamp || comment.createdAt || comment.created_at || new Date().toISOString(),
+      engagement: {
+        likes: comment.likesCount || comment.likes || 0,
+        comments: comment.repliesCount || 0,
+        shares: 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: [],
+      raw_data: {
+        source: "apify_instagram_comments",
+        post_url: postUrl,
+        comment_id: comment.id || comment.commentId || null,
+      },
+    });
+  }
+
+  // Fallback: if no comments, use posts themselves
+  if (mentions.length === 0) {
+    console.log("Instagram Comments: no comments found, falling back to post captions");
+    for (const post of posts) {
+      const content = (post.caption || post.text || post.alt || "").substring(0, 2000);
+      if (content.length < 5) continue;
+      const postUrl = post.url || post.postUrl || (post.shortCode ? `https://www.instagram.com/p/${post.shortCode}/` : null);
+      mentions.push({
+        entity_id: entityId,
+        source: "instagram_comments",
+        source_url: postUrl,
+        author_name: post.ownerFullName || post.owner?.fullName || entityName,
+        author_handle: post.ownerUsername || post.owner?.username || handle,
+        content,
+        published_at: post.timestamp || (post.takenAtTimestamp ? new Date(post.takenAtTimestamp * 1000).toISOString() : new Date().toISOString()),
+        engagement: {
+          likes: post.likesCount || post.likes || 0,
+          comments: post.commentsCount || post.comments || 0,
+          views: post.videoViewCount || post.views || 0,
+          shares: 0,
+        },
+        hashtags: post.hashtags || [],
+        media_urls: post.displayUrl ? [post.displayUrl] : [],
+        raw_data: { source: "apify_instagram_posts_fallback" },
+      });
+    }
+  }
+
+  console.log(`Instagram Comments: total ${mentions.length} mentions extracted`);
+  return mentions;
 }
 
 // ── Facebook via Apify ──
