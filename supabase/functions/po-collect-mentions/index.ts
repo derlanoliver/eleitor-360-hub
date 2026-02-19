@@ -17,6 +17,10 @@ const APIFY_ACTORS: Record<string, string> = {
   facebook_posts: "apify~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
   google_news: "dlaf~google-news-free",
+  tiktok_profile: "clockworks~tiktok-profile-scraper",
+  tiktok_comments: "easyapi~tiktok-comments-scraper",
+  youtube_channel: "runtime~youtube-channel",
+  youtube_comments: "crawlerbros~youtube-comment-scraper",
 };
 
 serve(async (req) => {
@@ -111,6 +115,27 @@ serve(async (req) => {
       }
     }
 
+    // ── 9. TikTok Comments (from entity's own profile) ──
+    if (targetSources.includes("tiktok_comments") && APIFY_API_TOKEN) {
+      const tkHandle = entity.redes_sociais?.tiktok;
+      if (tkHandle) {
+        const mentions = await collectTikTokComments(APIFY_API_TOKEN, tkHandle, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("tiktok_comments: no TikTok handle configured for entity");
+      }
+    }
+
+    // ── 10. YouTube Comments (from entity's own channel) ──
+    if (targetSources.includes("youtube_comments") && APIFY_API_TOKEN) {
+      const ytHandle = entity.redes_sociais?.youtube;
+      if (ytHandle) {
+        const mentions = await collectYouTubeComments(APIFY_API_TOKEN, ytHandle, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("youtube_comments: no YouTube handle configured for entity");
+      }
+    }
 
     // ── Dedupe: remove mentions whose content already exists in DB ──
     if (collectedMentions.length > 0) {
@@ -668,3 +693,214 @@ async function collectTwitterReplies(token: string, twHandle: string, entityName
   })).filter(m => m.content.length > 5);
 }
 
+// ══════════════════════════════════════════════════
+// TIKTOK COMMENTS (from entity's own profile)
+// Two-stage: fetch profile videos → extract comments
+// ══════════════════════════════════════════════════
+
+async function collectTikTokComments(token: string, tkHandle: string, entityName: string, entityId: string): Promise<any[]> {
+  const handle = tkHandle.replace(/^@/, "");
+  console.log(`TikTok Comments: Stage 1 - fetching videos from @${handle}`);
+
+  // Stage 1: Get recent videos from the profile
+  const profileData = await runApifyActor(token, APIFY_ACTORS.tiktok_profile, {
+    profiles: [handle],
+    resultsPerPage: 10,
+    shouldDownloadCovers: false,
+    shouldDownloadVideos: false,
+  }, 40);
+
+  // Extract video URLs from profile results
+  const videoUrls: string[] = [];
+  for (const item of profileData) {
+    const videoUrl = item.webVideoUrl || item.videoUrl || item.url;
+    if (videoUrl) {
+      videoUrls.push(videoUrl);
+    } else if (item.id && item.authorMeta?.name) {
+      videoUrls.push(`https://www.tiktok.com/@${item.authorMeta.name}/video/${item.id}`);
+    }
+  }
+
+  console.log(`TikTok Comments: Stage 1 got ${profileData.length} items, ${videoUrls.length} video URLs`);
+
+  if (videoUrls.length === 0) {
+    console.log("TikTok Comments: no video URLs found, using post captions as fallback");
+    return profileData
+      .map(item => ({
+        entity_id: entityId,
+        source: "tiktok_comments",
+        source_url: item.webVideoUrl || item.url || null,
+        author_name: item.authorMeta?.name || handle,
+        author_handle: handle,
+        content: (item.text || item.desc || item.description || "").substring(0, 2000),
+        published_at: item.createTimeISO || (item.createTime ? new Date(item.createTime * 1000).toISOString() : new Date().toISOString()),
+        engagement: {
+          likes: item.diggCount || item.likes || 0,
+          comments: item.commentCount || item.comments || 0,
+          shares: item.shareCount || item.shares || 0,
+          views: item.playCount || item.views || 0,
+        },
+        hashtags: item.hashtags?.map((h: any) => h.name || h) || [],
+        media_urls: [],
+        raw_data: { source: "apify_tiktok_posts_fallback" },
+      }))
+      .filter(m => m.content.length > 5);
+  }
+
+  // Stage 2: Get comments from those videos
+  const postUrls = videoUrls.slice(0, 10);
+  console.log(`TikTok Comments: Stage 2 - fetching comments from ${postUrls.length} videos`);
+  const commentItems = await runApifyActor(token, APIFY_ACTORS.tiktok_comments, {
+    postUrls: postUrls,
+    maxItems: 100,
+  }, 90);
+
+  console.log(`TikTok Comments: Stage 2 got ${commentItems.length} comment items`);
+  if (commentItems.length > 0) {
+    console.log(`TikTok Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
+    console.log(`TikTok Comments: sample: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
+  }
+
+  const mentions: any[] = [];
+
+  for (const comment of commentItems) {
+    const content = (comment.text || comment.comment || comment.desc || comment.body || "").substring(0, 2000);
+    if (content.length < 3) continue;
+
+    mentions.push({
+      entity_id: entityId,
+      source: "tiktok_comments",
+      source_url: comment.videoUrl || comment.postUrl || null,
+      author_name: comment.nickname || comment.uniqueId || comment.user?.nickname || null,
+      author_handle: comment.uniqueId || comment.user?.uniqueId || null,
+      content,
+      published_at: comment.createTimeISO || (comment.createTime ? new Date(comment.createTime * 1000).toISOString() : new Date().toISOString()),
+      engagement: {
+        likes: comment.diggCount || comment.likes || comment.likeCount || 0,
+        comments: comment.replyCount || comment.replyCommentTotal || 0,
+        shares: 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: [],
+      raw_data: {
+        source: "apify_tiktok_comments",
+        comment_id: comment.cid || comment.id || null,
+      },
+    });
+  }
+
+  // Fallback: if no comments, use video captions
+  if (mentions.length === 0) {
+    console.log("TikTok Comments: no comments found, falling back to video captions");
+    for (const item of profileData) {
+      const content = (item.text || item.desc || item.description || "").substring(0, 2000);
+      if (content.length < 5) continue;
+      mentions.push({
+        entity_id: entityId,
+        source: "tiktok_comments",
+        source_url: item.webVideoUrl || item.url || null,
+        author_name: item.authorMeta?.name || handle,
+        author_handle: handle,
+        content,
+        published_at: item.createTimeISO || (item.createTime ? new Date(item.createTime * 1000).toISOString() : new Date().toISOString()),
+        engagement: {
+          likes: item.diggCount || item.likes || 0,
+          comments: item.commentCount || item.comments || 0,
+          shares: item.shareCount || item.shares || 0,
+          views: item.playCount || item.views || 0,
+        },
+        hashtags: item.hashtags?.map((h: any) => h.name || h) || [],
+        media_urls: [],
+        raw_data: { source: "apify_tiktok_posts_fallback" },
+      });
+    }
+  }
+
+  console.log(`TikTok Comments: total ${mentions.length} mentions extracted`);
+  return mentions;
+}
+
+// ══════════════════════════════════════════════════
+// YOUTUBE COMMENTS (from entity's own channel)
+// Two-stage: fetch channel videos → extract comments
+// ══════════════════════════════════════════════════
+
+async function collectYouTubeComments(token: string, ytHandle: string, entityName: string, entityId: string): Promise<any[]> {
+  const handle = ytHandle.replace(/^@/, "");
+  const channelUrl = handle.startsWith("http") ? handle : `https://www.youtube.com/@${handle}`;
+  console.log(`YouTube Comments: Stage 1 - fetching videos from ${channelUrl}`);
+
+  // Stage 1: Get recent video URLs from the channel
+  const channelData = await runApifyActor(token, APIFY_ACTORS.youtube_channel, {
+    urls: [channelUrl],
+  }, 40);
+
+  const videoUrls: string[] = [];
+  for (const channel of channelData) {
+    if (channel.videos && Array.isArray(channel.videos)) {
+      for (const video of channel.videos.slice(0, 10)) {
+        if (video.url) videoUrls.push(video.url);
+        else if (video.id) videoUrls.push(`https://www.youtube.com/watch?v=${video.id}`);
+      }
+    } else if (channel.url || channel.id) {
+      const url = channel.url || `https://www.youtube.com/watch?v=${channel.id}`;
+      videoUrls.push(url);
+    }
+  }
+
+  console.log(`YouTube Comments: Stage 1 got ${channelData.length} items, ${videoUrls.length} video URLs`);
+
+  if (videoUrls.length === 0) {
+    console.log("YouTube Comments: no video URLs found");
+    return [];
+  }
+
+  // Stage 2: Get comments from those videos
+  const targetUrls = videoUrls.slice(0, 10);
+  console.log(`YouTube Comments: Stage 2 - fetching comments from ${targetUrls.length} videos`);
+  const commentItems = await runApifyActor(token, APIFY_ACTORS.youtube_comments, {
+    videoUrls: targetUrls,
+    maxComments: 100,
+    replyDepth: 0,
+  }, 90);
+
+  console.log(`YouTube Comments: Stage 2 got ${commentItems.length} comment items`);
+  if (commentItems.length > 0) {
+    console.log(`YouTube Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
+    console.log(`YouTube Comments: sample: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
+  }
+
+  const mentions: any[] = [];
+
+  for (const comment of commentItems) {
+    const content = (comment.text || comment.comment || comment.commentText || comment.content || "").substring(0, 2000);
+    if (content.length < 3) continue;
+
+    mentions.push({
+      entity_id: entityId,
+      source: "youtube_comments",
+      source_url: comment.videoUrl || (comment.videoId ? `https://www.youtube.com/watch?v=${comment.videoId}` : null),
+      author_name: comment.author || comment.authorName || comment.userName || null,
+      author_handle: comment.authorChannelUrl || comment.authorUrl || null,
+      content,
+      published_at: comment.publishedAt || comment.date || comment.timestamp || new Date().toISOString(),
+      engagement: {
+        likes: comment.likes || comment.likeCount || comment.voteCount || 0,
+        comments: comment.replyCount || comment.totalReplyCount || 0,
+        shares: 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: [],
+      raw_data: {
+        source: "apify_youtube_comments",
+        comment_id: comment.commentId || comment.id || null,
+        video_title: comment.videoTitle || null,
+      },
+    });
+  }
+
+  console.log(`YouTube Comments: total ${mentions.length} mentions extracted`);
+  return mentions;
+}
