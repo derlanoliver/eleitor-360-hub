@@ -19,7 +19,7 @@ const APIFY_ACTORS: Record<string, string> = {
   google_news: "dlaf~google-news-free",
   tiktok_profile: "clockworks~tiktok-profile-scraper",
   tiktok_comments: "easyapi~tiktok-comments-scraper",
-  youtube_channel: "runtime~youtube-channel",
+  youtube_channel: "scrapesmith~youtube-free-channel-scraper",
   youtube_comments: "crawlerbros~youtube-comment-scraper",
 };
 
@@ -831,22 +831,18 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
   const channelUrl = handle.startsWith("http") ? handle : `https://www.youtube.com/@${handle}`;
   console.log(`YouTube Comments: Stage 1 - fetching videos from ${channelUrl}`);
 
-  // Stage 1: Get recent video URLs from the channel
+  // Stage 1: Get recent video URLs from the channel (scrapesmith actor)
   const channelData = await runApifyActor(token, APIFY_ACTORS.youtube_channel, {
-    urls: [channelUrl],
+    channelUrls: [channelUrl],
+    maxResults: 10,
+    sortBy: "date",
   }, 40);
 
   const videoUrls: string[] = [];
-  for (const channel of channelData) {
-    if (channel.videos && Array.isArray(channel.videos)) {
-      for (const video of channel.videos.slice(0, 10)) {
-        if (video.url) videoUrls.push(video.url);
-        else if (video.id) videoUrls.push(`https://www.youtube.com/watch?v=${video.id}`);
-      }
-    } else if (channel.url || channel.id) {
-      const url = channel.url || `https://www.youtube.com/watch?v=${channel.id}`;
-      videoUrls.push(url);
-    }
+  for (const item of channelData) {
+    const videoId = item.videoId || item.id;
+    const videoUrl = item.url || item.videoUrl || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+    if (videoUrl) videoUrls.push(videoUrl);
   }
 
   console.log(`YouTube Comments: Stage 1 got ${channelData.length} items, ${videoUrls.length} video URLs`);
