@@ -68,7 +68,16 @@ const Overview = () => {
             variant="outline"
             size="sm"
             disabled={collectMentions.isPending}
-            onClick={() => collectMentions.mutate({ entity_id: principalEntity.id })}
+            onClick={() => {
+              const sources = ["news", "google_news"];
+              const redes = principalEntity.redes_sociais as Record<string, string> | null;
+              if (redes?.twitter) sources.push("twitter_comments");
+              if (redes?.instagram) sources.push("instagram_comments");
+              if (redes?.facebook) sources.push("facebook_comments");
+              if (redes?.tiktok) sources.push("tiktok_comments");
+              if (redes?.youtube) sources.push("youtube_comments");
+              collectMentions.mutate({ entity_id: principalEntity.id, sources });
+            }}
           >
             {collectMentions.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             Coletar Menções
