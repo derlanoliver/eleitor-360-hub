@@ -19,7 +19,7 @@ const Comments = () => {
 
   const { data: entities } = useMonitoredEntities();
   const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
-  const { data: mentions } = useMentions(principalEntity?.id, undefined, 100);
+  const { data: mentions } = useMentions(principalEntity?.id, undefined, 500);
   const { data: analyses } = useSentimentAnalyses(principalEntity?.id);
 
   // Build analysis map
