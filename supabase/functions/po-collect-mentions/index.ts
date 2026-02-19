@@ -13,7 +13,7 @@ const APIFY_ACTORS: Record<string, string> = {
   twitter: "desearch~ai-twitter-search",
   instagram: "apify~instagram-scraper",
   facebook: "tropical_quince~facebook-page-scraper",
-  facebook_posts: "scraper-engine~facebook-posts-scraper",
+  facebook_posts: "apify~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
   google_news: "dlaf~google-news-free",
 };
@@ -405,70 +405,51 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   console.log(`Facebook Comments: fetching posts from ${pageUrl}`);
 
   const posts = await runApifyActor(token, APIFY_ACTORS.facebook_posts, {
-    startUrls: [handle],
-    maxPosts: 30,
-  }, 90);
+    startUrls: [{ url: pageUrl }],
+    maxPosts: 10,
+    includeComments: true,
+  }, 60);
 
   if (!posts.length) {
     console.log("Facebook Comments: no posts found");
     return [];
   }
 
-  // tropical_quince returns page objects with nested 'posts' array
-  const allPosts: any[] = [];
-  for (const pageResult of posts) {
-    if (Array.isArray(pageResult.posts)) {
-      allPosts.push(...pageResult.posts);
-    }
-  }
-
-  // Fallback: if no nested posts, treat top-level items as posts
-  const finalPosts = allPosts.length > 0 ? allPosts : posts;
-
-  console.log(`Facebook Comments: got ${finalPosts.length} posts, extracting comments`);
-  if (finalPosts.length > 0) {
-    console.log(`Facebook Comments: post keys: ${Object.keys(finalPosts[0]).join(", ")}`);
-    console.log(`Facebook Comments: sample: ${JSON.stringify(finalPosts[0]).substring(0, 500)}`);
+  console.log(`Facebook Comments: got ${posts.length} posts`);
+  if (posts.length > 0) {
+    console.log(`Facebook Comments: post keys: ${Object.keys(posts[0]).join(", ")}`);
   }
 
   const mentions: any[] = [];
 
-  for (const post of finalPosts) {
-    // Try multiple field names for comments
-    const comments = post.topComments || post.latestComments || post.comments_full || [];
-    // If comments is a number (count), skip
-    if (!Array.isArray(comments)) continue;
-    const postUrl = post.postUrl || post.url || post.link || null;
-    for (const comment of comments) {
-      const content = (comment.text || comment.comment || comment.body || comment.message || "").substring(0, 2000);
-      if (content.length < 3) continue;
+  for (const post of posts) {
+    const content = (post.text || post.message || post.postText || "").substring(0, 2000);
+    if (content.length < 5) continue;
 
-      mentions.push({
-        entity_id: entityId,
-        source: "facebook_comments",
-        source_url: postUrl,
-        author_name: comment.authorName || comment.profileName || comment.name || null,
-        author_handle: comment.authorUrl || comment.profileUrl || null,
-        content,
-        published_at: comment.date || comment.timestamp || post.postedAt || new Date().toISOString(),
-        engagement: {
-          likes: comment.likesCount || comment.likes || comment.reactionsCount || 0,
-          comments: comment.repliesCount || comment.replies?.length || 0,
-          shares: 0,
-          views: 0,
-        },
-        hashtags: [],
-        media_urls: comment.imageUrl ? [comment.imageUrl] : [],
-        raw_data: {
-          source: "apify_facebook_topcomments",
-          post_url: postUrl,
-          post_likes: post.likes || 0,
-          post_comments_count: post.comments || 0,
-        },
-      });
-    }
+    const postUrl = post.url || post.postUrl || post.link || null;
+    mentions.push({
+      entity_id: entityId,
+      source: "facebook_comments",
+      source_url: postUrl,
+      author_name: post.user?.name || post.pageName || entityName,
+      author_handle: post.user?.profileUrl || null,
+      content,
+      published_at: post.time || (post.timestamp ? new Date(post.timestamp * 1000).toISOString() : new Date().toISOString()),
+      engagement: {
+        likes: post.likes || post.topReactionsCount || post.reactionLikeCount || 0,
+        comments: post.comments || 0,
+        shares: post.shares || 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: post.media?.map((m: any) => m.thumbnail || m.url || m) || [],
+      raw_data: {
+        source: "apify_facebook_page_posts",
+        post_id: post.postId || post.feedbackId || null,
+      },
+    });
   }
 
-  console.log(`Facebook Comments: extracted ${mentions.length} comments from ${posts.length} posts`);
+  console.log(`Facebook Comments: extracted ${mentions.length} post mentions from ${posts.length} posts`);
   return mentions;
 }
