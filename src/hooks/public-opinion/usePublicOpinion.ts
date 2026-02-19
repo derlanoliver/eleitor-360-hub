@@ -253,6 +253,18 @@ export function useGenerateInsights() {
 export function usePoOverviewStats(entityId?: string) {
   const { data: analyses } = useSentimentAnalyses(entityId, 30);
   const { data: snapshots } = useDailySnapshots(entityId, 30);
+  const { data: mentions } = useMentions(entityId, undefined, 1000);
+
+  const sourceBreakdown = mentions?.length
+    ? Object.entries(
+        mentions.reduce<Record<string, number>>((acc, m) => {
+          acc[m.source] = (acc[m.source] || 0) + 1;
+          return acc;
+        }, {})
+      )
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({ name, value: count }))
+    : [];
 
   const stats = analyses?.length ? {
     total: analyses.length,
@@ -265,7 +277,7 @@ export function usePoOverviewStats(entityId?: string) {
     topCategories: getTopItems(analyses.map(a => a.category).filter(Boolean) as string[], 5),
   } : null;
 
-  return { stats, snapshots, analyses };
+  return { stats, snapshots, analyses, sourceBreakdown };
 }
 
 function getTopItems(items: string[], limit: number) {

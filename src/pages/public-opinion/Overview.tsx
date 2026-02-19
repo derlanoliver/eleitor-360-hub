@@ -16,7 +16,7 @@ const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 const Overview = () => {
   const { data: entities } = useMonitoredEntities();
   const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
-  const { stats, snapshots, analyses } = usePoOverviewStats(principalEntity?.id);
+  const { stats, snapshots, analyses, sourceBreakdown } = usePoOverviewStats(principalEntity?.id);
   const collectMentions = useCollectMentions();
 
   const hasRealData = !!stats && stats.total > 0;
@@ -38,9 +38,9 @@ const Overview = () => {
     { name: 'Neutro', value: overviewData.neutral_pct },
   ];
 
-  // Source breakdown from real data or mock
-  const sourceData = hasRealData && snapshots?.length
-    ? Object.entries(snapshots[snapshots.length - 1]?.source_breakdown || {}).map(([name, value]) => ({ name, value: value as number }))
+  // Source breakdown from real mention counts or mock
+  const sourceData = sourceBreakdown?.length
+    ? sourceBreakdown
     : Object.entries(SENTIMENT_OVERVIEW.sources).map(([name, value]) => ({ name, value }));
 
   // Timeline from snapshots or mock
