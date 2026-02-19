@@ -100,8 +100,17 @@ serve(async (req) => {
       }
     }
 
+    // ── 8. Twitter Replies (from entity's own profile) ──
+    if (targetSources.includes("twitter_comments") && APIFY_API_TOKEN) {
+      const twHandle = entity.redes_sociais?.twitter;
+      if (twHandle) {
+        const mentions = await collectTwitterReplies(APIFY_API_TOKEN, twHandle, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("twitter_comments: no Twitter handle configured for entity");
+      }
+    }
 
-    console.log(`Total collected (before dedupe): ${collectedMentions.length}`);
 
     // ── Dedupe: remove mentions whose content already exists in DB ──
     if (collectedMentions.length > 0) {
@@ -621,3 +630,41 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   console.log(`Facebook Comments: total ${mentions.length} mentions extracted`);
   return mentions;
 }
+
+// ══════════════════════════════════════════════════
+// TWITTER REPLIES (mentions of entity's handle)
+// Single-stage: search for @handle mentions
+// ══════════════════════════════════════════════════
+
+async function collectTwitterReplies(token: string, twHandle: string, entityName: string, entityId: string): Promise<any[]> {
+  const handle = twHandle.replace(/^@/, "");
+  console.log(`Twitter Replies: searching for @${handle} and "${entityName}" mentions`);
+
+  // Search for tweets mentioning the entity (by handle and name)
+  const items = await runApifyActor(token, APIFY_ACTORS.twitter, {
+    query: `${entityName} OR @${handle}`,
+    min_likes: 0,
+  }, 90);
+
+  console.log(`Twitter Replies: got ${items.length} items`);
+
+  return items.map(item => ({
+    entity_id: entityId,
+    source: "twitter_comments",
+    source_url: item.url || item.tweet_url || null,
+    author_name: item.author_name || item.user_name || item.name || null,
+    author_handle: item.author_handle || item.screen_name || item.username || null,
+    content: (item.text || item.full_text || item.content || "").substring(0, 2000),
+    published_at: item.created_at || item.date || new Date().toISOString(),
+    engagement: {
+      likes: item.like_count || item.likes || item.favorite_count || 0,
+      shares: item.retweet_count || item.retweets || 0,
+      comments: item.reply_count || item.replies || 0,
+      views: item.view_count || item.views || 0,
+    },
+    hashtags: item.hashtags || [],
+    media_urls: item.media?.map((m: any) => m.url || m) || [],
+    raw_data: { source: "apify_twitter_replies" },
+  })).filter(m => m.content.length > 5);
+}
+
