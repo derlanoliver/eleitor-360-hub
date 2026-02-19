@@ -404,11 +404,11 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   const pageUrl = `https://www.facebook.com/${handle}`;
   console.log(`Facebook Comments: Stage 1 - fetching posts from ${pageUrl}`);
 
-  // Stage 1: Get post URLs (limit to 5 to stay within timeout)
+   // Stage 1: Get post URLs (limit to 10 to maximize collection within timeout)
   const posts = await runApifyActor(token, APIFY_ACTORS.facebook_posts, {
     startUrls: [{ url: pageUrl }],
-    maxPosts: 5,
-  }, 30);
+    maxPosts: 10,
+  }, 40);
 
   if (!posts.length) {
     console.log("Facebook Comments: no posts found");
@@ -418,7 +418,7 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   const postUrls = posts
     .map(p => p.url || p.postUrl || p.link)
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, 10);
 
   console.log(`Facebook Comments: Stage 1 got ${posts.length} posts, ${postUrls.length} URLs`);
 
@@ -428,7 +428,7 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
   console.log(`Facebook Comments: Stage 2 - fetching comments from ${postUrls.length} posts`);
   const commentItems = await runApifyActor(token, APIFY_ACTORS.facebook_comments, {
     startUrls: postUrls.map(url => ({ url })),
-    resultsLimit: 50,
+    resultsLimit: 100,
     includeReplies: false,
   }, 90);
 
