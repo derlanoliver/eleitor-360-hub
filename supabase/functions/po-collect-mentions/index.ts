@@ -834,15 +834,20 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
   // Stage 1: Get recent video URLs from the channel (scrapesmith actor)
   const channelData = await runApifyActor(token, APIFY_ACTORS.youtube_channel, {
     channelUrls: [channelUrl],
-    maxResults: 10,
-    sortBy: "date",
-  }, 40);
+    videosPerChannel: 10,
+  }, 60);
 
   const videoUrls: string[] = [];
+  if (channelData.length > 0) {
+    console.log(`YouTube Comments: Stage 1 sample keys: ${Object.keys(channelData[0]).join(", ")}`);
+    console.log(`YouTube Comments: Stage 1 sample: ${JSON.stringify(channelData[0]).substring(0, 600)}`);
+  }
   for (const item of channelData) {
-    const videoId = item.videoId || item.id;
-    const videoUrl = item.url || item.videoUrl || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
-    if (videoUrl) videoUrls.push(videoUrl);
+    // scrapesmith actor uses numbered field names like "11 Video URL"
+    const videoUrl = item["11 Video URL"] || item.url || item.videoUrl || item.video_url || item.link;
+    const videoId = item["01 ID"] || item.videoId || item.id;
+    const resolvedUrl = videoUrl || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+    if (resolvedUrl && resolvedUrl.includes("watch")) videoUrls.push(resolvedUrl);
   }
 
   console.log(`YouTube Comments: Stage 1 got ${channelData.length} items, ${videoUrls.length} video URLs`);
@@ -852,20 +857,8 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
     return [];
   }
 
-  // Stage 2: Get comments from those videos
-  const targetUrls = videoUrls.slice(0, 10);
-  console.log(`YouTube Comments: Stage 2 - fetching comments from ${targetUrls.length} videos`);
-  const commentItems = await runApifyActor(token, APIFY_ACTORS.youtube_comments, {
-    videoUrls: targetUrls,
-    maxComments: 100,
-    replyDepth: 0,
-  }, 90);
-
-  console.log(`YouTube Comments: Stage 2 got ${commentItems.length} comment items`);
-  if (commentItems.length > 0) {
-    console.log(`YouTube Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
-    console.log(`YouTube Comments: sample: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
-  }
+  // Skip Stage 2 (comment scraper is paid/unavailable), use video metadata directly
+  const commentItems: any[] = [];
 
   const mentions: any[] = [];
 
@@ -895,6 +888,37 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
         video_title: comment.videoTitle || null,
       },
     });
+  }
+
+  // Fallback: if no comments extracted, use video metadata from Stage 1
+  if (mentions.length === 0) {
+    console.log("YouTube Comments: no comments found, falling back to video metadata");
+    for (const item of channelData) {
+      const title = item["02 Title"] || item.title || "";
+      const description = item["12 Description"] || item.description || "";
+      const content = (title + (description ? `. ${description}` : "")).substring(0, 2000);
+      if (content.length < 5) continue;
+
+      const videoUrl = item["11 Video URL"] || item.url || item.videoUrl || null;
+      mentions.push({
+        entity_id: entityId,
+        source: "youtube_comments",
+        source_url: videoUrl,
+        author_name: item["09 Channel Name"] || entityName,
+        author_handle: item["10 Channel URL"] || null,
+        content,
+        published_at: item["07 Date Posted"] ? new Date(item["07 Date Posted"]).toISOString() : new Date().toISOString(),
+        engagement: {
+          likes: item["04 Likes"] || 0,
+          comments: item["05 Comments"] || 0,
+          shares: 0,
+          views: item["03 Views"] || 0,
+        },
+        hashtags: [],
+        media_urls: item["13 Thumbnail"] ? [item["13 Thumbnail"]] : [],
+        raw_data: { source: "apify_youtube_videos_fallback" },
+      });
+    }
   }
 
   console.log(`YouTube Comments: total ${mentions.length} mentions extracted`);
