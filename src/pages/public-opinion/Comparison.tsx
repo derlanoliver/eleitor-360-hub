@@ -143,9 +143,9 @@ const Comparison = () => {
 
   const barData = comparisonData.map(c => ({
     nome: c.nome.split(' ')[0],
-    Positivo: c.positive_pct || COMPETITOR_DATA.find(d => d.id === c.id)?.positive_pct || 0,
-    Negativo: c.negative_pct || COMPETITOR_DATA.find(d => d.id === c.id)?.negative_pct || 0,
-    Neutro: c.neutral_pct || COMPETITOR_DATA.find(d => d.id === c.id)?.neutral_pct || 0,
+    Positivo: c.positive_pct,
+    Negativo: c.negative_pct,
+    Neutro: c.neutral_pct,
   }));
 
   const isDemo = !hasRealEntities;
