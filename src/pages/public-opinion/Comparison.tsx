@@ -127,18 +127,18 @@ const Comparison = () => {
       })
     : COMPETITOR_DATA;
 
+  // Use logarithmic scales for absolute metrics to avoid always hitting 100%
+  const logScale = (value: number, base: number) => {
+    if (value <= 0) return 0;
+    return Math.min(Math.round((Math.log10(value + 1) / Math.log10(base + 1)) * 100), 100);
+  };
+
   const radarData = [
     { metric: 'Sentimento', ...Object.fromEntries(comparisonData.map(c => [c.nome, Math.max((c.sentiment_score || 0) * 10, 0)])) },
-    { metric: 'Engajamento', ...Object.fromEntries(comparisonData.map(c => [c.nome, Math.min((c.engagement_rate || 0) * 5, 100)])) },
-    { metric: 'Menções', ...Object.fromEntries(comparisonData.map(c => {
-      const maxMentions = Math.max(...comparisonData.map(x => x.mentions || 1));
-      return [c.nome, Math.round(((c.mentions || 0) / maxMentions) * 100)];
-    })) },
+    { metric: 'Engajamento', ...Object.fromEntries(comparisonData.map(c => [c.nome, logScale(c.engagement_rate || 0, 500)])) },
+    { metric: 'Menções', ...Object.fromEntries(comparisonData.map(c => [c.nome, logScale(c.mentions || 0, 10000)])) },
     { metric: 'Aprovação', ...Object.fromEntries(comparisonData.map(c => [c.nome, c.positive_pct || 0])) },
-    { metric: 'Alcance', ...Object.fromEntries(comparisonData.map(c => {
-      const maxEng = Math.max(...comparisonData.map(x => x.followers_total || 1));
-      return [c.nome, Math.round(((c.followers_total || 0) / maxEng) * 100)];
-    })) },
+    { metric: 'Alcance', ...Object.fromEntries(comparisonData.map(c => [c.nome, logScale(c.followers_total || 0, 10000000)])) },
   ];
 
   const barData = comparisonData.map(c => ({
