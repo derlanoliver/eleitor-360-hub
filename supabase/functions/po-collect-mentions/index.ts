@@ -1142,6 +1142,40 @@ async function collectTelegram(token: string, tgConfig: string | string[], searc
   console.log(`Telegram: got ${items.length} items`);
   if (items.length > 0) {
     console.log(`Telegram: sample keys: ${Object.keys(items[0]).join(", ")}`);
+  }
+
+  const nameLower = entityName.toLowerCase();
+  const searchLower = searchQuery.replace(/"/g, "").toLowerCase();
+
+  return items.map(item => {
+    const content = (item.description || item.text || item.message || "").substring(0, 2000);
+    if (content.length < 5) return null;
+
+    const contentLower = content.toLowerCase();
+    if (!contentLower.includes(nameLower) && !contentLower.includes(searchLower)) return null;
+
+    return {
+      entity_id: entityId,
+      source: "telegram",
+      source_url: item.url || (item.channel ? `https://t.me/${item.channel}` : null),
+      author_name: item.channel || item.channelName || null,
+      author_handle: item.channel ? `@${item.channel}` : null,
+      content,
+      published_at: item.fulldate || item.date || new Date().toISOString(),
+      engagement: {
+        views: item.views || 0,
+        likes: 0,
+        comments: 0,
+        shares: item.forwards || 0,
+      },
+      hashtags: [],
+      media_urls: item.image ? [item.image] : [],
+      raw_data: {
+        source: "apify_telegram",
+        channel: item.channel || null,
+      },
+    };
+  }).filter(Boolean);
 }
 
 // ══════════════════════════════════════════════════
@@ -1359,37 +1393,4 @@ async function collectCustomSites(apiKey: string, sitesConfig: string | string[]
   return collectedMentions;
 }
 
-  const nameLower = entityName.toLowerCase();
-  const searchLower = searchQuery.replace(/"/g, "").toLowerCase();
 
-  return items.map(item => {
-    const content = (item.description || item.text || item.message || "").substring(0, 2000);
-    if (content.length < 5) return null;
-
-    // Filter: only keep posts that mention the entity or search term
-    const contentLower = content.toLowerCase();
-    if (!contentLower.includes(nameLower) && !contentLower.includes(searchLower)) return null;
-
-    return {
-      entity_id: entityId,
-      source: "telegram",
-      source_url: item.url || (item.channel ? `https://t.me/${item.channel}` : null),
-      author_name: item.channel || item.channelName || null,
-      author_handle: item.channel ? `@${item.channel}` : null,
-      content,
-      published_at: item.fulldate || item.date || new Date().toISOString(),
-      engagement: {
-        views: item.views || 0,
-        likes: 0,
-        comments: 0,
-        shares: item.forwards || 0,
-      },
-      hashtags: [],
-      media_urls: item.image ? [item.image] : [],
-      raw_data: {
-        source: "apify_telegram",
-        channel: item.channel || null,
-      },
-    };
-  }).filter(Boolean);
-}
