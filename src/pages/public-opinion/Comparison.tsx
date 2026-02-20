@@ -36,30 +36,37 @@ function useEntityStats(entityId?: string) {
       const positive = analyses.filter(a => a.sentiment === "positivo").length;
       const negative = analyses.filter(a => a.sentiment === "negativo").length;
       const neutral = analyses.filter(a => a.sentiment === "neutro").length;
-      const avgScore = total > 0
+      // avg sentiment_score is -1 to 1; normalize to 0-10 scale
+      const rawAvg = total > 0
         ? analyses.reduce((s, a) => s + (Number(a.sentiment_score) || 0), 0) / total
         : 0;
+      const sentimentScore = Math.round(((rawAvg + 1) / 2) * 100) / 10; // -1→0, 0→5, 1→10
 
       // Top topics
       const topicCounts: Record<string, number> = {};
       analyses.forEach(a => (a.topics || []).forEach((t: string) => topicCounts[t] = (topicCounts[t] || 0) + 1));
       const topTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name);
 
-      // Total engagement
+      // Total engagement (likes + comments + shares + views)
       let totalEngagement = 0;
       mentions.forEach(m => {
         const eng = m.engagement as Record<string, number> | null;
-        if (eng) totalEngagement += Object.values(eng).reduce((s, v) => s + (v || 0), 0);
+        if (eng) {
+          totalEngagement += (eng.likes || 0) + (eng.comments || 0) + (eng.shares || 0) + (eng.views || 0);
+        }
       });
+
+      // Engagement rate = avg engagement per mention
+      const engRate = mentions.length > 0 ? Math.round((totalEngagement / mentions.length) * 10) / 10 : 0;
 
       return {
         mentions: mentions.length,
         positive_pct: total > 0 ? Math.round((positive / total) * 100) : 0,
         negative_pct: total > 0 ? Math.round((negative / total) * 100) : 0,
         neutral_pct: total > 0 ? Math.round((neutral / total) * 100) : 0,
-        sentiment_score: Math.round(avgScore * 10) / 10,
+        sentiment_score: sentimentScore,
         engagement_total: totalEngagement,
-        engagement_rate: mentions.length > 0 ? Math.round((totalEngagement / mentions.length) * 10) / 10 : 0,
+        engagement_rate: engRate,
         top_topics: topTopics,
       };
     },
