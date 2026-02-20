@@ -136,11 +136,22 @@ serve(async (req) => {
       }
     }
 
-    // ── 9a. TikTok — busca pública por keyword/hashtag (multi-actor) ──
+    // ── 9a. TikTok — fire-and-forget quando há outras fontes para evitar timeout ──
     if (targetSources.includes("tiktok") && APIFY_API_TOKEN) {
-      const tkHandle = entity.redes_sociais?.tiktok;
-      const mentions = await collectTikTok(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, tkHandle || undefined);
-      collectedMentions.push(...mentions);
+      const otherSources = targetSources.filter((s: string) => s !== "tiktok" && s !== "tiktok_comments");
+      if (otherSources.length > 0) {
+        // Dispara coleta TikTok em background para não bloquear as outras fontes
+        fetch(`${supabaseUrl}/functions/v1/po-collect-mentions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+          body: JSON.stringify({ entity_id, sources: ["tiktok"] }),
+        }).catch(e => console.error("TikTok background error:", e));
+        console.log("TikTok: dispatched as background task");
+      } else {
+        const tkHandle = entity.redes_sociais?.tiktok;
+        const mentions = await collectTikTok(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, tkHandle || undefined);
+        collectedMentions.push(...mentions);
+      }
     }
 
     // ── 9b. TikTok Comments (from entity's own profile) ──
@@ -960,17 +971,21 @@ async function collectTwitterReplies(token: string, twHandle: string, entityName
 // ══════════════════════════════════════════════════
 
 function mapTikTokItem(item: any, entityId: string, source: string): any | null {
+  if (!item || typeof item !== "object") return null;
   const content = (
     item.text || item.desc || item.description || item.title || item.caption || ""
   ).substring(0, 2000);
   if (content.length < 5) return null;
 
+  // Defensivo: author pode ser null mesmo com authorMeta definido
   const authorName =
-    item.authorMeta?.name || item.author?.name || item.nickname ||
-    item.uniqueId || item.username || item.handle || null;
+    (item.authorMeta && item.authorMeta.name ? item.authorMeta.name : null) ||
+    (item.author && item.author.name ? item.author.name : null) ||
+    item.nickname || item.uniqueId || item.username || item.handle || null;
   const authorHandle =
-    item.authorMeta?.id || item.author?.id || item.uniqueId ||
-    item.username || item.handle || null;
+    (item.authorMeta && item.authorMeta.id ? item.authorMeta.id : null) ||
+    (item.author && item.author.id ? item.author.id : null) ||
+    item.uniqueId || item.username || item.handle || null;
 
   const videoId = item.id || item.videoId || item.video_id || null;
   const handle = authorHandle || authorName;
@@ -992,8 +1007,12 @@ function mapTikTokItem(item: any, entityId: string, source: string): any | null 
       shares: item.shareCount || item.shares || 0,
       views: item.playCount || item.viewCount || item.views || 0,
     },
-    hashtags: (item.hashtags || item.challenges || []).map((h: any) => h.name || h.title || h).filter(Boolean),
-    media_urls: item.covers?.dynamic ? [item.covers.dynamic] : (item.videoMeta?.coverUrl ? [item.videoMeta.coverUrl] : []),
+    hashtags: (item.hashtags || item.challenges || []).map((h: any) => {
+      if (!h) return null;
+      if (typeof h === "string") return h;
+      return h.name || h.title || null;
+    }).filter(Boolean),
+    media_urls: (item.covers && item.covers.dynamic) ? [item.covers.dynamic] : ((item.videoMeta && item.videoMeta.coverUrl) ? [item.videoMeta.coverUrl] : []),
     raw_data: { source: `apify_tiktok_${source}`, search_query: item.searchQuery || null },
   };
 }
@@ -1063,24 +1082,15 @@ async function collectTikTok(token: string, query: string, entityName: string, e
 
   console.log(`TikTok: launching 7 parallel searches for "${entityName}"`);
 
-  // Busca paralela: 4 keyword searches + 2 hashtag searches + 1 clockworks profile
+  // Busca paralela: 3 queries principais com timeouts curtos para caber no limite da Edge Function
   const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
-    // 1. clockworks: nome completo + "deputado" (mais relevante)
-    runClockworksKeyword(token, `${firstName} ${lastName} deputado`, 20, 45).catch(() => []),
-    // 2. clockworks: nome + cidade/estado
-    runClockworksKeyword(token, `${firstName} ${lastName} Brasília DF`, 20, 45).catch(() => []),
-    // 3. apidojo: nome completo (alternativo, mais rápido)
-    runApidojoTikTok(token, entityName, 20, 40).catch(() => []),
-    // 4. apidojo: handle @ (se configurado) ou nome + câmara
-    handle
-      ? runApidojoTikTok(token, `@${handle}`, 15, 40).catch(() => [])
-      : runApidojoTikTok(token, `${firstName} ${lastName} câmara legislativa`, 15, 40).catch(() => []),
-    // 5. sociavault: nome + política (filtrado para BR)
-    runSociaVaultTikTok(token, `${firstName} ${lastName} política`, 15, 40).catch(() => []),
-    // 6. clockworks: hashtag com nome do político
-    runClockworksHashtag(token, hashtagHandle, 20, 45).catch(() => []),
-    // 7. clockworks: hashtag "deputado" + sobrenome
-    runClockworksHashtag(token, `deputado${lastName.toLowerCase()}`, 15, 40).catch(() => []),
+    runClockworksKeyword(token, `${firstName} ${lastName} deputado`, 15, 20).catch(() => []),
+    runApidojoTikTok(token, entityName, 15, 20).catch(() => []),
+    runClockworksHashtag(token, hashtagHandle, 15, 20).catch(() => []),
+    Promise.resolve([]),
+    Promise.resolve([]),
+    Promise.resolve([]),
+    Promise.resolve([]),
   ]);
 
   // Deduplica por ID de vídeo ou URL
@@ -1094,14 +1104,19 @@ async function collectTikTok(token: string, query: string, entityName: string, e
 
   for (const [items, srcLabel] of allSources) {
     for (const item of items) {
+      if (!item || typeof item !== "object") continue;
       const key =
         item.id || item.videoId ||
         item.webVideoUrl || item.url || item.shareUrl ||
-        (item.text || item.desc || "").substring(0, 80);
+        ((item.text || item.desc || "") + "").substring(0, 80);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      const mapped = mapTikTokItem(item, entityId, srcLabel);
-      if (mapped) deduped.push(mapped);
+      try {
+        const mapped = mapTikTokItem(item, entityId, srcLabel);
+        if (mapped) deduped.push(mapped);
+      } catch (e) {
+        console.error("TikTok mapItem error:", e instanceof Error ? e.message : e, JSON.stringify(item).substring(0, 200));
+      }
     }
   }
 
