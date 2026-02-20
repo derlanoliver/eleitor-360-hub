@@ -112,6 +112,7 @@ const Comments = () => {
                 <SelectItem value="google_news">Google News</SelectItem>
                 <SelectItem value="youtube">YouTube</SelectItem>
                 <SelectItem value="youtube_comments">YouTube (Comentários)</SelectItem>
+                <SelectItem value="tiktok">TikTok (Feed Público)</SelectItem>
                 <SelectItem value="tiktok_comments">TikTok (Comentários)</SelectItem>
                 <SelectItem value="news">Portais</SelectItem>
                 <SelectItem value="portais_df">Portais DF</SelectItem>

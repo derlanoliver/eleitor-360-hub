@@ -24,10 +24,14 @@ const APIFY_ACTORS: Record<string, string> = {
   facebook_page: "apify~facebook-page-scraper",
   facebook_posts: "apify~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
+  // TikTok — múltiplos actors para cobertura máxima
+  tiktok_profile: "clockworks~tiktok-profile-scraper",    // perfil oficial (legado)
+  tiktok_scraper: "clockworks~tiktok-scraper",             // keyword + hashtag + profile (principal)
+  tiktok_apidojo: "apidojo~tiktok-scraper",                // keyword alternativo rápido
+  tiktok_keyword: "sociavault~tiktok-keyword-search-scraper", // keyword com filtro de região BR
+  tiktok_comments: "easyapi~tiktok-comments-scraper",      // comentários em vídeos
   // Outros
   google_news: "dlaf~google-news-free",
-  tiktok_profile: "clockworks~tiktok-profile-scraper",
-  tiktok_comments: "easyapi~tiktok-comments-scraper",
   youtube_channel: "scrapesmith~youtube-free-channel-scraper",
   youtube_comments: "crawlerbros~youtube-comment-scraper",
   reddit: "trudax~reddit-scraper",
@@ -129,7 +133,14 @@ serve(async (req) => {
       }
     }
 
-    // ── 9. TikTok Comments (from entity's own profile) ──
+    // ── 9a. TikTok — busca pública por keyword/hashtag (multi-actor) ──
+    if (targetSources.includes("tiktok") && APIFY_API_TOKEN) {
+      const tkHandle = entity.redes_sociais?.tiktok;
+      const mentions = await collectTikTok(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, tkHandle || undefined);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 9b. TikTok Comments (from entity's own profile) ──
     if (targetSources.includes("tiktok_comments") && APIFY_API_TOKEN) {
       const tkHandle = entity.redes_sociais?.tiktok;
       if (tkHandle) {
@@ -908,65 +919,215 @@ async function collectTwitterReplies(token: string, twHandle: string, entityName
 }
 
 // ══════════════════════════════════════════════════
+// TIKTOK — Busca pública por keyword/hashtag
+// Multi-actor: clockworks (keyword/hashtag), apidojo, sociavault
+// Estratégia: 6 queries paralelas cobrindo nome, @handle,
+// hashtags políticas, cargo, cidade e contexto
+// ══════════════════════════════════════════════════
+
+function mapTikTokItem(item: any, entityId: string, source: string): any | null {
+  const content = (
+    item.text || item.desc || item.description || item.title || item.caption || ""
+  ).substring(0, 2000);
+  if (content.length < 5) return null;
+
+  const authorName =
+    item.authorMeta?.name || item.author?.name || item.nickname ||
+    item.uniqueId || item.username || item.handle || null;
+  const authorHandle =
+    item.authorMeta?.id || item.author?.id || item.uniqueId ||
+    item.username || item.handle || null;
+
+  const videoId = item.id || item.videoId || item.video_id || null;
+  const handle = authorHandle || authorName;
+  const sourceUrl =
+    item.webVideoUrl || item.videoUrl || item.url || item.shareUrl ||
+    (videoId && handle ? `https://www.tiktok.com/@${handle}/video/${videoId}` : null);
+
+  return {
+    entity_id: entityId,
+    source,
+    source_url: sourceUrl,
+    author_name: authorName,
+    author_handle: authorHandle,
+    content,
+    published_at: item.createTimeISO || (item.createTime ? new Date(item.createTime * 1000).toISOString() : new Date().toISOString()),
+    engagement: {
+      likes: item.diggCount || item.likeCount || item.likes || 0,
+      comments: item.commentCount || item.comments || 0,
+      shares: item.shareCount || item.shares || 0,
+      views: item.playCount || item.viewCount || item.views || 0,
+    },
+    hashtags: (item.hashtags || item.challenges || []).map((h: any) => h.name || h.title || h).filter(Boolean),
+    media_urls: item.covers?.dynamic ? [item.covers.dynamic] : (item.videoMeta?.coverUrl ? [item.videoMeta.coverUrl] : []),
+    raw_data: { source: `apify_tiktok_${source}`, search_query: item.searchQuery || null },
+  };
+}
+
+// Runner: clockworks~tiktok-scraper (keyword)
+async function runClockworksKeyword(token: string, keyword: string, maxItems: number, timeoutSecs: number): Promise<any[]> {
+  console.log(`TikTok clockworks keyword: "${keyword}"`);
+  const items = await runApifyActor(token, APIFY_ACTORS.tiktok_scraper, {
+    search: [keyword],
+    resultsPerPage: maxItems,
+    shouldDownloadCovers: false,
+    shouldDownloadVideos: false,
+    shouldDownloadSlideshowImages: false,
+  }, timeoutSecs);
+  console.log(`TikTok clockworks keyword "${keyword}": ${items.length} videos`);
+  return items;
+}
+
+// Runner: clockworks~tiktok-scraper (hashtag)
+async function runClockworksHashtag(token: string, hashtag: string, maxItems: number, timeoutSecs: number): Promise<any[]> {
+  const tag = hashtag.replace(/^#/, "");
+  console.log(`TikTok clockworks hashtag: #${tag}`);
+  const items = await runApifyActor(token, APIFY_ACTORS.tiktok_scraper, {
+    hashtags: [tag],
+    resultsPerPage: maxItems,
+    shouldDownloadCovers: false,
+    shouldDownloadVideos: false,
+    shouldDownloadSlideshowImages: false,
+  }, timeoutSecs);
+  console.log(`TikTok clockworks hashtag "#${tag}": ${items.length} videos`);
+  return items;
+}
+
+// Runner: apidojo~tiktok-scraper (keyword)
+async function runApidojoTikTok(token: string, keyword: string, maxItems: number, timeoutSecs: number): Promise<any[]> {
+  console.log(`TikTok apidojo keyword: "${keyword}"`);
+  const items = await runApifyActor(token, APIFY_ACTORS.tiktok_apidojo, {
+    keywords: [keyword],
+    maxItems,
+    region: "BR",
+  }, timeoutSecs);
+  console.log(`TikTok apidojo keyword "${keyword}": ${items.length} videos`);
+  return items;
+}
+
+// Runner: sociavault~tiktok-keyword-search-scraper (keyword BR)
+async function runSociaVaultTikTok(token: string, keyword: string, maxItems: number, timeoutSecs: number): Promise<any[]> {
+  console.log(`TikTok sociavault keyword: "${keyword}"`);
+  const items = await runApifyActor(token, APIFY_ACTORS.tiktok_keyword, {
+    keyword,
+    maxItems,
+    region: "BR",
+  }, timeoutSecs);
+  console.log(`TikTok sociavault keyword "${keyword}": ${items.length} videos`);
+  return items;
+}
+
+// ── Orquestrador principal: TikTok busca pública ──
+async function collectTikTok(token: string, query: string, entityName: string, entityId: string, tkHandle?: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+  const handle = (tkHandle || "").replace(/^@/, "");
+
+  // Hashtags derivadas do nome (sem espaços)
+  const hashtagName = `${firstName}${lastName}`.toLowerCase();
+  const hashtagHandle = handle || hashtagName;
+
+  console.log(`TikTok: launching 7 parallel searches for "${entityName}"`);
+
+  // Busca paralela: 4 keyword searches + 2 hashtag searches + 1 clockworks profile
+  const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
+    // 1. clockworks: nome completo + "deputado" (mais relevante)
+    runClockworksKeyword(token, `${firstName} ${lastName} deputado`, 20, 45).catch(() => []),
+    // 2. clockworks: nome + cidade/estado
+    runClockworksKeyword(token, `${firstName} ${lastName} Brasília DF`, 20, 45).catch(() => []),
+    // 3. apidojo: nome completo (alternativo, mais rápido)
+    runApidojoTikTok(token, entityName, 20, 40).catch(() => []),
+    // 4. apidojo: handle @ (se configurado) ou nome + câmara
+    handle
+      ? runApidojoTikTok(token, `@${handle}`, 15, 40).catch(() => [])
+      : runApidojoTikTok(token, `${firstName} ${lastName} câmara legislativa`, 15, 40).catch(() => []),
+    // 5. sociavault: nome + política (filtrado para BR)
+    runSociaVaultTikTok(token, `${firstName} ${lastName} política`, 15, 40).catch(() => []),
+    // 6. clockworks: hashtag com nome do político
+    runClockworksHashtag(token, hashtagHandle, 20, 45).catch(() => []),
+    // 7. clockworks: hashtag "deputado" + sobrenome
+    runClockworksHashtag(token, `deputado${lastName.toLowerCase()}`, 15, 40).catch(() => []),
+  ]);
+
+  // Deduplica por ID de vídeo ou URL
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+
+  const allSources = [
+    [r1, "tiktok"], [r2, "tiktok"], [r3, "tiktok"],
+    [r4, "tiktok"], [r5, "tiktok"], [r6, "tiktok"], [r7, "tiktok"],
+  ] as [any[], string][];
+
+  for (const [items, srcLabel] of allSources) {
+    for (const item of items) {
+      const key =
+        item.id || item.videoId ||
+        item.webVideoUrl || item.url || item.shareUrl ||
+        (item.text || item.desc || "").substring(0, 80);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const mapped = mapTikTokItem(item, entityId, srcLabel);
+      if (mapped) deduped.push(mapped);
+    }
+  }
+
+  console.log(`TikTok public search: ${deduped.length} unique videos after dedup`);
+  return deduped;
+}
+
+// ══════════════════════════════════════════════════
 // TIKTOK COMMENTS (from entity's own profile)
-// Two-stage: fetch profile videos → extract comments
+// Dois estágios: busca vídeos do perfil → comentários
+// Usa clockworks~tiktok-scraper (perfil) + easyapi (comentários)
 // ══════════════════════════════════════════════════
 
 async function collectTikTokComments(token: string, tkHandle: string, entityName: string, entityId: string): Promise<any[]> {
   const handle = tkHandle.replace(/^@/, "");
-  console.log(`TikTok Comments: Stage 1 - fetching videos from @${handle}`);
+  console.log(`TikTok Comments: Stage 1 - fetching videos from profile @${handle}`);
 
-  // Stage 1: Get recent videos from the profile
-  const profileData = await runApifyActor(token, APIFY_ACTORS.tiktok_profile, {
+  // Stage 1: Busca vídeos do perfil usando clockworks~tiktok-scraper
+  const profileData = await runApifyActor(token, APIFY_ACTORS.tiktok_scraper, {
     profiles: [handle],
-    resultsPerPage: 10,
+    resultsPerPage: 15,
     shouldDownloadCovers: false,
     shouldDownloadVideos: false,
-  }, 40);
+    shouldDownloadSlideshowImages: false,
+  }, 45).catch(async () => {
+    // Fallback: tenta o actor de perfil legado
+    console.log("TikTok Comments: fallback to clockworks~tiktok-profile-scraper");
+    return runApifyActor(token, APIFY_ACTORS.tiktok_profile, {
+      profiles: [handle],
+      resultsPerPage: 10,
+      shouldDownloadCovers: false,
+      shouldDownloadVideos: false,
+    }, 40);
+  });
 
-  // Extract video URLs from profile results
+  // Extrai URLs dos vídeos
   const videoUrls: string[] = [];
   for (const item of profileData) {
-    const videoUrl = item.webVideoUrl || item.videoUrl || item.url;
-    if (videoUrl) {
-      videoUrls.push(videoUrl);
-    } else if (item.id && item.authorMeta?.name) {
-      videoUrls.push(`https://www.tiktok.com/@${item.authorMeta.name}/video/${item.id}`);
-    }
+    const videoId = item.id || item.videoId;
+    const authorHandle = item.authorMeta?.id || item.uniqueId || handle;
+    const videoUrl =
+      item.webVideoUrl || item.videoUrl || item.url || item.shareUrl ||
+      (videoId ? `https://www.tiktok.com/@${authorHandle}/video/${videoId}` : null);
+    if (videoUrl) videoUrls.push(videoUrl);
   }
 
   console.log(`TikTok Comments: Stage 1 got ${profileData.length} items, ${videoUrls.length} video URLs`);
 
+  // Fallback: sem URLs → usa legendas dos vídeos
   if (videoUrls.length === 0) {
-    console.log("TikTok Comments: no video URLs found, using post captions as fallback");
-    return profileData
-      .map(item => ({
-        entity_id: entityId,
-        source: "tiktok_comments",
-        source_url: item.webVideoUrl || item.url || null,
-        author_name: item.authorMeta?.name || handle,
-        author_handle: handle,
-        content: (item.text || item.desc || item.description || "").substring(0, 2000),
-        published_at: item.createTimeISO || (item.createTime ? new Date(item.createTime * 1000).toISOString() : new Date().toISOString()),
-        engagement: {
-          likes: item.diggCount || item.likes || 0,
-          comments: item.commentCount || item.comments || 0,
-          shares: item.shareCount || item.shares || 0,
-          views: item.playCount || item.views || 0,
-        },
-        hashtags: item.hashtags?.map((h: any) => h.name || h) || [],
-        media_urls: [],
-        raw_data: { source: "apify_tiktok_posts_fallback" },
-      }))
-      .filter(m => m.content.length > 5);
+    console.log("TikTok Comments: no video URLs, using captions as fallback");
+    return profileData.map(item => mapTikTokItem(item, entityId, "tiktok_comments")).filter(Boolean) as any[];
   }
 
-  // Stage 2: Get comments from those videos
-  const postUrls = videoUrls.slice(0, 10);
+  // Stage 2: busca comentários nos vídeos
+  const postUrls = videoUrls.slice(0, 12);
   console.log(`TikTok Comments: Stage 2 - fetching comments from ${postUrls.length} videos`);
   const commentItems = await runApifyActor(token, APIFY_ACTORS.tiktok_comments, {
-    postUrls: postUrls,
-    maxItems: 100,
+    postUrls,
+    maxItems: 120,
   }, 90);
 
   console.log(`TikTok Comments: Stage 2 got ${commentItems.length} comment items`);
@@ -1004,31 +1165,13 @@ async function collectTikTokComments(token: string, tkHandle: string, entityName
     });
   }
 
-  // Fallback: if no comments, use video captions
+  // Fallback: se não há comentários, usa legendas dos vídeos via mapTikTokItem
   if (mentions.length === 0) {
     console.log("TikTok Comments: no comments found, falling back to video captions");
-    for (const item of profileData) {
-      const content = (item.text || item.desc || item.description || "").substring(0, 2000);
-      if (content.length < 5) continue;
-      mentions.push({
-        entity_id: entityId,
-        source: "tiktok_comments",
-        source_url: item.webVideoUrl || item.url || null,
-        author_name: item.authorMeta?.name || handle,
-        author_handle: handle,
-        content,
-        published_at: item.createTimeISO || (item.createTime ? new Date(item.createTime * 1000).toISOString() : new Date().toISOString()),
-        engagement: {
-          likes: item.diggCount || item.likes || 0,
-          comments: item.commentCount || item.comments || 0,
-          shares: item.shareCount || item.shares || 0,
-          views: item.playCount || item.views || 0,
-        },
-        hashtags: item.hashtags?.map((h: any) => h.name || h) || [],
-        media_urls: [],
-        raw_data: { source: "apify_tiktok_posts_fallback" },
-      });
-    }
+    return profileData.map(item => {
+      const mapped = mapTikTokItem(item, entityId, "tiktok_comments");
+      return mapped;
+    }).filter(Boolean) as any[];
   }
 
   console.log(`TikTok Comments: total ${mentions.length} mentions extracted`);
