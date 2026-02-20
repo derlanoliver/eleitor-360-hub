@@ -54,6 +54,7 @@ serve(async (req) => {
       if (redes?.facebook) sources.push("facebook_comments");
       if (redes?.tiktok) sources.push("tiktok_comments");
       if (redes?.youtube) sources.push("youtube_comments");
+      if (redes?.telegram) sources.push("telegram");
 
       console.log(`po-auto-collect: triggering for "${entity.nome}" with sources: ${sources.join(",")}`);
 
