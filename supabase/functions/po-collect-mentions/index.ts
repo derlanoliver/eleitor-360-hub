@@ -162,6 +162,28 @@ serve(async (req) => {
       }
     }
 
+    // ── 14. Influencer Comments (third-party Instagram profiles) ──
+    if (targetSources.includes("influencer_comments") && APIFY_API_TOKEN) {
+      const influencers = (entity.redes_sociais as Record<string, any>)?.influenciadores_ig;
+      if (influencers) {
+        const mentions = await collectInfluencerComments(APIFY_API_TOKEN, influencers, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("influencer_comments: no influencers configured for entity");
+      }
+    }
+
+    // ── 15. Custom Sites (user-defined URLs) ──
+    if (targetSources.includes("sites_custom") && ZENSCRAPE_API_KEY) {
+      const sites = (entity.redes_sociais as Record<string, any>)?.sites_customizados;
+      if (sites) {
+        const mentions = await collectCustomSites(ZENSCRAPE_API_KEY, sites, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("sites_custom: no custom sites configured for entity");
+      }
+    }
+
     // ── Dedupe: remove mentions whose content already exists in DB ──
     if (collectedMentions.length > 0) {
       const { data: existing } = await supabase
@@ -1120,7 +1142,222 @@ async function collectTelegram(token: string, tgConfig: string | string[], searc
   console.log(`Telegram: got ${items.length} items`);
   if (items.length > 0) {
     console.log(`Telegram: sample keys: ${Object.keys(items[0]).join(", ")}`);
+}
+
+// ══════════════════════════════════════════════════
+// INFLUENCER COMMENTS (third-party Instagram profiles)
+// Scrapes posts from influencer profiles, filters for entity mentions,
+// then collects comments from matching posts
+// ══════════════════════════════════════════════════
+
+async function collectInfluencerComments(token: string, influencerConfig: string | string[], entityName: string, entityId: string): Promise<any[]> {
+  let handles: string[] = [];
+  if (Array.isArray(influencerConfig)) {
+    handles = influencerConfig;
+  } else if (typeof influencerConfig === "string") {
+    handles = influencerConfig.split(",").map(h => h.trim().replace(/^@/, ""));
   }
+
+  if (handles.length === 0) {
+    console.log("Influencer Comments: no handles configured");
+    return [];
+  }
+
+  const nameLower = entityName.toLowerCase();
+  const allMentions: any[] = [];
+
+  for (const handle of handles.slice(0, 5)) {
+    const cleanHandle = handle.replace(/^@/, "");
+    const profileUrl = `https://www.instagram.com/${cleanHandle}`;
+    console.log(`Influencer Comments: fetching posts from ${profileUrl}`);
+
+    // Stage 1: Get recent posts
+    const posts = await runApifyActor(token, APIFY_ACTORS.instagram, {
+      directUrls: [profileUrl],
+      resultsType: "posts",
+      resultsLimit: 15,
+    }, 40);
+
+    if (!posts.length) {
+      console.log(`Influencer Comments: no posts from @${cleanHandle}`);
+      continue;
+    }
+
+    // Filter posts that mention/tag the entity
+    const relevantPosts = posts.filter(p => {
+      const caption = (p.caption || p.text || "").toLowerCase();
+      const mentions = (p.mentions || p.taggedUsers || []).map((m: any) => (typeof m === "string" ? m : m.username || m.full_name || "").toLowerCase());
+      const hashtags = (p.hashtags || []).map((h: any) => (typeof h === "string" ? h : "").toLowerCase());
+      return caption.includes(nameLower) ||
+        mentions.some((m: string) => m.includes(nameLower)) ||
+        hashtags.some((h: string) => h.includes(nameLower.replace(/\s+/g, "")));
+    });
+
+    console.log(`Influencer Comments: @${cleanHandle} - ${posts.length} posts, ${relevantPosts.length} mention "${entityName}"`);
+
+    if (relevantPosts.length === 0) {
+      // Even if no explicit mention, keep all posts as potential context
+      // but mark them differently
+      for (const post of posts.slice(0, 5)) {
+        const content = (post.caption || post.text || "").substring(0, 2000);
+        if (content.length < 5) continue;
+        const postUrl = post.url || post.postUrl || (post.shortCode ? `https://www.instagram.com/p/${post.shortCode}/` : null);
+        allMentions.push({
+          entity_id: entityId,
+          source: "influencer_comments",
+          source_url: postUrl,
+          author_name: post.ownerFullName || cleanHandle,
+          author_handle: `@${cleanHandle}`,
+          content,
+          published_at: post.timestamp || (post.takenAtTimestamp ? new Date(post.takenAtTimestamp * 1000).toISOString() : new Date().toISOString()),
+          engagement: {
+            likes: post.likesCount || 0,
+            comments: post.commentsCount || 0,
+            views: post.videoViewCount || 0,
+            shares: 0,
+          },
+          hashtags: post.hashtags || [],
+          media_urls: post.displayUrl ? [post.displayUrl] : [],
+          raw_data: { source: "apify_influencer_post", influencer: cleanHandle },
+        });
+      }
+      continue;
+    }
+
+    // Stage 2: Get comments from relevant posts
+    const postUrls = relevantPosts
+      .map(p => p.url || p.postUrl || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : null))
+      .filter(Boolean)
+      .slice(0, 10);
+
+    if (postUrls.length > 0) {
+      console.log(`Influencer Comments: Stage 2 - fetching comments from ${postUrls.length} posts of @${cleanHandle}`);
+      const commentItems = await runApifyActor(token, APIFY_ACTORS.instagram_comments, {
+        directUrls: postUrls,
+        maxComments: 50,
+        maxReplies: 0,
+      }, 60);
+
+      console.log(`Influencer Comments: got ${commentItems.length} comments from @${cleanHandle}`);
+
+      for (const comment of commentItems) {
+        const content = (comment.text || comment.comment || comment.body || "").substring(0, 2000);
+        if (content.length < 3) continue;
+
+        allMentions.push({
+          entity_id: entityId,
+          source: "influencer_comments",
+          source_url: comment.postUrl || comment.inputUrl || null,
+          author_name: comment.ownerFullName || comment.fullName || null,
+          author_handle: comment.ownerUsername || comment.username || null,
+          content,
+          published_at: comment.timestamp || comment.createdAt || new Date().toISOString(),
+          engagement: {
+            likes: comment.likesCount || comment.likes || 0,
+            comments: comment.repliesCount || 0,
+            shares: 0,
+            views: 0,
+          },
+          hashtags: [],
+          media_urls: [],
+          raw_data: {
+            source: "apify_influencer_comments",
+            influencer: cleanHandle,
+            comment_id: comment.id || comment.commentId || null,
+          },
+        });
+      }
+    }
+
+    // Also add the relevant posts themselves as mentions
+    for (const post of relevantPosts) {
+      const content = (post.caption || post.text || "").substring(0, 2000);
+      if (content.length < 5) continue;
+      const postUrl = post.url || post.postUrl || (post.shortCode ? `https://www.instagram.com/p/${post.shortCode}/` : null);
+      allMentions.push({
+        entity_id: entityId,
+        source: "influencer_comments",
+        source_url: postUrl,
+        author_name: post.ownerFullName || cleanHandle,
+        author_handle: `@${cleanHandle}`,
+        content,
+        published_at: post.timestamp || (post.takenAtTimestamp ? new Date(post.takenAtTimestamp * 1000).toISOString() : new Date().toISOString()),
+        engagement: {
+          likes: post.likesCount || 0,
+          comments: post.commentsCount || 0,
+          views: post.videoViewCount || 0,
+          shares: 0,
+        },
+        hashtags: post.hashtags || [],
+        media_urls: post.displayUrl ? [post.displayUrl] : [],
+        raw_data: { source: "apify_influencer_post_relevant", influencer: cleanHandle },
+      });
+    }
+  }
+
+  console.log(`Influencer Comments: total ${allMentions.length} mentions from influencers`);
+  return allMentions;
+}
+
+// ══════════════════════════════════════════════════
+// CUSTOM SITES (user-defined URLs scraped via Zenscrape)
+// ══════════════════════════════════════════════════
+
+async function collectCustomSites(apiKey: string, sitesConfig: string | string[], entityName: string, entityId: string): Promise<any[]> {
+  let urls: string[] = [];
+  if (Array.isArray(sitesConfig)) {
+    urls = sitesConfig;
+  } else if (typeof sitesConfig === "string") {
+    urls = sitesConfig.split(",").map(u => u.trim()).filter(u => u.startsWith("http"));
+  }
+
+  if (urls.length === 0) {
+    console.log("Custom Sites: no URLs configured");
+    return [];
+  }
+
+  const collectedMentions: any[] = [];
+
+  for (const targetUrl of urls.slice(0, 10)) {
+    try {
+      const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(targetUrl)}`;
+      console.log(`Custom Sites: fetching ${targetUrl}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(zenscrapeUrl, {
+        headers: { "apikey": apiKey },
+        signal: controller.signal,
+      }).catch(e => {
+        console.error("Custom Sites fetch error:", e.message);
+        return null;
+      });
+
+      clearTimeout(timeout);
+
+      if (res?.ok) {
+        const html = await res.text();
+        console.log(`Custom Sites: received ${html.length} chars from ${new URL(targetUrl).hostname}`);
+        const extracted = extractMentionsFromHTML(html, entityName, "sites_custom", entityId);
+        // Enrich with source URL
+        for (const m of extracted) {
+          m.source_url = targetUrl;
+          m.raw_data = { ...m.raw_data, custom_site_url: targetUrl };
+        }
+        collectedMentions.push(...extracted);
+        console.log(`Custom Sites: extracted ${extracted.length} mentions from ${new URL(targetUrl).hostname}`);
+      } else if (res) {
+        const errBody = await res.text();
+        console.error(`Custom Sites error ${res.status}: ${errBody.substring(0, 200)}`);
+      }
+    } catch (e) {
+      console.error("Custom Sites error:", e);
+    }
+  }
+
+  return collectedMentions;
+}
 
   const nameLower = entityName.toLowerCase();
   const searchLower = searchQuery.replace(/"/g, "").toLowerCase();

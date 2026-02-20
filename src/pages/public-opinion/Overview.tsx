@@ -15,6 +15,7 @@ const sourceColors: Record<string, string> = {
   tiktok: '#000000', tiktok_comments: '#000000',
   news: '#6B7280', google_news: '#F59E0B', portais: '#6B7280',
   portais_df: '#8B5CF6', reddit: '#FF4500', telegram: '#0088CC',
+  influencer_comments: '#C13584', sites_custom: '#059669',
 };
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
@@ -75,13 +76,15 @@ const Overview = () => {
             disabled={collectMentions.isPending}
             onClick={() => {
               const sources = ["news", "google_news", "portais_df", "reddit"];
-              const redes = principalEntity.redes_sociais as Record<string, string> | null;
+              const redes = principalEntity.redes_sociais as Record<string, any> | null;
               if (redes?.twitter) sources.push("twitter_comments");
               if (redes?.instagram) sources.push("instagram_comments");
               if (redes?.facebook) sources.push("facebook_comments");
               if (redes?.tiktok) sources.push("tiktok_comments");
               if (redes?.youtube) sources.push("youtube_comments");
               if (redes?.telegram) sources.push("telegram");
+              if (redes?.influenciadores_ig?.length) sources.push("influencer_comments");
+              if (redes?.sites_customizados?.length) sources.push("sites_custom");
               collectMentions.mutate({ entity_id: principalEntity.id, sources });
             }}
           >
