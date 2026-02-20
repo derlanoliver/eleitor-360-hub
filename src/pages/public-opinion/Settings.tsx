@@ -31,13 +31,13 @@ const PublicOpinionSettings = () => {
     hashtags: "",
     palavras_chave: "",
     is_principal: false,
-    redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "" },
+    redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "", telegram: "" },
   });
 
   const resetForm = () => {
     setFormData({
       nome: "", tipo: "politico", partido: "", cargo: "", hashtags: "", palavras_chave: "",
-      is_principal: false, redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "" },
+      is_principal: false, redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "", telegram: "" },
     });
   };
 
@@ -57,6 +57,7 @@ const PublicOpinionSettings = () => {
         facebook: entity.redes_sociais?.facebook || "",
         youtube: entity.redes_sociais?.youtube || "",
         tiktok: entity.redes_sociais?.tiktok || "",
+        telegram: entity.redes_sociais?.telegram || "",
       },
     });
   };
@@ -143,9 +144,9 @@ const PublicOpinionSettings = () => {
       <Separator />
       <h4 className="font-medium text-sm">Redes Sociais (perfis)</h4>
       <div className="grid grid-cols-2 gap-3">
-        {(['twitter', 'instagram', 'facebook', 'youtube', 'tiktok'] as const).map(rede => (
+        {(['twitter', 'instagram', 'facebook', 'youtube', 'tiktok', 'telegram'] as const).map(rede => (
           <div key={rede} className="space-y-1">
-            <Label className="text-xs capitalize">{rede === 'twitter' ? 'X (Twitter)' : rede}</Label>
+            <Label className="text-xs capitalize">{rede === 'twitter' ? 'X (Twitter)' : rede === 'telegram' ? 'Telegram (canais)' : rede}</Label>
             <Input
               value={formData.redes_sociais[rede]}
               onChange={e => setFormData(f => ({ ...f, redes_sociais: { ...f.redes_sociais, [rede]: e.target.value } }))}
