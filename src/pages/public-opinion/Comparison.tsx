@@ -17,21 +17,41 @@ function useEntityStats(entityId?: string) {
       const since = new Date();
       since.setDate(since.getDate() - 30);
 
-      const [mentionsRes, analysesRes] = await Promise.all([
-        supabase
+      // Fetch ALL mentions (paginate past 1000 limit)
+      let allMentions: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data } = await supabase
           .from("po_mentions")
           .select("id, source, engagement")
           .eq("entity_id", entityId!)
-          .gte("collected_at", since.toISOString()),
-        supabase
+          .gte("collected_at", since.toISOString())
+          .range(from, from + pageSize - 1);
+        if (!data || data.length === 0) break;
+        allMentions = allMentions.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+
+      // Fetch ALL analyses (paginate past 1000 limit)
+      let allAnalyses: any[] = [];
+      from = 0;
+      while (true) {
+        const { data } = await supabase
           .from("po_sentiment_analyses")
           .select("sentiment, sentiment_score, topics, category")
           .eq("entity_id", entityId!)
-          .gte("analyzed_at", since.toISOString()),
-      ]);
+          .gte("analyzed_at", since.toISOString())
+          .range(from, from + pageSize - 1);
+        if (!data || data.length === 0) break;
+        allAnalyses = allAnalyses.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
 
-      const mentions = mentionsRes.data || [];
-      const analyses = analysesRes.data || [];
+      const mentions = allMentions;
+      const analyses = allAnalyses;
       const total = analyses.length;
       const positive = analyses.filter(a => a.sentiment === "positivo").length;
       const negative = analyses.filter(a => a.sentiment === "negativo").length;
@@ -162,12 +182,12 @@ const Comparison = () => {
                   <span className="font-semibold">{c.sentiment_score || 0}/10</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Engajamento</span>
-                  <span className="font-semibold">{c.engagement_rate || 0}%</span>
+                  <span className="text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Eng. Médio</span>
+                  <span className="font-semibold">{(c.engagement_rate || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Engajamento Total</span>
-                  <span className="font-semibold">{((c.followers_total || 0) / 1000).toFixed(0)}K</span>
+                  <span className="font-semibold">{(c.followers_total || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {(c.top_topics.length > 0 ? c.top_topics : ['Geral']).map(t => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
