@@ -8,7 +8,7 @@ import { useMonitoredEntities, useMentions, useSentimentAnalyses } from "@/hooks
 import { ThumbsUp, ThumbsDown, Minus, Share2, Heart, Search, ExternalLink } from "lucide-react";
 
 const sourceIcons: Record<string, string> = {
-  twitter: '𝕏', twitter_comments: '💬𝕏', instagram: '📸', instagram_comments: '💬', facebook: '📘', facebook_comments: '💬', youtube: '▶️', youtube_comments: '💬▶️', tiktok: '🎵', tiktok_comments: '💬🎵', portal: '📰', news: '📰', google_news: '📰',
+  twitter: '𝕏', twitter_comments: '💬𝕏', instagram: '📸', instagram_comments: '💬', facebook: '📘', facebook_comments: '💬', youtube: '▶️', youtube_comments: '💬▶️', tiktok: '🎵', tiktok_comments: '💬🎵', portal: '📰', news: '📰', google_news: '📰', portais_df: '📰', reddit: '🤖',
 };
 
 const Comments = () => {
@@ -108,6 +108,8 @@ const Comments = () => {
                 <SelectItem value="youtube_comments">YouTube (Comentários)</SelectItem>
                 <SelectItem value="tiktok_comments">TikTok (Comentários)</SelectItem>
                 <SelectItem value="news">Portais</SelectItem>
+                <SelectItem value="portais_df">Portais DF</SelectItem>
+                <SelectItem value="reddit">Reddit</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -21,6 +21,7 @@ const APIFY_ACTORS: Record<string, string> = {
   tiktok_comments: "easyapi~tiktok-comments-scraper",
   youtube_channel: "scrapesmith~youtube-free-channel-scraper",
   youtube_comments: "crawlerbros~youtube-comment-scraper",
+  reddit: "trudax~reddit-scraper",
 };
 
 serve(async (req) => {
@@ -135,6 +136,18 @@ serve(async (req) => {
       } else {
         console.log("youtube_comments: no YouTube handle configured for entity");
       }
+    }
+
+    // ── 11. Reddit ──
+    if (targetSources.includes("reddit") && APIFY_API_TOKEN) {
+      const mentions = await collectReddit(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 12. Portais DF (local news portals) ──
+    if (targetSources.includes("portais_df") && ZENSCRAPE_API_KEY) {
+      const mentions = await collectPortaisDF(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
     }
 
     // ── Dedupe: remove mentions whose content already exists in DB ──
@@ -857,8 +870,13 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
     return [];
   }
 
-  // Skip Stage 2 (comment scraper is paid/unavailable), use video metadata directly
-  const commentItems: any[] = [];
+  // Stage 2: Get comments from those videos using paid actor
+  console.log(`YouTube Comments: Stage 2 - fetching comments from ${videoUrls.slice(0, 10).length} videos`);
+  const commentItems = await runApifyActor(token, APIFY_ACTORS.youtube_comments, {
+    startUrls: videoUrls.slice(0, 10).map(url => ({ url })),
+    maxComments: 100,
+    maxReplies: 0,
+  }, 90);
 
   const mentions: any[] = [];
 
@@ -923,4 +941,107 @@ async function collectYouTubeComments(token: string, ytHandle: string, entityNam
 
   console.log(`YouTube Comments: total ${mentions.length} mentions extracted`);
   return mentions;
+}
+
+// ══════════════════════════════════════════════════
+// REDDIT (via Apify trudax~reddit-scraper)
+// ══════════════════════════════════════════════════
+
+async function collectReddit(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const searchTerm = query.replace(/"/g, "");
+  console.log(`Reddit: searching for "${searchTerm}" in r/brasilia and r/brasil`);
+
+  const items = await runApifyActor(token, APIFY_ACTORS.reddit, {
+    startUrls: [
+      { url: `https://www.reddit.com/r/brasilia/search/?q=${encodeURIComponent(searchTerm)}&sort=new` },
+      { url: `https://www.reddit.com/r/brasil/search/?q=${encodeURIComponent(searchTerm)}&sort=new` },
+    ],
+    maxItems: 50,
+    maxPostCount: 30,
+    maxComments: 50,
+    searchSort: "new",
+    proxy: { useApifyProxy: true },
+  }, 90);
+
+  console.log(`Reddit: got ${items.length} items`);
+  if (items.length > 0) {
+    console.log(`Reddit: sample keys: ${Object.keys(items[0]).join(", ")}`);
+  }
+
+  return items.map(item => {
+    const content = (item.body || item.title || item.selftext || item.text || "").substring(0, 2000);
+    if (content.length < 5) return null;
+
+    return {
+      entity_id: entityId,
+      source: "reddit",
+      source_url: item.url || item.permalink ? `https://www.reddit.com${item.permalink}` : null,
+      author_name: item.author || item.username || null,
+      author_handle: item.author ? `u/${item.author}` : null,
+      content,
+      published_at: item.createdAt || item.created_utc ? new Date((item.created_utc || 0) * 1000).toISOString() : new Date().toISOString(),
+      engagement: {
+        likes: item.score || item.ups || 0,
+        comments: item.numComments || item.num_comments || 0,
+        shares: 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: item.thumbnail && item.thumbnail !== "self" ? [item.thumbnail] : [],
+      raw_data: {
+        source: "apify_reddit",
+        subreddit: item.subreddit || item.subredditName || null,
+        post_type: item.body ? "comment" : "post",
+      },
+    };
+  }).filter(Boolean);
+}
+
+// ══════════════════════════════════════════════════
+// PORTAIS DF (Metrópoles, Correio Braziliense, G1 DF)
+// Uses Zenscrape to scrape local DF news portals
+// ══════════════════════════════════════════════════
+
+async function collectPortaisDF(apiKey: string, searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
+  const collectedMentions: any[] = [];
+  const portalUrls = [
+    `https://www.metropoles.com/?s=${encodeURIComponent(searchQuery)}`,
+    `https://www.correiobraziliense.com.br/busca/?q=${encodeURIComponent(searchQuery)}`,
+    `https://g1.globo.com/busca/?q=${encodeURIComponent(searchQuery)}&species=not%C3%ADcias&editoria=df`,
+  ];
+
+  for (const targetUrl of portalUrls) {
+    try {
+      const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(targetUrl)}`;
+      console.log(`Portais DF: fetching ${targetUrl}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(zenscrapeUrl, {
+        headers: { "apikey": apiKey },
+        signal: controller.signal,
+      }).catch(e => {
+        console.error("Portais DF fetch error:", e.message);
+        return null;
+      });
+
+      clearTimeout(timeout);
+
+      if (res?.ok) {
+        const html = await res.text();
+        console.log(`Portais DF: received ${html.length} chars from ${targetUrl.split("/")[2]}`);
+        const extracted = extractMentionsFromHTML(html, entityName, "portais_df", entityId);
+        collectedMentions.push(...extracted);
+        console.log(`Portais DF: extracted ${extracted.length} mentions`);
+      } else if (res) {
+        const errBody = await res.text();
+        console.error(`Portais DF error ${res.status}: ${errBody.substring(0, 200)}`);
+      }
+    } catch (e) {
+      console.error("Portais DF error:", e);
+    }
+  }
+
+  return collectedMentions;
 }
