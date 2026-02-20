@@ -67,6 +67,12 @@ const Overview = () => {
           <div className="text-gray-500 mt-1 flex items-center gap-2">
             <span>{principalEntity ? `Monitorando: ${principalEntity.nome}` : 'Dados demonstrativos'}</span>
             {!hasRealData && <Badge variant="outline">Demo</Badge>}
+            {hasRealData && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-green-600 font-medium">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Ao vivo
+              </span>
+            )}
           </div>
         </div>
         {principalEntity && (

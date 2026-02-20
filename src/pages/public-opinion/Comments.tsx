@@ -59,9 +59,15 @@ const Comments = () => {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Comentários & Menções</h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-gray-500 mt-1 flex items-center gap-2">
           Todas as menções coletadas, classificadas por sentimento e categoria
           {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
+          {hasRealData && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-green-600 font-medium">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Ao vivo
+            </span>
+          )}
         </p>
       </div>
 

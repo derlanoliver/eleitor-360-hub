@@ -85,6 +85,7 @@ import { CoordinatorAuthProvider } from "./contexts/CoordinatorAuthContext";
 import { DynamicMetaTags } from "./components/DynamicMetaTags";
 
 // Public Opinion module
+import { PublicOpinionRealtimeProvider } from "./components/public-opinion/PublicOpinionRealtimeProvider";
 import PublicOpinionOverview from "./pages/public-opinion/Overview";
 import PublicOpinionSentiment from "./pages/public-opinion/SentimentAnalysis";
 import PublicOpinionTimeline from "./pages/public-opinion/Timeline";
@@ -479,55 +480,55 @@ const App = () => (
             } />
             
             
-            {/* Public Opinion module - super_admin only */}
+            {/* Public Opinion module - super_admin only — Realtime ativo em todas as rotas */}
             <Route path="/public-opinion" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionOverview /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionOverview /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/sentiment" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionSentiment /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionSentiment /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/timeline" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionTimeline /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionTimeline /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/comparison" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionComparison /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionComparison /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/demographics" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionDemographics /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionDemographics /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/comments" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionComments /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionComments /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/insights" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionInsights /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionInsights /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/events" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionEvents /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionEvents /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/reports" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionReports /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionReports /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
             <Route path="/public-opinion/settings" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout><PublicOpinionSettings /></DashboardLayout>
+                <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionSettings /></PublicOpinionRealtimeProvider></DashboardLayout>
               </RoleProtectedRoute>
             } />
 
