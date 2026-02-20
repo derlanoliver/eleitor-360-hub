@@ -45,7 +45,7 @@ const publicOpinionSubItems: SubMenuItem[] = [
   { title: "Sentimento", url: "/public-opinion/sentiment", icon: Heart },
   { title: "Linha do Tempo", url: "/public-opinion/timeline", icon: Clock },
   { title: "Comparação", url: "/public-opinion/comparison", icon: GitCompare },
-  { title: "Demografia", url: "/public-opinion/demographics", icon: UsersRound },
+  { title: "Análise de Conteúdo", url: "/public-opinion/demographics", icon: UsersRound },
   { title: "Menções", url: "/public-opinion/comments", icon: MessageCircle },
   { title: "Insights IA", url: "/public-opinion/insights", icon: Sparkles },
   { title: "Eventos", url: "/public-opinion/events", icon: CalendarCheck },
