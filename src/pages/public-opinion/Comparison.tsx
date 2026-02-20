@@ -70,9 +70,9 @@ function useEntityStats(entityId?: string) {
       // Total engagement (likes + comments + shares + views)
       let totalEngagement = 0;
       mentions.forEach(m => {
-        const eng = m.engagement as Record<string, number> | null;
+        const eng = m.engagement as Record<string, unknown> | null;
         if (eng) {
-          totalEngagement += (eng.likes || 0) + (eng.comments || 0) + (eng.shares || 0) + (eng.views || 0);
+          totalEngagement += (Number(eng.likes) || 0) + (Number(eng.comments) || 0) + (Number(eng.shares) || 0) + (Number(eng.views) || 0);
         }
       });
 
