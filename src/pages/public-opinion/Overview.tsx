@@ -14,6 +14,7 @@ const sourceColors: Record<string, string> = {
   youtube: '#FF0000', youtube_comments: '#FF0000',
   tiktok: '#000000', tiktok_comments: '#000000',
   news: '#6B7280', google_news: '#F59E0B', portais: '#6B7280',
+  portais_df: '#8B5CF6', reddit: '#FF4500',
 };
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
@@ -73,7 +74,7 @@ const Overview = () => {
             size="sm"
             disabled={collectMentions.isPending}
             onClick={() => {
-              const sources = ["news", "google_news"];
+              const sources = ["news", "google_news", "portais_df", "reddit"];
               const redes = principalEntity.redes_sociais as Record<string, string> | null;
               if (redes?.twitter) sources.push("twitter_comments");
               if (redes?.instagram) sources.push("instagram_comments");
