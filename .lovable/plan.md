@@ -1,147 +1,134 @@
 
 
-# Portal do Coordenador + Regras de Cadastro via Eventos
+## Plano: Melhorias Completas no Modulo de Opiniao Publica
 
-## Resumo
+### Resumo
 
-Este plano cobre 3 grandes entregas:
-
-1. **Regra: Cadastro via evento NAO transforma em lider** -- Pessoas cadastradas em eventos (inclusive via link de lider com `?ref=`) serao apenas contatos comuns
-2. **Regra: Contatos existentes nao contam como cadastro pelo link de lider** -- O formulario `/cadastro/:token` deve verificar se a pessoa ja existe em `office_contacts` e nao criar lider duplicado
-3. **Portal publico do Coordenador** -- Login por telefone+senha, dashboard com dados do coordenador, e tela de criacao de eventos
+Implementar 5 melhorias no sistema de raspagem e automacao do modulo de Opiniao Publica: (1) coleta real de comentarios do YouTube, (2) cron job automatico de coleta, (3) cron job de agregacao diaria, (4) raspagem de portais de noticias locais do DF, e (5) raspagem do Reddit.
 
 ---
 
-## Parte 1: Regras de Cadastro
+### 1. Coleta Real de Comentarios do YouTube (Actor Pago)
 
-### 1.1 Evento nao promove a lider
-- **Arquivo**: `src/pages/EventRegistration.tsx`
-- Remover toda a logica que verifica se o contato indicado por lider precisa virar lider (linhas 186-217)
-- O `source_type` do contato criado pela RPC `create_event_registration` deve ser `'evento'` (nao `'lider'`)
-- Manter o fluxo de confirmacao normal (WhatsApp, email, SMS)
+**Situacao atual**: A funcao `collectYouTubeComments` busca apenas metadados de video (titulo, descricao, views) porque o Stage 2 (comentarios) esta desabilitado (linha 860-861: `const commentItems: any[] = [];`).
 
-### 1.2 Link de lider nao cadastra quem ja e contato
-- **Arquivo**: RPC `register_leader_from_affiliate` (banco de dados)
-- Adicionar verificacao: se o telefone ja existe em `office_contacts`, retornar erro/flag `already_is_contact`
-- **Arquivo**: `src/pages/LeaderRegistrationForm.tsx`
-- Tratar o novo caso mostrando mensagem informativa
+**O que muda**:
+- Ativar o Stage 2 usando o actor `crawlerbros~youtube-comment-scraper` (ja mapeado em `APIFY_ACTORS`)
+- Buscar ate 100 comentarios dos 10 videos mais recentes do canal
+- Manter o fallback de metadados caso o scraper de comentarios falhe
 
-### 1.3 Acesso restrito (somente teste)
-- Adicionar coluna `is_test_feature` na `app_settings` ou usar feature flag
-- Somente super_admin e usuarios de teste podem ver estas mudancas
-- Configuravel via settings
+**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
+- Substituir `const commentItems: any[] = [];` pela chamada real ao actor Apify
+- Mapear os campos do actor para o schema de `po_mentions`
 
 ---
 
-## Parte 2: Portal do Coordenador
+### 2. Raspagem de Portais de Noticias Locais do DF
 
-### 2.1 Banco de Dados
+**O que muda**: Adicionar uma nova fonte `portais_df` que raspa 3 portais locais usando Zenscrape:
+- Metropoles (`metropoles.com`)
+- Correio Braziliense (`correiobraziliense.com.br`)
+- G1 DF (`g1.globo.com/df`)
 
-**Nova tabela: `coordinator_credentials`**
+**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
+- Nova funcao `collectPortaisDF` que usa Zenscrape para buscar paginas de busca desses portais
+- Novo bloco no handler principal para source `portais_df`
+- Reutiliza a logica existente de `extractMentionsFromHTML` com source `portais_df`
+
+**Arquivo**: `src/pages/public-opinion/Overview.tsx`
+- Adicionar cor `portais_df` no mapa de cores do grafico
+
+**Arquivo**: `src/pages/public-opinion/Comments.tsx`
+- Adicionar opcao "Portais DF" no filtro de fontes
+
+---
+
+### 3. Raspagem do Reddit
+
+**O que muda**: Adicionar fonte `reddit` usando actor Apify `trudax~reddit-scraper` para buscar posts e comentarios nos subreddits r/brasilia e r/brasil.
+
+**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
+- Novo actor no mapa: `reddit: "trudax~reddit-scraper"`
+- Nova funcao `collectReddit` que busca posts mencionando a entidade
+- Novo bloco no handler para source `reddit`
+
+**Arquivo**: `src/pages/public-opinion/Overview.tsx`
+- Adicionar cor `reddit: '#FF4500'` no mapa
+
+**Arquivo**: `src/pages/public-opinion/Comments.tsx`
+- Adicionar "Reddit" no filtro de fontes
+
+---
+
+### 4. Cron Job de Coleta Automatica de Mencoes
+
+**O que muda**: Criar uma nova Edge Function `po-auto-collect` que:
+1. Le todas as entidades ativas com `po_collection_configs` ativas
+2. Verifica se `next_run_at` ja passou (ou nunca rodou)
+3. Determina quais fontes coletar com base nas redes sociais configuradas
+4. Chama `po-collect-mentions` em background para cada entidade
+5. Atualiza `last_run_at` e `next_run_at` na tabela `po_collection_configs`
+
+**Arquivos**:
+- `supabase/functions/po-auto-collect/index.ts` (novo)
+- `supabase/config.toml` - adicionar `[functions.po-auto-collect] verify_jwt = false`
+- Cron job SQL: executa a cada 30 minutos (`*/30 * * * *`)
+
+---
+
+### 5. Cron Job de Agregacao Diaria (po_daily_snapshots)
+
+**O que muda**: Criar uma nova Edge Function `po-aggregate-daily` que:
+1. Para cada entidade ativa, agrega dados de `po_sentiment_analyses` do dia anterior
+2. Calcula: total_mentions, positive_count, negative_count, neutral_count, avg_sentiment_score, top_topics, top_emotions, source_breakdown
+3. Faz UPSERT na tabela `po_daily_snapshots`
+
+**Arquivos**:
+- `supabase/functions/po-aggregate-daily/index.ts` (novo)
+- `supabase/config.toml` - adicionar `[functions.po-aggregate-daily] verify_jwt = false`
+- Cron job SQL: executa 1x por dia as 03:00 (`0 3 * * *`)
+
+---
+
+### 6. Integracao no Frontend
+
+**Atualizacoes para refletir as novas fontes**:
+
+**`src/pages/public-opinion/Overview.tsx`**:
+- Adicionar cores: `portais_df: '#8B5CF6'`, `reddit: '#FF4500'`
+- Incluir `portais_df` e `reddit` na lista de fontes do botao "Coletar Mencoes"
+
+**`src/pages/public-opinion/Comments.tsx`**:
+- Adicionar "Portais DF" e "Reddit" no filtro de fontes
+
+**`src/hooks/public-opinion/usePublicOpinion.ts`**:
+- Nenhuma alteracao necessaria (ja e dinamico)
+
+---
+
+### Detalhes Tecnicos
+
 ```text
-id              uuid PK
-leader_id       uuid FK -> lideres(id) UNIQUE
-password_hash   text NOT NULL
-created_at      timestamptz
-updated_at      timestamptz
+Arquivos novos:
+  supabase/functions/po-auto-collect/index.ts
+  supabase/functions/po-aggregate-daily/index.ts
+
+Arquivos editados:
+  supabase/functions/po-collect-mentions/index.ts  (YouTube real, Portais DF, Reddit)
+  src/pages/public-opinion/Overview.tsx             (cores + fontes)
+  src/pages/public-opinion/Comments.tsx             (filtros)
+  supabase/config.toml                              (2 novas functions)
+
+Cron Jobs (via SQL insert):
+  po-auto-collect       -> */30 * * * *  (a cada 30 min)
+  po-aggregate-daily    -> 0 3 * * *     (diario as 03:00)
 ```
 
-**Nova coluna na tabela `events`:**
-- `created_by_coordinator_id` (uuid, nullable, FK -> lideres) -- identifica eventos criados por coordenadores
-- `cover_image_fixed` (boolean, default false) -- indica se usa imagem fixa
+### Actors Apify Utilizados
 
-**RLS**: Tabela `coordinator_credentials` sem acesso publico direto; login via RPC SECURITY DEFINER.
-
-### 2.2 RPCs (funcoes de banco)
-
-- `coordinator_login(p_phone text, p_password text)` -- Valida telefone+senha, retorna JWT customizado ou token de sessao + dados do coordenador
-- `coordinator_get_dashboard(p_leader_id uuid)` -- Retorna pontos, indicacoes, nivel, cadastros dos subordinados, eventos participados, comunicacoes recebidas
-- `coordinator_set_password(p_leader_id uuid, p_password text)` -- Para admins definirem a senha do coordenador
-
-### 2.3 Rotas e Paginas
-
-**Novas rotas publicas em `App.tsx`:**
-- `/coordenador/login` -- Tela de login
-- `/coordenador/dashboard` -- Dashboard do coordenador (protegido por sessao)
-- `/coordenador/eventos` -- Gerenciamento de eventos do coordenador
-
-**Novos arquivos:**
-- `src/pages/coordinator/CoordinatorLogin.tsx`
-- `src/pages/coordinator/CoordinatorDashboard.tsx`
-- `src/pages/coordinator/CoordinatorEvents.tsx`
-- `src/hooks/coordinator/useCoordinatorAuth.ts`
-- `src/hooks/coordinator/useCoordinatorDashboard.ts`
-- `src/hooks/coordinator/useCoordinatorEvents.ts`
-- `src/contexts/CoordinatorAuthContext.tsx`
-
-### 2.4 Tela de Login (`CoordinatorLogin.tsx`)
-- Campo: Telefone (com mascara brasileira)
-- Campo: Senha
-- Botao: Entrar
-- Validacao via RPC `coordinator_login`
-- Sessao armazenada em sessionStorage (token temporario)
-- Sem acesso ao sistema "Pai" (admin)
-
-### 2.5 Dashboard do Coordenador (`CoordinatorDashboard.tsx`)
-
-Secoes da tela:
-1. **Cabecalho**: Nome, foto/avatar, nivel atual (Bronze/Prata/Ouro/Diamante) com badge
-2. **Pontos e Progresso**: Total de pontos, barra de progresso para proximo nivel, pontos faltantes
-3. **Indicacoes**: Lista de lideres subordinados com:
-   - Nome
-   - Status verificado/pendente (badge)
-   - Data de cadastro
-   - Telefone mascarado (ex: ***9999)
-   - Quantidade de cadastros e pontos de cada um
-4. **Eventos Participados**: Lista de eventos que o coordenador se inscreveu/fez check-in
-5. **Eventos Convidado**: Eventos que ele foi convidado (via comunicacao)
-6. **Comunicacoes**: Historico de SMS, WhatsApp e emails enviados para o coordenador
-7. **Arvore**: Totais gerais -- soma de pontos de toda a sub-arvore
-8. **Status**: Badge do nivel atual
-
-### 2.6 Tela de Eventos do Coordenador (`CoordinatorEvents.tsx`)
-
-- Formulario de criacao de evento **identico** ao do sistema "Pai" (`Events.tsx`), com as seguintes diferencas:
-  - **Sem** botao "Link do Lider" -- substituido por botao com link usando a `ref` do coordenador (ex: `/eventos/[slug]?ref=[coordinator_token]`)
-  - **Sem** botao "Enviar Fotos"
-  - **Imagem de capa fixa**: Sempre usa a imagem de capa do formulario de indicacao (configurada em `affiliate_form_settings` ou `app_settings`)
-  - O evento e salvo na **mesma tabela `events`** com `created_by_coordinator_id` preenchido
-- Lista de eventos criados por este coordenador
-- Os cadastros no evento via link do coordenador (`?ref=`) **NAO** transformam a pessoa em lider -- ela fica como contato comum
-- O fluxo pos-cadastro e identico: formulario -> tela de confirmacao -> QR Code para check-in
-
-### 2.7 Configuracao pelo Admin
-
-- **Arquivo**: `src/pages/settings/Team.tsx` ou novo sub-menu
-- Opcao para definir senha de acesso ao portal para cada coordenador
-- Ou: Na tela de detalhes do lider/coordenador, botao "Definir senha do portal"
-
----
-
-## Parte 3: Integracao com Relatorios
-
-- Eventos criados por coordenadores entram nos mesmos relatorios existentes
-- A coluna `created_by_coordinator_id` permite filtrar/agrupar por coordenador nos relatorios
-- Nenhuma mudanca necessaria nos relatorios existentes (ja leem da tabela `events`)
-
----
-
-## Sequencia de Implementacao
-
-1. Migracoes de banco (tabela `coordinator_credentials`, colunas novas em `events`)
-2. RPCs de login e dashboard do coordenador
-3. Regras de cadastro (evento nao promove, contato existente bloqueado)
-4. Paginas do portal (login, dashboard, eventos)
-5. Configuracao de senha pelo admin
-6. Testes end-to-end
-
----
-
-## Detalhes Tecnicos
-
-- **Autenticacao do coordenador**: Nao usa Supabase Auth (que e para admins). Usa sistema proprio com RPC SECURITY DEFINER que valida telefone+senha (hash bcrypt via `pgcrypto`). Retorna dados do coordenador para sessionStorage.
-- **Protecao de rotas**: Context `CoordinatorAuthContext` verifica sessao ativa antes de renderizar paginas do portal.
-- **Imagem de capa fixa**: Busca a URL da imagem do formulario de indicacao (tabela `affiliate_form_settings` ou similar) e usa como `cover_image_url` ao criar evento.
-- **Mascaramento de telefone**: Funcao utilitaria `maskPhone("5561999991234")` retorna `***1234`.
-- **Feature flag**: As regras da Parte 1 podem ser controladas por uma flag em `app_settings` para ativar somente para teste.
+| Fonte | Actor | Tipo |
+|-------|-------|------|
+| YouTube Comments | `crawlerbros~youtube-comment-scraper` | Pago |
+| Reddit | `trudax~reddit-scraper` | Pago |
+| Portais DF | Zenscrape (ja configurado) | Existente |
 
