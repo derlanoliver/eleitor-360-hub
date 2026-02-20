@@ -32,12 +32,15 @@ const PublicOpinionSettings = () => {
     palavras_chave: "",
     is_principal: false,
     redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "", telegram: "" },
+    influenciadores_ig: "",
+    sites_customizados: "",
   });
 
   const resetForm = () => {
     setFormData({
       nome: "", tipo: "politico", partido: "", cargo: "", hashtags: "", palavras_chave: "",
       is_principal: false, redes_sociais: { twitter: "", instagram: "", facebook: "", youtube: "", tiktok: "", telegram: "" },
+      influenciadores_ig: "", sites_customizados: "",
     });
   };
 
@@ -59,6 +62,8 @@ const PublicOpinionSettings = () => {
         tiktok: entity.redes_sociais?.tiktok || "",
         telegram: entity.redes_sociais?.telegram || "",
       },
+      influenciadores_ig: entity.redes_sociais?.influenciadores_ig || "",
+      sites_customizados: entity.redes_sociais?.sites_customizados || "",
     });
   };
 
@@ -76,9 +81,13 @@ const PublicOpinionSettings = () => {
       hashtags: formData.hashtags.split(",").map(h => h.trim()).filter(Boolean),
       palavras_chave: formData.palavras_chave.split(",").map(k => k.trim()).filter(Boolean),
       is_principal: formData.is_principal,
-      redes_sociais: Object.fromEntries(
-        Object.entries(formData.redes_sociais).filter(([, v]) => v.trim())
-      ),
+      redes_sociais: {
+        ...Object.fromEntries(
+          Object.entries(formData.redes_sociais).filter(([, v]) => v.trim())
+        ),
+        ...(formData.influenciadores_ig.trim() ? { influenciadores_ig: formData.influenciadores_ig.trim() } : {}),
+        ...(formData.sites_customizados.trim() ? { sites_customizados: formData.sites_customizados.trim() } : {}),
+      },
     };
 
     if (editEntity) {
@@ -155,6 +164,32 @@ const PublicOpinionSettings = () => {
             />
           </div>
         ))}
+      </div>
+
+      <Separator />
+      <h4 className="font-medium text-sm">Influenciadores Instagram (perfis de terceiros)</h4>
+      <div className="space-y-2">
+        <Label className="text-xs">Perfis separados por vírgula (ex: @radiocorredordf, @vicenzodf)</Label>
+        <Input
+          value={formData.influenciadores_ig}
+          onChange={e => setFormData(f => ({ ...f, influenciadores_ig: e.target.value }))}
+          placeholder="@radiocorredordf, @vicenzodf, @diariodeceilandia"
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">O sistema buscará posts que citem ou marquem as entidades monitoradas e coletará os comentários.</p>
+      </div>
+
+      <Separator />
+      <h4 className="font-medium text-sm">Sites Personalizados (URLs para monitorar)</h4>
+      <div className="space-y-2">
+        <Label className="text-xs">URLs separadas por vírgula</Label>
+        <Input
+          value={formData.sites_customizados}
+          onChange={e => setFormData(f => ({ ...f, sites_customizados: e.target.value }))}
+          placeholder="https://radiocorredor.com.br/, https://veronoticias.com/politica/"
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">O sistema raspará esses sites buscando menções às entidades monitoradas.</p>
       </div>
 
       <div className="flex items-center gap-3 pt-2">
