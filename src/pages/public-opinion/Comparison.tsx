@@ -68,7 +68,7 @@ function useEntityStats(entityId?: string) {
 
 const Comparison = () => {
   const { data: entities } = useMonitoredEntities();
-  const hasRealEntities = entities && entities.length > 1;
+  const hasRealEntities = entities && entities.length >= 1;
 
   // Fetch stats for up to 5 entities
   const e0 = useEntityStats(entities?.[0]?.id);
