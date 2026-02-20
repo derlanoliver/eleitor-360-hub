@@ -8,7 +8,16 @@ import { useMonitoredEntities, useMentions, useSentimentAnalyses } from "@/hooks
 import { ThumbsUp, ThumbsDown, Minus, Share2, Heart, Search, ExternalLink } from "lucide-react";
 
 const sourceIcons: Record<string, string> = {
-  twitter: '𝕏', twitter_comments: '💬𝕏', instagram: '📸', instagram_comments: '💬', facebook: '📘', facebook_comments: '💬', youtube: '▶️', youtube_comments: '💬▶️', tiktok: '🎵', tiktok_comments: '💬🎵', portal: '📰', news: '📰', google_news: '📰', portais_df: '📰', reddit: '🤖', telegram: '✈️', influencer_comments: '🎤', sites_custom: '🌐',
+  twitter: '𝕏', twitter_comments: '💬𝕏',
+  instagram: '📸', instagram_comments: '💬📸',
+  facebook: '📘', facebook_comments: '💬📘',
+  youtube: '▶️', youtube_comments: '💬▶️', youtube_search: '🔍▶️',
+  tiktok: '🎵', tiktok_comments: '💬🎵',
+  threads: '🧵',
+  portal: '📰', news: '📰', google_news: '📰', portais_df: '🗞️',
+  google_search: '🔍', portais_br: '📰', fontes_oficiais: '🏛️',
+  reddit: '🤖', telegram: '✈️',
+  influencer_comments: '🎤', sites_custom: '🌐',
 };
 
 const Comments = () => {
@@ -103,19 +112,23 @@ const Comments = () => {
               <SelectTrigger><SelectValue placeholder="Fonte" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="google_search">Google Search</SelectItem>
+                <SelectItem value="google_news">Google News</SelectItem>
+                <SelectItem value="portais_br">Portais Brasileiros</SelectItem>
+                <SelectItem value="portais_df">Portais DF</SelectItem>
+                <SelectItem value="fontes_oficiais">Fontes Oficiais</SelectItem>
                 <SelectItem value="twitter">X (Twitter)</SelectItem>
                 <SelectItem value="twitter_comments">X (Respostas)</SelectItem>
+                <SelectItem value="threads">Threads</SelectItem>
                 <SelectItem value="instagram">Instagram</SelectItem>
                 <SelectItem value="instagram_comments">Instagram (Comentários)</SelectItem>
                 <SelectItem value="facebook">Facebook</SelectItem>
                 <SelectItem value="facebook_comments">Facebook (Comentários)</SelectItem>
-                <SelectItem value="google_news">Google News</SelectItem>
-                <SelectItem value="youtube">YouTube</SelectItem>
+                <SelectItem value="youtube_search">YouTube (Busca)</SelectItem>
                 <SelectItem value="youtube_comments">YouTube (Comentários)</SelectItem>
                 <SelectItem value="tiktok">TikTok (Feed Público)</SelectItem>
                 <SelectItem value="tiktok_comments">TikTok (Comentários)</SelectItem>
-                <SelectItem value="news">Portais</SelectItem>
-                <SelectItem value="portais_df">Portais DF</SelectItem>
+                <SelectItem value="news">Portais (Bing/Yahoo)</SelectItem>
                 <SelectItem value="reddit">Reddit</SelectItem>
                 <SelectItem value="telegram">Telegram</SelectItem>
                 <SelectItem value="influencer_comments">Influenciadores</SelectItem>

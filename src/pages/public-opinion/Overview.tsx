@@ -11,11 +11,14 @@ const sourceColors: Record<string, string> = {
   twitter: '#1DA1F2', twitter_comments: '#1DA1F2',
   instagram: '#E4405F', instagram_comments: '#E4405F',
   facebook: '#1877F2', facebook_comments: '#1877F2',
-  youtube: '#FF0000', youtube_comments: '#FF0000',
+  youtube: '#FF0000', youtube_comments: '#FF0000', youtube_search: '#FF0000',
   tiktok: '#000000', tiktok_comments: '#000000',
-  news: '#6B7280', google_news: '#F59E0B', portais: '#6B7280',
-  portais_df: '#8B5CF6', reddit: '#FF4500', telegram: '#0088CC',
+  threads: '#000000',
+  news: '#6B7280', google_news: '#F59E0B', google_search: '#4285F4',
+  portais_df: '#8B5CF6', portais_br: '#7C3AED',
+  reddit: '#FF4500', telegram: '#0088CC',
   influencer_comments: '#C13584', sites_custom: '#059669',
+  fontes_oficiais: '#1E40AF',
 };
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
@@ -81,13 +84,14 @@ const Overview = () => {
             size="sm"
             disabled={collectMentions.isPending}
             onClick={() => {
-              const sources = ["news", "google_news", "portais_df", "reddit"];
+              const sources = ["news", "google_news", "google_search", "portais_df", "portais_br", "fontes_oficiais", "reddit"];
               const redes = principalEntity.redes_sociais as Record<string, any> | null;
               if (redes?.twitter) { sources.push("twitter"); sources.push("twitter_comments"); }
               if (redes?.instagram) { sources.push("instagram"); sources.push("instagram_comments"); }
               if (redes?.facebook) { sources.push("facebook"); sources.push("facebook_comments"); }
               if (redes?.tiktok) { sources.push("tiktok"); sources.push("tiktok_comments"); }
-              if (redes?.youtube) sources.push("youtube_comments");
+              if (redes?.youtube) { sources.push("youtube_comments"); sources.push("youtube_search"); }
+              if (redes?.instagram || redes?.threads) sources.push("threads");
               if (redes?.telegram) sources.push("telegram");
               if (redes?.influenciadores_ig?.length) sources.push("influencer_comments");
               if (redes?.sites_customizados?.length) sources.push("sites_custom");

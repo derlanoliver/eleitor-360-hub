@@ -32,8 +32,11 @@ const APIFY_ACTORS: Record<string, string> = {
   tiktok_comments: "easyapi~tiktok-comments-scraper",      // comentários em vídeos
   // Outros
   google_news: "dlaf~google-news-free",
+  google_search: "apify~google-search-scraper",
   youtube_channel: "scrapesmith~youtube-free-channel-scraper",
   youtube_comments: "crawlerbros~youtube-comment-scraper",
+  youtube_search: "bernardo~youtube-scraper",
+  threads: "apify~threads-scraper",
   reddit: "trudax~reddit-scraper",
   telegram: "lexer~telegram-channel-post-scraper",
 };
@@ -194,6 +197,37 @@ serve(async (req) => {
       } else {
         console.log("influencer_comments: no influencers configured for entity");
       }
+    }
+
+    // ── 16. Google Search (organic results) ──
+    if (targetSources.includes("google_search") && APIFY_API_TOKEN) {
+      const mentions = await collectGoogleSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 17. Portais de Notícias Brasileiros (UOL, Folha, Globo, Estadão, Band, etc.) ──
+    if (targetSources.includes("portais_br") && ZENSCRAPE_API_KEY) {
+      const mentions = await collectPortaisBR(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 18. Threads (Meta) ──
+    if (targetSources.includes("threads") && APIFY_API_TOKEN) {
+      const thHandle = entity.redes_sociais?.threads || entity.redes_sociais?.instagram;
+      const mentions = await collectThreads(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, thHandle || undefined);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 19. YouTube Search (busca por vídeos que mencionam a entidade) ──
+    if (targetSources.includes("youtube_search") && APIFY_API_TOKEN) {
+      const mentions = await collectYouTubeSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
+    }
+
+    // ── 20. Fontes Oficiais (Agência Câmara, Agência Senado, TSE, Agência Brasília) ──
+    if (targetSources.includes("fontes_oficiais") && ZENSCRAPE_API_KEY) {
+      const mentions = await collectFontesOficiais(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
+      collectedMentions.push(...mentions);
     }
 
     // ── 15. Custom Sites (user-defined URLs) ──
@@ -1619,6 +1653,355 @@ async function collectInfluencerComments(token: string, influencerConfig: string
 
   console.log(`Influencer Comments: total ${allMentions.length} mentions from @${cleanHandle}`);
   return allMentions;
+}
+
+// ══════════════════════════════════════════════════
+// GOOGLE SEARCH (organic results via Apify)
+// Actor: apify~google-search-scraper
+// 5 queries paralelas: nome+cargo, nome+DF, nome+política,
+// nome+câmara, nome+notícia — captura blogs, fóruns,
+// sites de nicho e portais que não aparecem no Google News
+// ══════════════════════════════════════════════════
+
+async function collectGoogleSearch(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+
+  const queries = [
+    `${firstName} ${lastName} deputado`,
+    `${firstName} ${lastName} Brasília "Distrito Federal"`,
+    `${firstName} ${lastName} câmara lei votação`,
+    `${firstName} ${lastName} política mandato`,
+    entityName,
+  ];
+
+  console.log(`Google Search: launching 5 parallel queries`);
+
+  const results = await Promise.all(
+    queries.map(q =>
+      runApifyActor(token, APIFY_ACTORS.google_search, {
+        queries: [q],
+        maxPagesPerQuery: 1,
+        resultsPerPage: 10,
+        languageCode: "pt",
+        countryCode: "br",
+        mobileResults: false,
+      }, 40).catch(e => {
+        console.error(`Google Search "${q}" error:`, e.message);
+        return [];
+      })
+    )
+  );
+
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+
+  for (const items of results) {
+    for (const item of items) {
+      const url = item.url || item.link || item.href || "";
+      const title = item.title || "";
+      const snippet = item.snippet || item.description || item.text || "";
+      const content = (title ? `${title}. ${snippet}` : snippet).substring(0, 2000);
+      if (content.length < 10) continue;
+      const key = url || content.substring(0, 80);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({
+        entity_id: entityId,
+        source: "google_search",
+        source_url: url || null,
+        author_name: item.displayLink || item.domain || null,
+        author_handle: null,
+        content,
+        published_at: item.date || item.publishedAt || new Date().toISOString(),
+        engagement: {},
+        hashtags: [],
+        media_urls: item.imageUrl ? [item.imageUrl] : [],
+        raw_data: { source: "apify_google_search", position: item.position || null },
+      });
+    }
+  }
+
+  const total = results.reduce((s, r) => s + r.length, 0);
+  console.log(`Google Search: ${deduped.length} unique of ${total} raw`);
+  return deduped;
+}
+
+// ══════════════════════════════════════════════════
+// PORTAIS DE NOTÍCIAS BRASILEIROS
+// Scraping via Zenscrape dos maiores portais:
+// UOL, Folha de S.Paulo, O Globo, Estadão,
+// Band News, Record News, Agência Brasília (DF)
+// ══════════════════════════════════════════════════
+
+async function collectPortaisBR(apiKey: string, searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
+  const q = encodeURIComponent(searchQuery.replace(/"/g, ""));
+  const name = encodeURIComponent(entityName);
+
+  const portais = [
+    // UOL Notícias
+    { url: `https://busca.uol.com.br/result.htm#q=${q}`, label: "UOL" },
+    // Folha de S. Paulo
+    { url: `https://search.folha.uol.com.br/search?q=${name}&site=todos`, label: "Folha de S.Paulo" },
+    // O Globo
+    { url: `https://oglobo.globo.com/busca/?q=${q}`, label: "O Globo" },
+    // Estadão
+    { url: `https://busca.estadao.com.br/?q=${q}&datainicial=&datafinal=`, label: "Estadão" },
+    // Band News
+    { url: `https://www.band.uol.com.br/noticias/busca?q=${q}`, label: "Band News" },
+    // Record News
+    { url: `https://www.recordtv.com.br/busca?q=${q}`, label: "Record News" },
+    // Agência Brasília (local DF)
+    { url: `https://www.agenciabrasilia.df.gov.br/?s=${q}`, label: "Agência Brasília" },
+  ];
+
+  const collectedMentions: any[] = [];
+  // Process 3 portals per run (rotation to avoid timeout)
+  const rotationStart = Math.floor(Date.now() / 120000) % portais.length;
+  const selected = [
+    portais[rotationStart % portais.length],
+    portais[(rotationStart + 1) % portais.length],
+    portais[(rotationStart + 2) % portais.length],
+  ];
+
+  for (const portal of selected) {
+    try {
+      const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(portal.url)}`;
+      console.log(`Portais BR: fetching ${portal.label}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
+
+      const res = await fetch(zenscrapeUrl, {
+        headers: { "apikey": apiKey },
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timeout);
+
+      if (res?.ok) {
+        const html = await res.text();
+        const extracted = extractMentionsFromHTML(html, entityName, "portais_br", entityId);
+        for (const m of extracted) {
+          m.author_name = portal.label;
+          m.source_url = portal.url;
+          m.raw_data = { ...m.raw_data, portal: portal.label };
+        }
+        collectedMentions.push(...extracted);
+        console.log(`Portais BR: ${extracted.length} mentions from ${portal.label}`);
+      }
+    } catch (e) {
+      console.error(`Portais BR error (${portal.label}):`, e);
+    }
+  }
+
+  return collectedMentions;
+}
+
+// ══════════════════════════════════════════════════
+// THREADS (Meta) via Apify
+// Actor: apify~threads-scraper
+// 5 queries paralelas: nome, handle, cargo, DF, câmara
+// ══════════════════════════════════════════════════
+
+async function collectThreads(token: string, query: string, entityName: string, entityId: string, thHandle?: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+  const handle = (thHandle || "").replace(/^@/, "");
+
+  const searches = [
+    `${firstName} ${lastName} deputado`,
+    handle ? handle : entityName,
+    `${firstName} ${lastName} Brasília política`,
+    `${firstName} ${lastName} câmara lei`,
+    entityName,
+  ];
+
+  console.log(`Threads: launching 5 parallel searches`);
+
+  const results = await Promise.all(
+    searches.map(s =>
+      runApifyActor(token, APIFY_ACTORS.threads, {
+        searchQueries: [s],
+        maxResultsPerQuery: 20,
+        resultsType: "posts",
+      }, 40).catch(e => {
+        console.error(`Threads "${s}" error:`, e.message);
+        return [];
+      })
+    )
+  );
+
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+
+  for (const items of results) {
+    for (const item of items) {
+      const content = (item.text || item.caption || item.content || "").substring(0, 2000);
+      if (content.length < 5) continue;
+      const key = item.id || item.postId || item.url || content.substring(0, 80);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({
+        entity_id: entityId,
+        source: "threads",
+        source_url: item.url || item.postUrl || (item.id ? `https://www.threads.net/p/${item.id}` : null),
+        author_name: item.username || item.ownerUsername || item.author?.username || null,
+        author_handle: item.username || item.ownerUsername || null,
+        content,
+        published_at: item.timestamp || item.createdAt || item.takenAt || new Date().toISOString(),
+        engagement: {
+          likes: item.likeCount || item.likes || 0,
+          comments: item.replyCount || item.commentsCount || 0,
+          shares: item.reshareCount || 0,
+          views: item.viewCount || 0,
+        },
+        hashtags: (item.hashtags || []).map((h: any) => (typeof h === "string" ? h : h.name || "")),
+        media_urls: item.imageUrl ? [item.imageUrl] : [],
+        raw_data: { source: "apify_threads", post_id: item.id || null },
+      });
+    }
+  }
+
+  const total = results.reduce((s, r) => s + r.length, 0);
+  console.log(`Threads: ${deduped.length} unique of ${total} raw`);
+  return deduped;
+}
+
+// ══════════════════════════════════════════════════
+// YOUTUBE SEARCH (vídeos que mencionam a entidade)
+// Actor: bernardo~youtube-scraper (busca por keyword)
+// 4 queries paralelas: nome+cargo, nome+DF, nome+câmara,
+// nome+notícia — captura cobertura de canais de notícias,
+// comentaristas políticos, etc.
+// ══════════════════════════════════════════════════
+
+async function collectYouTubeSearch(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+
+  const searches = [
+    `${firstName} ${lastName} deputado`,
+    `${firstName} ${lastName} câmara brasília`,
+    `${firstName} ${lastName} política votação`,
+    entityName,
+  ];
+
+  console.log(`YouTube Search: launching 4 parallel searches`);
+
+  const results = await Promise.all(
+    searches.map(q =>
+      runApifyActor(token, APIFY_ACTORS.youtube_search, {
+        searchKeywords: q,
+        maxResults: 15,
+        gl: "br",
+        hl: "pt",
+      }, 50).catch(e => {
+        console.error(`YouTube Search "${q}" error:`, e.message);
+        return [];
+      })
+    )
+  );
+
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+
+  for (const items of results) {
+    for (const item of items) {
+      const title = item.title || item.name || "";
+      const description = item.description || item.snippet || "";
+      const content = (title + (description ? `. ${description}` : "")).substring(0, 2000);
+      if (content.length < 5) continue;
+      const videoId = item.id || item.videoId || item.video_id;
+      const url = item.url || item.link || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+      const key = videoId || url || content.substring(0, 80);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({
+        entity_id: entityId,
+        source: "youtube_search",
+        source_url: url,
+        author_name: item.channelName || item.channel?.name || item.author || null,
+        author_handle: item.channelUrl || item.channel?.url || null,
+        content,
+        published_at: item.publishedAt || item.uploadDate || item.date || new Date().toISOString(),
+        engagement: {
+          views: item.viewCount || item.views || 0,
+          likes: item.likes || item.likeCount || 0,
+          comments: item.commentCount || item.comments || 0,
+          shares: 0,
+        },
+        hashtags: [],
+        media_urls: item.thumbnailUrl ? [item.thumbnailUrl] : (item.thumbnail ? [item.thumbnail] : []),
+        raw_data: { source: "apify_youtube_search", video_id: videoId || null, duration: item.duration || null },
+      });
+    }
+  }
+
+  const total = results.reduce((s, r) => s + r.length, 0);
+  console.log(`YouTube Search: ${deduped.length} unique of ${total} raw`);
+  return deduped;
+}
+
+// ══════════════════════════════════════════════════
+// FONTES OFICIAIS (Agência Câmara, Senado, TSE, Câmara DF)
+// Raspagem via Zenscrape das fontes institucionais
+// que cobrem atividade parlamentar oficial
+// ══════════════════════════════════════════════════
+
+async function collectFontesOficiais(apiKey: string, searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
+  const q = encodeURIComponent(entityName);
+
+  const fontes = [
+    // Agência Câmara dos Deputados
+    { url: `https://www.camara.leg.br/busca-portal?contextoBusca=BuscaGeral&pagina=1&order=relevancia&tipo=lista&textoFiltro=${q}`, label: "Agência Câmara" },
+    // Agência Senado
+    { url: `https://www12.senado.leg.br/noticias/busca?q=${q}&btnBusca=`, label: "Agência Senado" },
+    // TSE (Tribunal Superior Eleitoral)
+    { url: `https://www.tse.jus.br/search?q=${q}&requiredfields=&site=default_collection`, label: "TSE" },
+    // Portal da Câmara Legislativa do DF
+    { url: `https://www.cl.df.gov.br/busca?q=${q}`, label: "Câmara DF" },
+  ];
+
+  const collectedMentions: any[] = [];
+
+  // Rotation: 2 fontes por ciclo
+  const rotationStart = Math.floor(Date.now() / 120000) % fontes.length;
+  const selected = [
+    fontes[rotationStart % fontes.length],
+    fontes[(rotationStart + 1) % fontes.length],
+  ];
+
+  for (const fonte of selected) {
+    try {
+      const zenscrapeUrl = `https://app.zenscrape.com/api/v1/get?url=${encodeURIComponent(fonte.url)}`;
+      console.log(`Fontes Oficiais: fetching ${fonte.label}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
+
+      const res = await fetch(zenscrapeUrl, {
+        headers: { "apikey": apiKey },
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timeout);
+
+      if (res?.ok) {
+        const html = await res.text();
+        const extracted = extractMentionsFromHTML(html, entityName, "fontes_oficiais", entityId);
+        for (const m of extracted) {
+          m.author_name = fonte.label;
+          m.source_url = fonte.url;
+          m.raw_data = { ...m.raw_data, fonte_oficial: fonte.label };
+        }
+        collectedMentions.push(...extracted);
+        console.log(`Fontes Oficiais: ${extracted.length} mentions from ${fonte.label}`);
+      }
+    } catch (e) {
+      console.error(`Fontes Oficiais error (${fonte.label}):`, e);
+    }
+  }
+
+  return collectedMentions;
 }
 
 // ══════════════════════════════════════════════════

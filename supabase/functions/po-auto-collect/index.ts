@@ -47,13 +47,17 @@ serve(async (req) => {
       }
 
       // Determine sources based on entity's configured social networks
-      const sources: string[] = ["news", "google_news", "portais_df", "reddit"];
+      const sources: string[] = [
+        "news", "google_news", "google_search",
+        "portais_df", "portais_br", "fontes_oficiais", "reddit",
+      ];
       const redes = entity.redes_sociais as Record<string, any> | null;
       if (redes?.twitter) { sources.push("twitter"); sources.push("twitter_comments"); }
       if (redes?.instagram) { sources.push("instagram"); sources.push("instagram_comments"); }
       if (redes?.facebook) { sources.push("facebook"); sources.push("facebook_comments"); }
       if (redes?.tiktok) { sources.push("tiktok"); sources.push("tiktok_comments"); }
-      if (redes?.youtube) sources.push("youtube_comments");
+      if (redes?.youtube) { sources.push("youtube_comments"); sources.push("youtube_search"); }
+      if (redes?.instagram || redes?.threads) sources.push("threads");
       if (redes?.telegram) sources.push("telegram");
       if (redes?.influenciadores_ig) sources.push("influencer_comments");
       if (redes?.sites_customizados) sources.push("sites_custom");
