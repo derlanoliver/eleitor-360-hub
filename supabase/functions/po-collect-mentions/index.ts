@@ -10,12 +10,21 @@ const APIFY_BASE = "https://api.apify.com/v2";
 
 // Map source names to Apify actor IDs
 const APIFY_ACTORS: Record<string, string> = {
-  twitter: "desearch~ai-twitter-search",
+  // Twitter
+  twitter: "apidojo~tweet-scraper",
+  twitter_comments: "apidojo~tweet-scraper",
+  // Instagram — actors em ordem de preferência
   instagram: "apify~instagram-scraper",
+  instagram_search: "apify~instagram-search-scraper",
+  instagram_hashtag: "apify~instagram-hashtag-scraper",
   instagram_comments: "apify~instagram-comment-scraper",
-  facebook: "tropical_quince~facebook-page-scraper",
+  // Facebook — actors em ordem de preferência
+  facebook: "apify~facebook-posts-scraper",
+  facebook_search: "apify~facebook-search-scraper",
+  facebook_page: "apify~facebook-page-scraper",
   facebook_posts: "apify~facebook-posts-scraper",
   facebook_comments: "apify~facebook-comments-scraper",
+  // Outros
   google_news: "dlaf~google-news-free",
   tiktok_profile: "clockworks~tiktok-profile-scraper",
   tiktok_comments: "easyapi~tiktok-comments-scraper",
@@ -73,15 +82,17 @@ serve(async (req) => {
       collectedMentions.push(...mentions);
     }
 
-    // ── 4. Apify - Instagram ──
+    // ── 4. Apify - Instagram (múltiplos actors + queries paralelas) ──
     if (targetSources.includes("instagram") && APIFY_API_TOKEN) {
-      const mentions = await collectInstagram(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      const igHandle = entity.redes_sociais?.instagram;
+      const mentions = await collectInstagram(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, igHandle || undefined);
       collectedMentions.push(...mentions);
     }
 
-    // ── 5. Apify - Facebook ──
+    // ── 5. Apify - Facebook (múltiplos actors + queries paralelas) ──
     if (targetSources.includes("facebook") && APIFY_API_TOKEN) {
-      const mentions = await collectFacebook(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      const fbHandle = entity.redes_sociais?.facebook;
+      const mentions = await collectFacebook(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, fbHandle || undefined);
       collectedMentions.push(...mentions);
     }
 
@@ -416,181 +427,280 @@ async function collectTwitter(token: string, query: string, entityName: string, 
   return deduped;
 }
 
-// ── Instagram via Apify ──
-async function collectInstagram(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
-  const searchTerm = query.replace(/"/g, "");
-  const items = await runApifyActor(token, APIFY_ACTORS.instagram, {
-    search: searchTerm,
-    searchType: "hashtag",
-    resultsLimit: 30,
-  });
+// ══════════════════════════════════════════════════
+// INSTAGRAM — Estratégia multi-actor + queries paralelas
+// Actors testados (em ordem de preferência):
+//   1. apify~instagram-scraper (scraper geral - busca por hashtag/usuario)
+//   2. apify~instagram-search-scraper (busca por keyword)
+//   3. apify~instagram-hashtag-scraper (foco em hashtags)
+// Queries: nome, @handle, variações políticas, hashtags, cargo
+// ══════════════════════════════════════════════════
 
-  return items.map(item => ({
+function mapInstagramItem(item: any, entityId: string, sourceLabel = "instagram"): any | null {
+  const content = (item.caption || item.text || item.alt || item.description || item.body || "").substring(0, 2000);
+  if (content.length < 5) return null;
+
+  const postUrl = item.url || item.postUrl ||
+    (item.shortCode ? `https://www.instagram.com/p/${item.shortCode}/` : null) ||
+    (item.id ? `https://www.instagram.com/p/${item.id}/` : null);
+
+  return {
     entity_id: entityId,
-    source: "instagram",
-    source_url: item.url || item.postUrl || null,
-    author_name: item.ownerFullName || item.owner?.fullName || null,
-    author_handle: item.ownerUsername || item.owner?.username || null,
-    content: (item.caption || item.text || item.alt || "").substring(0, 2000),
-    published_at: item.timestamp || item.takenAtTimestamp ? new Date((item.takenAtTimestamp || 0) * 1000).toISOString() : new Date().toISOString(),
-      engagement: {
-        likes: item.likesCount || item.likes || 0,
-        comments: item.commentsCount || item.comments || 0,
-        views: item.videoViewCount || item.views || 0,
-        shares: item.sharesCount || 0,
-        saves: item.savedCount || 0,
-        reactions: item.reactions || null,
-      },
+    source: sourceLabel,
+    source_url: postUrl,
+    author_name: item.ownerFullName || item.owner?.fullName || item.username || item.authorName || null,
+    author_handle: item.ownerUsername || item.owner?.username || item.username || null,
+    content,
+    published_at: item.timestamp ||
+      (item.takenAtTimestamp ? new Date(item.takenAtTimestamp * 1000).toISOString() : null) ||
+      (item.taken_at ? new Date(item.taken_at * 1000).toISOString() : null) ||
+      new Date().toISOString(),
+    engagement: {
+      likes: item.likesCount || item.like_count || item.likes || 0,
+      comments: item.commentsCount || item.comment_count || item.comments || 0,
+      views: item.videoViewCount || item.video_view_count || item.views || item.playCount || 0,
+      shares: item.sharesCount || 0,
+      saves: item.savedCount || 0,
+    },
     hashtags: item.hashtags || [],
-    media_urls: item.displayUrl ? [item.displayUrl] : item.images || [],
-    raw_data: { source: "apify_instagram", apify_id: item.id },
-  })).filter(m => m.content.length > 5);
+    media_urls: item.displayUrl ? [item.displayUrl] : (item.images || item.imageUrl ? [item.imageUrl] : []),
+    raw_data: { source: `apify_instagram_${sourceLabel}`, apify_id: item.id },
+  };
 }
 
-// ══════════════════════════════════════════════════
-// INSTAGRAM COMMENTS (from entity's own profile)
-// Two-stage: fetch posts → extract comments
-// ══════════════════════════════════════════════════
-
-async function collectInstagramComments(token: string, igHandle: string, entityName: string, entityId: string): Promise<any[]> {
-  const handle = igHandle.replace(/^@/, "");
-  const profileUrl = `https://www.instagram.com/${handle}`;
-  console.log(`Instagram Comments: Stage 1 - fetching posts from ${profileUrl}`);
-
-  // Stage 1: Get recent posts from the profile
-  const posts = await runApifyActor(token, APIFY_ACTORS.instagram, {
-    directUrls: [profileUrl],
-    resultsType: "posts",
-    resultsLimit: 10,
-  }, 40);
-
-  if (!posts.length) {
-    console.log("Instagram Comments: no posts found");
+// Busca via apify~instagram-scraper (scraper geral)
+async function runIgScraper(token: string, input: Record<string, any>, timeoutSecs = 50): Promise<any[]> {
+  return runApifyActor(token, "apify~instagram-scraper", input, timeoutSecs).catch(e => {
+    console.error("ig-scraper error:", e.message);
     return [];
-  }
+  });
+}
 
-  const postUrls = posts
-    .map(p => p.url || p.postUrl || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : null))
-    .filter(Boolean)
-    .slice(0, 10);
+// Busca via apify~instagram-search-scraper (keyword search)
+async function runIgSearchScraper(token: string, query: string, limit: number, timeoutSecs = 50): Promise<any[]> {
+  return runApifyActor(token, "apify~instagram-search-scraper", {
+    searchQueries: [query],
+    searchType: "top",
+    resultsLimit: limit,
+  }, timeoutSecs).catch(e => {
+    console.error("ig-search-scraper error:", e.message);
+    return [];
+  });
+}
 
-  console.log(`Instagram Comments: Stage 1 got ${posts.length} posts, ${postUrls.length} URLs`);
+// Busca via apify~instagram-hashtag-scraper
+async function runIgHashtagScraper(token: string, hashtag: string, limit: number, timeoutSecs = 50): Promise<any[]> {
+  const tag = hashtag.replace(/^#/, "");
+  return runApifyActor(token, "apify~instagram-hashtag-scraper", {
+    hashtags: [tag],
+    resultsLimit: limit,
+    shouldDownloadVideos: false,
+    shouldDownloadCovers: false,
+  }, timeoutSecs).catch(e => {
+    console.error("ig-hashtag-scraper error:", e.message);
+    return [];
+  });
+}
 
-  if (postUrls.length === 0) return [];
+// ── Orquestrador principal: Instagram ──
+async function collectInstagram(token: string, query: string, entityName: string, entityId: string, igHandle?: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+  const handle = (igHandle || "").replace(/^@/, "");
 
-  // Stage 2: Get comments from those posts
-  console.log(`Instagram Comments: Stage 2 - fetching comments from ${postUrls.length} posts`);
-  const commentItems = await runApifyActor(token, APIFY_ACTORS.instagram_comments, {
-    directUrls: postUrls,
-    maxComments: 100,
-    maxReplies: 0,
-  }, 90);
+  // 5 queries diversificadas para máxima cobertura
+  const queries = [
+    // 1. Nome completo como keyword (busca por texto)
+    `${firstName} ${lastName} deputado`,
+    // 2. @handle direto no perfil oficial
+    handle ? handle : `${firstName}${lastName}`,
+    // 3. Nome + política + DF
+    `${firstName} ${lastName} Brasília política`,
+    // 4. Nome + temas legislativos
+    `${firstName} ${lastName} câmara lei projeto`,
+    // 5. Hashtag derivada do nome
+    `${firstName}${lastName}`,
+  ];
 
-  console.log(`Instagram Comments: Stage 2 got ${commentItems.length} comment items`);
-  if (commentItems.length > 0) {
-    console.log(`Instagram Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
-    console.log(`Instagram Comments: sample: ${JSON.stringify(commentItems[0]).substring(0, 500)}`);
-  }
+  const hashtags = [
+    `${firstName}${lastName}`.toLowerCase(),
+    `deputado${firstName}`.toLowerCase(),
+    `${firstName}${lastName}df`.toLowerCase(),
+  ];
 
-  const mentions: any[] = [];
+  console.log(`Instagram: launching parallel queries + hashtag search`);
 
-  for (const comment of commentItems) {
-    const content = (comment.text || comment.comment || comment.body || comment.message || "").substring(0, 2000);
-    if (content.length < 3) continue;
+  // Actor 1: apify~instagram-scraper com busca por keyword (queries 1 e 3)
+  const [r1, r2, r3, r4, r5, rH1, rH2] = await Promise.all([
+    // Scraper geral — busca por username do handle
+    handle ? runIgScraper(token, {
+      directUrls: [`https://www.instagram.com/${handle}/`],
+      resultsType: "posts",
+      resultsLimit: 20,
+    }, 45) : Promise.resolve([]),
+    // Search scraper — nome + cargo
+    runIgSearchScraper(token, queries[0], 20, 45),
+    // Search scraper — nome + localização
+    runIgSearchScraper(token, queries[2], 20, 45),
+    // Search scraper — nome + legislativo
+    runIgSearchScraper(token, queries[3], 15, 45),
+    // Scraper por hashtag do nome completo sem espaço
+    runIgHashtagScraper(token, hashtags[0], 20, 45),
+    // Hashtag deputado+nome
+    runIgHashtagScraper(token, hashtags[1], 15, 45),
+    // Hashtag nome+df
+    runIgHashtagScraper(token, hashtags[2], 15, 45),
+  ]);
 
-    const postUrl = comment.postUrl || comment.inputUrl || null;
-    mentions.push({
-      entity_id: entityId,
-      source: "instagram_comments",
-      source_url: postUrl,
-      author_name: comment.ownerFullName || comment.fullName || comment.userFullName || null,
-      author_handle: comment.ownerUsername || comment.username || null,
-      content,
-      published_at: comment.timestamp || comment.createdAt || comment.created_at || new Date().toISOString(),
-      engagement: {
-        likes: comment.likesCount || comment.likes || 0,
-        comments: comment.repliesCount || comment.replyCount || 0,
-        shares: 0,
-        views: 0,
-        reactions: comment.reactions || null,
-      },
-      hashtags: [],
-      media_urls: [],
-      raw_data: {
-        source: "apify_instagram_comments",
-        post_url: postUrl,
-        comment_id: comment.id || comment.commentId || null,
-      },
-    });
-  }
-
-  // Fallback: if no comments, use posts themselves
-  if (mentions.length === 0) {
-    console.log("Instagram Comments: no comments found, falling back to post captions");
-    for (const post of posts) {
-      const content = (post.caption || post.text || post.alt || "").substring(0, 2000);
-      if (content.length < 5) continue;
-      const postUrl = post.url || post.postUrl || (post.shortCode ? `https://www.instagram.com/p/${post.shortCode}/` : null);
-      mentions.push({
-        entity_id: entityId,
-        source: "instagram_comments",
-        source_url: postUrl,
-        author_name: post.ownerFullName || post.owner?.fullName || entityName,
-        author_handle: post.ownerUsername || post.owner?.username || handle,
-        content,
-        published_at: post.timestamp || (post.takenAtTimestamp ? new Date(post.takenAtTimestamp * 1000).toISOString() : new Date().toISOString()),
-        engagement: {
-          likes: post.likesCount || post.likes || 0,
-          comments: post.commentsCount || post.comments || 0,
-          views: post.videoViewCount || post.views || 0,
-          shares: 0,
-        },
-        hashtags: post.hashtags || [],
-        media_urls: post.displayUrl ? [post.displayUrl] : [],
-        raw_data: { source: "apify_instagram_posts_fallback" },
-      });
+  // Deduplica por shortCode, id ou URL
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+  for (const items of [r1, r2, r3, r4, r5, rH1, rH2]) {
+    for (const item of items) {
+      const key = item.shortCode || item.id || item.url || item.postUrl || (item.caption || "").substring(0, 80);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const mapped = mapInstagramItem(item, entityId, "instagram");
+      if (mapped) deduped.push(mapped);
     }
   }
 
-  console.log(`Instagram Comments: total ${mentions.length} mentions extracted`);
-  return mentions;
+  const total = [r1, r2, r3, r4, r5, rH1, rH2].reduce((s, r) => s + r.length, 0);
+  console.log(`Instagram total: ${deduped.length} únicos de ${total} brutos`);
+  return deduped;
 }
 
-// ── Facebook via Apify ──
-async function collectFacebook(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
-  const searchTerm = query.replace(/"/g, "");
-  // tropical_quince~facebook-page-scraper expects pageUrls
-  const items = await runApifyActor(token, APIFY_ACTORS.facebook, {
-    pageUrls: [`https://www.facebook.com/search/posts/?q=${encodeURIComponent(searchTerm)}`],
-    maxPosts: 30,
-  });
+// ══════════════════════════════════════════════════
+// FACEBOOK — Estratégia multi-actor + queries paralelas
+// Actors testados (em ordem de preferência):
+//   1. apify~facebook-posts-scraper (posts de páginas)
+//   2. apify~facebook-search-scraper (busca pública)
+//   3. apify~facebook-page-scraper (scraper de página)
+// Queries: nome, @handle, variações políticas, cargo, hashtag
+// ══════════════════════════════════════════════════
 
-  return items.map(item => ({
+function mapFacebookItem(item: any, entityId: string, sourceLabel = "facebook"): any | null {
+  // Suporta múltiplos schemas:
+  // apify~facebook-posts-scraper: { text, user, time, likes, shares, comments }
+  // powerai~facebook-post-search-scraper: { message, author, author_title, timestamp, reactions_count, comments_count, reshare_count }
+  const content = (
+    item.text || item.message || item.postText || item.body ||
+    item.content || item.full_message || item.story || ""
+  ).substring(0, 2000);
+  if (content.length < 5) return null;
+
+  // timestamp pode vir como number (unix) ou string ISO
+  let publishedAt: string = new Date().toISOString();
+  if (item.time) publishedAt = item.time;
+  else if (item.timestamp && typeof item.timestamp === "string") publishedAt = item.timestamp;
+  else if (item.timestamp && typeof item.timestamp === "number") publishedAt = new Date(item.timestamp * 1000).toISOString();
+  else if (item.date || item.postedAt || item.created_time) publishedAt = item.date || item.postedAt || item.created_time;
+
+  return {
     entity_id: entityId,
-    source: "facebook",
-    source_url: item.url || item.postUrl || null,
-    author_name: item.user?.name || item.pageName || item.authorName || item.name || null,
-    author_handle: item.user?.url || item.pageUrl || null,
-    content: (item.text || item.message || item.postText || item.content || "").substring(0, 2000),
-    published_at: item.time || item.timestamp || item.date || item.postedAt || new Date().toISOString(),
-      engagement: {
-        likes: item.likes || item.reactionsCount || item.reactions || 0,
-        shares: item.shares || item.sharesCount || 0,
-        comments: item.comments || item.commentsCount || 0,
-        views: item.views || 0,
-        reaction_types: extractReactionTypes(item),
-        top_reactions: item.topReactions || null,
-      },
+    source: sourceLabel,
+    source_url: item.url || item.postUrl || item.link || null,
+    // powerai usa "author" (string), apify usa "user" (object)
+    author_name: item.author || item.user?.name || item.pageName || item.authorName || item.name || item.from?.name || null,
+    author_handle: item.author_title || item.user?.profileUrl || item.pageUrl || item.user?.url || item.from?.id || null,
+    content,
+    published_at: publishedAt,
+    engagement: {
+      likes: item.likes || item.reactions_count || item.reactionsCount || item.reactions || item.likeCount || 0,
+      shares: item.shares || item.reshare_count || item.sharesCount || item.share?.share_count || 0,
+      comments: item.comments || item.comments_count || item.commentsCount || item.comment_count || 0,
+      views: item.views || item.viewCount || 0,
+      reaction_types: extractReactionTypes(item),
+    },
     hashtags: [],
-    media_urls: item.media?.map((m: any) => m.thumbnail || m.url || m) || [],
-    raw_data: { source: "apify_facebook", apify_id: item.id },
-  })).filter(m => m.content.length > 5);
+    media_urls: item.media?.map((m: any) => m.thumbnail || m.url || m) ||
+      (item.image ? [item.image] : item.photo ? [item.photo] : []),
+    raw_data: { source: `apify_facebook_${sourceLabel}`, apify_id: item.post_id || item.id || item.postId },
+  };
+}
+
+// ══════════════════════════════════════════════════
+// FACEBOOK — Estratégia multi-actor + queries paralelas
+// Actors validados e funcionais:
+//   1. powerai~facebook-post-search-scraper  → keyword search (15 posts / run)
+//   2. apify~facebook-posts-scraper          → posts da página oficial (rápido, ~3 posts)
+// Queries: nome+cargo, nome+DF, legislativo, mandato/eleição, página oficial
+// ══════════════════════════════════════════════════
+
+// Actor 1: powerai~facebook-post-search-scraper — busca pública por keyword
+async function runFbKeywordSearch(token: string, query: string, limit: number, timeoutSecs = 22): Promise<any[]> {
+  return runApifyActor(token, "powerai~facebook-post-search-scraper", {
+    query,
+    maxResults: limit,
+  }, timeoutSecs).catch(e => {
+    console.error("fb-keyword-search error:", e.message);
+    return [];
+  });
+}
+
+// Actor 2: apify~facebook-posts-scraper — posts diretos da página oficial
+async function runFbOfficialPage(token: string, pageUrl: string, limit: number, timeoutSecs = 22): Promise<any[]> {
+  return runApifyActor(token, "apify~facebook-posts-scraper", {
+    startUrls: [{ url: pageUrl }],
+    maxPosts: limit,
+  }, timeoutSecs).catch(e => {
+    console.error("fb-official-page error:", e.message);
+    return [];
+  });
+}
+
+// ── Orquestrador principal: Facebook ──
+async function collectFacebook(token: string, query: string, entityName: string, entityId: string, fbHandle?: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+  const handle = (fbHandle || "").replace(/^@/, "");
+
+  console.log(`Facebook: launching 5 parallel queries (powerai keyword search + official page)`);
+
+  // 5 queries diversificadas para máxima cobertura
+  const searchQueries = [
+    `${firstName} ${lastName} deputado`,                           // cargo
+    `${firstName} ${lastName} Brasília OR "Distrito Federal"`,    // geolocalização
+    `${firstName} ${lastName} câmara OR lei OR projeto OR voto`,  // legislativo
+    `${firstName} ${lastName} mandato OR eleição OR candidato`,   // político
+    entityName,                                                   // nome puro (amplo)
+  ];
+
+  // Todas as queries em paralelo com timeout de 22s cada
+  const [r1, r2, r3, r4, r5] = await Promise.all([
+    // Queries 1-4: powerai keyword search (busca pública por keyword)
+    runFbKeywordSearch(token, searchQueries[0], 15, 22),
+    runFbKeywordSearch(token, searchQueries[1], 15, 22),
+    runFbKeywordSearch(token, searchQueries[2], 15, 22),
+    runFbKeywordSearch(token, searchQueries[3], 15, 22),
+    // Query 5: página oficial (posts diretos do perfil)
+    handle
+      ? runFbOfficialPage(token, `https://www.facebook.com/${handle}`, 20, 22)
+      : runFbKeywordSearch(token, searchQueries[4], 15, 22),
+  ]);
+
+  // Deduplica por post_id, postId, url ou primeiros 80 chars do conteúdo
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+  for (const items of [r1, r2, r3, r4, r5]) {
+    for (const item of items) {
+      const key = item.post_id || item.id || item.postId || item.url || item.postUrl ||
+        (item.message || item.text || "").substring(0, 80);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const mapped = mapFacebookItem(item, entityId, "facebook");
+      if (mapped) deduped.push(mapped);
+    }
+  }
+
+  const total = [r1, r2, r3, r4, r5].reduce((s, r) => s + r.length, 0);
+  console.log(`Facebook total: ${deduped.length} únicos de ${total} brutos`);
+  return deduped;
 }
 
 // ══════════════════════════════════════════════════
 // ZENSCRAPE (kept for Bing/Yahoo news)
 // ══════════════════════════════════════════════════
-
 async function collectViaZenscrape(apiKey: string, searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
   const collectedMentions: any[] = [];
   const urls = [
