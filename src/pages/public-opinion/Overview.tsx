@@ -14,7 +14,7 @@ const sourceColors: Record<string, string> = {
   youtube: '#FF0000', youtube_comments: '#FF0000',
   tiktok: '#000000', tiktok_comments: '#000000',
   news: '#6B7280', google_news: '#F59E0B', portais: '#6B7280',
-  portais_df: '#8B5CF6', reddit: '#FF4500',
+  portais_df: '#8B5CF6', reddit: '#FF4500', telegram: '#0088CC',
 };
 const sentimentColors = ['#22c55e', '#ef4444', '#94a3b8'];
 
@@ -81,6 +81,7 @@ const Overview = () => {
               if (redes?.facebook) sources.push("facebook_comments");
               if (redes?.tiktok) sources.push("tiktok_comments");
               if (redes?.youtube) sources.push("youtube_comments");
+              if (redes?.telegram) sources.push("telegram");
               collectMentions.mutate({ entity_id: principalEntity.id, sources });
             }}
           >

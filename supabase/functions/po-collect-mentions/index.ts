@@ -22,6 +22,7 @@ const APIFY_ACTORS: Record<string, string> = {
   youtube_channel: "scrapesmith~youtube-free-channel-scraper",
   youtube_comments: "crawlerbros~youtube-comment-scraper",
   reddit: "trudax~reddit-scraper",
+  telegram: "lexer~telegram-channel-post-scraper",
 };
 
 serve(async (req) => {
@@ -148,6 +149,17 @@ serve(async (req) => {
     if (targetSources.includes("portais_df") && ZENSCRAPE_API_KEY) {
       const mentions = await collectPortaisDF(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
       collectedMentions.push(...mentions);
+    }
+
+    // ── 13. Telegram (public channels) ──
+    if (targetSources.includes("telegram") && APIFY_API_TOKEN) {
+      const tgChannels = (entity.redes_sociais as Record<string, any>)?.telegram;
+      if (tgChannels) {
+        const mentions = await collectTelegram(APIFY_API_TOKEN, tgChannels, searchQuery, entity.nome, entity_id);
+        collectedMentions.push(...mentions);
+      } else {
+        console.log("telegram: no Telegram channels configured for entity");
+      }
     }
 
     // ── Dedupe: remove mentions whose content already exists in DB ──
@@ -325,12 +337,14 @@ async function collectInstagram(token: string, query: string, entityName: string
     author_handle: item.ownerUsername || item.owner?.username || null,
     content: (item.caption || item.text || item.alt || "").substring(0, 2000),
     published_at: item.timestamp || item.takenAtTimestamp ? new Date((item.takenAtTimestamp || 0) * 1000).toISOString() : new Date().toISOString(),
-    engagement: {
-      likes: item.likesCount || item.likes || 0,
-      comments: item.commentsCount || item.comments || 0,
-      views: item.videoViewCount || item.views || 0,
-      shares: 0,
-    },
+      engagement: {
+        likes: item.likesCount || item.likes || 0,
+        comments: item.commentsCount || item.comments || 0,
+        views: item.videoViewCount || item.views || 0,
+        shares: item.sharesCount || 0,
+        saves: item.savedCount || 0,
+        reactions: item.reactions || null,
+      },
     hashtags: item.hashtags || [],
     media_urls: item.displayUrl ? [item.displayUrl] : item.images || [],
     raw_data: { source: "apify_instagram", apify_id: item.id },
@@ -399,9 +413,10 @@ async function collectInstagramComments(token: string, igHandle: string, entityN
       published_at: comment.timestamp || comment.createdAt || comment.created_at || new Date().toISOString(),
       engagement: {
         likes: comment.likesCount || comment.likes || 0,
-        comments: comment.repliesCount || 0,
+        comments: comment.repliesCount || comment.replyCount || 0,
         shares: 0,
         views: 0,
+        reactions: comment.reactions || null,
       },
       hashtags: [],
       media_urls: [],
@@ -462,12 +477,14 @@ async function collectFacebook(token: string, query: string, entityName: string,
     author_handle: item.user?.url || item.pageUrl || null,
     content: (item.text || item.message || item.postText || item.content || "").substring(0, 2000),
     published_at: item.time || item.timestamp || item.date || item.postedAt || new Date().toISOString(),
-    engagement: {
-      likes: item.likes || item.reactionsCount || item.reactions || 0,
-      shares: item.shares || item.sharesCount || 0,
-      comments: item.comments || item.commentsCount || 0,
-      views: item.views || 0,
-    },
+      engagement: {
+        likes: item.likes || item.reactionsCount || item.reactions || 0,
+        shares: item.shares || item.sharesCount || 0,
+        comments: item.comments || item.commentsCount || 0,
+        views: item.views || 0,
+        reaction_types: extractReactionTypes(item),
+        top_reactions: item.topReactions || null,
+      },
     hashtags: [],
     media_urls: item.media?.map((m: any) => m.thumbnail || m.url || m) || [],
     raw_data: { source: "apify_facebook", apify_id: item.id },
@@ -623,9 +640,11 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
       published_at: comment.date || comment.timestamp || comment.created_time || new Date().toISOString(),
       engagement: {
         likes: comment.likesCount || comment.likes || comment.reactionsCount || 0,
-        comments: comment.repliesCount || 0,
+        comments: comment.repliesCount || comment.replyCount || 0,
         shares: 0,
         views: 0,
+        reactions: comment.reactions || comment.reactionBreakdown || null,
+        reaction_types: extractReactionTypes(comment),
       },
       hashtags: [],
       media_urls: comment.imageUrl ? [comment.imageUrl] : [],
@@ -1044,4 +1063,96 @@ async function collectPortaisDF(apiKey: string, searchQuery: string, entityName:
   }
 
   return collectedMentions;
+}
+
+// ══════════════════════════════════════════════════
+// HELPER: Extract reaction types from Facebook/Instagram items
+// ══════════════════════════════════════════════════
+
+function extractReactionTypes(item: any): Record<string, number> | null {
+  // Facebook reaction breakdown
+  const types: Record<string, number> = {};
+  const reactionFields = ["likeCount", "loveCount", "wowCount", "hahaCount", "sadCount", "angryCount", "careCount"];
+  let hasAny = false;
+  for (const field of reactionFields) {
+    if (item[field] && item[field] > 0) {
+      types[field.replace("Count", "")] = item[field];
+      hasAny = true;
+    }
+  }
+  // Also check topReactions array
+  if (item.topReactions && Array.isArray(item.topReactions)) {
+    for (const r of item.topReactions) {
+      if (r.type && r.count) {
+        types[r.type.toLowerCase()] = r.count;
+        hasAny = true;
+      }
+    }
+  }
+  return hasAny ? types : null;
+}
+
+// ══════════════════════════════════════════════════
+// TELEGRAM (public channels via Apify)
+// ══════════════════════════════════════════════════
+
+async function collectTelegram(token: string, tgConfig: string | string[], searchQuery: string, entityName: string, entityId: string): Promise<any[]> {
+  // tgConfig can be a single channel name, comma-separated string, or array
+  let channels: string[] = [];
+  if (Array.isArray(tgConfig)) {
+    channels = tgConfig;
+  } else if (typeof tgConfig === "string") {
+    channels = tgConfig.split(",").map(c => c.trim().replace(/^@/, "").replace(/^https?:\/\/t\.me\//, ""));
+  }
+
+  if (channels.length === 0) {
+    console.log("Telegram: no channels configured");
+    return [];
+  }
+
+  console.log(`Telegram: scraping ${channels.length} channels: ${channels.join(", ")}`);
+
+  const items = await runApifyActor(token, APIFY_ACTORS.telegram, {
+    channels,
+    maxMessagesPerChannel: 50,
+  }, 90);
+
+  console.log(`Telegram: got ${items.length} items`);
+  if (items.length > 0) {
+    console.log(`Telegram: sample keys: ${Object.keys(items[0]).join(", ")}`);
+  }
+
+  const nameLower = entityName.toLowerCase();
+  const searchLower = searchQuery.replace(/"/g, "").toLowerCase();
+
+  return items.map(item => {
+    const content = (item.description || item.text || item.message || "").substring(0, 2000);
+    if (content.length < 5) return null;
+
+    // Filter: only keep posts that mention the entity or search term
+    const contentLower = content.toLowerCase();
+    if (!contentLower.includes(nameLower) && !contentLower.includes(searchLower)) return null;
+
+    return {
+      entity_id: entityId,
+      source: "telegram",
+      source_url: item.url || (item.channel ? `https://t.me/${item.channel}` : null),
+      author_name: item.channel || item.channelName || null,
+      author_handle: item.channel ? `@${item.channel}` : null,
+      content,
+      published_at: item.fulldate || item.date || new Date().toISOString(),
+      engagement: {
+        views: item.views || 0,
+        likes: 0,
+        comments: 0,
+        shares: item.forwards || 0,
+      },
+      hashtags: [],
+      media_urls: item.image ? [item.image] : [],
+      raw_data: {
+        source: "apify_telegram",
+        channel: item.channel || null,
+      },
+    };
+  }).filter(Boolean);
 }
