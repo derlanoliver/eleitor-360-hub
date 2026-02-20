@@ -141,9 +141,9 @@ const Demographics = () => {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Perfil do Público & Demografia</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Análise de Conteúdo</h1>
         <p className="text-gray-500 mt-1">
-          Entenda quem fala sobre você e de onde vem a opinião pública
+          Categorias, temas e fontes das menções sobre você
           {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
         </p>
       </div>
