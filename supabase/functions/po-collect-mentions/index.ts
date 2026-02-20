@@ -66,9 +66,10 @@ serve(async (req) => {
       collectedMentions.push(...mentions);
     }
 
-    // ── 3. Apify - Twitter/X ──
+    // ── 3. Apify - Twitter/X (múltiplos actors + queries) ──
     if (targetSources.includes("twitter") && APIFY_API_TOKEN) {
-      const mentions = await collectTwitter(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
+      const twHandle = entity.redes_sociais?.twitter;
+      const mentions = await collectTwitter(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, twHandle || undefined);
       collectedMentions.push(...mentions);
     }
 
@@ -313,33 +314,106 @@ async function collectGoogleNews(token: string, query: string, entityName: strin
   })).filter(m => m.content.length > 10);
 }
 
-// ── Twitter/X via Apify ──
-async function collectTwitter(token: string, query: string, entityName: string, entityId: string): Promise<any[]> {
-  const searchTerm = query.replace(/"/g, "");
-  const items = await runApifyActor(token, APIFY_ACTORS.twitter, {
-    query: searchTerm,
-    lang: "pt",
-    min_likes: 0,
-  });
+// ══════════════════════════════════════════════════
+// TWITTER/X — Actor principal: apidojo~tweet-scraper
+// Busca múltiplas queries em paralelo (nome, handle,
+// variações políticas, geolocalização DF/Brasília)
+// ══════════════════════════════════════════════════
 
-  return items.map(item => ({
+function mapTwitterItem(item: any, entityId: string, sourceLabel: string): any | null {
+  const content = (
+    item.fullText || item.text || item.full_text || item.content || item.tweet || ""
+  ).substring(0, 2000);
+  if (content.length < 5) return null;
+
+  // apidojo fields
+  const twitterUrl = item.twitterUrl || item.url || item.tweet_url ||
+    (item.id ? `https://x.com/i/web/status/${item.id}` : null);
+
+  return {
     entity_id: entityId,
-    source: "twitter",
-    source_url: item.url || item.tweet_url || null,
-    author_name: item.author_name || item.user_name || item.name || null,
-    author_handle: item.author_handle || item.screen_name || item.username || null,
-    content: (item.text || item.full_text || item.content || "").substring(0, 2000),
-    published_at: item.created_at || item.date || new Date().toISOString(),
+    source: sourceLabel,
+    source_url: twitterUrl,
+    author_name: item.author?.name || item.user?.name || item.author_name || item.userName || null,
+    author_handle: item.author?.userName || item.user?.screen_name || item.author_handle || item.screen_name || item.username || null,
+    content,
+    published_at: item.createdAt || item.created_at || item.date || item.timestamp || new Date().toISOString(),
     engagement: {
-      likes: item.like_count || item.likes || item.favorite_count || 0,
-      shares: item.retweet_count || item.retweets || 0,
-      comments: item.reply_count || item.replies || 0,
-      views: item.view_count || item.views || 0,
+      likes: item.likeCount || item.like_count || item.likes || item.favoriteCount || 0,
+      shares: item.retweetCount || item.retweet_count || item.retweets || 0,
+      comments: item.replyCount || item.reply_count || item.replies || 0,
+      views: item.viewCount || item.view_count || item.views || 0,
+      bookmarks: item.bookmarkCount || item.bookmark_count || 0,
+      quotes: item.quoteCount || 0,
     },
-    hashtags: item.hashtags || [],
-    media_urls: item.media?.map((m: any) => m.url || m) || [],
-    raw_data: { source: "apify_twitter" },
-  })).filter(m => m.content.length > 5);
+    hashtags: item.entities?.hashtags?.map((h: any) => h.tag || h.text) || item.hashtags || [],
+    media_urls: item.media?.map((m: any) => m.url || m.mediaUrl || m) || [],
+    raw_data: { source: "apify_apidojo_tweet_scraper", lang: item.lang || null },
+  };
+}
+
+// Roda apidojo~tweet-scraper para uma query específica
+async function runApidojoSearch(token: string, query: string, maxItems: number, timeoutSecs: number): Promise<any[]> {
+  console.log(`Twitter apidojo: query="${query}"`);
+  const items = await runApifyActor(token, "apidojo~tweet-scraper", {
+    searchTerms: [query],
+    maxItems,
+    addUserInfo: true,
+    tweetLanguage: "pt",
+    onlyVerifiedUsers: false,
+  }, timeoutSecs);
+  console.log(`Twitter apidojo "${query}": ${items.length} tweets`);
+  return items;
+}
+
+// ── Orquestrador principal: Twitter/X ──
+async function collectTwitter(token: string, query: string, entityName: string, entityId: string, twHandle?: string): Promise<any[]> {
+  const firstName = entityName.split(" ")[0];
+  const lastName = entityName.split(" ").slice(-1)[0];
+  const handle = (twHandle || "").replace(/^@/, "");
+
+  // Queries diversificadas para máxima cobertura
+  const queryGroups = [
+    // Grupo 1: nome + cargo + contexto político
+    `${firstName} ${lastName} deputado`,
+    // Grupo 2: handle ou nome exato
+    handle ? `@${handle}` : `"${entityName}"`,
+    // Grupo 3: nome + geolocalização
+    `${firstName} ${lastName} Brasília OR DF`,
+    // Grupo 4: nome + temas legislativos
+    `${firstName} ${lastName} câmara OR projeto OR lei`,
+    // Grupo 5: menções sem filtro de idioma (para retweets internacionais)
+    entityName,
+  ];
+
+  console.log(`Twitter: launching ${queryGroups.length} parallel queries via apidojo`);
+
+  // Todas as queries em paralelo — 25 tweets cada, timeout de 50s
+  const rawResults = await Promise.all(
+    queryGroups.map(q =>
+      runApidojoSearch(token, q, 25, 50).catch(e => {
+        console.error(`apidojo failed for "${q}":`, e.message);
+        return [];
+      })
+    )
+  );
+
+  // Mapeia e deduplica por ID ou URL
+  const seen = new Set<string>();
+  const deduped: any[] = [];
+  for (const items of rawResults) {
+    for (const item of items) {
+      const key = item.id || item.twitterUrl || item.url || item.fullText?.substring(0, 80) || item.text?.substring(0, 80);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const mapped = mapTwitterItem(item, entityId, "twitter");
+      if (mapped) deduped.push(mapped);
+    }
+  }
+
+  const total = rawResults.reduce((s, r) => s + r.length, 0);
+  console.log(`Twitter total: ${deduped.length} únicos de ${total} brutos`);
+  return deduped;
 }
 
 // ── Instagram via Apify ──
@@ -711,40 +785,16 @@ async function collectFacebookComments(token: string, fbHandle: string, entityNa
 }
 
 // ══════════════════════════════════════════════════
-// TWITTER REPLIES (mentions of entity's handle)
-// Single-stage: search for @handle mentions
+// TWITTER REPLIES — usa mesma estratégia abrangente
+// (reutiliza os actors já definidos em collectTwitter)
 // ══════════════════════════════════════════════════
 
 async function collectTwitterReplies(token: string, twHandle: string, entityName: string, entityId: string): Promise<any[]> {
-  const handle = twHandle.replace(/^@/, "");
-  console.log(`Twitter Replies: searching for @${handle} and "${entityName}" mentions`);
-
-  // Search for tweets mentioning the entity (by handle and name)
-  const items = await runApifyActor(token, APIFY_ACTORS.twitter, {
-    query: `${entityName} OR @${handle}`,
-    min_likes: 0,
-  }, 90);
-
-  console.log(`Twitter Replies: got ${items.length} items`);
-
-  return items.map(item => ({
-    entity_id: entityId,
-    source: "twitter_comments",
-    source_url: item.url || item.tweet_url || null,
-    author_name: item.author_name || item.user_name || item.name || null,
-    author_handle: item.author_handle || item.screen_name || item.username || null,
-    content: (item.text || item.full_text || item.content || "").substring(0, 2000),
-    published_at: item.created_at || item.date || new Date().toISOString(),
-    engagement: {
-      likes: item.like_count || item.likes || item.favorite_count || 0,
-      shares: item.retweet_count || item.retweets || 0,
-      comments: item.reply_count || item.replies || 0,
-      views: item.view_count || item.views || 0,
-    },
-    hashtags: item.hashtags || [],
-    media_urls: item.media?.map((m: any) => m.url || m) || [],
-    raw_data: { source: "apify_twitter_replies" },
-  })).filter(m => m.content.length > 5);
+  console.log(`Twitter Replies: comprehensive collection for @${twHandle} / "${entityName}"`);
+  // Reutiliza a função abrangente com source label "twitter_comments"
+  const results = await collectTwitter(token, `"${entityName}"`, entityName, entityId, twHandle);
+  // Reaplica o source correto para diferenciar no frontend
+  return results.map(m => ({ ...m, source: "twitter_comments" }));
 }
 
 // ══════════════════════════════════════════════════
