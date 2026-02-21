@@ -1260,6 +1260,7 @@ export type Database = {
           leader_id: string
           material_id: string
           observacao: string | null
+          origin: string
           quantidade: number
           reserved_at: string
           return_confirmation_code: string | null
@@ -1284,6 +1285,7 @@ export type Database = {
           leader_id: string
           material_id: string
           observacao?: string | null
+          origin?: string
           quantidade: number
           reserved_at?: string
           return_confirmation_code?: string | null
@@ -1308,6 +1310,7 @@ export type Database = {
           leader_id?: string
           material_id?: string
           observacao?: string | null
+          origin?: string
           quantidade?: number
           reserved_at?: string
           return_confirmation_code?: string | null

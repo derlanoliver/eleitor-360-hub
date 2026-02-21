@@ -23,6 +23,7 @@ export interface MaterialReservation {
   return_confirmed_at: string | null;
   return_requested_at: string | null;
   return_requested_quantity: number;
+  origin: string;
   created_at: string;
   // Joined
   material?: { nome: string; tipo: string; unidade: string; image_url?: string | null };
@@ -69,7 +70,7 @@ export function useMaterialReservations(filters?: { leader_id?: string; status?:
 export function useCreateReservation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { material_id: string; leader_id: string; quantidade: number; observacao?: string }) => {
+    mutationFn: async (data: { material_id: string; leader_id: string; quantidade: number; observacao?: string; origin?: string }) => {
       const { data: result, error } = await (supabase as any)
         .from("material_reservations")
         .insert({
@@ -77,6 +78,7 @@ export function useCreateReservation() {
           leader_id: data.leader_id,
           quantidade: data.quantidade,
           observacao: data.observacao || null,
+          origin: data.origin || "reservation",
         })
         .select()
         .single();

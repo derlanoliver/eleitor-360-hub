@@ -74,6 +74,7 @@ export function RegisterWithdrawalDialog({ open, onOpenChange, preselectedMateri
       leader_id: selectedLeader.id,
       quantidade: parseInt(quantidade) || 0,
       observacao: observacao || undefined,
+      origin: "direct",
     });
     // Show QR code for WhatsApp confirmation
     setCreatedReservation({
