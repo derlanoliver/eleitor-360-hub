@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare, Info } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
-import { useMaterialReservations, useWithdrawReservation, useRequestReturn } from "@/hooks/materials/useMaterialReservations";
+import { useMaterialReservations, useWithdrawReservation } from "@/hooks/materials/useMaterialReservations";
 import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
@@ -15,6 +15,7 @@ import type { CampaignMaterial } from "@/hooks/materials/useCampaignMaterials";
 import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
 import { ReturnQRCode } from "@/components/materials/ReturnQRCode";
 import { ConfirmationDetailsDialog } from "@/components/materials/ConfirmationDetailsDialog";
+import { RequestReturnDialog } from "@/components/materials/RequestReturnDialog";
 import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,10 +52,10 @@ export default function Materials() {
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations();
   const confirmWithdrawal = useConfirmWithdrawal();
   const withdrawReservation = useWithdrawReservation();
-  const requestReturn = useRequestReturn();
   const [qrReservation, setQrReservation] = useState<any>(null);
   const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
   const [detailsReservation, setDetailsReservation] = useState<any>(null);
+  const [returnRequestReservation, setReturnRequestReservation] = useState<any>(null);
 
   const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
@@ -400,23 +401,12 @@ export default function Materials() {
                                           <Button
                                             size="sm" variant="outline"
                                             className="text-xs h-7"
-                                            onClick={() => {
-                                              const max = r.quantidade - r.returned_quantity;
-                                              const qty = prompt(`Quantidade a devolver (máx ${max}):`);
-                                              if (!qty) return;
-                                              const num = parseInt(qty);
-                                              if (isNaN(num) || num < 1 || num > max) {
-                                                alert(`Quantidade inválida. Informe entre 1 e ${max}.`);
-                                                return;
-                                              }
-                                              requestReturn.mutate({ id: r.id, quantity: num });
-                                            }}
-                                            disabled={requestReturn.isPending}
+                                            onClick={() => setReturnRequestReservation(r)}
                                           >
-                                            <RotateCcw className="h-3 w-3 mr-1" /> Solicitar Devolução
+                                            <RotateCcw className="h-3 w-3" />
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Solicitar devolução de materiais</TooltipContent>
+                                        <TooltipContent>Solicitar devolução</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   )}
@@ -617,6 +607,11 @@ export default function Materials() {
         reservation={detailsReservation}
         open={!!detailsReservation}
         onOpenChange={(open) => { if (!open) setDetailsReservation(null); }}
+      />
+      <RequestReturnDialog
+        reservation={returnRequestReservation}
+        open={!!returnRequestReservation}
+        onOpenChange={(open) => { if (!open) setReturnRequestReservation(null); }}
       />
     </div>
   );
