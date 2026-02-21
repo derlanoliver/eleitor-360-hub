@@ -423,7 +423,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
     const { data: reservation, error: resErr } = await supabase
       .from('material_reservations')
-      .select('id, status, leader_id, quantidade, material_id, returned_quantity, return_confirmation_code')
+      .select('id, status, leader_id, quantidade, material_id, returned_quantity, return_confirmation_code, return_confirmed_via, return_requested_quantity')
       .eq('return_confirmation_code', code)
       .single();
 
@@ -463,10 +463,15 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
       return;
     }
 
+    // Confirm return of requested quantity (or all remaining if no specific request)
+    const returnQty = reservation.return_requested_quantity && reservation.return_requested_quantity > 0
+      ? Math.min(reservation.return_requested_quantity, returnable)
+      : returnable;
+    const newReturnedTotal = (reservation.returned_quantity || 0) + returnQty;
     const { error: updateErr } = await supabase
       .from('material_reservations')
       .update({
-        returned_quantity: reservation.quantidade,
+        returned_quantity: newReturnedTotal,
         return_confirmed_via: 'whatsapp',
         return_confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -482,7 +487,7 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
         .from('campaign_materials').select('nome')
         .eq('id', reservation.material_id).single();
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `✅ Devolução confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade devolvida: ${returnable}\n👤 ${leaderRet.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+        `✅ Devolução confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade devolvida: ${returnQty}\n👤 ${leaderRet.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
         typedSettings);
       console.log(`[zapi-webhook] ✅ Return confirmed for reservation ${reservation.id}`);
     }
