@@ -18,6 +18,7 @@ interface Dialog360ConfigCardProps {
     dialog360_test_mode?: boolean;
     dialog360_whitelist?: string[];
     dialog360_fallback_enabled?: boolean;
+    dialog360_phone?: string | null;
     zapi_enabled?: boolean;
   } | null;
 }
@@ -35,6 +36,7 @@ export const Dialog360ConfigCard = ({ settings }: Dialog360ConfigCardProps) => {
   const [whitelist, setWhitelist] = useState<string[]>([]);
   const [newWhitelistNumber, setNewWhitelistNumber] = useState("");
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
+  const [dialog360Phone, setDialog360Phone] = useState("");
   const [webhookCopied, setWebhookCopied] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
 
@@ -45,6 +47,7 @@ export const Dialog360ConfigCard = ({ settings }: Dialog360ConfigCardProps) => {
       setTestMode(settings.dialog360_test_mode ?? true);
       setWhitelist(settings.dialog360_whitelist || []);
       setFallbackEnabled(settings.dialog360_fallback_enabled || false);
+      setDialog360Phone(settings.dialog360_phone || "");
     }
   }, [settings]);
 
@@ -72,6 +75,7 @@ export const Dialog360ConfigCard = ({ settings }: Dialog360ConfigCardProps) => {
       dialog360_test_mode: testMode,
       dialog360_whitelist: whitelist,
       dialog360_fallback_enabled: fallbackEnabled,
+      dialog360_phone: dialog360Phone || null,
     });
   };
 
@@ -146,17 +150,32 @@ export const Dialog360ConfigCard = ({ settings }: Dialog360ConfigCardProps) => {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Config Fields */}
-        <div className="space-y-2">
-          <Label htmlFor="d360-phone-number-id">Phone Number ID *</Label>
-          <Input
-            id="d360-phone-number-id"
-            placeholder="Ex: 123456789012345"
-            value={phoneNumberId}
-            onChange={(e) => setPhoneNumberId(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Encontre no painel da 360dialog → Números → Detalhes
-          </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="d360-phone-number-id">Phone Number ID *</Label>
+            <Input
+              id="d360-phone-number-id"
+              placeholder="Ex: 123456789012345"
+              value={phoneNumberId}
+              onChange={(e) => setPhoneNumberId(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Encontre no painel da 360dialog
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="d360-phone">Número do WhatsApp *</Label>
+            <Input
+              id="d360-phone"
+              placeholder="Ex: 5561999999999"
+              value={dialog360Phone}
+              onChange={(e) => setDialog360Phone(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Número cadastrado na 360dialog (DDI + DDD + Número)
+            </p>
+          </div>
         </div>
 
         {/* API Key Warning */}

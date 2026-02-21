@@ -5,8 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Download, QrCode } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { buildWhatsAppLink } from "@/lib/whatsappLink";
+import { useIntegrationsSettings } from "@/hooks/useIntegrationsSettings";
 
-const WA_PHONE = "556198189-4864";
+const DEFAULT_WA_PHONE = "556198189-4864";
 
 interface WithdrawalQRCodeProps {
   confirmationCode: string;
@@ -17,9 +18,27 @@ interface WithdrawalQRCodeProps {
 
 export function WithdrawalQRCode({ confirmationCode, materialName, open, onOpenChange }: WithdrawalQRCodeProps) {
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const { data: settings } = useIntegrationsSettings();
 
+  const getSystemPhone = () => {
+    if (!settings) return DEFAULT_WA_PHONE;
+    
+    const provider = settings.whatsapp_provider_active;
+    if (provider === "meta_cloud" && settings.meta_cloud_phone) {
+      return settings.meta_cloud_phone.replace(/\D/g, "");
+    }
+    if (provider === "dialog360" && settings.dialog360_phone) {
+      return settings.dialog360_phone.replace(/\D/g, "");
+    }
+    if (settings.verification_wa_zapi_phone) {
+      return settings.verification_wa_zapi_phone.replace(/\D/g, "");
+    }
+    return DEFAULT_WA_PHONE;
+  };
+
+  const waPhone = getSystemPhone();
   const whatsappMessage = `RETIRAR ${confirmationCode}`;
-  const whatsappLink = buildWhatsAppLink(WA_PHONE, whatsappMessage);
+  const whatsappLink = buildWhatsAppLink(waPhone, whatsappMessage);
 
   useEffect(() => {
     if (!open) return;

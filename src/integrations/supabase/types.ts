@@ -837,6 +837,7 @@ export type Database = {
           dialog360_api_key: string | null
           dialog360_enabled: boolean | null
           dialog360_fallback_enabled: boolean | null
+          dialog360_phone: string | null
           dialog360_phone_number_id: string | null
           dialog360_test_mode: boolean | null
           dialog360_whitelist: Json | null
@@ -846,6 +847,7 @@ export type Database = {
           meta_cloud_api_version: string | null
           meta_cloud_enabled: boolean | null
           meta_cloud_fallback_enabled: boolean | null
+          meta_cloud_phone: string | null
           meta_cloud_phone_number_id: string | null
           meta_cloud_test_mode: boolean | null
           meta_cloud_waba_id: string | null
@@ -898,6 +900,7 @@ export type Database = {
           dialog360_api_key?: string | null
           dialog360_enabled?: boolean | null
           dialog360_fallback_enabled?: boolean | null
+          dialog360_phone?: string | null
           dialog360_phone_number_id?: string | null
           dialog360_test_mode?: boolean | null
           dialog360_whitelist?: Json | null
@@ -907,6 +910,7 @@ export type Database = {
           meta_cloud_api_version?: string | null
           meta_cloud_enabled?: boolean | null
           meta_cloud_fallback_enabled?: boolean | null
+          meta_cloud_phone?: string | null
           meta_cloud_phone_number_id?: string | null
           meta_cloud_test_mode?: boolean | null
           meta_cloud_waba_id?: string | null
@@ -959,6 +963,7 @@ export type Database = {
           dialog360_api_key?: string | null
           dialog360_enabled?: boolean | null
           dialog360_fallback_enabled?: boolean | null
+          dialog360_phone?: string | null
           dialog360_phone_number_id?: string | null
           dialog360_test_mode?: boolean | null
           dialog360_whitelist?: Json | null
@@ -968,6 +973,7 @@ export type Database = {
           meta_cloud_api_version?: string | null
           meta_cloud_enabled?: boolean | null
           meta_cloud_fallback_enabled?: boolean | null
+          meta_cloud_phone?: string | null
           meta_cloud_phone_number_id?: string | null
           meta_cloud_test_mode?: boolean | null
           meta_cloud_waba_id?: string | null
