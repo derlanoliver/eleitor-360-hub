@@ -21,6 +21,33 @@ const demoWordCloud = [
   { word: 'Iluminação', count: 7 }, { word: 'Acessibilidade', count: 6 }, { word: 'Pavimentação', count: 5 },
 ];
 
+// Stop words em português para filtrar da nuvem de palavras
+const STOP_WORDS = new Set([
+  'a', 'o', 'e', 'é', 'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas',
+  'um', 'uma', 'uns', 'umas', 'por', 'para', 'com', 'sem', 'sob', 'sobre', 'entre',
+  'que', 'se', 'não', 'nao', 'mais', 'muito', 'como', 'mas', 'ou', 'ao', 'aos', 'à', 'às',
+  'seu', 'sua', 'seus', 'suas', 'meu', 'minha', 'ele', 'ela', 'eles', 'elas', 'isso',
+  'este', 'esta', 'esse', 'essa', 'aquele', 'aquela', 'isto', 'aquilo', 'já', 'ainda',
+  'também', 'tambem', 'foi', 'ser', 'ter', 'está', 'são', 'tem', 'vai', 'vou', 'era',
+  'pode', 'só', 'so', 'nem', 'até', 'ate', 'todo', 'toda', 'todos', 'todas', 'eu', 'tu',
+  'nós', 'vós', 'você', 'voce', 'vocês', 'voces', 'me', 'te', 'lhe', 'nos', 'vos', 'lhes',
+  'os', 'as', 'lo', 'la', 'los', 'las', 'onde', 'quando', 'porque', 'pois', 'então', 'entao',
+  'assim', 'depois', 'antes', 'aqui', 'ali', 'lá', 'la', 'cá', 'ca', 'bem', 'mal', 'sim',
+  'dia', 'ano', 'vez', 'coisa', 'gente', 'tudo', 'nada', 'algo', 'cada', 'outro', 'outra',
+  'outros', 'outras', 'mesmo', 'mesma', 'próprio', 'própria', 'novo', 'nova', 'grande',
+  'bom', 'boa', 'melhor', 'pior', 'maior', 'menor', 'muito', 'muita', 'muitos', 'muitas',
+  'pouco', 'poucos', 'há', 'ha', 'aí', 'ai', 'dessa', 'desse', 'nessa', 'nesse', 'pela',
+  'pelo', 'pelas', 'pelos', 'numa', 'num', 'dela', 'dele', 'delas', 'deles', 'essa', 'esse',
+  'estas', 'estes', 'aquelas', 'aqueles', 'quem', 'qual', 'quais', 'quanto', 'quanta',
+  'pro', 'pra', 'www', 'http', 'https', 'com', 'the', 'and', 'for', 'are', 'but', 'not',
+  'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'will', 'has', 'his',
+  'how', 'its', 'may', 'new', 'now', 'old', 'see', 'way', 'who', 'did', 'get', 'let',
+  'say', 'she', 'too', 'use', 'from', 'have', 'been', 'than', 'then', 'that', 'this',
+  'what', 'with', 'they', 'just', 'like', 'sobre', 'contra', 'após', 'durante',
+  'seria', 'sendo', 'sido', 'tendo', 'fazer', 'feito', 'fez', 'disse', 'diz',
+  'vai', 'vem', 'ver', 'dar', 'deu', 'deve', 'quer', 'saber', 'ficar', 'ficou',
+]);
+
 function useDemographicsData(entityId?: string) {
   return useQuery({
     queryKey: ["po_demographics", entityId],
@@ -46,13 +73,13 @@ function useDemographicsData(entityId?: string) {
         from += pageSize;
       }
 
-      // Fetch all mentions for source breakdown
+      // Fetch all mentions for source breakdown AND word cloud
       let allMentions: any[] = [];
       from = 0;
       while (true) {
         const { data } = await supabase
           .from("po_mentions")
-          .select("source")
+          .select("source, content")
           .eq("entity_id", entityId!)
           .gte("collected_at", since.toISOString())
           .range(from, from + pageSize - 1);
@@ -108,10 +135,23 @@ function useDemographicsData(entityId?: string) {
         count,
       }));
 
-      // Word cloud: all topics (not sliced)
-      const wordCloud = Object.entries(topicCounts)
+      // Word cloud: extract words from mention content
+      const wordCounts: Record<string, number> = {};
+      allMentions.forEach(m => {
+        if (!m.content) return;
+        const words = m.content
+          .toLowerCase()
+          .replace(/[^a-záàâãéèêíïóôõúüç\s-]/gi, ' ')
+          .split(/\s+/)
+          .filter((w: string) => w.length >= 4 && !STOP_WORDS.has(w));
+        words.forEach((w: string) => {
+          wordCounts[w] = (wordCounts[w] || 0) + 1;
+        });
+      });
+      const wordCloud = Object.entries(wordCounts)
+        .filter(([_, count]) => count >= 2)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 40)
+        .slice(0, 60)
         .map(([word, count]) => ({ word: capitalize(word), count }));
 
       return { categories, topics, sources, sentiment, wordCloud, total: allAnalyses.length };
