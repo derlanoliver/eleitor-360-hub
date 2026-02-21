@@ -374,7 +374,7 @@ export default function Materials() {
                                       <RotateCcw className="h-3 w-3" /> Solicitado: {r.return_requested_quantity}
                                     </Badge>
                                   )}
-                                  {r.return_confirmation_code && (
+                                  {r.return_confirmation_code && r.return_requested_quantity > 0 && (
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
