@@ -1265,6 +1265,8 @@ export type Database = {
           return_confirmation_code: string | null
           return_confirmed_at: string | null
           return_confirmed_via: string | null
+          return_requested_at: string | null
+          return_requested_quantity: number | null
           returned_at: string | null
           returned_quantity: number
           status: string
@@ -1287,6 +1289,8 @@ export type Database = {
           return_confirmation_code?: string | null
           return_confirmed_at?: string | null
           return_confirmed_via?: string | null
+          return_requested_at?: string | null
+          return_requested_quantity?: number | null
           returned_at?: string | null
           returned_quantity?: number
           status?: string
@@ -1309,6 +1313,8 @@ export type Database = {
           return_confirmation_code?: string | null
           return_confirmed_at?: string | null
           return_confirmed_via?: string | null
+          return_requested_at?: string | null
+          return_requested_quantity?: number | null
           returned_at?: string | null
           returned_quantity?: number
           status?: string

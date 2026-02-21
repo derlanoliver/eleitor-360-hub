@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare, Info } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
-import { useMaterialReservations, useWithdrawReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
+import { useMaterialReservations, useWithdrawReservation } from "@/hooks/materials/useMaterialReservations";
 import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
@@ -17,8 +17,6 @@ import { ReturnQRCode } from "@/components/materials/ReturnQRCode";
 import { ConfirmationDetailsDialog } from "@/components/materials/ConfirmationDetailsDialog";
 import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ReservationCountdown({ expiresAt }: { expiresAt: string }) {
@@ -53,10 +51,6 @@ export default function Materials() {
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations();
   const confirmWithdrawal = useConfirmWithdrawal();
   const withdrawReservation = useWithdrawReservation();
-  const returnMaterial = useReturnMaterial();
-  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
-  const [returnReservation, setReturnReservation] = useState<any>(null);
-  const [returnQuantity, setReturnQuantity] = useState("");
   const [qrReservation, setQrReservation] = useState<any>(null);
   const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
   const [detailsReservation, setDetailsReservation] = useState<any>(null);
@@ -375,6 +369,11 @@ export default function Materials() {
                               )}
                               {r.returned_quantity < r.quantidade && (
                                 <>
+                                  {r.return_requested_quantity > 0 && r.returned_quantity < r.return_requested_quantity && (
+                                    <Badge variant="outline" className="text-xs gap-1 text-orange-600 border-orange-300 bg-orange-50">
+                                      <RotateCcw className="h-3 w-3" /> Solicitado: {r.return_requested_quantity}
+                                    </Badge>
+                                  )}
                                   {r.return_confirmation_code && (
                                     <TooltipProvider>
                                       <Tooltip>
@@ -391,17 +390,6 @@ export default function Materials() {
                                       </Tooltip>
                                     </TooltipProvider>
                                   )}
-                                  <Button
-                                    size="sm" variant="outline"
-                                    className="text-xs h-7"
-                                    onClick={() => {
-                                      setReturnReservation(r);
-                                      setReturnQuantity("");
-                                      setReturnDialogOpen(true);
-                                    }}
-                                  >
-                                    <RotateCcw className="h-3 w-3 mr-1" /> Devolução
-                                  </Button>
                                 </>
                               )}
                             </>
@@ -578,59 +566,6 @@ export default function Materials() {
       <AddStockDialog open={addStockOpen} onOpenChange={setAddStockOpen} material={selectedMaterial} />
       <RegisterWithdrawalDialog open={withdrawalOpen} onOpenChange={setWithdrawalOpen} />
 
-      {/* Return Dialog */}
-      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Devolução</DialogTitle>
-          </DialogHeader>
-          {returnReservation && (
-            <div className="space-y-4">
-              <div className="bg-muted/50 rounded-md p-3 space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Material:</span> <span className="font-medium">{returnReservation.material?.nome}</span></p>
-                <p><span className="text-muted-foreground">Coordenador:</span> <span className="font-medium">{returnReservation.leader?.nome_completo}</span></p>
-                <p><span className="text-muted-foreground">Quantidade retirada:</span> <span className="font-semibold">{returnReservation.quantidade.toLocaleString()}</span></p>
-                <p><span className="text-muted-foreground">Já devolvido:</span> <span className="font-semibold">{(returnReservation.returned_quantity || 0).toLocaleString()}</span></p>
-                <p><span className="text-muted-foreground">Máximo devolvível:</span> <span className="font-semibold">{(returnReservation.quantidade - (returnReservation.returned_quantity || 0)).toLocaleString()}</span></p>
-              </div>
-              <Input
-                type="number"
-                placeholder="Quantidade a devolver"
-                value={returnQuantity}
-                onChange={e => setReturnQuantity(e.target.value)}
-                min={1}
-                max={returnReservation.quantidade - (returnReservation.returned_quantity || 0)}
-              />
-              {parseInt(returnQuantity) > (returnReservation.quantidade - (returnReservation.returned_quantity || 0)) && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" /> Quantidade acima do máximo devolvível
-                </p>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>Cancelar</Button>
-            <Button
-              onClick={() => {
-                if (!returnReservation || !returnQuantity) return;
-                const qty = parseInt(returnQuantity);
-                const max = returnReservation.quantidade - (returnReservation.returned_quantity || 0);
-                if (isNaN(qty) || qty <= 0 || qty > max) return;
-                returnMaterial.mutate({ id: returnReservation.id, returnedQuantity: qty, confirmedVia: "manual" }, {
-              onSuccess: () => setReturnDialogOpen(false),
-                });
-              }}
-              disabled={
-                !returnQuantity || parseInt(returnQuantity) <= 0 ||
-                (returnReservation ? parseInt(returnQuantity) > (returnReservation.quantidade - (returnReservation.returned_quantity || 0)) : true) ||
-                returnMaterial.isPending
-              }
-            >
-              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução (Manual)"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {/* QR Code Dialogs */}
       {qrReservation && (
         <WithdrawalQRCode
