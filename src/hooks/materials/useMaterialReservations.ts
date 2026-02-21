@@ -15,7 +15,7 @@ export interface MaterialReservation {
   observacao: string | null;
   created_at: string;
   // Joined
-  material?: { nome: string; tipo: string; unidade: string };
+  material?: { nome: string; tipo: string; unidade: string; image_url?: string | null };
   leader?: { nome_completo: string; telefone: string | null; is_coordinator: boolean | null; cidade_id: string | null };
   leader_city?: { nome: string } | null;
 }
@@ -28,7 +28,7 @@ export function useMaterialReservations(filters?: { leader_id?: string; status?:
         .from("material_reservations")
         .select(`
           *,
-          material:campaign_materials(nome, tipo, unidade),
+          material:campaign_materials(nome, tipo, unidade, image_url),
           leader:lideres(nome_completo, telefone, is_coordinator, cidade_id)
         `)
         .order("reserved_at", { ascending: false });
