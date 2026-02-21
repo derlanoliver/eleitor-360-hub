@@ -198,13 +198,8 @@ export default function LeaderRegistrationForm() {
         return;
       }
 
-      // Já é contato cadastrado via evento? Bloqueado de virar líder.
-      if (leaderResult.is_already_contact) {
-        setIsAlreadyContact(true);
-        setIsSuccess(true);
-        setIsSubmitting(false);
-        return;
-      }
+      // is_already_contact não bloqueia mais - cadastro sempre prossegue
+      // Se ambos telefone e email coincidirem, o contato é desativado automaticamente pela RPC
 
       // Já está indicado por OUTRO líder - bloquear
       if (leaderResult.already_referred_by_other_leader) {

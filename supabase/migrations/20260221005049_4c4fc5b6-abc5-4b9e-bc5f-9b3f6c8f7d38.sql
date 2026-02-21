@@ -1,0 +1,127 @@
+
+CREATE OR REPLACE FUNCTION public.register_leader_from_affiliate(
+  p_nome TEXT,
+  p_email TEXT,
+  p_telefone_norm TEXT,
+  p_data_nascimento TEXT,
+  p_cidade_id UUID,
+  p_endereco TEXT,
+  p_referring_leader_id UUID
+)
+RETURNS TABLE(
+  leader_id UUID,
+  affiliate_token TEXT,
+  verification_code TEXT,
+  is_already_leader BOOLEAN,
+  already_referred_by_other_leader BOOLEAN,
+  original_leader_name TEXT,
+  hierarchy_level_exceeded BOOLEAN,
+  is_already_contact BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_existing_leader_id UUID;
+  v_existing_referred_leader_id UUID;
+  v_existing_parent_leader_id UUID;
+  v_referring_leader_level INTEGER;
+  v_new_leader_id UUID;
+  v_new_affiliate_token TEXT;
+  v_new_verification_code TEXT;
+  v_original_leader_name TEXT;
+  v_max_depth INTEGER;
+  v_matching_contact_id UUID;
+BEGIN
+  v_max_depth := get_leader_max_depth();
+
+  -- 1. Check if already an active leader
+  SELECT id INTO v_existing_leader_id
+  FROM lideres WHERE telefone = p_telefone_norm AND is_active = true LIMIT 1;
+
+  IF v_existing_leader_id IS NOT NULL THEN
+    RETURN QUERY SELECT
+      v_existing_leader_id,
+      (SELECT l.affiliate_token FROM lideres l WHERE l.id = v_existing_leader_id),
+      NULL::TEXT, TRUE, FALSE, NULL::TEXT, FALSE, FALSE;
+    RETURN;
+  END IF;
+
+  -- 2. Check if referred by another leader
+  SELECT l.id, l.parent_leader_id
+  INTO v_existing_referred_leader_id, v_existing_parent_leader_id
+  FROM lideres l WHERE l.telefone = p_telefone_norm LIMIT 1;
+
+  IF v_existing_referred_leader_id IS NOT NULL
+     AND v_existing_parent_leader_id IS NOT NULL
+     AND v_existing_parent_leader_id != p_referring_leader_id THEN
+    SELECT nome_completo INTO v_original_leader_name FROM lideres WHERE id = v_existing_parent_leader_id;
+    RETURN QUERY SELECT NULL::UUID, NULL::TEXT, NULL::TEXT, FALSE, TRUE, v_original_leader_name, FALSE, FALSE;
+    RETURN;
+  END IF;
+
+  IF v_existing_referred_leader_id IS NOT NULL THEN
+    RETURN QUERY SELECT
+      v_existing_referred_leader_id,
+      (SELECT l.affiliate_token FROM lideres l WHERE l.id = v_existing_referred_leader_id),
+      NULL::TEXT, TRUE, FALSE, NULL::TEXT, FALSE, FALSE;
+    RETURN;
+  END IF;
+
+  -- 3. Get referring leader's hierarchy level
+  SELECT hierarchy_level INTO v_referring_leader_level
+  FROM lideres WHERE id = p_referring_leader_id AND is_active = true;
+  IF v_referring_leader_level IS NULL THEN v_referring_leader_level := 1; END IF;
+
+  -- 4. Validate hierarchy limit
+  IF v_referring_leader_level >= v_max_depth THEN
+    RETURN QUERY SELECT NULL::UUID, NULL::TEXT, NULL::TEXT, FALSE, FALSE, NULL::TEXT, TRUE, FALSE;
+    RETURN;
+  END IF;
+
+  -- 5. Generate verification code
+  v_new_verification_code := generate_leader_verification_code();
+
+  -- 6. Create new leader
+  INSERT INTO lideres (
+    nome_completo, email, telefone, data_nascimento, cidade_id, observacao,
+    parent_leader_id, hierarchy_level, is_coordinator, is_active, status,
+    pontuacao_total, cadastros, is_verified, verification_code
+  ) VALUES (
+    p_nome, LOWER(p_email), p_telefone_norm,
+    CASE WHEN p_data_nascimento != '' THEN p_data_nascimento::DATE ELSE NULL END,
+    p_cidade_id, 'Endereço: ' || p_endereco,
+    p_referring_leader_id, v_referring_leader_level + 1, FALSE, TRUE, 'active',
+    0, 0, FALSE, v_new_verification_code
+  )
+  RETURNING id, lideres.affiliate_token INTO v_new_leader_id, v_new_affiliate_token;
+
+  -- 7. Deactivate contact ONLY if BOTH phone AND email match
+  IF p_email IS NOT NULL AND p_email != '' THEN
+    SELECT id INTO v_matching_contact_id
+    FROM office_contacts
+    WHERE telefone_norm = p_telefone_norm
+      AND LOWER(email) = LOWER(p_email)
+      AND is_active = true
+    LIMIT 1;
+
+    IF v_matching_contact_id IS NOT NULL THEN
+      UPDATE office_contacts
+      SET is_active = false,
+          opted_out_at = NOW(),
+          opt_out_reason = 'Cadastrado como líder via link de indicação',
+          opt_out_channel = 'auto_leader_registration'
+      WHERE id = v_matching_contact_id;
+    END IF;
+  END IF;
+
+  -- 8. Award points to referring leader
+  PERFORM award_leader_points(p_referring_leader_id, 1, 'indicacao_lider');
+
+  -- 9. Return new leader data (is_already_contact always FALSE now - registration always proceeds)
+  RETURN QUERY SELECT
+    v_new_leader_id, v_new_affiliate_token, v_new_verification_code,
+    FALSE, FALSE, NULL::TEXT, FALSE, FALSE;
+END;
+$$;
