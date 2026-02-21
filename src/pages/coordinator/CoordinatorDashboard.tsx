@@ -249,11 +249,18 @@ export default function CoordinatorDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-sm">{lastReservation.material?.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {lastReservation.quantidade} {lastReservation.material?.unidade}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {lastReservation.quantidade} {lastReservation.material?.unidade}
+                      </p>
+                      {lastReservation.status === "reserved" && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                          Até {formatDate(lastReservation.expires_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Badge
                     variant="outline"

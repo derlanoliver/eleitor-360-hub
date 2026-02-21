@@ -165,7 +165,7 @@ export default function CoordinatorMaterials() {
             </CardHeader>
             <CardContent className="space-y-3">
               {activeReservations.map(r => (
-                <div key={r.id} className="border rounded-lg p-3 space-y-2">
+                <div key={r.id} className="border rounded-lg p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm">{r.material?.nome}</p>
@@ -175,15 +175,23 @@ export default function CoordinatorMaterials() {
                       <Clock className="h-3 w-3" /> Reservado
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-xs">
-                      <AlertTriangle className="h-3 w-3 text-amber-500" />
-                      <span className="text-muted-foreground">Retirar em:</span>
-                      <CountdownTimer expiresAt={r.expires_at} />
+                  
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-muted-foreground">Prazo:</span>
+                        <span className="font-medium">{formatDate(r.expires_at)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                        <span className="text-muted-foreground">Tempo restante:</span>
+                        <CountdownTimer expiresAt={r.expires_at} />
+                      </div>
                     </div>
                     <Button
-                      size="sm" variant="ghost"
-                      className="text-xs h-7 text-destructive hover:text-destructive"
+                      size="sm" variant="outline"
+                      className="text-xs h-8 text-destructive border-destructive/20 hover:bg-destructive/5"
                       onClick={() => cancelReservation.mutate(r.id)}
                       disabled={cancelReservation.isPending}
                     >
@@ -220,11 +228,14 @@ export default function CoordinatorMaterials() {
                     </div>
                     <div className="flex items-center gap-2">
                       {r.status === "reserved" ? (
-                        <div className="text-right">
+                        <div className="text-right space-y-1">
                           <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50 text-xs">
                             <Clock className="h-3 w-3" /> Reservado
                           </Badge>
-                          <div className="mt-1"><CountdownTimer expiresAt={r.expires_at} /></div>
+                          <p className="text-[10px] text-muted-foreground">Até {formatDate(r.expires_at)}</p>
+                          <div className="flex justify-end items-center gap-1">
+                            <CountdownTimer expiresAt={r.expires_at} />
+                          </div>
                         </div>
                       ) : r.status === "withdrawn" ? (
                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-xs">
