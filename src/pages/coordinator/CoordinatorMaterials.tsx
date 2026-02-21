@@ -7,11 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw, QrCode, MessageSquare } from "lucide-react";
+import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw, MessageSquare } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
-import { useMaterialReservations, useCreateReservation, useCancelReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
-import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
-import { ReturnQRCode } from "@/components/materials/ReturnQRCode";
+import { useMaterialReservations, useCreateReservation, useCancelReservation, useRequestReturn } from "@/hooks/materials/useMaterialReservations";
 import { ConfirmationDetailsDialog } from "@/components/materials/ConfirmationDetailsDialog";
 import { differenceInSeconds, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,15 +47,13 @@ export default function CoordinatorMaterials() {
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations({ leader_id: session?.leader_id });
   const createReservation = useCreateReservation();
   const cancelReservation = useCancelReservation();
-  const returnMaterial = useReturnMaterial();
+  const requestReturn = useRequestReturn();
 
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [returnReservationData, setReturnReservationData] = useState<any>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
-  const [qrReservation, setQrReservation] = useState<any>(null);
-  const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
   const [detailsReservation, setDetailsReservation] = useState<any>(null);
 
   if (!isAuthenticated || !session) return null;
@@ -215,22 +211,8 @@ export default function CoordinatorMaterials() {
                          <span className="text-muted-foreground">Tempo restante:</span>
                          <CountdownTimer expiresAt={r.expires_at} />
                        </div>
-                       {r.confirmation_code && (
-                         <div className="flex items-center gap-1.5 text-xs">
-                           <QrCode className="h-3 w-3 text-muted-foreground" />
-                           <span className="text-muted-foreground">Código:</span>
-                           <Badge variant="secondary" className="font-mono text-[10px] h-5 px-1.5">{r.confirmation_code}</Badge>
-                         </div>
-                       )}
                      </div>
                      <div className="flex items-center gap-1">
-                       <Button
-                         size="sm" variant="outline"
-                         className="text-xs h-8"
-                         onClick={() => setQrReservation(r)}
-                       >
-                         <QrCode className="h-3 w-3 mr-1" /> QR Code
-                       </Button>
                        <Button
                          size="sm" variant="outline"
                          className="text-xs h-8 text-destructive border-destructive/20 hover:bg-destructive/5"
@@ -309,20 +291,16 @@ export default function CoordinatorMaterials() {
                               onClick={() => setDetailsReservation(r)}
                             >
                               Devolvido: {r.returned_quantity}
-                              {r.return_confirmed_via && ` (${r.return_confirmed_via === "whatsapp" ? "WhatsApp" : "Manual"})`}
+                              {r.return_confirmed_via && ` (${r.return_confirmed_via === "whatsapp" ? "WhatsApp" : r.return_confirmed_via})`}
                             </p>
                           )}
-                          {r.returned_quantity < r.quantidade && (
+                          {r.return_requested_quantity > 0 && r.returned_quantity < r.return_requested_quantity && (
+                            <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-300 bg-orange-50">
+                              <RotateCcw className="h-3 w-3 mr-1" /> Devolução solicitada: {r.return_requested_quantity}
+                            </Badge>
+                          )}
+                          {r.returned_quantity < r.quantidade && !r.return_requested_at && (
                             <div className="flex justify-end gap-1">
-                              {r.return_confirmation_code && (
-                                <Button
-                                  size="sm" variant="outline"
-                                  className="text-[10px] h-6 px-2"
-                                  onClick={() => setReturnQrReservation(r)}
-                                >
-                                  <QrCode className="h-3 w-3 mr-1" /> QR Devolução
-                                </Button>
-                              )}
                               <Button
                                 size="sm" variant="outline"
                                 className="text-[10px] h-6 px-2"
@@ -332,7 +310,7 @@ export default function CoordinatorMaterials() {
                                   setReturnDialogOpen(true);
                                 }}
                               >
-                                <RotateCcw className="h-3 w-3 mr-1" /> Devolver
+                                <RotateCcw className="h-3 w-3 mr-1" /> Solicitar Devolução
                               </Button>
                             </div>
                           )}
@@ -353,11 +331,11 @@ export default function CoordinatorMaterials() {
         </Card>
       </div>
 
-      {/* Return Dialog */}
+      {/* Return Request Dialog */}
       <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Devolver Material</DialogTitle>
+            <DialogTitle>Solicitar Devolução</DialogTitle>
           </DialogHeader>
           {returnReservationData && (
             <div className="space-y-4">
@@ -375,6 +353,9 @@ export default function CoordinatorMaterials() {
                 min={1}
                 max={returnReservationData.quantidade - (returnReservationData.returned_quantity || 0)}
               />
+              <p className="text-xs text-muted-foreground">
+                Após solicitar, apresente-se no gabinete para confirmar a devolução via QR Code.
+              </p>
             </div>
           )}
           <DialogFooter>
@@ -385,38 +366,21 @@ export default function CoordinatorMaterials() {
                 const qty = parseInt(returnQuantity);
                 const max = returnReservationData.quantidade - (returnReservationData.returned_quantity || 0);
                 if (isNaN(qty) || qty <= 0 || qty > max) return;
-                returnMaterial.mutate({ id: returnReservationData.id, returnedQuantity: qty, confirmedVia: "manual" }, {
+                requestReturn.mutate({ id: returnReservationData.id, quantity: qty }, {
                   onSuccess: () => setReturnDialogOpen(false),
                 });
               }}
               disabled={
                 !returnQuantity || parseInt(returnQuantity) <= 0 ||
                 (returnReservationData ? parseInt(returnQuantity) > (returnReservationData.quantidade - (returnReservationData.returned_quantity || 0)) : true) ||
-                returnMaterial.isPending
+                requestReturn.isPending
               }
             >
-              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução"}
+              {requestReturn.isPending ? "Solicitando..." : "Solicitar Devolução"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* QR Code Dialogs */}
-      {qrReservation && (
-        <WithdrawalQRCode
-          confirmationCode={qrReservation.confirmation_code || ""}
-          materialName={qrReservation.material?.nome || ""}
-          open={!!qrReservation}
-          onOpenChange={(open) => { if (!open) setQrReservation(null); }}
-        />
-      )}
-      {returnQrReservation && (
-        <ReturnQRCode
-          confirmationCode={returnQrReservation.return_confirmation_code || ""}
-          materialName={returnQrReservation.material?.nome || ""}
-          open={!!returnQrReservation}
-          onOpenChange={(open) => { if (!open) setReturnQrReservation(null); }}
-        />
-      )}
       <ConfirmationDetailsDialog
         reservation={detailsReservation}
         open={!!detailsReservation}

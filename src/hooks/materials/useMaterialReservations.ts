@@ -21,6 +21,8 @@ export interface MaterialReservation {
   return_confirmation_code: string | null;
   return_confirmed_via: string | null;
   return_confirmed_at: string | null;
+  return_requested_at: string | null;
+  return_requested_quantity: number;
   created_at: string;
   // Joined
   material?: { nome: string; tipo: string; unidade: string; image_url?: string | null };
@@ -128,11 +130,32 @@ export function useWithdrawReservation() {
   });
 }
 
+export function useRequestReturn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
+      const { error } = await (supabase as any)
+        .from("material_reservations")
+        .update({
+          return_requested_at: new Date().toISOString(),
+          return_requested_quantity: quantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["material_reservations"] });
+      toast.success("Solicitação de devolução registrada! Apresente-se no gabinete para confirmar.");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao solicitar devolução"),
+  });
+}
+
 export function useReturnMaterial() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, returnedQuantity, confirmedVia }: { id: string; returnedQuantity: number; confirmedVia?: string }) => {
-      // First get current returned_quantity
       const { data: current, error: fetchErr } = await (supabase as any)
         .from("material_reservations")
         .select("returned_quantity")
@@ -141,7 +164,10 @@ export function useReturnMaterial() {
       if (fetchErr) throw fetchErr;
 
       const newTotal = (current.returned_quantity || 0) + returnedQuantity;
-      const updateData: Record<string, any> = { returned_quantity: newTotal, updated_at: new Date().toISOString() };
+      const updateData: Record<string, any> = {
+        returned_quantity: newTotal,
+        updated_at: new Date().toISOString(),
+      };
       if (confirmedVia) {
         updateData.return_confirmed_via = confirmedVia;
         updateData.return_confirmed_at = new Date().toISOString();
@@ -155,7 +181,7 @@ export function useReturnMaterial() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["material_reservations"] });
       qc.invalidateQueries({ queryKey: ["campaign_materials"] });
-      toast.success("Devolução registrada! Estoque atualizado.");
+      toast.success("Devolução confirmada! Estoque atualizado.");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao registrar devolução"),
   });
