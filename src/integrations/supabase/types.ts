@@ -169,6 +169,45 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_materials: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          estoque_atual: number
+          id: string
+          is_active: boolean
+          nome: string
+          quantidade_produzida: number
+          tipo: string
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          estoque_atual?: number
+          id?: string
+          is_active?: boolean
+          nome: string
+          quantidade_produzida?: number
+          tipo?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          estoque_atual?: number
+          id?: string
+          is_active?: boolean
+          nome?: string
+          quantidade_produzida?: number
+          tipo?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           created_at: string
@@ -1199,6 +1238,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      material_withdrawals: {
+        Row: {
+          confirmado: boolean
+          confirmado_at: string | null
+          created_at: string
+          data_retirada: string
+          id: string
+          leader_id: string
+          material_id: string
+          observacao: string | null
+          quantidade: number
+          registrado_por: string | null
+          updated_at: string
+        }
+        Insert: {
+          confirmado?: boolean
+          confirmado_at?: string | null
+          created_at?: string
+          data_retirada?: string
+          id?: string
+          leader_id: string
+          material_id: string
+          observacao?: string | null
+          quantidade: number
+          registrado_por?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confirmado?: boolean
+          confirmado_at?: string | null
+          created_at?: string
+          data_retirada?: string
+          id?: string
+          leader_id?: string
+          material_id?: string
+          observacao?: string | null
+          quantidade?: number
+          registrado_por?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_withdrawals_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_withdrawals_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_materials"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       office_cities: {
         Row: {
