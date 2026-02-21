@@ -26,6 +26,7 @@ import {
   getProgressToNextLevel,
 } from "@/hooks/leaders/useLeaderLevels";
 import logo from "@/assets/logo-rafael-prudente.png";
+import { CoordinatorMaterialRequestCard } from "@/components/coordinator/CoordinatorMaterialRequestCard";
 
 export default function CoordinatorDashboard() {
   const { session, logout, isAuthenticated } = useCoordinatorAuth();
@@ -225,6 +226,9 @@ export default function CoordinatorDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Material Request */}
+        <CoordinatorMaterialRequestCard leaderId={session.leader_id} />
 
         {/* Subordinates */}
         <Card>

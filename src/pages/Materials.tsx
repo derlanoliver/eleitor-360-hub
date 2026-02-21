@@ -1,18 +1,39 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus } from "lucide-react";
+import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
+import { useMaterialReservations } from "@/hooks/materials/useMaterialReservations";
 import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
 import type { CampaignMaterial } from "@/hooks/materials/useCampaignMaterials";
-import { format } from "date-fns";
+import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+function ReservationCountdown({ expiresAt }: { expiresAt: string }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  useEffect(() => {
+    const update = () => {
+      const diff = differenceInSeconds(new Date(expiresAt), new Date());
+      if (diff <= 0) { setTimeLeft("Expirado"); return; }
+      const d = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setTimeLeft(`${d}d ${h.toString().padStart(2,"0")}h ${m.toString().padStart(2,"0")}m ${s.toString().padStart(2,"0")}s`);
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    return () => clearInterval(iv);
+  }, [expiresAt]);
+  const isExpiring = differenceInSeconds(new Date(expiresAt), new Date()) < 86400;
+  return <span className={`font-mono text-xs ${isExpiring ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{timeLeft}</span>;
+}
 
 export default function Materials() {
   const [tab, setTab] = useState("materiais");
@@ -23,7 +44,10 @@ export default function Materials() {
 
   const { data: materials, isLoading: loadingMaterials } = useCampaignMaterials();
   const { data: withdrawals, isLoading: loadingWithdrawals } = useMaterialWithdrawals();
+  const { data: reservations, isLoading: loadingReservations } = useMaterialReservations();
   const confirmWithdrawal = useConfirmWithdrawal();
+
+  const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
   // Stats
   const totalProduzido = useMemo(() => (materials || []).reduce((s, m) => s + m.quantidade_produzida, 0), [materials]);
@@ -126,6 +150,9 @@ export default function Materials() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="materiais">Materiais</TabsTrigger>
+          <TabsTrigger value="reservas">
+            Reservas {activeReservations.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5">{activeReservations.length}</Badge>}
+          </TabsTrigger>
           <TabsTrigger value="retiradas">Retiradas</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
         </TabsList>
@@ -178,6 +205,66 @@ export default function Materials() {
                       </TableRow>
                     );
                   })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === RESERVAS TAB === */}
+        <TabsContent value="reservas">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Quem Reservou</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Região</TableHead>
+                    <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Tempo Restante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingReservations ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : (reservations || []).length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma reserva registrada</TableCell></TableRow>
+                  ) : (reservations || []).map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.material?.nome}</TableCell>
+                      <TableCell>{r.leader?.nome_completo}</TableCell>
+                      <TableCell><Badge variant="outline">{r.leader?.is_coordinator ? "Coordenador" : "Líder"}</Badge></TableCell>
+                      <TableCell>{r.leader_city?.nome || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{r.quantidade.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {r.status === "reserved" ? (
+                          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50">
+                            <Clock className="h-3 w-3" /> Reservado
+                          </Badge>
+                        ) : r.status === "withdrawn" ? (
+                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1">
+                            <BookmarkCheck className="h-3 w-3" /> Retirado
+                          </Badge>
+                        ) : r.status === "expired" ? (
+                          <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Expirado
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Cancelado</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {r.status === "reserved" ? (
+                          <ReservationCountdown expiresAt={r.expires_at} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
