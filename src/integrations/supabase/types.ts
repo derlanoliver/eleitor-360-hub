@@ -1245,6 +1245,9 @@ export type Database = {
       material_reservations: {
         Row: {
           cancelled_at: string | null
+          confirmation_code: string | null
+          confirmed_at: string | null
+          confirmed_via: string | null
           created_at: string
           expires_at: string
           id: string
@@ -1261,6 +1264,9 @@ export type Database = {
         }
         Insert: {
           cancelled_at?: string | null
+          confirmation_code?: string | null
+          confirmed_at?: string | null
+          confirmed_via?: string | null
           created_at?: string
           expires_at?: string
           id?: string
@@ -1277,6 +1283,9 @@ export type Database = {
         }
         Update: {
           cancelled_at?: string | null
+          confirmation_code?: string | null
+          confirmed_at?: string | null
+          confirmed_via?: string | null
           created_at?: string
           expires_at?: string
           id?: string

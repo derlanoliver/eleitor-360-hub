@@ -229,6 +229,87 @@ serve(async (req) => {
                 continue;
               }
 
+              // === RETIRAR [CODE] - Material withdrawal confirmation ===
+              const retirarMatch = cleanMessage.match(/^RETIRAR\s+([A-Z0-9]{6})$/);
+              if (retirarMatch) {
+                const code = retirarMatch[1];
+                console.log(`[Meta Webhook] Detected RETIRAR command with code: ${code}`);
+
+                // Find reservation by confirmation_code
+                const { data: reservation, error: resErr } = await supabase
+                  .from('material_reservations')
+                  .select('id, status, leader_id, quantidade, material_id, confirmation_code')
+                  .eq('confirmation_code', code)
+                  .single();
+
+                if (resErr || !reservation) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `❌ Código de retirada *${code}* não encontrado. Verifique se digitou corretamente.`
+                  );
+                  continue;
+                }
+
+                // Verify the phone belongs to the leader who reserved
+                const last8 = from.replace(/\D/g, '').slice(-8);
+                const { data: leader } = await supabase
+                  .from('lideres')
+                  .select('id, nome_completo, telefone')
+                  .eq('id', reservation.leader_id)
+                  .single();
+
+                if (!leader || !leader.telefone || leader.telefone.replace(/\D/g, '').slice(-8) !== last8) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `⚠️ Este código de retirada não pertence a este número de telefone.`
+                  );
+                  continue;
+                }
+
+                if (reservation.status === 'withdrawn') {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `✅ Esta retirada já foi confirmada anteriormente.`
+                  );
+                  continue;
+                }
+
+                if (reservation.status !== 'reserved') {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `⚠️ Esta reserva não está mais ativa (status: ${reservation.status}).`
+                  );
+                  continue;
+                }
+
+                // Confirm the withdrawal
+                const { error: updateErr } = await supabase
+                  .from('material_reservations')
+                  .update({
+                    status: 'withdrawn',
+                    confirmed_via: 'whatsapp',
+                    confirmed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', reservation.id);
+
+                if (updateErr) {
+                  console.error('[Meta Webhook] Error confirming withdrawal:', updateErr);
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `❌ Erro ao confirmar retirada. Tente novamente.`
+                  );
+                } else {
+                  // Get material name
+                  const { data: material } = await supabase
+                    .from('campaign_materials')
+                    .select('nome')
+                    .eq('id', reservation.material_id)
+                    .single();
+
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `✅ Retirada confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade: ${reservation.quantidade}\n👤 ${leader.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+                  );
+                  console.log(`[Meta Webhook] ✅ Withdrawal confirmed for reservation ${reservation.id}`);
+                }
+                continue;
+              }
+
               // === CONFIRMAR [TOKEN] FLOW ===
               const confirmMatch = cleanMessage.match(/^CONFIRMAR\s+([A-Z0-9]{5,6})$/);
               if (confirmMatch) {

@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw } from "lucide-react";
+import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw, QrCode, MessageSquare } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialReservations, useCreateReservation, useCancelReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
+import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
 import { differenceInSeconds, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import logo from "@/assets/logo-rafael-prudente.png";
@@ -53,6 +54,7 @@ export default function CoordinatorMaterials() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [returnReservationData, setReturnReservationData] = useState<any>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
+  const [qrReservation, setQrReservation] = useState<any>(null);
 
   if (!isAuthenticated || !session) return null;
 
@@ -198,27 +200,43 @@ export default function CoordinatorMaterials() {
                   </div>
                   
                   <div className="flex items-end justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">Prazo:</span>
-                        <span className="font-medium">{formatDate(r.expires_at)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <AlertTriangle className="h-3 w-3 text-amber-500" />
-                        <span className="text-muted-foreground">Tempo restante:</span>
-                        <CountdownTimer expiresAt={r.expires_at} />
-                      </div>
-                    </div>
-                    <Button
-                      size="sm" variant="outline"
-                      className="text-xs h-8 text-destructive border-destructive/20 hover:bg-destructive/5"
-                      onClick={() => cancelReservation.mutate(r.id)}
-                      disabled={cancelReservation.isPending}
-                    >
-                      <X className="h-3 w-3 mr-1" /> Cancelar
-                    </Button>
-                  </div>
+                     <div className="flex flex-col gap-1.5">
+                       <div className="flex items-center gap-1.5 text-xs">
+                         <Clock className="h-3 w-3 text-muted-foreground" />
+                         <span className="text-muted-foreground">Prazo:</span>
+                         <span className="font-medium">{formatDate(r.expires_at)}</span>
+                       </div>
+                       <div className="flex items-center gap-1.5 text-xs">
+                         <AlertTriangle className="h-3 w-3 text-amber-500" />
+                         <span className="text-muted-foreground">Tempo restante:</span>
+                         <CountdownTimer expiresAt={r.expires_at} />
+                       </div>
+                       {r.confirmation_code && (
+                         <div className="flex items-center gap-1.5 text-xs">
+                           <QrCode className="h-3 w-3 text-muted-foreground" />
+                           <span className="text-muted-foreground">Código:</span>
+                           <Badge variant="secondary" className="font-mono text-[10px] h-5 px-1.5">{r.confirmation_code}</Badge>
+                         </div>
+                       )}
+                     </div>
+                     <div className="flex items-center gap-1">
+                       <Button
+                         size="sm" variant="outline"
+                         className="text-xs h-8"
+                         onClick={() => setQrReservation(r)}
+                       >
+                         <QrCode className="h-3 w-3 mr-1" /> QR Code
+                       </Button>
+                       <Button
+                         size="sm" variant="outline"
+                         className="text-xs h-8 text-destructive border-destructive/20 hover:bg-destructive/5"
+                         onClick={() => cancelReservation.mutate(r.id)}
+                         disabled={cancelReservation.isPending}
+                       >
+                         <X className="h-3 w-3 mr-1" /> Cancelar
+                       </Button>
+                     </div>
+                   </div>
                 </div>
               ))}
             </CardContent>
@@ -268,6 +286,13 @@ export default function CoordinatorMaterials() {
                           <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-xs">
                             <BookmarkCheck className="h-3 w-3" /> Retirado
                           </Badge>
+                          {r.confirmed_via && (
+                            <p className="text-[10px] text-green-600 font-medium flex items-center justify-end gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {r.confirmed_via === "whatsapp" ? "Via WhatsApp" : "Manual"}
+                              {r.confirmed_at && ` · ${formatDate(r.confirmed_at)}`}
+                            </p>
+                          )}
                           {r.returned_quantity > 0 && (
                             <p className="text-[10px] text-blue-600 font-medium">Devolvido: {r.returned_quantity}</p>
                           )}
@@ -348,6 +373,15 @@ export default function CoordinatorMaterials() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* QR Code Dialog */}
+      {qrReservation && (
+        <WithdrawalQRCode
+          confirmationCode={qrReservation.confirmation_code || ""}
+          materialName={qrReservation.material?.nome || ""}
+          open={!!qrReservation}
+          onOpenChange={(open) => { if (!open) setQrReservation(null); }}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw } from "lucide-react";
+import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
 import { useMaterialReservations, useWithdrawReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
@@ -12,10 +12,12 @@ import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
 import type { CampaignMaterial } from "@/hooks/materials/useCampaignMaterials";
+import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
 import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ReservationCountdown({ expiresAt }: { expiresAt: string }) {
   const [timeLeft, setTimeLeft] = useState("");
@@ -53,6 +55,7 @@ export default function Materials() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [returnReservation, setReturnReservation] = useState<any>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
+  const [qrReservation, setQrReservation] = useState<any>(null);
 
   const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
@@ -319,27 +322,62 @@ export default function Materials() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {r.status === "reserved" && (
-                            <Button
-                              size="sm" variant="outline"
-                              className="text-xs h-7"
-                              onClick={() => withdrawReservation.mutate(r.id)}
-                              disabled={withdrawReservation.isPending}
-                            >
-                              <BookmarkCheck className="h-3 w-3 mr-1" /> Retirada
-                            </Button>
+                            <>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm" variant="outline"
+                                      className="text-xs h-7"
+                                      onClick={() => setQrReservation(r)}
+                                    >
+                                      <QrCode className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>QR Code de Retirada</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <Button
+                                size="sm" variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => withdrawReservation.mutate(r.id)}
+                                disabled={withdrawReservation.isPending}
+                              >
+                                <BookmarkCheck className="h-3 w-3 mr-1" /> Retirada
+                              </Button>
+                            </>
                           )}
-                          {r.status === "withdrawn" && r.returned_quantity < r.quantidade && (
-                            <Button
-                              size="sm" variant="outline"
-                              className="text-xs h-7"
-                              onClick={() => {
-                                setReturnReservation(r);
-                                setReturnQuantity("");
-                                setReturnDialogOpen(true);
-                              }}
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" /> Devolução
-                            </Button>
+                          {r.status === "withdrawn" && (
+                            <>
+                              {r.confirmed_via && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-xs gap-1 text-green-600 border-green-300 bg-green-50">
+                                        <MessageSquare className="h-3 w-3" />
+                                        {r.confirmed_via === "whatsapp" ? "WhatsApp" : r.confirmed_via === "manual" ? "Manual" : r.confirmed_via}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Confirmado em {r.confirmed_at ? format(new Date(r.confirmed_at), "dd/MM/yy HH:mm", { locale: ptBR }) : "—"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {r.returned_quantity < r.quantidade && (
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => {
+                                    setReturnReservation(r);
+                                    setReturnQuantity("");
+                                    setReturnDialogOpen(true);
+                                  }}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Devolução
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -566,6 +604,15 @@ export default function Materials() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* QR Code Dialog */}
+      {qrReservation && (
+        <WithdrawalQRCode
+          confirmationCode={qrReservation.confirmation_code || ""}
+          materialName={qrReservation.material?.nome || ""}
+          open={!!qrReservation}
+          onOpenChange={(open) => { if (!open) setQrReservation(null); }}
+        />
+      )}
     </div>
   );
 }
