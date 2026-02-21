@@ -4,16 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck } from "lucide-react";
+import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
-import { useMaterialReservations } from "@/hooks/materials/useMaterialReservations";
+import { useMaterialReservations, useWithdrawReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
 import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
 import type { CampaignMaterial } from "@/hooks/materials/useCampaignMaterials";
 import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 function ReservationCountdown({ expiresAt }: { expiresAt: string }) {
   const [timeLeft, setTimeLeft] = useState("");
@@ -46,6 +48,11 @@ export default function Materials() {
   const { data: withdrawals, isLoading: loadingWithdrawals } = useMaterialWithdrawals();
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations();
   const confirmWithdrawal = useConfirmWithdrawal();
+  const withdrawReservation = useWithdrawReservation();
+  const returnMaterial = useReturnMaterial();
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnReservation, setReturnReservation] = useState<any>(null);
+  const [returnQuantity, setReturnQuantity] = useState("");
 
   const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
@@ -233,15 +240,17 @@ export default function Materials() {
                     <TableHead>Cargo</TableHead>
                     <TableHead>Região</TableHead>
                     <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead>Devolvido</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Tempo Restante</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingReservations ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                   ) : (reservations || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma reserva registrada</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma reserva registrada</TableCell></TableRow>
                   ) : (reservations || []).map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.material?.nome}</TableCell>
@@ -249,6 +258,13 @@ export default function Materials() {
                       <TableCell><Badge variant="outline">{r.leader?.is_coordinator ? "Coordenador" : "Líder"}</Badge></TableCell>
                       <TableCell>{r.leader_city?.nome || "—"}</TableCell>
                       <TableCell className="text-right font-semibold">{r.quantidade.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        {r.returned_quantity > 0 ? (
+                          <span className="text-xs font-medium text-blue-600">{r.returned_quantity.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {r.status === "reserved" ? (
                           <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50">
@@ -272,6 +288,33 @@ export default function Materials() {
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {r.status === "reserved" && (
+                            <Button
+                              size="sm" variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => withdrawReservation.mutate(r.id)}
+                              disabled={withdrawReservation.isPending}
+                            >
+                              <BookmarkCheck className="h-3 w-3 mr-1" /> Retirada
+                            </Button>
+                          )}
+                          {r.status === "withdrawn" && r.returned_quantity < r.quantidade && (
+                            <Button
+                              size="sm" variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                setReturnReservation(r);
+                                setReturnQuantity("");
+                                setReturnDialogOpen(true);
+                              }}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Devolução
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -428,6 +471,60 @@ export default function Materials() {
       <AddMaterialDialog open={addMaterialOpen} onOpenChange={setAddMaterialOpen} />
       <AddStockDialog open={addStockOpen} onOpenChange={setAddStockOpen} material={selectedMaterial} />
       <RegisterWithdrawalDialog open={withdrawalOpen} onOpenChange={setWithdrawalOpen} />
+
+      {/* Return Dialog */}
+      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Devolução</DialogTitle>
+          </DialogHeader>
+          {returnReservation && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-md p-3 space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Material:</span> <span className="font-medium">{returnReservation.material?.nome}</span></p>
+                <p><span className="text-muted-foreground">Coordenador:</span> <span className="font-medium">{returnReservation.leader?.nome_completo}</span></p>
+                <p><span className="text-muted-foreground">Quantidade retirada:</span> <span className="font-semibold">{returnReservation.quantidade.toLocaleString()}</span></p>
+                <p><span className="text-muted-foreground">Já devolvido:</span> <span className="font-semibold">{(returnReservation.returned_quantity || 0).toLocaleString()}</span></p>
+                <p><span className="text-muted-foreground">Máximo devolvível:</span> <span className="font-semibold">{(returnReservation.quantidade - (returnReservation.returned_quantity || 0)).toLocaleString()}</span></p>
+              </div>
+              <Input
+                type="number"
+                placeholder="Quantidade a devolver"
+                value={returnQuantity}
+                onChange={e => setReturnQuantity(e.target.value)}
+                min={1}
+                max={returnReservation.quantidade - (returnReservation.returned_quantity || 0)}
+              />
+              {parseInt(returnQuantity) > (returnReservation.quantidade - (returnReservation.returned_quantity || 0)) && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Quantidade acima do máximo devolvível
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!returnReservation || !returnQuantity) return;
+                const qty = parseInt(returnQuantity);
+                const max = returnReservation.quantidade - (returnReservation.returned_quantity || 0);
+                if (isNaN(qty) || qty <= 0 || qty > max) return;
+                returnMaterial.mutate({ id: returnReservation.id, returnedQuantity: qty }, {
+                  onSuccess: () => setReturnDialogOpen(false),
+                });
+              }}
+              disabled={
+                !returnQuantity || parseInt(returnQuantity) <= 0 ||
+                (returnReservation ? parseInt(returnQuantity) > (returnReservation.quantidade - (returnReservation.returned_quantity || 0)) : true) ||
+                returnMaterial.isPending
+              }
+            >
+              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

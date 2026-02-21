@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
-import { useMaterialReservations, useCreateReservation, useCancelReservation } from "@/hooks/materials/useMaterialReservations";
+import { useMaterialReservations, useCreateReservation, useCancelReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
 import { differenceInSeconds, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import logo from "@/assets/logo-rafael-prudente.png";
@@ -45,9 +46,13 @@ export default function CoordinatorMaterials() {
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations({ leader_id: session?.leader_id });
   const createReservation = useCreateReservation();
   const cancelReservation = useCancelReservation();
+  const returnMaterial = useReturnMaterial();
 
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [quantidade, setQuantidade] = useState("");
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnReservationData, setReturnReservationData] = useState<any>(null);
+  const [returnQuantity, setReturnQuantity] = useState("");
 
   if (!isAuthenticated || !session) return null;
 
@@ -259,9 +264,27 @@ export default function CoordinatorMaterials() {
                           </div>
                         </div>
                       ) : r.status === "withdrawn" ? (
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-xs">
-                          <BookmarkCheck className="h-3 w-3" /> Retirado
-                        </Badge>
+                        <div className="text-right space-y-1">
+                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-xs">
+                            <BookmarkCheck className="h-3 w-3" /> Retirado
+                          </Badge>
+                          {r.returned_quantity > 0 && (
+                            <p className="text-[10px] text-blue-600 font-medium">Devolvido: {r.returned_quantity}</p>
+                          )}
+                          {r.returned_quantity < r.quantidade && (
+                            <Button
+                              size="sm" variant="outline"
+                              className="text-[10px] h-6 px-2"
+                              onClick={() => {
+                                setReturnReservationData(r);
+                                setReturnQuantity("");
+                                setReturnDialogOpen(true);
+                              }}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Devolver
+                            </Button>
+                          )}
+                        </div>
                       ) : r.status === "expired" ? (
                         <Badge variant="destructive" className="gap-1 text-xs">
                           <AlertTriangle className="h-3 w-3" /> Expirado
@@ -277,6 +300,54 @@ export default function CoordinatorMaterials() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Return Dialog */}
+      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Devolver Material</DialogTitle>
+          </DialogHeader>
+          {returnReservationData && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-md p-3 space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Material:</span> <span className="font-medium">{returnReservationData.material?.nome}</span></p>
+                <p><span className="text-muted-foreground">Quantidade retirada:</span> <span className="font-semibold">{returnReservationData.quantidade.toLocaleString()}</span></p>
+                <p><span className="text-muted-foreground">Já devolvido:</span> <span className="font-semibold">{(returnReservationData.returned_quantity || 0).toLocaleString()}</span></p>
+                <p><span className="text-muted-foreground">Máximo devolvível:</span> <span className="font-semibold">{(returnReservationData.quantidade - (returnReservationData.returned_quantity || 0)).toLocaleString()}</span></p>
+              </div>
+              <Input
+                type="number"
+                placeholder="Quantidade a devolver"
+                value={returnQuantity}
+                onChange={e => setReturnQuantity(e.target.value)}
+                min={1}
+                max={returnReservationData.quantidade - (returnReservationData.returned_quantity || 0)}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!returnReservationData || !returnQuantity) return;
+                const qty = parseInt(returnQuantity);
+                const max = returnReservationData.quantidade - (returnReservationData.returned_quantity || 0);
+                if (isNaN(qty) || qty <= 0 || qty > max) return;
+                returnMaterial.mutate({ id: returnReservationData.id, returnedQuantity: qty }, {
+                  onSuccess: () => setReturnDialogOpen(false),
+                });
+              }}
+              disabled={
+                !returnQuantity || parseInt(returnQuantity) <= 0 ||
+                (returnReservationData ? parseInt(returnQuantity) > (returnReservationData.quantidade - (returnReservationData.returned_quantity || 0)) : true) ||
+                returnMaterial.isPending
+              }
+            >
+              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

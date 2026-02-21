@@ -1253,6 +1253,8 @@ export type Database = {
           observacao: string | null
           quantidade: number
           reserved_at: string
+          returned_at: string | null
+          returned_quantity: number
           status: string
           updated_at: string
           withdrawn_at: string | null
@@ -1267,6 +1269,8 @@ export type Database = {
           observacao?: string | null
           quantidade: number
           reserved_at?: string
+          returned_at?: string | null
+          returned_quantity?: number
           status?: string
           updated_at?: string
           withdrawn_at?: string | null
@@ -1281,6 +1285,8 @@ export type Database = {
           observacao?: string | null
           quantidade?: number
           reserved_at?: string
+          returned_at?: string | null
+          returned_quantity?: number
           status?: string
           updated_at?: string
           withdrawn_at?: string | null
