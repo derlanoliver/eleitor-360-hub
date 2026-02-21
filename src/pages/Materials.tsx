@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare } from "lucide-react";
+import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare, Info } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
 import { useMaterialReservations, useWithdrawReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
@@ -13,6 +13,8 @@ import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
 import type { CampaignMaterial } from "@/hooks/materials/useCampaignMaterials";
 import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
+import { ReturnQRCode } from "@/components/materials/ReturnQRCode";
+import { ConfirmationDetailsDialog } from "@/components/materials/ConfirmationDetailsDialog";
 import { format, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -56,6 +58,8 @@ export default function Materials() {
   const [returnReservation, setReturnReservation] = useState<any>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
   const [qrReservation, setQrReservation] = useState<any>(null);
+  const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
+  const [detailsReservation, setDetailsReservation] = useState<any>(null);
 
   const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
@@ -350,32 +354,55 @@ export default function Materials() {
                           {r.status === "withdrawn" && (
                             <>
                               {r.confirmed_via && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="text-xs gap-1 text-green-600 border-green-300 bg-green-50">
-                                        <MessageSquare className="h-3 w-3" />
-                                        {r.confirmed_via === "whatsapp" ? "WhatsApp" : r.confirmed_via === "manual" ? "Manual" : r.confirmed_via}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Confirmado em {r.confirmed_at ? format(new Date(r.confirmed_at), "dd/MM/yy HH:mm", { locale: ptBR }) : "—"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs gap-1 text-green-600 border-green-300 bg-green-50 cursor-pointer hover:bg-green-100 transition-colors"
+                                  onClick={() => setDetailsReservation(r)}
+                                >
+                                  <MessageSquare className="h-3 w-3" />
+                                  {r.confirmed_via === "whatsapp" ? "WhatsApp" : r.confirmed_via === "manual" ? "Manual" : r.confirmed_via}
+                                </Badge>
+                              )}
+                              {r.return_confirmed_via && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs gap-1 text-blue-600 border-blue-300 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors"
+                                  onClick={() => setDetailsReservation(r)}
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  Dev. {r.return_confirmed_via === "whatsapp" ? "WhatsApp" : "Manual"}
+                                </Badge>
                               )}
                               {r.returned_quantity < r.quantidade && (
-                                <Button
-                                  size="sm" variant="outline"
-                                  className="text-xs h-7"
-                                  onClick={() => {
-                                    setReturnReservation(r);
-                                    setReturnQuantity("");
-                                    setReturnDialogOpen(true);
-                                  }}
-                                >
-                                  <RotateCcw className="h-3 w-3 mr-1" /> Devolução
-                                </Button>
+                                <>
+                                  {r.return_confirmation_code && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm" variant="outline"
+                                            className="text-xs h-7"
+                                            onClick={() => setReturnQrReservation(r)}
+                                          >
+                                            <QrCode className="h-3 w-3" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>QR Code de Devolução</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                  <Button
+                                    size="sm" variant="outline"
+                                    className="text-xs h-7"
+                                    onClick={() => {
+                                      setReturnReservation(r);
+                                      setReturnQuantity("");
+                                      setReturnDialogOpen(true);
+                                    }}
+                                  >
+                                    <RotateCcw className="h-3 w-3 mr-1" /> Devolução
+                                  </Button>
+                                </>
                               )}
                             </>
                           )}
@@ -589,8 +616,8 @@ export default function Materials() {
                 const qty = parseInt(returnQuantity);
                 const max = returnReservation.quantidade - (returnReservation.returned_quantity || 0);
                 if (isNaN(qty) || qty <= 0 || qty > max) return;
-                returnMaterial.mutate({ id: returnReservation.id, returnedQuantity: qty }, {
-                  onSuccess: () => setReturnDialogOpen(false),
+                returnMaterial.mutate({ id: returnReservation.id, returnedQuantity: qty, confirmedVia: "manual" }, {
+              onSuccess: () => setReturnDialogOpen(false),
                 });
               }}
               disabled={
@@ -599,12 +626,12 @@ export default function Materials() {
                 returnMaterial.isPending
               }
             >
-              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução"}
+              {returnMaterial.isPending ? "Registrando..." : "Confirmar Devolução (Manual)"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* QR Code Dialog */}
+      {/* QR Code Dialogs */}
       {qrReservation && (
         <WithdrawalQRCode
           confirmationCode={qrReservation.confirmation_code || ""}
@@ -613,6 +640,19 @@ export default function Materials() {
           onOpenChange={(open) => { if (!open) setQrReservation(null); }}
         />
       )}
+      {returnQrReservation && (
+        <ReturnQRCode
+          confirmationCode={returnQrReservation.return_confirmation_code || ""}
+          materialName={returnQrReservation.material?.nome || ""}
+          open={!!returnQrReservation}
+          onOpenChange={(open) => { if (!open) setReturnQrReservation(null); }}
+        />
+      )}
+      <ConfirmationDetailsDialog
+        reservation={detailsReservation}
+        open={!!detailsReservation}
+        onOpenChange={(open) => { if (!open) setDetailsReservation(null); }}
+      />
     </div>
   );
 }

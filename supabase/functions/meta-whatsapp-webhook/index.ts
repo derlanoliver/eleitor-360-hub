@@ -235,7 +235,6 @@ serve(async (req) => {
                 const code = retirarMatch[1];
                 console.log(`[Meta Webhook] Detected RETIRAR command with code: ${code}`);
 
-                // Find reservation by confirmation_code
                 const { data: reservation, error: resErr } = await supabase
                   .from('material_reservations')
                   .select('id, status, leader_id, quantidade, material_id, confirmation_code')
@@ -249,7 +248,6 @@ serve(async (req) => {
                   continue;
                 }
 
-                // Verify the phone belongs to the leader who reserved
                 const last8 = from.replace(/\D/g, '').slice(-8);
                 const { data: leader } = await supabase
                   .from('lideres')
@@ -278,7 +276,6 @@ serve(async (req) => {
                   continue;
                 }
 
-                // Confirm the withdrawal
                 const { error: updateErr } = await supabase
                   .from('material_reservations')
                   .update({
@@ -295,7 +292,6 @@ serve(async (req) => {
                     `❌ Erro ao confirmar retirada. Tente novamente.`
                   );
                 } else {
-                  // Get material name
                   const { data: material } = await supabase
                     .from('campaign_materials')
                     .select('nome')
@@ -306,6 +302,92 @@ serve(async (req) => {
                     `✅ Retirada confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade: ${reservation.quantidade}\n👤 ${leader.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
                   );
                   console.log(`[Meta Webhook] ✅ Withdrawal confirmed for reservation ${reservation.id}`);
+                }
+                continue;
+              }
+
+              // === DEVOLVER [CODE] - Material return confirmation ===
+              const devolverMatch = cleanMessage.match(/^DEVOLVER\s+([A-Z0-9]{6})$/);
+              if (devolverMatch) {
+                const code = devolverMatch[1];
+                console.log(`[Meta Webhook] Detected DEVOLVER command with code: ${code}`);
+
+                const { data: reservation, error: resErr } = await supabase
+                  .from('material_reservations')
+                  .select('id, status, leader_id, quantidade, material_id, returned_quantity, return_confirmation_code')
+                  .eq('return_confirmation_code', code)
+                  .single();
+
+                if (resErr || !reservation) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `❌ Código de devolução *${code}* não encontrado. Verifique se digitou corretamente.`
+                  );
+                  continue;
+                }
+
+                const last8ret = from.replace(/\D/g, '').slice(-8);
+                const { data: leaderRet } = await supabase
+                  .from('lideres')
+                  .select('id, nome_completo, telefone')
+                  .eq('id', reservation.leader_id)
+                  .single();
+
+                if (!leaderRet || !leaderRet.telefone || leaderRet.telefone.replace(/\D/g, '').slice(-8) !== last8ret) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `⚠️ Este código de devolução não pertence a este número de telefone.`
+                  );
+                  continue;
+                }
+
+                if (reservation.status !== 'withdrawn') {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `⚠️ Esta reserva não está no status de retirada (status: ${reservation.status}).`
+                  );
+                  continue;
+                }
+
+                if (reservation.return_confirmed_via) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `✅ Esta devolução já foi confirmada anteriormente.`
+                  );
+                  continue;
+                }
+
+                const returnable = reservation.quantidade - (reservation.returned_quantity || 0);
+                if (returnable <= 0) {
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `✅ Todo o material já foi devolvido.`
+                  );
+                  continue;
+                }
+
+                // Confirm return of all remaining quantity
+                const { error: updateErr } = await supabase
+                  .from('material_reservations')
+                  .update({
+                    returned_quantity: reservation.quantidade,
+                    return_confirmed_via: 'whatsapp',
+                    return_confirmed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', reservation.id);
+
+                if (updateErr) {
+                  console.error('[Meta Webhook] Error confirming return:', updateErr);
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `❌ Erro ao confirmar devolução. Tente novamente.`
+                  );
+                } else {
+                  const { data: material } = await supabase
+                    .from('campaign_materials')
+                    .select('nome')
+                    .eq('id', reservation.material_id)
+                    .single();
+
+                  await sendMetaCloudMessage(supabase, normalizedPhone,
+                    `✅ Devolução confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade devolvida: ${returnable}\n👤 ${leaderRet.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+                  );
+                  console.log(`[Meta Webhook] ✅ Return confirmed for reservation ${reservation.id}`);
                 }
                 continue;
               }

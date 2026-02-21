@@ -18,6 +18,9 @@ export interface MaterialReservation {
   confirmation_code: string | null;
   confirmed_via: string | null;
   confirmed_at: string | null;
+  return_confirmation_code: string | null;
+  return_confirmed_via: string | null;
+  return_confirmed_at: string | null;
   created_at: string;
   // Joined
   material?: { nome: string; tipo: string; unidade: string; image_url?: string | null };
@@ -128,7 +131,7 @@ export function useWithdrawReservation() {
 export function useReturnMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, returnedQuantity }: { id: string; returnedQuantity: number }) => {
+    mutationFn: async ({ id, returnedQuantity, confirmedVia }: { id: string; returnedQuantity: number; confirmedVia?: string }) => {
       // First get current returned_quantity
       const { data: current, error: fetchErr } = await (supabase as any)
         .from("material_reservations")
@@ -138,9 +141,14 @@ export function useReturnMaterial() {
       if (fetchErr) throw fetchErr;
 
       const newTotal = (current.returned_quantity || 0) + returnedQuantity;
+      const updateData: Record<string, any> = { returned_quantity: newTotal, updated_at: new Date().toISOString() };
+      if (confirmedVia) {
+        updateData.return_confirmed_via = confirmedVia;
+        updateData.return_confirmed_at = new Date().toISOString();
+      }
       const { error } = await (supabase as any)
         .from("material_reservations")
-        .update({ returned_quantity: newTotal, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
     },
