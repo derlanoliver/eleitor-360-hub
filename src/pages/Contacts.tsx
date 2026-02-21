@@ -447,7 +447,7 @@ const Contacts = () => {
     const matchesSearch =
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (searchDigits.length >= 4 && contact.phone?.includes(searchDigits));
+      (searchDigits.length >= 3 && (contact.phone?.includes(searchDigits) || contact.telefone_norm?.includes(searchDigits)));
     const matchesRegion = selectedRegion === "all" || contact.region === selectedRegion;
 
     let matchesSource = true;
