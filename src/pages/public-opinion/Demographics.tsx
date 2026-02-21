@@ -5,10 +5,21 @@ import { useMonitoredEntities } from "@/hooks/public-opinion/usePublicOpinion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useMemo } from "react";
 
 const categoryColors = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#6b7280', '#84cc16', '#f97316'];
 const sourceColors = ['#E4405F', '#1DA1F2', '#1877F2', '#000000', '#FF0000', '#0088CC', '#8B5CF6', '#059669', '#FF4500', '#6b7280'];
 const topicColors = ['#06b6d4', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#ec4899', '#6b7280'];
+const wordCloudColors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#0ea5e9', '#6366f1', '#14b8a6'];
+
+const demoWordCloud = [
+  { word: 'Saúde', count: 42 }, { word: 'Educação', count: 38 }, { word: 'Segurança', count: 35 },
+  { word: 'Infraestrutura', count: 28 }, { word: 'Transporte', count: 25 }, { word: 'Emprego', count: 22 },
+  { word: 'Meio Ambiente', count: 20 }, { word: 'Moradia', count: 18 }, { word: 'Cultura', count: 15 },
+  { word: 'Esporte', count: 14 }, { word: 'Tecnologia', count: 12 }, { word: 'Saneamento', count: 11 },
+  { word: 'Mobilidade', count: 10 }, { word: 'Lazer', count: 9 }, { word: 'Assistência Social', count: 8 },
+  { word: 'Iluminação', count: 7 }, { word: 'Acessibilidade', count: 6 }, { word: 'Pavimentação', count: 5 },
+];
 
 function useDemographicsData(entityId?: string) {
   return useQuery({
@@ -97,7 +108,13 @@ function useDemographicsData(entityId?: string) {
         count,
       }));
 
-      return { categories, topics, sources, sentiment, total: allAnalyses.length };
+      // Word cloud: all topics (not sliced)
+      const wordCloud = Object.entries(topicCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 40)
+        .map(([word, count]) => ({ word: capitalize(word), count }));
+
+      return { categories, topics, sources, sentiment, wordCloud, total: allAnalyses.length };
     },
   });
 }
@@ -138,15 +155,58 @@ const Demographics = () => {
     { label: 'Neutro', value: 15, count: 0 },
   ];
 
+  const wordCloud = hasRealData && demoData.wordCloud?.length > 0 ? demoData.wordCloud : demoWordCloud;
+  const maxCount = Math.max(...wordCloud.map(w => w.count), 1);
+
+  const shuffledWords = useMemo(() => {
+    const arr = [...wordCloud];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(wordCloud)]);
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Análise de Conteúdo</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Análise de Conteúdo</h1>
+        <p className="text-muted-foreground mt-1">
           Categorias, temas e fontes das menções sobre você
           {!hasRealData && <Badge variant="outline" className="ml-2">Demo</Badge>}
         </p>
       </div>
+
+      {/* Word Cloud - full width */}
+      <Card>
+        <CardHeader><CardTitle>Nuvem de Palavras</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-6 min-h-[200px]">
+            {shuffledWords.map((w, i) => {
+              const ratio = w.count / maxCount;
+              const fontSize = Math.max(0.75, ratio * 2.5);
+              const opacity = Math.max(0.5, ratio);
+              return (
+                <span
+                  key={w.word}
+                  className="inline-block cursor-default transition-transform hover:scale-110"
+                  title={`${w.word}: ${w.count} menções`}
+                  style={{
+                    fontSize: `${fontSize}rem`,
+                    fontWeight: ratio > 0.6 ? 700 : ratio > 0.3 ? 500 : 400,
+                    color: wordCloudColors[i % wordCloudColors.length],
+                    opacity,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {w.word}
+                </span>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Categories */}
