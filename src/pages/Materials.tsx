@@ -73,7 +73,8 @@ export default function Materials() {
         materialName: r.material?.nome || "—", leaderName: r.leader?.nome_completo || "—",
         cargo: r.leader?.is_coordinator ? "Coordenador" : "Líder",
         region: r.leader_city?.nome || "—", quantidade: r.quantidade,
-        returned: r.returned_quantity || 0, source: "reservation",
+        returned: r.returned_quantity || 0,
+        source: (r as any).origin === "direct" ? "direct" : "reservation",
         image_url: r.material?.image_url || null,
       });
     });
