@@ -56,6 +56,38 @@ export default function Materials() {
 
   const activeReservations = useMemo(() => (reservations || []).filter(r => r.status === "reserved"), [reservations]);
 
+  // Combine withdrawn reservations + legacy withdrawals into a unified list
+  const withdrawnItems = useMemo(() => {
+    const items: Array<{
+      id: string; date: string; materialName: string; leaderName: string;
+      cargo: string; region: string; quantidade: number; returned: number;
+      source: "reservation" | "direct"; image_url: string | null;
+    }> = [];
+    // From reservations (withdrawn)
+    (reservations || []).filter(r => r.status === "withdrawn").forEach(r => {
+      items.push({
+        id: `res-${r.id}`, date: r.withdrawn_at || r.reserved_at,
+        materialName: r.material?.nome || "—", leaderName: r.leader?.nome_completo || "—",
+        cargo: r.leader?.is_coordinator ? "Coordenador" : "Líder",
+        region: r.leader_city?.nome || "—", quantidade: r.quantidade,
+        returned: r.returned_quantity || 0, source: "reservation",
+        image_url: r.material?.image_url || null,
+      });
+    });
+    // From legacy withdrawals
+    (withdrawals || []).forEach(w => {
+      items.push({
+        id: `wd-${w.id}`, date: w.data_retirada,
+        materialName: w.material?.nome || "—", leaderName: w.leader?.nome_completo || "—",
+        cargo: w.leader?.is_coordinator ? "Coordenador" : "Líder",
+        region: w.leader_city?.nome || "—", quantidade: w.quantidade,
+        returned: 0, source: "direct", image_url: null,
+      });
+    });
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [reservations, withdrawals]);
+
+
   // Stats
   const totalProduzido = useMemo(() => (materials || []).reduce((s, m) => s + m.quantidade_produzida, 0), [materials]);
   const totalEstoque = useMemo(() => (materials || []).reduce((s, m) => s + m.estoque_atual, 0), [materials]);
@@ -331,37 +363,51 @@ export default function Materials() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Foto</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead>Material</TableHead>
                     <TableHead>Quem Retirou</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Região</TableHead>
                     <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead>Confirmação</TableHead>
+                    <TableHead className="text-right">Devolvido</TableHead>
+                    <TableHead>Origem</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loadingWithdrawals ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-                  ) : (withdrawals || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma retirada registrada</TableCell></TableRow>
-                  ) : (withdrawals || []).map(w => (
-                    <TableRow key={w.id}>
-                      <TableCell className="text-sm">{format(new Date(w.data_retirada), "dd/MM/yy HH:mm", { locale: ptBR })}</TableCell>
-                      <TableCell className="font-medium">{w.material?.nome}</TableCell>
-                      <TableCell>{w.leader?.nome_completo}</TableCell>
-                      <TableCell><Badge variant="outline">{w.leader?.is_coordinator ? "Coordenador" : "Líder"}</Badge></TableCell>
-                      <TableCell>{w.leader_city?.nome || "—"}</TableCell>
-                      <TableCell className="text-right font-semibold">{w.quantidade.toLocaleString()}</TableCell>
+                  {(loadingWithdrawals && loadingReservations) ? (
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : withdrawnItems.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma retirada registrada</TableCell></TableRow>
+                  ) : withdrawnItems.map(item => (
+                    <TableRow key={item.id}>
                       <TableCell>
-                        {w.confirmado ? (
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Confirmado
-                          </Badge>
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.materialName} className="h-8 w-8 rounded object-cover border" />
                         ) : (
-                          <Button size="sm" variant="outline" onClick={() => confirmWithdrawal.mutate(w.id)}>
-                            Confirmar
-                          </Button>
+                          <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">{format(new Date(item.date), "dd/MM/yy HH:mm", { locale: ptBR })}</TableCell>
+                      <TableCell className="font-medium">{item.materialName}</TableCell>
+                      <TableCell>{item.leaderName}</TableCell>
+                      <TableCell><Badge variant="outline">{item.cargo}</Badge></TableCell>
+                      <TableCell>{item.region}</TableCell>
+                      <TableCell className="text-right font-semibold">{item.quantidade.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        {item.returned > 0 ? (
+                          <span className="text-xs font-medium text-blue-600">{item.returned.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {item.source === "reservation" ? (
+                          <Badge variant="outline" className="text-xs">Reserva</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Direta</Badge>
                         )}
                       </TableCell>
                     </TableRow>
