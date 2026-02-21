@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Users, Calendar, MessageSquare, LogOut, Star,
   CheckCircle, Clock, GitBranch, Plus, ShieldCheck, ShieldAlert,
-  Mail, Phone, MessageCircle, Eye, Loader2, Search,
+  Mail, Phone, MessageCircle, Eye, Loader2, Search, Package,
 } from "lucide-react";
 import { CoordinatorMessageDetailsDialog } from "@/components/coordinator/CoordinatorMessageDetailsDialog";
 import { format } from "date-fns";
@@ -26,12 +26,13 @@ import {
   getProgressToNextLevel,
 } from "@/hooks/leaders/useLeaderLevels";
 import logo from "@/assets/logo-rafael-prudente.png";
-import { CoordinatorMaterialRequestCard } from "@/components/coordinator/CoordinatorMaterialRequestCard";
+import { useMaterialReservations } from "@/hooks/materials/useMaterialReservations";
 
 export default function CoordinatorDashboard() {
   const { session, logout, isAuthenticated } = useCoordinatorAuth();
   const navigate = useNavigate();
   const { data: dashboard, isLoading } = useCoordinatorDashboard(session?.leader_id);
+  const { data: reservations } = useMaterialReservations({ leader_id: session?.leader_id });
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [subSearch, setSubSearch] = useState("");
   const [subFilter, setSubFilter] = useState<"all" | "verified" | "pending">("all");
@@ -122,6 +123,9 @@ export default function CoordinatorDashboard() {
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/coordenador/eventos")}>
               <Plus className="h-4 w-4 mr-1" /> Eventos
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/coordenador/materiais")}>
+              <Package className="h-4 w-4 mr-1" /> Material
             </Button>
             <Button size="sm" variant="ghost" onClick={() => { logout(); navigate("/coordenador/login"); }}>
               <LogOut className="h-4 w-4" />
@@ -227,8 +231,47 @@ export default function CoordinatorDashboard() {
           </Card>
         </div>
 
-        {/* Material Request */}
-        <CoordinatorMaterialRequestCard leaderId={session.leader_id} />
+        {/* Last Material Reservation */}
+        {(() => {
+          const lastReservation = (reservations || [])[0];
+          if (!lastReservation) return null;
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Package className="h-5 w-5" /> Último Pedido de Material
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => navigate("/coordenador/materiais")}>
+                    Ver Todos
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between border rounded-lg p-3">
+                  <div>
+                    <p className="font-medium text-sm">{lastReservation.material?.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {lastReservation.quantidade} {lastReservation.material?.unidade}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${
+                      lastReservation.status === "reserved" ? "text-amber-600 border-amber-300 bg-amber-50" :
+                      lastReservation.status === "withdrawn" ? "text-green-600 border-green-300 bg-green-50" :
+                      lastReservation.status === "expired" ? "text-destructive" : ""
+                    }`}
+                  >
+                    {lastReservation.status === "reserved" ? "Reservado" :
+                     lastReservation.status === "withdrawn" ? "Retirado" :
+                     lastReservation.status === "expired" ? "Expirado" : "Cancelado"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Subordinates */}
         <Card>

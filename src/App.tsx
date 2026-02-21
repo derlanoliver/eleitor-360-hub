@@ -80,6 +80,7 @@ import ShortUrlRedirect from "./pages/ShortUrlRedirect";
 import CoordinatorLogin from "./pages/coordinator/CoordinatorLogin";
 import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard";
 import CoordinatorEvents from "./pages/coordinator/CoordinatorEvents";
+import CoordinatorMaterials from "./pages/coordinator/CoordinatorMaterials";
 import CoordinatorVerifyLeader from "./pages/coordinator/CoordinatorVerifyLeader";
 import { CoordinatorAuthProvider } from "./contexts/CoordinatorAuthContext";
 import { DynamicMetaTags } from "./components/DynamicMetaTags";
@@ -157,6 +158,7 @@ const App = () => (
             <Route path="/coordenador/login" element={<CoordinatorAuthProvider><CoordinatorLogin /></CoordinatorAuthProvider>} />
             <Route path="/coordenador/dashboard" element={<CoordinatorAuthProvider><CoordinatorDashboard /></CoordinatorAuthProvider>} />
             <Route path="/coordenador/eventos" element={<CoordinatorAuthProvider><CoordinatorEvents /></CoordinatorAuthProvider>} />
+            <Route path="/coordenador/materiais" element={<CoordinatorAuthProvider><CoordinatorMaterials /></CoordinatorAuthProvider>} />
             <Route path="/coordenador/verificar" element={<CoordinatorVerifyLeader />} />
             
             {/* Public check-in route with PIN protection */}
