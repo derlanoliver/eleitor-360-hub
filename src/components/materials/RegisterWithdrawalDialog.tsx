@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
+import { useCreateReservation } from "@/hooks/materials/useMaterialReservations";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Search, AlertCircle } from "lucide-react";
+import { WithdrawalQRCode } from "./WithdrawalQRCode";
 
 interface Props {
   open: boolean;
@@ -24,7 +25,8 @@ export function RegisterWithdrawalDialog({ open, onOpenChange, preselectedMateri
   const [selectedLeader, setSelectedLeader] = useState<any>(null);
   const [quantidade, setQuantidade] = useState("");
   const [observacao, setObservacao] = useState("");
-  const createWithdrawal = useCreateWithdrawal();
+  const [createdReservation, setCreatedReservation] = useState<{ confirmation_code: string; materialName: string } | null>(null);
+  const createReservation = useCreateReservation();
   const { data: materials } = useCampaignMaterials();
 
   // Search leaders by name, phone, or email
@@ -41,7 +43,6 @@ export function RegisterWithdrawalDialog({ open, onOpenChange, preselectedMateri
         .limit(10);
       if (error) throw error;
 
-      // Fetch city names
       const cityIds = [...new Set((data || []).map(l => l.cidade_id).filter(Boolean))];
       let cityMap: Record<string, string> = {};
       if (cityIds.length > 0) {
@@ -56,22 +57,50 @@ export function RegisterWithdrawalDialog({ open, onOpenChange, preselectedMateri
 
   const selectedMaterial = useMemo(() => materials?.find(m => m.id === materialId), [materials, materialId]);
 
+  const resetForm = () => {
+    setSelectedLeader(null);
+    setSearchTerm("");
+    setQuantidade("");
+    setObservacao("");
+    if (!preselectedMaterialId) setMaterialId("");
+    setCreatedReservation(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLeader || !materialId) return;
-    await createWithdrawal.mutateAsync({
+    const result = await createReservation.mutateAsync({
       material_id: materialId,
       leader_id: selectedLeader.id,
       quantidade: parseInt(quantidade) || 0,
       observacao: observacao || undefined,
     });
-    setSelectedLeader(null); setSearchTerm(""); setQuantidade(""); setObservacao("");
-    if (!preselectedMaterialId) setMaterialId("");
-    onOpenChange(false);
+    // Show QR code for WhatsApp confirmation
+    setCreatedReservation({
+      confirmation_code: result.confirmation_code || "",
+      materialName: selectedMaterial?.nome || "Material",
+    });
   };
 
+  const handleClose = (v: boolean) => {
+    if (!v) resetForm();
+    onOpenChange(v);
+  };
+
+  // After reservation is created, show QR code
+  if (createdReservation && open) {
+    return (
+      <WithdrawalQRCode
+        confirmationCode={createdReservation.confirmation_code}
+        materialName={createdReservation.materialName}
+        open={open}
+        onOpenChange={handleClose}
+      />
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Registrar Retirada</DialogTitle>
@@ -169,10 +198,14 @@ export function RegisterWithdrawalDialog({ open, onOpenChange, preselectedMateri
             <Textarea value={observacao} onChange={e => setObservacao(e.target.value)} rows={2} />
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            Após registrar, será gerado um QR Code para o coordenador/líder confirmar a retirada via WhatsApp.
+          </p>
+
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={createWithdrawal.isPending || !selectedLeader || !materialId}>
-              {createWithdrawal.isPending ? "Registrando..." : "Registrar Retirada"}
+            <Button type="button" variant="outline" onClick={() => handleClose(false)}>Cancelar</Button>
+            <Button type="submit" disabled={createReservation.isPending || !selectedLeader || !materialId}>
+              {createReservation.isPending ? "Registrando..." : "Registrar Retirada"}
             </Button>
           </div>
         </form>
