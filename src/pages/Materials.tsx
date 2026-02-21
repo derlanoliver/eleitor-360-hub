@@ -164,6 +164,7 @@ export default function Materials() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Foto</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead className="text-right">Produzido</TableHead>
@@ -175,14 +176,23 @@ export default function Materials() {
                 </TableHeader>
                 <TableBody>
                   {loadingMaterials ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                   ) : (materials || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum material cadastrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum material cadastrado</TableCell></TableRow>
                   ) : (materials || []).map(m => {
                     const dist = m.quantidade_produzida - m.estoque_atual;
                     const lowStock = m.estoque_atual <= m.quantidade_produzida * 0.1;
                     return (
                       <TableRow key={m.id}>
+                        <TableCell>
+                          {m.image_url ? (
+                            <img src={m.image_url} alt={m.nome} className="h-10 w-10 rounded object-cover border" />
+                          ) : (
+                            <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{m.nome}</TableCell>
                         <TableCell><Badge variant="outline">{m.tipo}</Badge></TableCell>
                         <TableCell className="text-right">{m.quantidade_produzida.toLocaleString()}</TableCell>

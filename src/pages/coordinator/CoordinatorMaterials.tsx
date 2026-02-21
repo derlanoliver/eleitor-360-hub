@@ -103,14 +103,17 @@ export default function CoordinatorMaterials() {
                 <SelectValue placeholder="Selecione o material" />
               </SelectTrigger>
               <SelectContent>
-                {loadingMaterials ? (
+              {loadingMaterials ? (
                   <SelectItem value="loading" disabled>Carregando...</SelectItem>
                 ) : activeMaterials.length === 0 ? (
                   <SelectItem value="none" disabled>Nenhum material disponível</SelectItem>
                 ) : (
                   activeMaterials.map(m => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.nome} ({m.tipo})
+                      <div className="flex items-center gap-2">
+                        {m.image_url && <img src={m.image_url} alt={m.nome} className="h-6 w-6 rounded object-cover" />}
+                        <span>{m.nome} ({m.tipo})</span>
+                      </div>
                     </SelectItem>
                   ))
                 )}
@@ -119,9 +122,17 @@ export default function CoordinatorMaterials() {
 
             {selectedMaterial && (
               <div className="bg-muted/50 rounded-md p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Estoque disponível:</span>
-                  <span className="font-semibold">{selectedMaterial.estoque_atual.toLocaleString()} {selectedMaterial.unidade}</span>
+                <div className="flex items-center gap-3">
+                  {selectedMaterial.image_url && (
+                    <img src={selectedMaterial.image_url} alt={selectedMaterial.nome} className="h-16 w-16 rounded-lg object-cover border" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{selectedMaterial.nome}</p>
+                    <div className="flex items-center justify-between text-sm mt-1">
+                      <span className="text-muted-foreground">Estoque disponível:</span>
+                      <span className="font-semibold">{selectedMaterial.estoque_atual.toLocaleString()} {selectedMaterial.unidade}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -167,9 +178,14 @@ export default function CoordinatorMaterials() {
               {activeReservations.map(r => (
                 <div key={r.id} className="border rounded-lg p-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{r.material?.nome}</p>
-                      <p className="text-xs text-muted-foreground">{r.quantidade.toLocaleString()} {r.material?.unidade}</p>
+                    <div className="flex items-center gap-3">
+                      {(r.material as any)?.image_url && (
+                        <img src={(r.material as any).image_url} alt={r.material?.nome} className="h-12 w-12 rounded-lg object-cover border" />
+                      )}
+                      <div>
+                        <p className="font-medium text-sm">{r.material?.nome}</p>
+                        <p className="text-xs text-muted-foreground">{r.quantidade.toLocaleString()} {r.material?.unidade}</p>
+                      </div>
                     </div>
                     <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300 bg-amber-50">
                       <Clock className="h-3 w-3" /> Reservado
@@ -220,11 +236,16 @@ export default function CoordinatorMaterials() {
               <div className="space-y-2">
                 {(reservations || []).map(r => (
                   <div key={r.id} className="flex items-center justify-between border rounded-lg p-3">
-                    <div>
-                      <p className="font-medium text-sm">{r.material?.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.quantidade.toLocaleString()} {r.material?.unidade} · {formatDate(r.reserved_at)}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {(r.material as any)?.image_url && (
+                        <img src={(r.material as any).image_url} alt={r.material?.nome} className="h-10 w-10 rounded object-cover border" />
+                      )}
+                      <div>
+                        <p className="font-medium text-sm">{r.material?.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.quantidade.toLocaleString()} {r.material?.unidade} · {formatDate(r.reserved_at)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {r.status === "reserved" ? (

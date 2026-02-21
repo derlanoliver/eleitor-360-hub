@@ -11,6 +11,7 @@ export interface CampaignMaterial {
   estoque_atual: number;
   unidade: string;
   is_active: boolean;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,7 +33,7 @@ export function useCampaignMaterials() {
 export function useCreateMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (material: { nome: string; tipo: string; descricao?: string; quantidade_produzida: number; unidade?: string }) => {
+    mutationFn: async (material: { nome: string; tipo: string; descricao?: string; quantidade_produzida: number; unidade?: string; image_url?: string }) => {
       const { data, error } = await supabase
         .from("campaign_materials")
         .insert({

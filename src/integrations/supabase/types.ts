@@ -175,6 +175,7 @@ export type Database = {
           descricao: string | null
           estoque_atual: number
           id: string
+          image_url: string | null
           is_active: boolean
           nome: string
           quantidade_produzida: number
@@ -187,6 +188,7 @@ export type Database = {
           descricao?: string | null
           estoque_atual?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           nome: string
           quantidade_produzida?: number
@@ -199,6 +201,7 @@ export type Database = {
           descricao?: string | null
           estoque_atual?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           nome?: string
           quantidade_produzida?: number
