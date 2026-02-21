@@ -92,34 +92,29 @@ export default function Materials() {
   const totalProduzido = useMemo(() => (materials || []).reduce((s, m) => s + m.quantidade_produzida, 0), [materials]);
   const totalEstoque = useMemo(() => (materials || []).reduce((s, m) => s + m.estoque_atual, 0), [materials]);
   const totalDistribuido = totalProduzido - totalEstoque;
-  const totalRetiradas = (withdrawals || []).length;
+  const totalRetiradas = withdrawnItems.length;
 
-  // Report data
+  // Report data — uses unified withdrawnItems
   const withdrawalsByLeader = useMemo(() => {
     const map: Record<string, { nome: string; cargo: string; regiao: string; total: number }> = {};
-    (withdrawals || []).forEach(w => {
-      const key = w.leader_id;
+    withdrawnItems.forEach(item => {
+      const key = `${item.leaderName}-${item.region}`;
       if (!map[key]) {
-        map[key] = {
-          nome: w.leader?.nome_completo || "—",
-          cargo: w.leader?.is_coordinator ? "Coordenador" : "Líder",
-          regiao: w.leader_city?.nome || "—",
-          total: 0,
-        };
+        map[key] = { nome: item.leaderName, cargo: item.cargo, regiao: item.region, total: 0 };
       }
-      map[key].total += w.quantidade;
+      map[key].total += item.quantidade;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [withdrawals]);
+  }, [withdrawnItems]);
 
   const withdrawalsByRegion = useMemo(() => {
     const map: Record<string, number> = {};
-    (withdrawals || []).forEach(w => {
-      const reg = w.leader_city?.nome || "Sem região";
-      map[reg] = (map[reg] || 0) + w.quantidade;
+    withdrawnItems.forEach(item => {
+      const reg = item.region || "Sem região";
+      map[reg] = (map[reg] || 0) + item.quantidade;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([regiao, total]) => ({ regiao, total }));
-  }, [withdrawals]);
+  }, [withdrawnItems]);
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
