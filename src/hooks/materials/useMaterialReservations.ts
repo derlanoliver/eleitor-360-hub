@@ -15,6 +15,9 @@ export interface MaterialReservation {
   returned_quantity: number;
   returned_at: string | null;
   observacao: string | null;
+  confirmation_code: string | null;
+  confirmed_via: string | null;
+  confirmed_at: string | null;
   created_at: string;
   // Joined
   material?: { nome: string; tipo: string; unidade: string; image_url?: string | null };
@@ -109,7 +112,7 @@ export function useWithdrawReservation() {
     mutationFn: async (id: string) => {
       const { error } = await (supabase as any)
         .from("material_reservations")
-        .update({ status: "withdrawn", updated_at: new Date().toISOString() })
+        .update({ status: "withdrawn", confirmed_via: "manual", confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
     },
