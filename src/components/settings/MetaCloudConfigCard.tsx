@@ -20,6 +20,7 @@ interface MetaCloudConfigCardProps {
     meta_cloud_waba_id?: string | null;
     meta_cloud_api_version?: string;
     meta_cloud_fallback_enabled?: boolean;
+    meta_cloud_phone?: string | null;
     zapi_enabled?: boolean;
   } | null;
   onProviderChange?: (provider: 'zapi' | 'meta_cloud' | 'dialog360') => void;
@@ -39,6 +40,7 @@ export const MetaCloudConfigCard = ({ settings, onProviderChange }: MetaCloudCon
   const [wabaId, setWabaId] = useState("");
   const [apiVersion, setApiVersion] = useState("v20.0");
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
+  const [metaCloudPhone, setMetaCloudPhone] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -50,6 +52,7 @@ export const MetaCloudConfigCard = ({ settings, onProviderChange }: MetaCloudCon
       setWabaId(settings.meta_cloud_waba_id || "");
       setApiVersion(settings.meta_cloud_api_version || "v20.0");
       setFallbackEnabled(settings.meta_cloud_fallback_enabled || false);
+      setMetaCloudPhone(settings.meta_cloud_phone || "");
     }
   }, [settings]);
 
@@ -86,6 +89,7 @@ export const MetaCloudConfigCard = ({ settings, onProviderChange }: MetaCloudCon
       meta_cloud_waba_id: wabaId || null,
       meta_cloud_api_version: apiVersion,
       meta_cloud_fallback_enabled: fallbackEnabled,
+      meta_cloud_phone: metaCloudPhone || null,
     });
   };
 
@@ -220,18 +224,33 @@ export const MetaCloudConfigCard = ({ settings, onProviderChange }: MetaCloudCon
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="api-version">Versão da API</Label>
-            <select
-              id="api-version"
-              value={apiVersion}
-              onChange={(e) => setApiVersion(e.target.value)}
-              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="v20.0">v20.0 (Recomendada)</option>
-              <option value="v19.0">v19.0</option>
-              <option value="v21.0">v21.0</option>
-            </select>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="api-version">Versão da API</Label>
+              <select
+                id="api-version"
+                value={apiVersion}
+                onChange={(e) => setApiVersion(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="v20.0">v20.0 (Recomendada)</option>
+                <option value="v19.0">v19.0</option>
+                <option value="v21.0">v21.0</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="meta-phone">Número do WhatsApp *</Label>
+              <Input
+                id="meta-phone"
+                placeholder="Ex: 5561999999999"
+                value={metaCloudPhone}
+                onChange={(e) => setMetaCloudPhone(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Número cadastrado na Cloud API (DDI + DDD + Número)
+              </p>
+            </div>
           </div>
         </div>
 
