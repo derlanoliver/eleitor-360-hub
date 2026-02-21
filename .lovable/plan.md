@@ -1,134 +1,81 @@
 
+# Relatórios de Opiniao Publica - Geracao Real
 
-## Plano: Melhorias Completas no Modulo de Opiniao Publica
+## Problema Atual
+Os botoes "Gerar Relatorio" na pagina de Opiniao Publica > Relatorios apenas exibem uma mensagem toast dizendo que a funcionalidade nao esta disponivel. Porem, o sistema ja coleta dados reais de mencoes, sentimentos e analises.
 
-### Resumo
+## Solucao
+Implementar a geracao real de relatorios em PDF e Excel usando os dados ja coletados no banco de dados (mencoes, analises de sentimento, snapshots diarios, eventos).
 
-Implementar 5 melhorias no sistema de raspagem e automacao do modulo de Opiniao Publica: (1) coleta real de comentarios do YouTube, (2) cron job automatico de coleta, (3) cron job de agregacao diaria, (4) raspagem de portais de noticias locais do DF, e (5) raspagem do Reddit.
+## Relatorios que serao implementados
 
----
+### 1. Relatorio Semanal de Sentimento (PDF)
+- Periodo: ultimos 7 dias
+- Conteudo: total de mencoes, distribuicao positivo/negativo/neutro, grafico de evolucao diaria, top 5 topicos, top 5 emocoes, top 10 mencoes mais relevantes
 
-### 1. Coleta Real de Comentarios do YouTube (Actor Pago)
+### 2. Comparativo com Adversarios (PDF)
+- Periodo: ultimos 30 dias
+- Conteudo: tabela comparativa entre todas as entidades monitoradas com total de mencoes, % positivo/negativo, score medio
 
-**Situacao atual**: A funcao `collectYouTubeComments` busca apenas metadados de video (titulo, descricao, views) porque o Stage 2 (comentarios) esta desabilitado (linha 860-861: `const commentItems: any[] = [];`).
+### 3. Analise de Evento Especifico (PDF)
+- Permite selecionar um evento registrado na tabela po_events
+- Conteudo: impacto do evento, mencoes relacionadas, sentimento antes/depois
 
-**O que muda**:
-- Ativar o Stage 2 usando o actor `crawlerbros~youtube-comment-scraper` (ja mapeado em `APIFY_ACTORS`)
-- Buscar ate 100 comentarios dos 10 videos mais recentes do canal
-- Manter o fallback de metadados caso o scraper de comentarios falhe
+### 4. Relatorio Demografico por Fonte (Excel)
+- Periodo: ultimos 30 dias
+- Conteudo: planilha com breakdown por fonte (Instagram, Twitter, YouTube, etc.), quantidade de mencoes, % sentimento por fonte
 
-**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
-- Substituir `const commentItems: any[] = [];` pela chamada real ao actor Apify
-- Mapear os campos do actor para o schema de `po_mentions`
+### 5. Resumo Executivo (PDF)
+- Periodo: ultimos 7 dias
+- Conteudo: versao compacta com metricas-chave, tendencia, principais topicos e recomendacoes (1 pagina)
 
----
+## Arquivos a criar/modificar
 
-### 2. Raspagem de Portais de Noticias Locais do DF
+### Novo: `src/utils/generatePoReportPdf.ts`
+- Funcoes para gerar cada tipo de relatorio PDF usando jsPDF (ja instalado no projeto)
+- Reutiliza o padrao visual do `generateCoordinatorReportPdf.ts` (cores laranja #F05023, logo, formatacao)
 
-**O que muda**: Adicionar uma nova fonte `portais_df` que raspa 3 portais locais usando Zenscrape:
-- Metropoles (`metropoles.com`)
-- Correio Braziliense (`correiobraziliense.com.br`)
-- G1 DF (`g1.globo.com/df`)
+### Novo: `src/utils/generatePoReportExcel.ts`
+- Funcao para gerar o relatorio demografico em Excel usando xlsx (ja instalado)
+- Segue o padrao do `emailReportExport.ts`
 
-**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
-- Nova funcao `collectPortaisDF` que usa Zenscrape para buscar paginas de busca desses portais
-- Novo bloco no handler principal para source `portais_df`
-- Reutiliza a logica existente de `extractMentionsFromHTML` com source `portais_df`
+### Novo: `src/hooks/public-opinion/usePoReportData.ts`
+- Hook que busca todos os dados necessarios para cada tipo de relatorio (mencoes, analises, snapshots, entidades)
+- Consolida os dados no formato necessario para a geracao
 
-**Arquivo**: `src/pages/public-opinion/Overview.tsx`
-- Adicionar cor `portais_df` no mapa de cores do grafico
+### Modificado: `src/pages/public-opinion/Reports.tsx`
+- Substituir o toast pelo chamado real de geracao
+- Adicionar estado de loading por relatorio (spinner no botao durante geracao)
+- Para o relatorio "Analise de Evento", abrir um dialog para selecionar qual evento analisar
+- Exibir a data real da ultima geracao (pode ser armazenada em localStorage)
 
-**Arquivo**: `src/pages/public-opinion/Comments.tsx`
-- Adicionar opcao "Portais DF" no filtro de fontes
+### Novo: `src/components/public-opinion/SelectEventReportDialog.tsx`
+- Modal simples para selecionar um evento da lista po_events antes de gerar o relatorio tipo 3
 
----
+## Detalhes Tecnicos
 
-### 3. Raspagem do Reddit
+### Geracao PDF (jsPDF)
+- Cabecalho com logo e titulo do relatorio
+- Cor primaria #F05023 para destaques
+- Tabelas formatadas com alternancia de cores nas linhas
+- Secoes com titulos em negrito
+- Rodape com data de geracao e nome da entidade
 
-**O que muda**: Adicionar fonte `reddit` usando actor Apify `trudax~reddit-scraper` para buscar posts e comentarios nos subreddits r/brasilia e r/brasil.
+### Geracao Excel (xlsx)
+- Headers formatados
+- Colunas auto-dimensionadas
+- Nome do arquivo com data e tipo do relatorio
 
-**Arquivo**: `supabase/functions/po-collect-mentions/index.ts`
-- Novo actor no mapa: `reddit: "trudax~reddit-scraper"`
-- Nova funcao `collectReddit` que busca posts mencionando a entidade
-- Novo bloco no handler para source `reddit`
+### Fluxo do usuario
+1. Clica em "Gerar Relatorio"
+2. Botao mostra spinner "Gerando..."
+3. Dados sao buscados do banco em tempo real
+4. PDF/Excel e gerado e o download inicia automaticamente
+5. Botao volta ao estado normal
 
-**Arquivo**: `src/pages/public-opinion/Overview.tsx`
-- Adicionar cor `reddit: '#FF4500'` no mapa
-
-**Arquivo**: `src/pages/public-opinion/Comments.tsx`
-- Adicionar "Reddit" no filtro de fontes
-
----
-
-### 4. Cron Job de Coleta Automatica de Mencoes
-
-**O que muda**: Criar uma nova Edge Function `po-auto-collect` que:
-1. Le todas as entidades ativas com `po_collection_configs` ativas
-2. Verifica se `next_run_at` ja passou (ou nunca rodou)
-3. Determina quais fontes coletar com base nas redes sociais configuradas
-4. Chama `po-collect-mentions` em background para cada entidade
-5. Atualiza `last_run_at` e `next_run_at` na tabela `po_collection_configs`
-
-**Arquivos**:
-- `supabase/functions/po-auto-collect/index.ts` (novo)
-- `supabase/config.toml` - adicionar `[functions.po-auto-collect] verify_jwt = false`
-- Cron job SQL: executa a cada 30 minutos (`*/30 * * * *`)
-
----
-
-### 5. Cron Job de Agregacao Diaria (po_daily_snapshots)
-
-**O que muda**: Criar uma nova Edge Function `po-aggregate-daily` que:
-1. Para cada entidade ativa, agrega dados de `po_sentiment_analyses` do dia anterior
-2. Calcula: total_mentions, positive_count, negative_count, neutral_count, avg_sentiment_score, top_topics, top_emotions, source_breakdown
-3. Faz UPSERT na tabela `po_daily_snapshots`
-
-**Arquivos**:
-- `supabase/functions/po-aggregate-daily/index.ts` (novo)
-- `supabase/config.toml` - adicionar `[functions.po-aggregate-daily] verify_jwt = false`
-- Cron job SQL: executa 1x por dia as 03:00 (`0 3 * * *`)
-
----
-
-### 6. Integracao no Frontend
-
-**Atualizacoes para refletir as novas fontes**:
-
-**`src/pages/public-opinion/Overview.tsx`**:
-- Adicionar cores: `portais_df: '#8B5CF6'`, `reddit: '#FF4500'`
-- Incluir `portais_df` e `reddit` na lista de fontes do botao "Coletar Mencoes"
-
-**`src/pages/public-opinion/Comments.tsx`**:
-- Adicionar "Portais DF" e "Reddit" no filtro de fontes
-
-**`src/hooks/public-opinion/usePublicOpinion.ts`**:
-- Nenhuma alteracao necessaria (ja e dinamico)
-
----
-
-### Detalhes Tecnicos
-
-```text
-Arquivos novos:
-  supabase/functions/po-auto-collect/index.ts
-  supabase/functions/po-aggregate-daily/index.ts
-
-Arquivos editados:
-  supabase/functions/po-collect-mentions/index.ts  (YouTube real, Portais DF, Reddit)
-  src/pages/public-opinion/Overview.tsx             (cores + fontes)
-  src/pages/public-opinion/Comments.tsx             (filtros)
-  supabase/config.toml                              (2 novas functions)
-
-Cron Jobs (via SQL insert):
-  po-auto-collect       -> */30 * * * *  (a cada 30 min)
-  po-aggregate-daily    -> 0 3 * * *     (diario as 03:00)
-```
-
-### Actors Apify Utilizados
-
-| Fonte | Actor | Tipo |
-|-------|-------|------|
-| YouTube Comments | `crawlerbros~youtube-comment-scraper` | Pago |
-| Reddit | `trudax~reddit-scraper` | Pago |
-| Portais DF | Zenscrape (ja configurado) | Existente |
-
+### Dados utilizados (todos ja disponiveis via hooks existentes)
+- `po_mentions` - mencoes brutas com fonte, conteudo, engajamento
+- `po_sentiment_analyses` - sentimento, categoria, topicos, emocoes
+- `po_daily_snapshots` - agregados diarios para graficos
+- `po_events` - eventos para relatorio especifico
+- `po_monitored_entities` - entidades para comparativo
