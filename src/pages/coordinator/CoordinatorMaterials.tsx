@@ -11,6 +11,8 @@ import { Package, Clock, AlertTriangle, ArrowLeft, BookmarkCheck, X, RotateCcw, 
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialReservations, useCreateReservation, useCancelReservation, useReturnMaterial } from "@/hooks/materials/useMaterialReservations";
 import { WithdrawalQRCode } from "@/components/materials/WithdrawalQRCode";
+import { ReturnQRCode } from "@/components/materials/ReturnQRCode";
+import { ConfirmationDetailsDialog } from "@/components/materials/ConfirmationDetailsDialog";
 import { differenceInSeconds, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import logo from "@/assets/logo-rafael-prudente.png";
@@ -55,6 +57,8 @@ export default function CoordinatorMaterials() {
   const [returnReservationData, setReturnReservationData] = useState<any>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
   const [qrReservation, setQrReservation] = useState<any>(null);
+  const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
+  const [detailsReservation, setDetailsReservation] = useState<any>(null);
 
   if (!isAuthenticated || !session) return null;
 
@@ -281,33 +285,56 @@ export default function CoordinatorMaterials() {
                             <CountdownTimer expiresAt={r.expires_at} />
                           </div>
                         </div>
-                      ) : r.status === "withdrawn" ? (
+                        ) : r.status === "withdrawn" ? (
                         <div className="text-right space-y-1">
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-xs">
+                          <Badge
+                            className="bg-green-100 text-green-700 hover:bg-green-200 gap-1 text-xs cursor-pointer transition-colors"
+                            onClick={() => setDetailsReservation(r)}
+                          >
                             <BookmarkCheck className="h-3 w-3" /> Retirado
                           </Badge>
                           {r.confirmed_via && (
-                            <p className="text-[10px] text-green-600 font-medium flex items-center justify-end gap-1">
+                            <p
+                              className="text-[10px] text-green-600 font-medium flex items-center justify-end gap-1 cursor-pointer hover:underline"
+                              onClick={() => setDetailsReservation(r)}
+                            >
                               <MessageSquare className="h-3 w-3" />
                               {r.confirmed_via === "whatsapp" ? "Via WhatsApp" : "Manual"}
                               {r.confirmed_at && ` · ${formatDate(r.confirmed_at)}`}
                             </p>
                           )}
                           {r.returned_quantity > 0 && (
-                            <p className="text-[10px] text-blue-600 font-medium">Devolvido: {r.returned_quantity}</p>
+                            <p
+                              className="text-[10px] text-blue-600 font-medium cursor-pointer hover:underline"
+                              onClick={() => setDetailsReservation(r)}
+                            >
+                              Devolvido: {r.returned_quantity}
+                              {r.return_confirmed_via && ` (${r.return_confirmed_via === "whatsapp" ? "WhatsApp" : "Manual"})`}
+                            </p>
                           )}
                           {r.returned_quantity < r.quantidade && (
-                            <Button
-                              size="sm" variant="outline"
-                              className="text-[10px] h-6 px-2"
-                              onClick={() => {
-                                setReturnReservationData(r);
-                                setReturnQuantity("");
-                                setReturnDialogOpen(true);
-                              }}
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" /> Devolver
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              {r.return_confirmation_code && (
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="text-[10px] h-6 px-2"
+                                  onClick={() => setReturnQrReservation(r)}
+                                >
+                                  <QrCode className="h-3 w-3 mr-1" /> QR Devolução
+                                </Button>
+                              )}
+                              <Button
+                                size="sm" variant="outline"
+                                className="text-[10px] h-6 px-2"
+                                onClick={() => {
+                                  setReturnReservationData(r);
+                                  setReturnQuantity("");
+                                  setReturnDialogOpen(true);
+                                }}
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" /> Devolver
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ) : r.status === "expired" ? (
@@ -358,7 +385,7 @@ export default function CoordinatorMaterials() {
                 const qty = parseInt(returnQuantity);
                 const max = returnReservationData.quantidade - (returnReservationData.returned_quantity || 0);
                 if (isNaN(qty) || qty <= 0 || qty > max) return;
-                returnMaterial.mutate({ id: returnReservationData.id, returnedQuantity: qty }, {
+                returnMaterial.mutate({ id: returnReservationData.id, returnedQuantity: qty, confirmedVia: "manual" }, {
                   onSuccess: () => setReturnDialogOpen(false),
                 });
               }}
@@ -373,7 +400,7 @@ export default function CoordinatorMaterials() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* QR Code Dialog */}
+      {/* QR Code Dialogs */}
       {qrReservation && (
         <WithdrawalQRCode
           confirmationCode={qrReservation.confirmation_code || ""}
@@ -382,6 +409,19 @@ export default function CoordinatorMaterials() {
           onOpenChange={(open) => { if (!open) setQrReservation(null); }}
         />
       )}
+      {returnQrReservation && (
+        <ReturnQRCode
+          confirmationCode={returnQrReservation.return_confirmation_code || ""}
+          materialName={returnQrReservation.material?.nome || ""}
+          open={!!returnQrReservation}
+          onOpenChange={(open) => { if (!open) setReturnQrReservation(null); }}
+        />
+      )}
+      <ConfirmationDetailsDialog
+        reservation={detailsReservation}
+        open={!!detailsReservation}
+        onOpenChange={(open) => { if (!open) setDetailsReservation(null); }}
+      />
     </div>
   );
 }

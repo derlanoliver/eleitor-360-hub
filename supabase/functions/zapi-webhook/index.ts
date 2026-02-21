@@ -344,18 +344,12 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
     const code = retirarMatch[1];
     console.log(`[zapi-webhook] Detected RETIRAR command with code: ${code}`);
 
-    // Record incoming message first
     await supabase.from("whatsapp_messages").insert({
-      message_id: messageId,
-      phone: phone,
-      message: message,
-      direction: "incoming",
-      status: "received",
-      contact_id: contact?.id || null,
-      sent_at: new Date().toISOString(),
+      message_id: messageId, phone: phone, message: message,
+      direction: "incoming", status: "received",
+      contact_id: contact?.id || null, sent_at: new Date().toISOString(),
     });
 
-    // Find reservation by confirmation_code
     const { data: reservation, error: resErr } = await supabase
       .from('material_reservations')
       .select('id, status, leader_id, quantidade, material_id, confirmation_code')
@@ -364,73 +358,133 @@ async function handleReceivedMessage(supabase: any, data: ZapiReceivedMessage) {
 
     if (resErr || !reservation) {
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `❌ Código de retirada *${code}* não encontrado. Verifique se digitou corretamente.`,
-        typedSettings
-      );
+        `❌ Código de retirada *${code}* não encontrado. Verifique se digitou corretamente.`, typedSettings);
       return;
     }
 
-    // Verify the phone belongs to the leader who reserved
     const last8 = phone.replace(/\D/g, '').slice(-8);
     const { data: leader } = await supabase
-      .from('lideres')
-      .select('id, nome_completo, telefone')
-      .eq('id', reservation.leader_id)
-      .single();
+      .from('lideres').select('id, nome_completo, telefone')
+      .eq('id', reservation.leader_id).single();
 
     if (!leader || !leader.telefone || leader.telefone.replace(/\D/g, '').slice(-8) !== last8) {
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `⚠️ Este código de retirada não pertence a este número de telefone.`,
-        typedSettings
-      );
+        `⚠️ Este código de retirada não pertence a este número de telefone.`, typedSettings);
       return;
     }
 
     if (reservation.status === 'withdrawn') {
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `✅ Esta retirada já foi confirmada anteriormente.`,
-        typedSettings
-      );
+        `✅ Esta retirada já foi confirmada anteriormente.`, typedSettings);
       return;
     }
 
     if (reservation.status !== 'reserved') {
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `⚠️ Esta reserva não está mais ativa (status: ${reservation.status}).`,
-        typedSettings
-      );
+        `⚠️ Esta reserva não está mais ativa (status: ${reservation.status}).`, typedSettings);
       return;
     }
 
-    // Confirm the withdrawal
     const { error: updateErr } = await supabase
       .from('material_reservations')
       .update({
-        status: 'withdrawn',
-        confirmed_via: 'whatsapp',
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: 'withdrawn', confirmed_via: 'whatsapp',
+        confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       })
       .eq('id', reservation.id);
 
     if (updateErr) {
       console.error('[zapi-webhook] Error confirming withdrawal:', updateErr);
       await sendWhatsAppMessage(supabase, normalizedPhone,
-        `❌ Erro ao confirmar retirada. Tente novamente.`,
-        typedSettings
-      );
+        `❌ Erro ao confirmar retirada. Tente novamente.`, typedSettings);
     } else {
       const { data: material } = await supabase
-        .from('campaign_materials')
-        .select('nome')
-        .eq('id', reservation.material_id)
-        .single();
-
+        .from('campaign_materials').select('nome')
+        .eq('id', reservation.material_id).single();
       await sendWhatsAppMessage(supabase, normalizedPhone,
         `✅ Retirada confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade: ${reservation.quantidade}\n👤 ${leader.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
-        typedSettings
-      );
+        typedSettings);
       console.log(`[zapi-webhook] ✅ Withdrawal confirmed for reservation ${reservation.id}`);
+    }
+    return;
+  }
+
+  // === DEVOLVER [CODE] - Material return confirmation ===
+  const devolverMatch = cleanMessage.match(/^DEVOLVER\s+([A-Z0-9]{6})$/);
+  if (devolverMatch) {
+    const code = devolverMatch[1];
+    console.log(`[zapi-webhook] Detected DEVOLVER command with code: ${code}`);
+
+    await supabase.from("whatsapp_messages").insert({
+      message_id: messageId, phone: phone, message: message,
+      direction: "incoming", status: "received",
+      contact_id: contact?.id || null, sent_at: new Date().toISOString(),
+    });
+
+    const { data: reservation, error: resErr } = await supabase
+      .from('material_reservations')
+      .select('id, status, leader_id, quantidade, material_id, returned_quantity, return_confirmation_code')
+      .eq('return_confirmation_code', code)
+      .single();
+
+    if (resErr || !reservation) {
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `❌ Código de devolução *${code}* não encontrado. Verifique se digitou corretamente.`, typedSettings);
+      return;
+    }
+
+    const last8ret = phone.replace(/\D/g, '').slice(-8);
+    const { data: leaderRet } = await supabase
+      .from('lideres').select('id, nome_completo, telefone')
+      .eq('id', reservation.leader_id).single();
+
+    if (!leaderRet || !leaderRet.telefone || leaderRet.telefone.replace(/\D/g, '').slice(-8) !== last8ret) {
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `⚠️ Este código de devolução não pertence a este número de telefone.`, typedSettings);
+      return;
+    }
+
+    if (reservation.status !== 'withdrawn') {
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `⚠️ Esta reserva não está no status de retirada (status: ${reservation.status}).`, typedSettings);
+      return;
+    }
+
+    if (reservation.return_confirmed_via) {
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `✅ Esta devolução já foi confirmada anteriormente.`, typedSettings);
+      return;
+    }
+
+    const returnable = reservation.quantidade - (reservation.returned_quantity || 0);
+    if (returnable <= 0) {
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `✅ Todo o material já foi devolvido.`, typedSettings);
+      return;
+    }
+
+    const { error: updateErr } = await supabase
+      .from('material_reservations')
+      .update({
+        returned_quantity: reservation.quantidade,
+        return_confirmed_via: 'whatsapp',
+        return_confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', reservation.id);
+
+    if (updateErr) {
+      console.error('[zapi-webhook] Error confirming return:', updateErr);
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `❌ Erro ao confirmar devolução. Tente novamente.`, typedSettings);
+    } else {
+      const { data: material } = await supabase
+        .from('campaign_materials').select('nome')
+        .eq('id', reservation.material_id).single();
+      await sendWhatsAppMessage(supabase, normalizedPhone,
+        `✅ Devolução confirmada com sucesso!\n\n📦 *${material?.nome || 'Material'}*\n📊 Quantidade devolvida: ${returnable}\n👤 ${leaderRet.nome_completo}\n🕐 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+        typedSettings);
+      console.log(`[zapi-webhook] ✅ Return confirmed for reservation ${reservation.id}`);
     }
     return;
   }

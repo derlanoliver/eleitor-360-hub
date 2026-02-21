@@ -1262,6 +1262,9 @@ export type Database = {
           observacao: string | null
           quantidade: number
           reserved_at: string
+          return_confirmation_code: string | null
+          return_confirmed_at: string | null
+          return_confirmed_via: string | null
           returned_at: string | null
           returned_quantity: number
           status: string
@@ -1281,6 +1284,9 @@ export type Database = {
           observacao?: string | null
           quantidade: number
           reserved_at?: string
+          return_confirmation_code?: string | null
+          return_confirmed_at?: string | null
+          return_confirmed_via?: string | null
           returned_at?: string | null
           returned_quantity?: number
           status?: string
@@ -1300,6 +1306,9 @@ export type Database = {
           observacao?: string | null
           quantidade?: number
           reserved_at?: string
+          return_confirmation_code?: string | null
+          return_confirmed_at?: string | null
+          return_confirmed_via?: string | null
           returned_at?: string | null
           returned_quantity?: number
           status?: string
