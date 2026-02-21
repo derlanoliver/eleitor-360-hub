@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Package, Plus, ArrowDownToLine, BarChart3, CheckCircle2, AlertTriangle, PackagePlus, Clock, BookmarkCheck, RotateCcw, QrCode, MessageSquare, Info } from "lucide-react";
 import { useCampaignMaterials } from "@/hooks/materials/useCampaignMaterials";
 import { useMaterialWithdrawals, useConfirmWithdrawal } from "@/hooks/materials/useMaterialWithdrawals";
-import { useMaterialReservations, useWithdrawReservation } from "@/hooks/materials/useMaterialReservations";
+import { useMaterialReservations, useWithdrawReservation, useRequestReturn } from "@/hooks/materials/useMaterialReservations";
 import { AddMaterialDialog } from "@/components/materials/AddMaterialDialog";
 import { AddStockDialog } from "@/components/materials/AddStockDialog";
 import { RegisterWithdrawalDialog } from "@/components/materials/RegisterWithdrawalDialog";
@@ -51,6 +51,7 @@ export default function Materials() {
   const { data: reservations, isLoading: loadingReservations } = useMaterialReservations();
   const confirmWithdrawal = useConfirmWithdrawal();
   const withdrawReservation = useWithdrawReservation();
+  const requestReturn = useRequestReturn();
   const [qrReservation, setQrReservation] = useState<any>(null);
   const [returnQrReservation, setReturnQrReservation] = useState<any>(null);
   const [detailsReservation, setDetailsReservation] = useState<any>(null);
@@ -370,23 +371,52 @@ export default function Materials() {
                               {r.returned_quantity < r.quantidade && (
                                 <>
                                   {r.return_requested_quantity > 0 && r.returned_quantity < r.return_requested_quantity && (
-                                    <Badge variant="outline" className="text-xs gap-1 text-orange-600 border-orange-300 bg-orange-50">
-                                      <RotateCcw className="h-3 w-3" /> Solicitado: {r.return_requested_quantity}
-                                    </Badge>
+                                    <>
+                                      <Badge variant="outline" className="text-xs gap-1 text-orange-600 border-orange-300 bg-orange-50">
+                                        <RotateCcw className="h-3 w-3" /> Solicitado: {r.return_requested_quantity}
+                                      </Badge>
+                                      {r.return_confirmation_code && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="sm" variant="outline"
+                                                className="text-xs h-7"
+                                                onClick={() => setReturnQrReservation(r)}
+                                              >
+                                                <QrCode className="h-3 w-3" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>QR Code de Devolução</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </>
                                   )}
-                                  {r.return_confirmation_code && r.return_requested_quantity > 0 && (
+                                  {(!r.return_requested_quantity || r.return_requested_quantity <= 0 || r.returned_quantity >= r.return_requested_quantity) && (
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <Button
                                             size="sm" variant="outline"
                                             className="text-xs h-7"
-                                            onClick={() => setReturnQrReservation(r)}
+                                            onClick={() => {
+                                              const max = r.quantidade - r.returned_quantity;
+                                              const qty = prompt(`Quantidade a devolver (máx ${max}):`);
+                                              if (!qty) return;
+                                              const num = parseInt(qty);
+                                              if (isNaN(num) || num < 1 || num > max) {
+                                                alert(`Quantidade inválida. Informe entre 1 e ${max}.`);
+                                                return;
+                                              }
+                                              requestReturn.mutate({ id: r.id, quantity: num });
+                                            }}
+                                            disabled={requestReturn.isPending}
                                           >
-                                            <QrCode className="h-3 w-3" />
+                                            <RotateCcw className="h-3 w-3 mr-1" /> Solicitar Devolução
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>QR Code de Devolução</TooltipContent>
+                                        <TooltipContent>Solicitar devolução de materiais</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   )}
