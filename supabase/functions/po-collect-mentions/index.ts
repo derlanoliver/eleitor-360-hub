@@ -2079,4 +2079,98 @@ async function collectCustomSites(apiKey: string, sitesConfig: string | string[]
   return collectedMentions;
 }
 
+// ══════════════════════════════════════════════════
+// INSTAGRAM COMMENTS — Two-stage: fetch posts, then comments
+// Actor: apify~instagram-comment-scraper
+// ══════════════════════════════════════════════════
+
+async function collectInstagramComments(token: string, igHandle: string, entityName: string, entityId: string): Promise<any[]> {
+  const handle = igHandle.replace(/^@/, "");
+  const profileUrl = `https://www.instagram.com/${handle}/`;
+  console.log(`Instagram Comments: Stage 1 - fetching posts from ${profileUrl}`);
+
+  // Stage 1: Get recent posts from the profile
+  const posts = await runIgScraper(token, {
+    directUrls: [profileUrl],
+    resultsType: "posts",
+    resultsLimit: 10,
+  }, 40);
+
+  if (!posts.length) {
+    console.log("Instagram Comments: no posts found");
+    return [];
+  }
+
+  const postUrls = posts
+    .map(p => {
+      if (p.url) return p.url;
+      if (p.shortCode) return `https://www.instagram.com/p/${p.shortCode}/`;
+      if (p.id) return `https://www.instagram.com/p/${p.id}/`;
+      return null;
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+
+  console.log(`Instagram Comments: Stage 1 got ${posts.length} posts, ${postUrls.length} URLs`);
+
+  if (postUrls.length === 0) return [];
+
+  // Stage 2: Get comments from those posts
+  console.log(`Instagram Comments: Stage 2 - fetching comments from ${postUrls.length} posts`);
+  const commentItems = await runApifyActor(token, APIFY_ACTORS.instagram_comments, {
+    directUrls: postUrls.map(url => ({ url })),
+    resultsLimit: 100,
+  }, 90);
+
+  console.log(`Instagram Comments: Stage 2 got ${commentItems.length} comment items`);
+  if (commentItems.length > 0) {
+    console.log(`Instagram Comments: comment keys: ${Object.keys(commentItems[0]).join(", ")}`);
+  }
+
+  const mentions: any[] = [];
+
+  for (const comment of commentItems) {
+    const content = (comment.text || comment.comment || comment.body || comment.content || "").substring(0, 2000);
+    if (content.length < 3) continue;
+
+    const postUrl = comment.postUrl || comment.inputUrl || comment.url || null;
+    mentions.push({
+      entity_id: entityId,
+      source: "instagram_comments",
+      source_url: postUrl,
+      author_name: comment.ownerFullName || comment.username || comment.authorName || comment.owner?.fullName || null,
+      author_handle: comment.ownerUsername || comment.username || comment.owner?.username || null,
+      content,
+      published_at: comment.timestamp ||
+        (comment.createdAt ? new Date(comment.createdAt * 1000).toISOString() : null) ||
+        comment.date || new Date().toISOString(),
+      engagement: {
+        likes: comment.likesCount || comment.likes || 0,
+        comments: comment.repliesCount || comment.replyCount || 0,
+        shares: 0,
+        views: 0,
+      },
+      hashtags: [],
+      media_urls: [],
+      raw_data: {
+        source: "apify_instagram_comments_scraper",
+        post_url: postUrl,
+        comment_id: comment.id || comment.pk || null,
+      },
+    });
+  }
+
+  // Fallback: if no comments extracted, use post captions
+  if (mentions.length === 0) {
+    console.log("Instagram Comments: no comments found, falling back to post captions");
+    for (const post of posts) {
+      const mapped = mapInstagramItem(post, entityId, "instagram_comments");
+      if (mapped) mentions.push(mapped);
+    }
+  }
+
+  console.log(`Instagram Comments: total ${mentions.length} mentions extracted`);
+  return mentions;
+}
+
 
