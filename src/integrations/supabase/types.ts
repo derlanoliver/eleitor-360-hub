@@ -1239,6 +1239,66 @@ export type Database = {
         }
         Relationships: []
       }
+      material_reservations: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          leader_id: string
+          material_id: string
+          observacao: string | null
+          quantidade: number
+          reserved_at: string
+          status: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          leader_id: string
+          material_id: string
+          observacao?: string | null
+          quantidade: number
+          reserved_at?: string
+          status?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          leader_id?: string
+          material_id?: string
+          observacao?: string | null
+          quantidade?: number
+          reserved_at?: string
+          status?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_reservations_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "lideres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_reservations_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_withdrawals: {
         Row: {
           confirmado: boolean
@@ -3406,6 +3466,7 @@ export type Database = {
         }[]
       }
       demote_coordinator: { Args: { _leader_id: string }; Returns: boolean }
+      expire_material_reservations: { Args: never; Returns: undefined }
       generate_checkin_pin: { Args: never; Returns: string }
       generate_event_qr_code: { Args: never; Returns: string }
       generate_funnel_slug: { Args: { base_name: string }; Returns: string }
