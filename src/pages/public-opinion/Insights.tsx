@@ -1,10 +1,13 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AI_INSIGHTS } from "@/data/public-opinion/demoPublicOpinionData";
 import { useMonitoredEntities, useGenerateInsights } from "@/hooks/public-opinion/usePublicOpinion";
-import { Lightbulb, AlertTriangle, TrendingUp, Target, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Lightbulb, AlertTriangle, TrendingUp, Target, Sparkles, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const typeConfig: Record<string, any> = {
   opportunity: { icon: Target, color: 'text-green-600', bg: 'bg-green-50', badge: 'bg-green-100 text-green-700', label: 'Oportunidade' },
@@ -23,35 +26,60 @@ const priorityColors: Record<string, string> = {
   low: 'bg-green-100 text-green-700', baixa: 'bg-green-100 text-green-700',
 };
 
+function usePersistedInsights(entityId?: string) {
+  return useQuery({
+    queryKey: ["po_insights", entityId],
+    enabled: !!entityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("po_insights")
+        .select("*")
+        .eq("entity_id", entityId!)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (error) {
+        if (error.code === "PGRST116") return null; // no rows
+        throw error;
+      }
+      return data;
+    },
+  });
+}
+
 const Insights = () => {
   const { data: entities } = useMonitoredEntities();
   const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
   const generateInsights = useGenerateInsights();
-  const [aiInsights, setAiInsights] = useState<any[] | null>(null);
-  const [aiStats, setAiStats] = useState<any | null>(null);
+  const queryClient = useQueryClient();
+  const { data: persisted, isLoading } = usePersistedInsights(principalEntity?.id);
 
   const handleGenerate = async () => {
     if (!principalEntity) return;
-    const result = await generateInsights.mutateAsync({ entity_id: principalEntity.id, period_days: 7 });
-    if (result?.insights) {
-      setAiInsights(result.insights);
-      setAiStats(result.stats);
-    }
+    await generateInsights.mutateAsync({ entity_id: principalEntity.id, period_days: 7 });
+    queryClient.invalidateQueries({ queryKey: ["po_insights", principalEntity.id] });
   };
 
-  const insights = aiInsights || AI_INSIGHTS;
-  const isDemo = !aiInsights;
+  const hasPersistedData = persisted && (persisted.insights as any[])?.length > 0;
+  const insights = hasPersistedData ? (persisted.insights as any[]) : AI_INSIGHTS;
+  const stats = hasPersistedData ? (persisted.stats as any) : null;
+  const isDemo = !hasPersistedData;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Insights Automáticos</h1>
-            <p className="text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Insights Automáticos</h1>
+            <p className="text-muted-foreground mt-1">
               Recomendações geradas por IA baseadas na análise de sentimento
               {isDemo && <Badge variant="outline" className="ml-2">Demo</Badge>}
+              {hasPersistedData && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Gerado em {format(new Date(persisted.generated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -61,23 +89,23 @@ const Insights = () => {
             disabled={generateInsights.isPending}
           >
             {generateInsights.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            Gerar Insights com IA
+            {hasPersistedData ? 'Atualizar Insights' : 'Gerar Insights com IA'}
           </Button>
         )}
       </div>
 
       {/* AI Stats */}
-      {aiStats && (
+      {stats && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <Sparkles className="h-5 w-5 text-primary mt-1" />
               <div>
                 <h3 className="font-semibold text-primary">Resumo da Análise</h3>
-                <p className="text-sm text-gray-700 mt-2">
-                  {aiStats.total} menções analisadas — {aiStats.positive} positivas ({Math.round(aiStats.positive/aiStats.total*100)}%), 
-                  {aiStats.negative} negativas ({Math.round(aiStats.negative/aiStats.total*100)}%), 
-                  {aiStats.neutral} neutras. Score médio: {(aiStats.avgScore * 10).toFixed(1)}/10.
+                <p className="text-sm text-muted-foreground mt-2">
+                  {stats.total} menções analisadas — {stats.positive} positivas ({Math.round(stats.positive/stats.total*100)}%), 
+                  {stats.negative} negativas ({Math.round(stats.negative/stats.total*100)}%), 
+                  {stats.neutral} neutras. Score médio: {(stats.avgScore * 10).toFixed(1)}/10.
                 </p>
               </div>
             </div>
@@ -85,14 +113,14 @@ const Insights = () => {
         </Card>
       )}
 
-      {!aiStats && (
+      {!stats && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <Sparkles className="h-5 w-5 text-primary mt-1" />
               <div>
                 <h3 className="font-semibold text-primary">Resumo Executivo da Semana</h3>
-                <p className="text-sm text-gray-700 mt-2">
+                <p className="text-sm text-muted-foreground mt-2">
                   Sua imagem pública mantém tendência positiva com score de 7.4/10. A inauguração do hospital em Ceilândia foi o evento de maior impacto, 
                   gerando +522% em menções positivas. Atenção recomendada para a pauta de segurança em Sobradinho e Gama, onde o sentimento negativo cresceu 18%.
                 </p>
@@ -100,6 +128,14 @@ const Insights = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Carregando insights...</span>
+        </div>
       )}
 
       {/* Insights */}
@@ -126,8 +162,8 @@ const Insights = () => {
                         Prioridade {priority === 'high' || priority === 'alta' ? 'Alta' : priority === 'low' || priority === 'baixa' ? 'Baixa' : 'Média'}
                       </Badge>
                     </div>
-                    <h3 className="font-semibold text-gray-900">{insight.title}</h3>
-                    <p className="text-sm text-gray-700 mt-1">{insight.description}</p>
+                    <h3 className="font-semibold text-foreground">{insight.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
                     {insight.topics?.length > 0 && (
                       <div className="flex gap-1 mt-2 flex-wrap">
                         {insight.topics.map((t: string) => (

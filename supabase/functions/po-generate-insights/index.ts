@@ -168,10 +168,27 @@ Gere de 4 a 8 insights estratégicos para o político. Cada insight deve ter:
 
     const { insights } = JSON.parse(toolCall.function.arguments);
 
+    const statsObj = { total, positive, negative, neutral, avgScore: Number(avgScore.toFixed(3)) };
+
+    // Persist insights to database
+    const { error: insertError } = await supabase
+      .from("po_insights")
+      .insert({
+        entity_id,
+        period_days,
+        insights,
+        stats: statsObj,
+        generated_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error("Error persisting insights:", insertError);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       insights,
-      stats: { total, positive, negative, neutral, avgScore: Number(avgScore.toFixed(3)) },
+      stats: statsObj,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

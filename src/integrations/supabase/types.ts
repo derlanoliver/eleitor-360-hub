@@ -1935,6 +1935,44 @@ export type Database = {
           },
         ]
       }
+      po_insights: {
+        Row: {
+          created_at: string
+          entity_id: string
+          generated_at: string
+          id: string
+          insights: Json
+          period_days: number
+          stats: Json
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          generated_at?: string
+          id?: string
+          insights?: Json
+          period_days?: number
+          stats?: Json
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          generated_at?: string
+          id?: string
+          insights?: Json
+          period_days?: number
+          stats?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_insights_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "po_monitored_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_mentions: {
         Row: {
           author_handle: string | null
