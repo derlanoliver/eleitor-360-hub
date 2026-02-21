@@ -86,6 +86,7 @@ import { DynamicMetaTags } from "./components/DynamicMetaTags";
 
 // Public Opinion module
 import { PublicOpinionRealtimeProvider } from "./components/public-opinion/PublicOpinionRealtimeProvider";
+import Materials from "./pages/Materials";
 import PublicOpinionOverview from "./pages/public-opinion/Overview";
 import PublicOpinionSentiment from "./pages/public-opinion/SentimentAnalysis";
 import PublicOpinionTimeline from "./pages/public-opinion/Timeline";
@@ -529,6 +530,15 @@ const App = () => (
             <Route path="/public-opinion/settings" element={
               <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <DashboardLayout><PublicOpinionRealtimeProvider><PublicOpinionSettings /></PublicOpinionRealtimeProvider></DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+
+            {/* Materials - super_admin only */}
+            <Route path="/materials" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout>
+                  <Materials />
+                </DashboardLayout>
               </RoleProtectedRoute>
             } />
 

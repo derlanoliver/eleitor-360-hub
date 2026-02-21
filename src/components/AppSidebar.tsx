@@ -9,7 +9,8 @@ import {
   LayoutDashboard, Users, UserCheck, Calendar, Target, FolderKanban, Bot, Settings, Shield,
   Building, LogOut, UserPlus, List, History as HistoryIcon, MessageSquare, Mail, HelpCircle,
   Ticket, Map, ClipboardList, Smartphone, GitBranch, Clock, CalendarDays, Globe,
-  ChevronDown, Eye, Heart, GitCompare, UsersRound, MessageCircle, Sparkles, CalendarCheck, FileBarChart, Settings2
+  ChevronDown, Eye, Heart, GitCompare, UsersRound, MessageCircle, Sparkles, CalendarCheck, FileBarChart, Settings2,
+  Package
 } from "lucide-react";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 import {
@@ -31,6 +32,7 @@ const mainItems: MenuItem[] = [
   { title: "Lideranças", url: "/leaders", icon: UserCheck, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Árvore", url: "/leaders/tree", icon: GitBranch, roles: ['super_admin', 'admin', 'atendente'] },
   { title: "Mapa Estratégico", url: "/strategic-map", icon: Map, roles: ['super_admin', 'admin', 'atendente'] },
+  { title: "Materiais", url: "/materials", icon: Package, roles: ['super_admin'] },
 ];
 
 const campaignItems: MenuItem[] = [
