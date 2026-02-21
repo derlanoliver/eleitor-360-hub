@@ -12,6 +12,8 @@ export interface MaterialReservation {
   expires_at: string;
   withdrawn_at: string | null;
   cancelled_at: string | null;
+  returned_quantity: number;
+  returned_at: string | null;
   observacao: string | null;
   created_at: string;
   // Joined
@@ -98,5 +100,52 @@ export function useCancelReservation() {
       toast.success("Reserva cancelada, material devolvido ao estoque.");
     },
     onError: () => toast.error("Erro ao cancelar reserva"),
+  });
+}
+
+export function useWithdrawReservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from("material_reservations")
+        .update({ status: "withdrawn", updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["material_reservations"] });
+      qc.invalidateQueries({ queryKey: ["campaign_materials"] });
+      toast.success("Retirada confirmada!");
+    },
+    onError: () => toast.error("Erro ao confirmar retirada"),
+  });
+}
+
+export function useReturnMaterial() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, returnedQuantity }: { id: string; returnedQuantity: number }) => {
+      // First get current returned_quantity
+      const { data: current, error: fetchErr } = await (supabase as any)
+        .from("material_reservations")
+        .select("returned_quantity")
+        .eq("id", id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const newTotal = (current.returned_quantity || 0) + returnedQuantity;
+      const { error } = await (supabase as any)
+        .from("material_reservations")
+        .update({ returned_quantity: newTotal, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["material_reservations"] });
+      qc.invalidateQueries({ queryKey: ["campaign_materials"] });
+      toast.success("Devolução registrada! Estoque atualizado.");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao registrar devolução"),
   });
 }
