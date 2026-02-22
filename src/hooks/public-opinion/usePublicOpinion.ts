@@ -253,6 +253,27 @@ export function useGenerateInsights() {
   });
 }
 
+// ── Analyze Pending ──
+export function useAnalyzePending() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { entity_id: string }) => {
+      const { data, error } = await supabase.functions.invoke("analyze-sentiment", {
+        body: { entity_id: params.entity_id, analyze_pending: true },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["po_sentiment_analyses"] });
+      qc.invalidateQueries({ queryKey: ["po_mentions"] });
+      toast.success(`${data.analyzed ?? 0} menções analisadas com sucesso`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ── Relevance filter ──
 const IRRELEVANT_KEYWORDS = [
   "irrelevante", "sem relação", "sem cunho político", "não se refere",
