@@ -253,15 +253,41 @@ export function useGenerateInsights() {
   });
 }
 
+// ── Relevance filter ──
+const IRRELEVANT_KEYWORDS = [
+  "irrelevante", "sem relação", "sem cunho político", "não se refere",
+  "não está relacionad", "sem conexão", "não menciona", "sem relevância",
+  "não é sobre", "sem vínculo", "conteúdo genérico",
+];
+
+function isRelevantAnalysis(a: SentimentAnalysis): boolean {
+  // Exclude analyses the AI flagged as irrelevant
+  if (a.ai_summary) {
+    const lower = a.ai_summary.toLowerCase();
+    if (IRRELEVANT_KEYWORDS.some(kw => lower.includes(kw))) return false;
+  }
+  // Exclude humor/entertainment with zero score (typically unrelated content)
+  if (a.category === "humor" && (a.sentiment_score === 0 || a.sentiment_score === null)) return false;
+  return true;
+}
+
 // ── Stats helpers ──
 export function usePoOverviewStats(entityId?: string) {
   const { data: analyses } = useSentimentAnalyses(entityId, 30);
   const { data: snapshots } = useDailySnapshots(entityId, 30);
   const { data: mentions } = useMentions(entityId, undefined, 1000);
 
-  const sourceBreakdown = mentions?.length
+  // Filter out irrelevant analyses
+  const relevantAnalyses = analyses?.filter(isRelevantAnalysis);
+
+  // Build a set of relevant mention IDs for source breakdown filtering
+  const relevantMentionIds = new Set(relevantAnalyses?.map(a => a.mention_id) || []);
+
+  const relevantMentions = mentions?.filter(m => relevantMentionIds.has(m.id)) || [];
+
+  const sourceBreakdown = relevantMentions.length
     ? Object.entries(
-        mentions.reduce<Record<string, number>>((acc, m) => {
+        relevantMentions.reduce<Record<string, number>>((acc, m) => {
           acc[m.source] = (acc[m.source] || 0) + 1;
           return acc;
         }, {})
@@ -270,18 +296,18 @@ export function usePoOverviewStats(entityId?: string) {
         .map(([name, count]) => ({ name, value: count }))
     : [];
 
-  const stats = analyses?.length ? {
-    total: analyses.length,
-    positive: analyses.filter(a => a.sentiment === "positivo").length,
-    negative: analyses.filter(a => a.sentiment === "negativo").length,
-    neutral: analyses.filter(a => a.sentiment === "neutro").length,
-    avgScore: analyses.reduce((s, a) => s + (a.sentiment_score || 0), 0) / analyses.length,
-    topTopics: getTopItems(analyses.flatMap(a => a.topics || []), 5),
-    topEmotions: getTopItems(analyses.flatMap(a => a.emotions || []), 5),
-    topCategories: getTopItems(analyses.map(a => a.category).filter(Boolean) as string[], 5),
+  const stats = relevantAnalyses?.length ? {
+    total: relevantAnalyses.length,
+    positive: relevantAnalyses.filter(a => a.sentiment === "positivo").length,
+    negative: relevantAnalyses.filter(a => a.sentiment === "negativo").length,
+    neutral: relevantAnalyses.filter(a => a.sentiment === "neutro").length,
+    avgScore: relevantAnalyses.reduce((s, a) => s + (a.sentiment_score || 0), 0) / relevantAnalyses.length,
+    topTopics: getTopItems(relevantAnalyses.flatMap(a => a.topics || []), 5),
+    topEmotions: getTopItems(relevantAnalyses.flatMap(a => a.emotions || []), 5),
+    topCategories: getTopItems(relevantAnalyses.map(a => a.category).filter(Boolean) as string[], 5),
   } : null;
 
-  return { stats, snapshots, analyses, sourceBreakdown };
+  return { stats, snapshots, analyses: relevantAnalyses, sourceBreakdown };
 }
 
 function getTopItems(items: string[], limit: number) {
