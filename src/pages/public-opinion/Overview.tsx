@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Users, MessageSquare, ThumbsUp, Eye, Loader2, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, MessageSquare, ThumbsUp, Eye, Loader2, RefreshCw, Zap } from "lucide-react";
 import { SENTIMENT_OVERVIEW, SENTIMENT_TIMELINE } from "@/data/public-opinion/demoPublicOpinionData";
-import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useDailySnapshots } from "@/hooks/public-opinion/usePublicOpinion";
+import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useDailySnapshots, useAnalyzePending, useMentions, useSentimentAnalyses } from "@/hooks/public-opinion/usePublicOpinion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
 const sourceColors: Record<string, string> = {
@@ -27,6 +27,10 @@ const Overview = () => {
   const principalEntity = entities?.find(e => e.is_principal) || entities?.[0];
   const { stats, snapshots, analyses, sourceBreakdown } = usePoOverviewStats(principalEntity?.id);
   const collectMentions = useCollectMentions();
+  const analyzePending = useAnalyzePending();
+  const { data: allMentions } = useMentions(principalEntity?.id, undefined, 1000);
+  const { data: allAnalyses } = useSentimentAnalyses(principalEntity?.id, 30);
+  const pendingCount = (allMentions?.length || 0) - (allAnalyses?.length || 0);
 
   const hasRealData = !!stats && stats.total > 0;
 
@@ -79,28 +83,41 @@ const Overview = () => {
           </div>
         </div>
         {principalEntity && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={collectMentions.isPending}
-            onClick={() => {
-              const sources = ["news", "google_news", "google_search", "portais_df", "portais_br", "fontes_oficiais", "reddit"];
-              const redes = principalEntity.redes_sociais as Record<string, any> | null;
-              if (redes?.twitter) { sources.push("twitter"); sources.push("twitter_comments"); }
-              if (redes?.instagram) { sources.push("instagram"); sources.push("instagram_comments"); }
-              if (redes?.facebook) { sources.push("facebook"); sources.push("facebook_comments"); }
-              if (redes?.tiktok) { sources.push("tiktok"); sources.push("tiktok_comments"); }
-              if (redes?.youtube) { sources.push("youtube_comments"); sources.push("youtube_search"); }
-              if (redes?.instagram || redes?.threads) sources.push("threads");
-              if (redes?.telegram) sources.push("telegram");
-              if (redes?.influenciadores_ig?.length) sources.push("influencer_comments");
-              if (redes?.sites_customizados?.length) sources.push("sites_custom");
-              collectMentions.mutate({ entity_id: principalEntity.id, sources });
-            }}
-          >
-            {collectMentions.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Coletar Menções
-          </Button>
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={analyzePending.isPending}
+                onClick={() => analyzePending.mutate({ entity_id: principalEntity.id })}
+              >
+                {analyzePending.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+                Analisar Pendentes ({pendingCount})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={collectMentions.isPending}
+              onClick={() => {
+                const sources = ["news", "google_news", "google_search", "portais_df", "portais_br", "fontes_oficiais", "reddit"];
+                const redes = principalEntity.redes_sociais as Record<string, any> | null;
+                if (redes?.twitter) { sources.push("twitter"); sources.push("twitter_comments"); }
+                if (redes?.instagram) { sources.push("instagram"); sources.push("instagram_comments"); }
+                if (redes?.facebook) { sources.push("facebook"); sources.push("facebook_comments"); }
+                if (redes?.tiktok) { sources.push("tiktok"); sources.push("tiktok_comments"); }
+                if (redes?.youtube) { sources.push("youtube_comments"); sources.push("youtube_search"); }
+                if (redes?.instagram || redes?.threads) sources.push("threads");
+                if (redes?.telegram) sources.push("telegram");
+                if (redes?.influenciadores_ig?.length) sources.push("influencer_comments");
+                if (redes?.sites_customizados?.length) sources.push("sites_custom");
+                collectMentions.mutate({ entity_id: principalEntity.id, sources });
+              }}
+            >
+              {collectMentions.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Coletar Menções
+            </Button>
+          </div>
         )}
       </div>
 

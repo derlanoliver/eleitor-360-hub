@@ -3838,6 +3838,12 @@ export type Database = {
           telefone: string
         }[]
       }
+      get_unanalyzed_mention_ids: {
+        Args: { _entity_id: string; _limit?: number }
+        Returns: {
+          id: string
+        }[]
+      }
       get_unverified_leaders_in_tree: {
         Args: { coordinator_id: string }
         Returns: {
