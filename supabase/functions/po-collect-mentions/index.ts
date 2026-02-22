@@ -536,7 +536,7 @@ async function runIgScraper(token: string, input: Record<string, any>, timeoutSe
 async function runIgSearchScraper(token: string, query: string, limit: number, timeoutSecs = 50): Promise<any[]> {
   return runApifyActor(token, "apify~instagram-search-scraper", {
     searchQueries: [query],
-    searchType: "top",
+    searchType: "hashtag",
     resultsLimit: limit,
   }, timeoutSecs).catch(e => {
     console.error("ig-search-scraper error:", e.message);
@@ -2118,7 +2118,7 @@ async function collectInstagramComments(token: string, igHandle: string, entityN
   // Stage 2: Get comments from those posts
   console.log(`Instagram Comments: Stage 2 - fetching comments from ${postUrls.length} posts`);
   const commentItems = await runApifyActor(token, APIFY_ACTORS.instagram_comments, {
-    directUrls: postUrls.map(url => ({ url })),
+    directUrls: postUrls,
     resultsLimit: 100,
   }, 90);
 
