@@ -158,10 +158,12 @@ serve(async (req) => {
 
     const { mention_ids, entity_id, analyze_pending } = await req.json();
 
+    if (!entity_id) throw new Error("entity_id is required");
+
     let mentionIdsToAnalyze = mention_ids || [];
 
-    // If analyze_pending=true, find unanalyzed mentions
-    if (analyze_pending && entity_id) {
+    // If analyze_pending=true OR no mention_ids provided, find unanalyzed mentions
+    if ((analyze_pending || !mentionIdsToAnalyze.length) && entity_id) {
       const { data: unanalyzed } = await supabase.rpc("get_unanalyzed_mention_ids", {
         _entity_id: entity_id,
         _limit: 200,
