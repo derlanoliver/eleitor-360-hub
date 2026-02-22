@@ -228,7 +228,11 @@ export function useCollectMentions() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["po_mentions"] });
       qc.invalidateQueries({ queryKey: ["po_sentiment_analyses"] });
-      toast.success(`${data.collected} menções coletadas e enviadas para análise`);
+      if (data?.background) {
+        toast.success("Coleta iniciada em segundo plano. Os dados aparecerão em alguns minutos.");
+      } else {
+        toast.success(`${data.collected ?? 0} menções coletadas e enviadas para análise`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });

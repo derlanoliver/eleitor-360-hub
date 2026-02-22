@@ -41,271 +41,248 @@ const APIFY_ACTORS: Record<string, string> = {
   telegram: "lexer~telegram-channel-post-scraper",
 };
 
+// ── Background collection logic ──
+async function runCollection(entity_id: string, sources: string[] | undefined, query: string | undefined) {
+  const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
+  const ZENSCRAPE_API_KEY = Deno.env.get("ZENSCRAPE_API_KEY");
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: entity, error: entityError } = await supabase
+    .from("po_monitored_entities")
+    .select("*")
+    .eq("id", entity_id)
+    .single();
+
+  if (entityError || !entity) throw new Error("Entity not found");
+
+  const searchQuery = query || `"${entity.nome}"`;
+  const targetSources = sources || ["news"];
+
+  console.log(`[BG] Collecting for "${entity.nome}", query: ${searchQuery}, sources: ${targetSources.join(",")}`);
+
+  const collectedMentions: any[] = [];
+
+  // ── 1. Zenscrape - news scraping (Bing + Yahoo) ──
+  if (targetSources.includes("news") && ZENSCRAPE_API_KEY) {
+    try { collectedMentions.push(...await collectViaZenscrape(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("news error:", e); }
+  }
+
+  // ── 2. Apify - Google News ──
+  if (targetSources.includes("google_news") && APIFY_API_TOKEN) {
+    try { collectedMentions.push(...await collectGoogleNews(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("google_news error:", e); }
+  }
+
+  // ── 3. Apify - Twitter/X ──
+  if (targetSources.includes("twitter") && APIFY_API_TOKEN) {
+    try {
+      const twHandle = entity.redes_sociais?.twitter;
+      collectedMentions.push(...await collectTwitter(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, twHandle || undefined));
+    } catch (e) { console.error("twitter error:", e); }
+  }
+
+  // ── 4. Apify - Instagram ──
+  if (targetSources.includes("instagram") && APIFY_API_TOKEN) {
+    try {
+      const igHandle = entity.redes_sociais?.instagram;
+      collectedMentions.push(...await collectInstagram(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, igHandle || undefined));
+    } catch (e) { console.error("instagram error:", e); }
+  }
+
+  // ── 5. Apify - Facebook ──
+  if (targetSources.includes("facebook") && APIFY_API_TOKEN) {
+    try {
+      const fbHandle = entity.redes_sociais?.facebook;
+      collectedMentions.push(...await collectFacebook(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, fbHandle || undefined));
+    } catch (e) { console.error("facebook error:", e); }
+  }
+
+  // ── 6. Facebook Comments ──
+  if (targetSources.includes("facebook_comments") && APIFY_API_TOKEN) {
+    try {
+      const fbHandle = entity.redes_sociais?.facebook;
+      if (fbHandle) collectedMentions.push(...await collectFacebookComments(APIFY_API_TOKEN, fbHandle, entity.nome, entity_id));
+    } catch (e) { console.error("facebook_comments error:", e); }
+  }
+
+  // ── 7. Instagram Comments ──
+  if (targetSources.includes("instagram_comments") && APIFY_API_TOKEN) {
+    try {
+      const igHandle = entity.redes_sociais?.instagram;
+      if (igHandle) collectedMentions.push(...await collectInstagramComments(APIFY_API_TOKEN, igHandle, entity.nome, entity_id));
+    } catch (e) { console.error("instagram_comments error:", e); }
+  }
+
+  // ── 8. Twitter Replies ──
+  if (targetSources.includes("twitter_comments") && APIFY_API_TOKEN) {
+    try {
+      const twHandle = entity.redes_sociais?.twitter;
+      if (twHandle) collectedMentions.push(...await collectTwitterReplies(APIFY_API_TOKEN, twHandle, entity.nome, entity_id));
+    } catch (e) { console.error("twitter_comments error:", e); }
+  }
+
+  // ── 9a. TikTok ──
+  if (targetSources.includes("tiktok") && APIFY_API_TOKEN) {
+    try {
+      const tkHandle = entity.redes_sociais?.tiktok;
+      collectedMentions.push(...await collectTikTok(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, tkHandle || undefined));
+    } catch (e) { console.error("tiktok error:", e); }
+  }
+
+  // ── 9b. TikTok Comments ──
+  if (targetSources.includes("tiktok_comments") && APIFY_API_TOKEN) {
+    try {
+      const tkHandle = entity.redes_sociais?.tiktok;
+      if (tkHandle) collectedMentions.push(...await collectTikTokComments(APIFY_API_TOKEN, tkHandle, entity.nome, entity_id));
+    } catch (e) { console.error("tiktok_comments error:", e); }
+  }
+
+  // ── 10. YouTube Comments ──
+  if (targetSources.includes("youtube_comments") && APIFY_API_TOKEN) {
+    try {
+      const ytHandle = entity.redes_sociais?.youtube;
+      if (ytHandle) collectedMentions.push(...await collectYouTubeComments(APIFY_API_TOKEN, ytHandle, entity.nome, entity_id));
+    } catch (e) { console.error("youtube_comments error:", e); }
+  }
+
+  // ── 11. Reddit ──
+  if (targetSources.includes("reddit") && APIFY_API_TOKEN) {
+    try { collectedMentions.push(...await collectReddit(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("reddit error:", e); }
+  }
+
+  // ── 12. Portais DF ──
+  if (targetSources.includes("portais_df") && ZENSCRAPE_API_KEY) {
+    try { collectedMentions.push(...await collectPortaisDF(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("portais_df error:", e); }
+  }
+
+  // ── 13. Telegram ──
+  if (targetSources.includes("telegram") && APIFY_API_TOKEN) {
+    try {
+      const tgChannels = (entity.redes_sociais as Record<string, any>)?.telegram;
+      if (tgChannels) collectedMentions.push(...await collectTelegram(APIFY_API_TOKEN, tgChannels, searchQuery, entity.nome, entity_id));
+    } catch (e) { console.error("telegram error:", e); }
+  }
+
+  // ── 14. Influencer Comments ──
+  if (targetSources.includes("influencer_comments") && APIFY_API_TOKEN) {
+    try {
+      const influencers = (entity.redes_sociais as Record<string, any>)?.influenciadores_ig;
+      if (influencers) collectedMentions.push(...await collectInfluencerComments(APIFY_API_TOKEN, influencers, entity.nome, entity_id));
+    } catch (e) { console.error("influencer_comments error:", e); }
+  }
+
+  // ── 16. Google Search ──
+  if (targetSources.includes("google_search") && APIFY_API_TOKEN) {
+    try { collectedMentions.push(...await collectGoogleSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("google_search error:", e); }
+  }
+
+  // ── 17. Portais BR ──
+  if (targetSources.includes("portais_br") && ZENSCRAPE_API_KEY) {
+    try { collectedMentions.push(...await collectPortaisBR(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("portais_br error:", e); }
+  }
+
+  // ── 18. Threads ──
+  if (targetSources.includes("threads") && APIFY_API_TOKEN) {
+    try {
+      const thHandle = entity.redes_sociais?.threads || entity.redes_sociais?.instagram;
+      collectedMentions.push(...await collectThreads(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, thHandle || undefined));
+    } catch (e) { console.error("threads error:", e); }
+  }
+
+  // ── 19. YouTube Search ──
+  if (targetSources.includes("youtube_search") && APIFY_API_TOKEN) {
+    try { collectedMentions.push(...await collectYouTubeSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("youtube_search error:", e); }
+  }
+
+  // ── 20. Fontes Oficiais ──
+  if (targetSources.includes("fontes_oficiais") && ZENSCRAPE_API_KEY) {
+    try { collectedMentions.push(...await collectFontesOficiais(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id)); } catch (e) { console.error("fontes_oficiais error:", e); }
+  }
+
+  // ── 15. Custom Sites ──
+  if (targetSources.includes("sites_custom") && ZENSCRAPE_API_KEY) {
+    try {
+      const sites = (entity.redes_sociais as Record<string, any>)?.sites_customizados;
+      if (sites) collectedMentions.push(...await collectCustomSites(ZENSCRAPE_API_KEY, sites, entity.nome, entity_id));
+    } catch (e) { console.error("sites_custom error:", e); }
+  }
+
+  // ── Dedupe & Insert ──
+  console.log(`[BG] Total collected: ${collectedMentions.length} mentions`);
+
+  if (collectedMentions.length > 0) {
+    const { data: existing } = await supabase
+      .from("po_mentions")
+      .select("content")
+      .eq("entity_id", entity_id)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const existingSet = new Set(
+      (existing || []).map((e: any) => e.content.substring(0, 200))
+    );
+
+    const uniqueMentions = collectedMentions.filter(
+      m => !existingSet.has(m.content.substring(0, 200))
+    );
+
+    const dupeCount = collectedMentions.length - uniqueMentions.length;
+    console.log(`[BG] Dedupe: ${dupeCount} duplicates removed, ${uniqueMentions.length} unique`);
+
+    if (uniqueMentions.length === 0) {
+      console.log("[BG] All mentions already existed");
+      return;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("po_mentions")
+      .insert(uniqueMentions)
+      .select("id");
+
+    if (insertError) {
+      console.error("[BG] Insert error:", insertError);
+      return;
+    }
+
+    const mentionIds = inserted?.map(m => m.id) || [];
+    console.log(`[BG] Inserted ${mentionIds.length} mentions`);
+
+    if (mentionIds.length > 0) {
+      fetch(`${supabaseUrl}/functions/v1/analyze-sentiment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ mention_ids: mentionIds, entity_id }),
+      }).catch(err => console.error("[BG] Background analysis error:", err));
+    }
+  } else {
+    console.log("[BG] No mentions found");
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const APIFY_API_TOKEN = Deno.env.get("APIFY_API_TOKEN");
-    const ZENSCRAPE_API_KEY = Deno.env.get("ZENSCRAPE_API_KEY");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const { entity_id, sources, query } = await req.json();
     if (!entity_id) throw new Error("entity_id is required");
 
-    const { data: entity, error: entityError } = await supabase
-      .from("po_monitored_entities")
-      .select("*")
-      .eq("id", entity_id)
-      .single();
+    // Dispatch background processing using EdgeRuntime.waitUntil
+    const bgTask = runCollection(entity_id, sources, query).catch(e => {
+      console.error("[BG] runCollection fatal error:", e);
+    });
 
-    if (entityError || !entity) throw new Error("Entity not found");
-
-    const searchQuery = query || `"${entity.nome}"`;
-    const targetSources = sources || ["news"];
-
-    console.log(`Collecting for "${entity.nome}", query: ${searchQuery}, sources: ${targetSources.join(",")}`);
-
-    const collectedMentions: any[] = [];
-
-    // ── 1. Zenscrape - news scraping (Bing + Yahoo) ──
-    if (targetSources.includes("news") && ZENSCRAPE_API_KEY) {
-      const mentions = await collectViaZenscrape(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
+    // @ts-ignore - EdgeRuntime.waitUntil is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(bgTask);
     }
 
-    // ── 2. Apify - Google News ──
-    if (targetSources.includes("google_news") && APIFY_API_TOKEN) {
-      const mentions = await collectGoogleNews(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 3. Apify - Twitter/X (múltiplos actors + queries) ──
-    if (targetSources.includes("twitter") && APIFY_API_TOKEN) {
-      const twHandle = entity.redes_sociais?.twitter;
-      const mentions = await collectTwitter(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, twHandle || undefined);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 4. Apify - Instagram (múltiplos actors + queries paralelas) ──
-    if (targetSources.includes("instagram") && APIFY_API_TOKEN) {
-      const igHandle = entity.redes_sociais?.instagram;
-      const mentions = await collectInstagram(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, igHandle || undefined);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 5. Apify - Facebook (múltiplos actors + queries paralelas) ──
-    if (targetSources.includes("facebook") && APIFY_API_TOKEN) {
-      const fbHandle = entity.redes_sociais?.facebook;
-      const mentions = await collectFacebook(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, fbHandle || undefined);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 6. Facebook Comments (from entity's own page) ──
-    if (targetSources.includes("facebook_comments") && APIFY_API_TOKEN) {
-      const fbHandle = entity.redes_sociais?.facebook;
-      if (fbHandle) {
-        const mentions = await collectFacebookComments(APIFY_API_TOKEN, fbHandle, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("facebook_comments: no Facebook handle configured for entity");
-      }
-    }
-
-    // ── 7. Instagram Comments (from entity's own profile) ──
-    if (targetSources.includes("instagram_comments") && APIFY_API_TOKEN) {
-      const igHandle = entity.redes_sociais?.instagram;
-      if (igHandle) {
-        const mentions = await collectInstagramComments(APIFY_API_TOKEN, igHandle, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("instagram_comments: no Instagram handle configured for entity");
-      }
-    }
-
-    // ── 8. Twitter Replies (from entity's own profile) ──
-    if (targetSources.includes("twitter_comments") && APIFY_API_TOKEN) {
-      const twHandle = entity.redes_sociais?.twitter;
-      if (twHandle) {
-        const mentions = await collectTwitterReplies(APIFY_API_TOKEN, twHandle, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("twitter_comments: no Twitter handle configured for entity");
-      }
-    }
-
-    // ── 9a. TikTok — fire-and-forget quando há outras fontes para evitar timeout ──
-    if (targetSources.includes("tiktok") && APIFY_API_TOKEN) {
-      const otherSources = targetSources.filter((s: string) => s !== "tiktok" && s !== "tiktok_comments");
-      if (otherSources.length > 0) {
-        // Dispara coleta TikTok em background para não bloquear as outras fontes
-        fetch(`${supabaseUrl}/functions/v1/po-collect-mentions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
-          body: JSON.stringify({ entity_id, sources: ["tiktok"] }),
-        }).catch(e => console.error("TikTok background error:", e));
-        console.log("TikTok: dispatched as background task");
-      } else {
-        const tkHandle = entity.redes_sociais?.tiktok;
-        const mentions = await collectTikTok(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, tkHandle || undefined);
-        collectedMentions.push(...mentions);
-      }
-    }
-
-    // ── 9b. TikTok Comments (from entity's own profile) ──
-    if (targetSources.includes("tiktok_comments") && APIFY_API_TOKEN) {
-      const tkHandle = entity.redes_sociais?.tiktok;
-      if (tkHandle) {
-        const mentions = await collectTikTokComments(APIFY_API_TOKEN, tkHandle, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("tiktok_comments: no TikTok handle configured for entity");
-      }
-    }
-
-    // ── 10. YouTube Comments (from entity's own channel) ──
-    if (targetSources.includes("youtube_comments") && APIFY_API_TOKEN) {
-      const ytHandle = entity.redes_sociais?.youtube;
-      if (ytHandle) {
-        const mentions = await collectYouTubeComments(APIFY_API_TOKEN, ytHandle, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("youtube_comments: no YouTube handle configured for entity");
-      }
-    }
-
-    // ── 11. Reddit ──
-    if (targetSources.includes("reddit") && APIFY_API_TOKEN) {
-      const mentions = await collectReddit(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 12. Portais DF (local news portals) ──
-    if (targetSources.includes("portais_df") && ZENSCRAPE_API_KEY) {
-      const mentions = await collectPortaisDF(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 13. Telegram (public channels) ──
-    if (targetSources.includes("telegram") && APIFY_API_TOKEN) {
-      const tgChannels = (entity.redes_sociais as Record<string, any>)?.telegram;
-      if (tgChannels) {
-        const mentions = await collectTelegram(APIFY_API_TOKEN, tgChannels, searchQuery, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("telegram: no Telegram channels configured for entity");
-      }
-    }
-
-    // ── 14. Influencer Comments (third-party Instagram profiles) ──
-    if (targetSources.includes("influencer_comments") && APIFY_API_TOKEN) {
-      const influencers = (entity.redes_sociais as Record<string, any>)?.influenciadores_ig;
-      if (influencers) {
-        const mentions = await collectInfluencerComments(APIFY_API_TOKEN, influencers, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("influencer_comments: no influencers configured for entity");
-      }
-    }
-
-    // ── 16. Google Search (organic results) ──
-    if (targetSources.includes("google_search") && APIFY_API_TOKEN) {
-      const mentions = await collectGoogleSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 17. Portais de Notícias Brasileiros (UOL, Folha, Globo, Estadão, Band, etc.) ──
-    if (targetSources.includes("portais_br") && ZENSCRAPE_API_KEY) {
-      const mentions = await collectPortaisBR(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 18. Threads (Meta) ──
-    if (targetSources.includes("threads") && APIFY_API_TOKEN) {
-      const thHandle = entity.redes_sociais?.threads || entity.redes_sociais?.instagram;
-      const mentions = await collectThreads(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id, thHandle || undefined);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 19. YouTube Search (busca por vídeos que mencionam a entidade) ──
-    if (targetSources.includes("youtube_search") && APIFY_API_TOKEN) {
-      const mentions = await collectYouTubeSearch(APIFY_API_TOKEN, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 20. Fontes Oficiais (Agência Câmara, Agência Senado, TSE, Agência Brasília) ──
-    if (targetSources.includes("fontes_oficiais") && ZENSCRAPE_API_KEY) {
-      const mentions = await collectFontesOficiais(ZENSCRAPE_API_KEY, searchQuery, entity.nome, entity_id);
-      collectedMentions.push(...mentions);
-    }
-
-    // ── 15. Custom Sites (user-defined URLs) ──
-    if (targetSources.includes("sites_custom") && ZENSCRAPE_API_KEY) {
-      const sites = (entity.redes_sociais as Record<string, any>)?.sites_customizados;
-      if (sites) {
-        const mentions = await collectCustomSites(ZENSCRAPE_API_KEY, sites, entity.nome, entity_id);
-        collectedMentions.push(...mentions);
-      } else {
-        console.log("sites_custom: no custom sites configured for entity");
-      }
-    }
-
-    // ── Dedupe: remove mentions whose content already exists in DB ──
-    if (collectedMentions.length > 0) {
-      const { data: existing } = await supabase
-        .from("po_mentions")
-        .select("content")
-        .eq("entity_id", entity_id)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      const existingSet = new Set(
-        (existing || []).map((e: any) => e.content.substring(0, 200))
-      );
-
-      const uniqueMentions = collectedMentions.filter(
-        m => !existingSet.has(m.content.substring(0, 200))
-      );
-
-      const dupeCount = collectedMentions.length - uniqueMentions.length;
-      console.log(`Dedupe: ${dupeCount} duplicates removed, ${uniqueMentions.length} unique`);
-
-      if (uniqueMentions.length === 0) {
-        return new Response(JSON.stringify({
-          success: true, collected: 0, duplicates_removed: dupeCount,
-          message: "Todas as menções já existiam no banco.",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      const { data: inserted, error: insertError } = await supabase
-        .from("po_mentions")
-        .insert(uniqueMentions)
-        .select("id");
-
-      if (insertError) {
-        console.error("Insert error:", insertError);
-        throw insertError;
-      }
-
-      const mentionIds = inserted?.map(m => m.id) || [];
-      if (mentionIds.length > 0) {
-        fetch(`${supabaseUrl}/functions/v1/analyze-sentiment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
-          body: JSON.stringify({ mention_ids: mentionIds, entity_id }),
-        }).catch(err => console.error("Background analysis error:", err));
-      }
-
-      return new Response(JSON.stringify({
-        success: true, collected: inserted?.length || 0, duplicates_removed: dupeCount,
-        sources_queried: targetSources, analysis_triggered: mentionIds.length > 0,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
+    // Return immediately
     return new Response(JSON.stringify({
-      success: true, collected: 0, message: "Nenhuma menção encontrada.",
+      success: true,
+      message: "Coleta iniciada em segundo plano. Os dados aparecerão em breve.",
+      background: true,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
