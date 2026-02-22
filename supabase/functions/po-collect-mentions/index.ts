@@ -29,7 +29,7 @@ const APIFY_ACTORS: Record<string, string> = {
   tiktok_scraper: "clockworks~tiktok-scraper",             // keyword + hashtag + profile (principal)
   tiktok_apidojo: "apidojo~tiktok-scraper",                // keyword alternativo rápido
   tiktok_keyword: "sociavault~tiktok-keyword-search-scraper", // keyword com filtro de região BR
-  tiktok_comments: "easyapi~tiktok-comments-scraper",      // comentários em vídeos
+  tiktok_comments: "apidojo~tiktok-comments-scraper",      // comentários em vídeos (pay-per-result)
   // Outros
   google_news: "dlaf~google-news-free",
   google_search: "apify~google-search-scraper",
@@ -1175,8 +1175,9 @@ async function collectTikTokComments(token: string, tkHandle: string, entityName
   const postUrls = videoUrls.slice(0, 12);
   console.log(`TikTok Comments: Stage 2 - fetching comments from ${postUrls.length} videos`);
   const commentItems = await runApifyActor(token, APIFY_ACTORS.tiktok_comments, {
-    postUrls,
-    maxItems: 120,
+    postURLs: postUrls,
+    commentsPerPost: 10,
+    maxRepliesPerComment: 0,
   }, 90);
 
   console.log(`TikTok Comments: Stage 2 got ${commentItems.length} comment items`);
