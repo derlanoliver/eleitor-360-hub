@@ -1258,8 +1258,8 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                         
                         // Adicionar dados dos líderes
                         leadersForReport.forEach((l: any, index: number) => {
-                          const arvoreCount = subordinatesCount.get(l.id) || 0;
                           const stats = statsPerLeader.get(l.id) || { verified: 0, notVerified: 0 };
+                          const arvoreCount = stats.verified + stats.notVerified;
                           const phone = l.telefone ? formatPhone(l.telefone) : "";
                           
                           excelData.push([
