@@ -1114,6 +1114,7 @@ export type Database = {
           email: string | null
           hierarchy_level: number | null
           id: string
+          instagram_username: string | null
           is_active: boolean
           is_coordinator: boolean | null
           is_verified: boolean | null
@@ -1146,6 +1147,7 @@ export type Database = {
           email?: string | null
           hierarchy_level?: number | null
           id?: string
+          instagram_username?: string | null
           is_active?: boolean
           is_coordinator?: boolean | null
           is_verified?: boolean | null
@@ -1178,6 +1180,7 @@ export type Database = {
           email?: string | null
           hierarchy_level?: number | null
           id?: string
+          instagram_username?: string | null
           is_active?: boolean
           is_coordinator?: boolean | null
           is_verified?: boolean | null

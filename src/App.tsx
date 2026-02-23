@@ -88,6 +88,7 @@ import { DynamicMetaTags } from "./components/DynamicMetaTags";
 // Public Opinion module
 import { PublicOpinionRealtimeProvider } from "./components/public-opinion/PublicOpinionRealtimeProvider";
 import Materials from "./pages/Materials";
+import InstagramFollowers from "./pages/InstagramFollowers";
 import PublicOpinionOverview from "./pages/public-opinion/Overview";
 import PublicOpinionSentiment from "./pages/public-opinion/SentimentAnalysis";
 import PublicOpinionTimeline from "./pages/public-opinion/Timeline";
@@ -540,6 +541,15 @@ const App = () => (
               <RoleProtectedRoute allowedRoles={['super_admin']}>
                 <DashboardLayout>
                   <Materials />
+                </DashboardLayout>
+              </RoleProtectedRoute>
+            } />
+
+            {/* Instagram Followers - super_admin only */}
+            <Route path="/instagram-followers" element={
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <DashboardLayout>
+                  <InstagramFollowers />
                 </DashboardLayout>
               </RoleProtectedRoute>
             } />

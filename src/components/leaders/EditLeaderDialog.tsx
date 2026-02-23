@@ -44,6 +44,7 @@ const formSchema = z.object({
   cidade_id: z.string().optional(),
   data_nascimento: z.string().optional(),
   observacao: z.string().optional(),
+  instagram_username: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 
@@ -65,25 +66,27 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
       nome_completo: leader.nome_completo,
       email: leader.email || "",
       telefone: leader.telefone || "",
-      cidade_id: leader.cidade_id || "",
-      data_nascimento: leader.data_nascimento || "",
-      observacao: leader.observacao || "",
-      is_active: leader.is_active,
-    },
-  });
-
-  // Atualizar valores quando o líder mudar
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        nome_completo: leader.nome_completo,
-        email: leader.email || "",
-        telefone: leader.telefone || "",
         cidade_id: leader.cidade_id || "",
         data_nascimento: leader.data_nascimento || "",
         observacao: leader.observacao || "",
+        instagram_username: (leader as any).instagram_username || "",
         is_active: leader.is_active,
-      });
+      },
+    });
+  
+    // Atualizar valores quando o líder mudar
+    useEffect(() => {
+      if (open) {
+        form.reset({
+          nome_completo: leader.nome_completo,
+          email: leader.email || "",
+          telefone: leader.telefone || "",
+          cidade_id: leader.cidade_id || "",
+          data_nascimento: leader.data_nascimento || "",
+          observacao: leader.observacao || "",
+          instagram_username: (leader as any).instagram_username || "",
+          is_active: leader.is_active,
+        });
       setDataNascimentoDisplay(leader.data_nascimento ? formatDateBR(leader.data_nascimento) : "");
     }
   }, [leader, open, form]);
@@ -205,6 +208,23 @@ export function EditLeaderDialog({ leader, children }: EditLeaderDialogProps) {
                           field.onChange("");
                         }
                       }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="instagram_username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Instagram (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="@usuario" 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />

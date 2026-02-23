@@ -61,6 +61,8 @@ export interface OfficeLeader {
   verified_at?: string;
   verification_method?: string; // 'link' ou 'manual'
   verified_by_user_id?: string;
+  // Social media
+  instagram_username?: string;
   // PassKit fields
   passkit_member_id?: string;
   passkit_pass_installed?: boolean;
@@ -153,6 +155,7 @@ export interface CreateLeaderDTO {
   is_active: boolean;
   data_nascimento?: string; // YYYY-MM-DD
   observacao?: string;
+  instagram_username?: string;
 }
 
 export interface UpdateLeaderDTO {
@@ -163,6 +166,7 @@ export interface UpdateLeaderDTO {
   is_active?: boolean;
   data_nascimento?: string; // YYYY-MM-DD
   observacao?: string;
+  instagram_username?: string;
 }
 
 export interface CreateOfficeVisitDTO {

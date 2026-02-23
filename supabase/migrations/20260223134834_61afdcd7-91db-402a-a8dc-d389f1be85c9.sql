@@ -1,0 +1,1 @@
+ALTER TABLE public.lideres ADD COLUMN IF NOT EXISTS instagram_username TEXT;

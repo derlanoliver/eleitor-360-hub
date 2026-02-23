@@ -41,6 +41,7 @@ const formSchema = z.object({
   cidade_id: z.string().optional(),
   data_nascimento: z.string().optional(),
   observacao: z.string().optional(),
+  instagram_username: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 
@@ -63,6 +64,7 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
       cidade_id: "",
       data_nascimento: "",
       observacao: "",
+      instagram_username: "",
       is_active: true,
     },
   });
@@ -200,6 +202,23 @@ export function AddLeaderDialog({ children }: AddLeaderDialogProps) {
                       />
                     </PopoverContent>
                   </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="instagram_username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Instagram (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="@usuario" 
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
