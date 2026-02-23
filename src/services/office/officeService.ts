@@ -128,6 +128,7 @@ export async function createLeader(dto: CreateLeaderDTO): Promise<OfficeLeader> 
       email: dto.email,
       telefone: dto.telefone,
       cidade_id: dto.cidade_id,
+      instagram_username: dto.instagram_username || null,
       is_active: dto.is_active,
       status: 'active',
       cadastros: 0,

@@ -15,6 +15,7 @@ export function useUpdateLeader() {
         cidade_id: data.cidade_id || null,
         data_nascimento: data.data_nascimento || null,
         observacao: data.observacao || null,
+        instagram_username: data.instagram_username || null,
         is_active: data.is_active,
         status: data.is_active ? 'active' : 'inactive',
       };
