@@ -9,6 +9,22 @@ import { TrendingUp, Users, MessageSquare, ThumbsUp } from "lucide-react";
 
 const entityColors = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#22c55e'];
 
+// Keywords that indicate the AI flagged the analysis as irrelevant
+const IRRELEVANT_KEYWORDS = [
+  "irrelevante", "sem relação", "sem cunho político", "não se refere",
+  "não está relacionad", "sem conexão", "não menciona", "sem relevância",
+  "não é sobre", "sem vínculo", "conteúdo genérico",
+];
+
+function isRelevantAnalysis(a: any): boolean {
+  if (a.ai_summary) {
+    const lower = a.ai_summary.toLowerCase();
+    if (IRRELEVANT_KEYWORDS.some((kw: string) => lower.includes(kw))) return false;
+  }
+  if (a.category === "humor" && (a.sentiment_score === 0 || a.sentiment_score === null)) return false;
+  return true;
+}
+
 function useEntityStats(entityId?: string) {
   return useQuery({
     queryKey: ["po_comparison_stats", entityId],
@@ -40,7 +56,7 @@ function useEntityStats(entityId?: string) {
       while (true) {
         const { data } = await supabase
           .from("po_sentiment_analyses")
-          .select("sentiment, sentiment_score, topics, category")
+          .select("sentiment, sentiment_score, topics, category, ai_summary, mention_id")
           .eq("entity_id", entityId!)
           .gte("analyzed_at", since.toISOString())
           .range(from, from + pageSize - 1);
@@ -50,37 +66,41 @@ function useEntityStats(entityId?: string) {
         from += pageSize;
       }
 
+      // Apply same relevance filter as Overview
+      const analyses = allAnalyses.filter(isRelevantAnalysis);
+
       const mentions = allMentions;
-      const analyses = allAnalyses;
       const total = analyses.length;
       const positive = analyses.filter(a => a.sentiment === "positivo").length;
       const negative = analyses.filter(a => a.sentiment === "negativo").length;
       const neutral = analyses.filter(a => a.sentiment === "neutro").length;
       // avg sentiment_score is -1 to 1; normalize to 0-10 scale
       const rawAvg = total > 0
-        ? analyses.reduce((s, a) => s + (Number(a.sentiment_score) || 0), 0) / total
+        ? analyses.reduce((s: number, a: any) => s + (Number(a.sentiment_score) || 0), 0) / total
         : 0;
       const sentimentScore = Math.round(((rawAvg + 1) / 2) * 100) / 10; // -1→0, 0→5, 1→10
 
       // Top topics
       const topicCounts: Record<string, number> = {};
-      analyses.forEach(a => (a.topics || []).forEach((t: string) => topicCounts[t] = (topicCounts[t] || 0) + 1));
+      analyses.forEach((a: any) => (a.topics || []).forEach((t: string) => topicCounts[t] = (topicCounts[t] || 0) + 1));
       const topTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name);
 
-      // Total engagement (likes + comments + shares + views)
+      // Total engagement — only from mentions that have a relevant analysis
+      const relevantMentionIds = new Set(analyses.map((a: any) => a.mention_id));
       let totalEngagement = 0;
-      mentions.forEach(m => {
+      mentions.filter(m => relevantMentionIds.has(m.id)).forEach(m => {
         const eng = m.engagement as Record<string, unknown> | null;
         if (eng) {
           totalEngagement += (Number(eng.likes) || 0) + (Number(eng.comments) || 0) + (Number(eng.shares) || 0) + (Number(eng.views) || 0);
         }
       });
 
-      // Engagement rate = avg engagement per mention
-      const engRate = mentions.length > 0 ? Math.round((totalEngagement / mentions.length) * 10) / 10 : 0;
+      // Engagement rate = avg engagement per relevant mention
+      const relevantMentionCount = mentions.filter(m => relevantMentionIds.has(m.id)).length;
+      const engRate = relevantMentionCount > 0 ? Math.round((totalEngagement / relevantMentionCount) * 10) / 10 : 0;
 
       return {
-        mentions: mentions.length,
+        mentions: total, // Use analyses count (same as Overview) instead of raw mentions count
         positive_pct: total > 0 ? Math.round((positive / total) * 100) : 0,
         negative_pct: total > 0 ? Math.round((negative / total) * 100) : 0,
         neutral_pct: total > 0 ? Math.round((neutral / total) * 100) : 0,
