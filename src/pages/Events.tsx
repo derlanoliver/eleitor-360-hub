@@ -186,7 +186,7 @@ const Events = () => {
       
       pdf.setFontSize(11);
       pdf.setFont("helvetica", "normal");
-      const eventDate = format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR });
+      const eventDate = format(new Date(event.date + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR });
       pdf.text(`Data: ${eventDate} às ${event.time} | Local: ${event.location}`, pageWidth / 2, 28, { align: "center" });
       
       // Estatísticas resumidas
@@ -842,7 +842,7 @@ const Events = () => {
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-3">
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
-                                {format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR })}
+                                {format(new Date(event.date + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                               </div>
                               <div className="flex items-center gap-1">
                                 <Clock className="h-4 w-4" />

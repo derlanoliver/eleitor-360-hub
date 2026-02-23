@@ -161,7 +161,7 @@ export default function EventRegistration() {
   }) => {
     if (!event) return;
 
-    const eventDate = format(new Date(event.date), "dd 'de' MMMM", { locale: ptBR });
+    const eventDate = format(new Date(event.date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR });
 
     // Track Lead event (best-effort)
     try {
@@ -524,7 +524,7 @@ export default function EventRegistration() {
             <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span>{format(new Date(event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                <span>{format(new Date(event.date + "T00:00:00"), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
@@ -597,7 +597,7 @@ export default function EventRegistration() {
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>{format(new Date(event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                <span>{format(new Date(event.date + "T00:00:00"), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />

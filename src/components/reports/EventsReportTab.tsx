@@ -235,7 +235,7 @@ export function EventsReportTab() {
                 <SelectItem key={event.id} value={event.id}>
                   <span className="flex items-center gap-1">
                     {event.created_by_coordinator_id && <Crown className="h-3 w-3 text-amber-500" />}
-                    {event.name} - {format(new Date(event.date), "dd/MM/yy")}
+                    {event.name} - {format(new Date(event.date + "T00:00:00"), "dd/MM/yy")}
                   </span>
                 </SelectItem>
               ))}
