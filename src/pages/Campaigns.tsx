@@ -1761,7 +1761,7 @@ const CreateCampaignForm = ({
                   ) : (
                     activeEvents.map((event) => (
                       <SelectItem key={event.id} value={event.id}>
-                        {event.name} - {format(new Date(event.date), 'dd/MM/yyyy')}
+                        {event.name} - {format(new Date(event.date + "T00:00:00"), 'dd/MM/yyyy')}
                       </SelectItem>
                     ))
                   )}

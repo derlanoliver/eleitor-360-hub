@@ -541,7 +541,7 @@ export function SMSBulkSendTab() {
             const event = events?.find((e) => e.id === selectedEvent);
             if (event) {
               variables.evento_nome = event.name;
-              variables.evento_data = format(new Date(event.date), "dd/MM/yyyy");
+              variables.evento_data = format(new Date(event.date + "T00:00:00"), "dd/MM/yyyy");
               variables.evento_hora = event.time;
               variables.evento_local = event.location;
             }

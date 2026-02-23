@@ -30,7 +30,7 @@ export function exportEventsToExcel(data: EventExportData) {
   // Aba 2: Eventos
   const eventsData = data.events.map((event) => ({
     Nome: event.name,
-    Data: format(new Date(event.date), "dd/MM/yyyy"),
+    Data: format(new Date(event.date + "T00:00:00"), "dd/MM/yyyy"),
     Categoria: event.category,
     Região: event.region,
     Inscrições: event.registrations_count || 0,
@@ -138,7 +138,7 @@ export function exportReportsToPdf(data: {
       ? ((event.checkedin_count || 0) / event.registrations_count * 100).toFixed(1)
       : 0;
     
-    const text = `${idx + 1}. ${event.name} - ${format(new Date(event.date), "dd/MM/yyyy")}`;
+    const text = `${idx + 1}. ${event.name} - ${format(new Date(event.date + "T00:00:00"), "dd/MM/yyyy")}`;
     doc.text(text, 14, yPos);
     yPos += 5;
     
