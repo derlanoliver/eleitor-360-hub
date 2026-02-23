@@ -143,14 +143,25 @@ export function useSentimentAnalyses(entityId?: string, days = 30) {
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - days);
-      const { data, error } = await supabase
-        .from("po_sentiment_analyses")
-        .select("*")
-        .eq("entity_id", entityId!)
-        .gte("analyzed_at", since.toISOString())
-        .order("analyzed_at", { ascending: false });
-      if (error) throw error;
-      return data as SentimentAnalysis[];
+      // Paginate past 1000 limit
+      let all: SentimentAnalysis[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("po_sentiment_analyses")
+          .select("*")
+          .eq("entity_id", entityId!)
+          .gte("analyzed_at", since.toISOString())
+          .order("analyzed_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all = all.concat(data as SentimentAnalysis[]);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
   });
 }
