@@ -23,14 +23,23 @@ serve(async (req) => {
     const since = new Date();
     since.setDate(since.getDate() - period_days);
 
-    // Fetch recent analyses
-    const { data: analyses } = await supabase
-      .from("po_sentiment_analyses")
-      .select("sentiment, sentiment_score, category, topics, emotions, ai_summary, is_about_adversary")
-      .eq("entity_id", entity_id)
-      .gte("analyzed_at", since.toISOString())
-      .order("analyzed_at", { ascending: false })
-      .limit(200);
+    // Fetch ALL recent analyses with pagination
+    let analyses: any[] = [];
+    const pageSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("po_sentiment_analyses")
+        .select("sentiment, sentiment_score, category, topics, emotions, ai_summary, is_about_adversary")
+        .eq("entity_id", entity_id)
+        .gte("analyzed_at", since.toISOString())
+        .order("analyzed_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error || !data || data.length === 0) break;
+      analyses = analyses.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
 
     // Fetch entity
     const { data: entity } = await supabase
