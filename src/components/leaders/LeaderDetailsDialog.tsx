@@ -1203,44 +1203,28 @@ export function LeaderDetailsDialog({ leader, children }: LeaderDetailsDialogPro
                           }
                         });
 
-                        // Função recursiva para calcular líderes verificados/não verificados na sub-árvore
-                        const subtreeStatsCache = new Map<string, { verified: number; notVerified: number }>();
-                        
-                        const calculateSubtreeLeaderStats = (leaderId: string): { verified: number; notVerified: number } => {
-                          if (subtreeStatsCache.has(leaderId)) {
-                            return subtreeStatsCache.get(leaderId)!;
-                          }
-                          
-                          // Buscar subordinados diretos deste líder
+                        // Calcular líderes verificados/não verificados apenas entre subordinados diretos
+                        const calculateDirectChildrenStats = (leaderId: string): { verified: number; notVerified: number } => {
                           const directChildren = leaders.filter((l: any) => l.parent_leader_id === leaderId && l.id !== leaderId);
                           
                           let totalVerified = 0;
                           let totalNotVerified = 0;
                           
-                          // Contar cada subordinado direto + sua sub-árvore
                           for (const child of directChildren) {
-                            // Contar o próprio subordinado baseado em is_verified
                             if (child.is_verified === true) {
                               totalVerified++;
                             } else {
                               totalNotVerified++;
                             }
-                            
-                            // Somar stats da sub-árvore do subordinado (recursivamente)
-                            const childStats = calculateSubtreeLeaderStats(child.id);
-                            totalVerified += childStats.verified;
-                            totalNotVerified += childStats.notVerified;
                           }
                           
-                          const result = { verified: totalVerified, notVerified: totalNotVerified };
-                          subtreeStatsCache.set(leaderId, result);
-                          return result;
+                          return { verified: totalVerified, notVerified: totalNotVerified };
                         };
 
                         // Calcular stats agregados para cada líder no relatório
                         const statsPerLeader = new Map<string, { verified: number; notVerified: number }>();
                         leadersForReport.forEach((l: any) => {
-                          const subtreeStats = calculateSubtreeLeaderStats(l.id);
+                          const subtreeStats = calculateDirectChildrenStats(l.id);
                           statsPerLeader.set(l.id, subtreeStats);
                         });
 
