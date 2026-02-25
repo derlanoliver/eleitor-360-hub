@@ -3978,13 +3978,7 @@ export type Database = {
       }
       process_verification_keyword: {
         Args: { _phone: string; _token: string }
-        Returns: {
-          contact_id: string
-          contact_name: string
-          contact_type: string
-          error_code: string
-          success: boolean
-        }[]
+        Returns: Record<string, unknown>
       }
       promote_leader_to_subordinate: {
         Args: { _leader_id: string; _parent_id: string }
