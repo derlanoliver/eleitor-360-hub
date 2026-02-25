@@ -407,10 +407,14 @@ serve(async (req) => {
                   _phone: normalizedPhone,
                 });
 
-                console.log(`[Meta Webhook] process_verification_keyword result:`, verifyResult, verifyError);
+                const verificationData = Array.isArray(verifyResult)
+                  ? verifyResult[0]
+                  : verifyResult;
 
-                if (verifyResult?.[0]?.success) {
-                  const consentMessage = `Olá ${verifyResult[0].contact_name}! 👋\n\nPara confirmar seu cadastro como apoiador(a), responda *SIM* para esta mensagem.`;
+                console.log(`[Meta Webhook] process_verification_keyword result:`, verificationData, verifyError);
+
+                if (verificationData?.success) {
+                  const consentMessage = `Olá ${verificationData.contact_name}! 👋\n\nPara confirmar seu cadastro como apoiador(a), responda *SIM* para esta mensagem.`;
                   console.log(`[Meta Webhook] Sending consent question to ${normalizedPhone}`);
 
                   try {
@@ -425,11 +429,11 @@ serve(async (req) => {
                   }
                 } else {
                   let errorMessage: string;
-                  if (verifyResult?.[0]?.error_code === 'already_verified') {
+                  if (verificationData?.error_code === 'already_verified') {
                     errorMessage = `Seu cadastro já foi verificado anteriormente. ✅\n\nSe precisar de ajuda, entre em contato conosco.`;
-                  } else if (verifyResult?.[0]?.error_code === 'phone_mismatch') {
+                  } else if (verificationData?.error_code === 'phone_mismatch') {
                     errorMessage = `⚠️ Esse código de verificação não pertence a este número de telefone.\n\nO código deve ser enviado pelo número que foi cadastrado. Se precisar de ajuda, entre em contato conosco.`;
-                  } else if (verifyResult?.[0]?.error_code === 'token_not_found') {
+                  } else if (verificationData?.error_code === 'token_not_found') {
                     errorMessage = `Código não encontrado. Por favor, verifique se você já completou seu cadastro e se digitou o código corretamente.`;
                   } else {
                     errorMessage = `Não encontramos um cadastro pendente com esse código. Verifique se digitou corretamente ou entre em contato conosco.`;
@@ -447,15 +451,19 @@ serve(async (req) => {
                   _phone: normalizedPhone,
                 });
 
-                console.log(`[Meta Webhook] process_verification_consent result:`, consentResult, consentError);
+                const consentData = Array.isArray(consentResult)
+                  ? consentResult[0]
+                  : consentResult;
 
-                if (consentResult?.[0]?.success) {
+                console.log(`[Meta Webhook] process_verification_consent result:`, consentData, consentError);
+
+                if (consentData?.success) {
                   const confirmMessage = `✅ Cadastro confirmado com sucesso!\n\nVocê receberá seu link de indicação em instantes.`;
                   await sendMetaCloudMessage(supabase, normalizedPhone, confirmMessage);
 
                   // Call edge function to send affiliate links
                   try {
-                    console.log(`[Meta Webhook] Calling send-leader-affiliate-links for ${consentResult[0].contact_type} ${consentResult[0].contact_id}`);
+                    console.log(`[Meta Webhook] Calling send-leader-affiliate-links for ${consentData.contact_type} ${consentData.contact_id}`);
 
                     const response = await fetch(
                       `${supabaseUrl}/functions/v1/send-leader-affiliate-links`,
@@ -466,7 +474,7 @@ serve(async (req) => {
                           'Authorization': `Bearer ${supabaseKey}`,
                         },
                         body: JSON.stringify({
-                          leader_id: consentResult[0].contact_id,
+                          leader_id: consentData.contact_id,
                         }),
                       }
                     );
