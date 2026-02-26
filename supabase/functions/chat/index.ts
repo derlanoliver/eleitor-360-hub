@@ -682,6 +682,163 @@ const availableFunctions: Record<string, (params: any) => Promise<any>> = {
   // ──────────────────────────────────────────────────────────
   // ESTATÍSTICAS GERAIS (visão geral do sistema)
   // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────
+  // OPINIÃO PÚBLICA (Menções e Análise de Sentimento)
+  // ──────────────────────────────────────────────────────────
+  consultar_opiniao_publica: async (params: { 
+    tipo?: string, 
+    periodo_dias?: number,
+    limit?: number 
+  }) => {
+    console.log('Executando consultar_opiniao_publica com params:', params);
+    
+    const periodDays = params.periodo_dias || 30;
+    const since = new Date();
+    since.setDate(since.getDate() - periodDays);
+    const sinceStr = since.toISOString();
+    
+    // Find primary entity
+    const { data: entity } = await supabase
+      .from('po_monitored_entities')
+      .select('id, nome, partido, cargo')
+      .eq('is_principal', true)
+      .single();
+    
+    if (!entity) {
+      return { mensagem: 'Nenhuma entidade principal configurada para monitoramento de opinião pública.' };
+    }
+    
+    // Fetch analyses with pagination
+    let analyses: any[] = [];
+    const pageSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('po_sentiment_analyses')
+        .select('sentiment, sentiment_score, category, topics, emotions, ai_summary, is_about_adversary, mention_id')
+        .eq('entity_id', entity.id)
+        .gte('analyzed_at', sinceStr)
+        .order('analyzed_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error || !data || data.length === 0) break;
+      analyses = analyses.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    
+    if (analyses.length === 0) {
+      return { 
+        entidade: entity.nome,
+        mensagem: `Sem dados de opinião pública nos últimos ${periodDays} dias.` 
+      };
+    }
+    
+    // Filter relevant analyses
+    const relevant = analyses.filter(a => {
+      const summary = (a.ai_summary || '').toLowerCase();
+      if (summary.includes('irrelevante') || summary.includes('sem relação') || summary.includes('não é sobre')) return false;
+      if (a.category === 'humor' && (!a.sentiment_score || a.sentiment_score === 0)) return false;
+      return true;
+    });
+    
+    const total = relevant.length;
+    const positive = relevant.filter(a => a.sentiment === 'positivo').length;
+    const negative = relevant.filter(a => a.sentiment === 'negativo').length;
+    const neutral = relevant.filter(a => a.sentiment === 'neutro').length;
+    const avgScore = total > 0 ? relevant.reduce((s, a) => s + (a.sentiment_score || 0), 0) / total : 0;
+    
+    // Top topics
+    const topicCounts: Record<string, number> = {};
+    relevant.forEach(a => {
+      (a.topics || []).forEach((t: string) => {
+        topicCounts[t] = (topicCounts[t] || 0) + 1;
+      });
+    });
+    const topTopics = Object.entries(topicCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([topic, count]) => ({ tema: topic, mencoes: count }));
+    
+    // Top categories
+    const categoryCounts: Record<string, number> = {};
+    relevant.forEach(a => {
+      if (a.category) categoryCounts[a.category] = (categoryCounts[a.category] || 0) + 1;
+    });
+    const topCategories = Object.entries(categoryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, count]) => ({ categoria: cat, quantidade: count }));
+    
+    // Top emotions
+    const emotionCounts: Record<string, number> = {};
+    relevant.forEach(a => {
+      (a.emotions || []).forEach((e: string) => {
+        emotionCounts[e] = (emotionCounts[e] || 0) + 1;
+      });
+    });
+    const topEmotions = Object.entries(emotionCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([emotion, count]) => ({ emocao: emotion, frequencia: count }));
+    
+    // Negative summaries (complaints)
+    const reclamacoes = relevant
+      .filter(a => a.sentiment === 'negativo' && a.ai_summary)
+      .slice(0, 15)
+      .map(a => a.ai_summary);
+    
+    // Positive summaries (praise)
+    const elogios = relevant
+      .filter(a => a.sentiment === 'positivo' && a.ai_summary)
+      .slice(0, 15)
+      .map(a => a.ai_summary);
+    
+    // Filter by type if requested
+    if (params.tipo === 'reclamacoes') {
+      return {
+        entidade: entity.nome,
+        periodo: `últimos ${periodDays} dias`,
+        total_reclamacoes: negative,
+        reclamacoes,
+        temas_negativos: topTopics.filter((_, i) => i < 5),
+        categorias: topCategories.filter(c => ['ataque', 'crítica', 'cobrança', 'denúncia'].includes(c.categoria.toLowerCase()))
+      };
+    }
+    
+    if (params.tipo === 'elogios') {
+      return {
+        entidade: entity.nome,
+        periodo: `últimos ${periodDays} dias`,
+        total_elogios: positive,
+        elogios,
+        temas_positivos: topTopics.filter((_, i) => i < 5),
+        categorias: topCategories.filter(c => ['elogio', 'apoio', 'defesa'].includes(c.categoria.toLowerCase()))
+      };
+    }
+    
+    const resultado = {
+      entidade: entity.nome,
+      periodo: `últimos ${periodDays} dias`,
+      total_mencoes_relevantes: total,
+      sentimento: {
+        positivas: positive,
+        positivas_pct: `${total > 0 ? Math.round((positive / total) * 100) : 0}%`,
+        negativas: negative,
+        negativas_pct: `${total > 0 ? Math.round((negative / total) * 100) : 0}%`,
+        neutras: neutral,
+        neutras_pct: `${total > 0 ? Math.round((neutral / total) * 100) : 0}%`,
+        score_medio: Math.round(avgScore * 1000) / 1000
+      },
+      temas_mais_citados: topTopics,
+      categorias: topCategories,
+      emocoes: topEmotions,
+      resumos_reclamacoes: reclamacoes.slice(0, 10),
+      resumos_elogios: elogios.slice(0, 10)
+    };
+    
+    console.log('Resultado consultar_opiniao_publica:', total, 'menções');
+    return resultado;
+  },
+
   consultar_estatisticas_gerais: async () => {
     console.log('Executando consultar_estatisticas_gerais');
     
@@ -988,6 +1145,23 @@ Retorna: total de mensagens, enviadas, entregues, lidas, erros e taxas.`,
   {
     type: 'function',
     function: {
+      name: 'consultar_opiniao_publica',
+      description: `Consulta dados de opinião pública e monitoramento de menções na internet e redes sociais.
+Use quando o usuário perguntar sobre: opinião pública, menções, reclamações, elogios, sentimento, o que estão falando, imagem pública, críticas, ataques, percepção popular, redes sociais, comentários sobre o político, maiores reclamações, maiores elogios.
+Retorna: total de menções, distribuição de sentimento (positivo/negativo/neutro), temas mais citados, categorias (elogio, ataque, crítica), emoções detectadas, e resumos das principais reclamações e elogios.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          tipo: { type: 'string', enum: ['reclamacoes', 'elogios', 'geral'], description: 'Filtrar por tipo: reclamações, elogios ou visão geral' },
+          periodo_dias: { type: 'number', description: 'Período em dias (padrão: 30)' },
+          limit: { type: 'number', description: 'Número máximo de itens' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'consultar_estatisticas_gerais',
       description: `Consulta visão geral de todas as métricas do sistema.
 Use quando o usuário perguntar sobre: resumo geral, visão geral, dashboard, status do sistema, números gerais, "me dê um resumo".
@@ -1148,6 +1322,8 @@ Use emojis estratégicos (máximo 2-3 por resposta).
 **consultar_programas** → Use para: "programas", "projetos", "iniciativas", "impacto social"
 
 **consultar_metricas_whatsapp** → Use para: "WhatsApp", "mensagens", "taxa de entrega/leitura"
+
+**consultar_opiniao_publica** → Use para: "opinião pública", "menções", "reclamações", "elogios", "o que estão falando", "sentimento", "críticas", "redes sociais", "imagem pública", "maiores reclamações", "maiores elogios"
 
 ═══════════════════════════════════════════════════════════
 🎨 COMO APRESENTAR DADOS
