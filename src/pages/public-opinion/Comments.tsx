@@ -37,23 +37,57 @@ const Comments = () => {
   // If we have real mentions, use them; otherwise fallback to demo
   const hasRealData = mentions && mentions.length > 0;
 
+  // Build mention map for quick lookup
+  const mentionMap = new Map(mentions?.map(m => [m.id, m]) || []);
+
   const realComments = hasRealData
-    ? mentions.map(m => {
-        const a = analysisMap.get(m.id);
-        return {
-          id: m.id,
-          author: m.author_name || m.author_handle || 'Anônimo',
-          source: m.source,
-          content: m.content,
-          sentiment: a?.sentiment === 'positivo' ? 'positive' : a?.sentiment === 'negativo' ? 'negative' : 'neutral',
-          category: a?.category || 'sem categoria',
-          date: m.published_at || m.collected_at,
-          likes: m.engagement?.likes || 0,
-          shares: m.engagement?.shares || 0,
-          url: m.source_url || '#',
-          location: null,
-        };
-      })
+    ? (() => {
+        // Prioritize mentions that have analyses (sorted: analyzed first, then unanalyzed)
+        const analyzed: any[] = [];
+        const unanalyzed: any[] = [];
+
+        // First: build comments from analyses (guaranteed to have sentiment)
+        (analyses || []).forEach(a => {
+          const m = mentionMap.get(a.mention_id);
+          if (!m) return;
+          analyzed.push({
+            id: m.id,
+            author: m.author_name || m.author_handle || 'Anônimo',
+            source: m.source,
+            content: m.content,
+            sentiment: a.sentiment === 'positivo' ? 'positive' : a.sentiment === 'negativo' ? 'negative' : 'neutral',
+            category: a.category || 'sem categoria',
+            date: m.published_at || m.collected_at,
+            likes: m.engagement?.likes || 0,
+            shares: m.engagement?.shares || 0,
+            url: m.source_url || '#',
+            location: null,
+          });
+        });
+
+        // Then: add mentions without analyses
+        const analyzedIds = new Set(analyses?.map(a => a.mention_id) || []);
+        mentions!.forEach(m => {
+          if (analyzedIds.has(m.id)) return;
+          unanalyzed.push({
+            id: m.id,
+            author: m.author_name || m.author_handle || 'Anônimo',
+            source: m.source,
+            content: m.content,
+            sentiment: 'neutral',
+            category: 'pendente',
+            date: m.published_at || m.collected_at,
+            likes: m.engagement?.likes || 0,
+            shares: m.engagement?.shares || 0,
+            url: m.source_url || '#',
+            location: null,
+          });
+        });
+
+        // Sort analyzed by date desc, then append unanalyzed
+        analyzed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return [...analyzed, ...unanalyzed];
+      })()
     : COMMENTS_DATA;
 
   const filtered = realComments.filter((c) => {
