@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Users, MessageSquare, ThumbsUp, Eye, Loader2, RefreshCw, Zap } from "lucide-react";
 import { SENTIMENT_OVERVIEW, SENTIMENT_TIMELINE } from "@/data/public-opinion/demoPublicOpinionData";
-import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useDailySnapshots, useAnalyzePending, useMentions, useSentimentAnalyses } from "@/hooks/public-opinion/usePublicOpinion";
+import { useMonitoredEntities, usePoOverviewStats, useCollectMentions, useAnalyzePending, usePendingMentionsCount } from "@/hooks/public-opinion/usePublicOpinion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
 const sourceColors: Record<string, string> = {
@@ -28,9 +28,7 @@ const Overview = () => {
   const { stats, snapshots, analyses, sourceBreakdown } = usePoOverviewStats(principalEntity?.id);
   const collectMentions = useCollectMentions();
   const analyzePending = useAnalyzePending();
-  const { data: allMentions } = useMentions(principalEntity?.id, undefined, 1000);
-  const { data: allAnalyses } = useSentimentAnalyses(principalEntity?.id, 30);
-  const pendingCount = (allMentions?.length || 0) - (allAnalyses?.length || 0);
+  const { data: pendingCount = 0 } = usePendingMentionsCount(principalEntity?.id);
 
   const hasRealData = !!stats && stats.total > 0;
 

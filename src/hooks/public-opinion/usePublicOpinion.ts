@@ -166,6 +166,30 @@ export function useSentimentAnalyses(entityId?: string, days = 30) {
   });
 }
 
+// ── Pending Mentions Count ──
+export function usePendingMentionsCount(entityId?: string) {
+  return useQuery({
+    queryKey: ["po_pending_mentions_count", entityId],
+    enabled: !!entityId,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const { count: totalMentions, error: e1 } = await supabase
+        .from("po_mentions")
+        .select("id", { count: "exact", head: true })
+        .eq("entity_id", entityId!);
+      if (e1) throw e1;
+
+      const { count: totalAnalyses, error: e2 } = await supabase
+        .from("po_sentiment_analyses")
+        .select("id", { count: "exact", head: true })
+        .eq("entity_id", entityId!);
+      if (e2) throw e2;
+
+      return Math.max(0, (totalMentions || 0) - (totalAnalyses || 0));
+    },
+  });
+}
+
 // ── Daily Snapshots ──
 export function useDailySnapshots(entityId?: string, days = 30) {
   return useQuery({
