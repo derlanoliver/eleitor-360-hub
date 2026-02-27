@@ -195,14 +195,19 @@ export function useDailySnapshots(entityId?: string, days = 30) {
   return useQuery({
     queryKey: ["po_daily_snapshots", entityId, days],
     enabled: !!entityId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnMount: true,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - days);
+      const sinceStr = since.toISOString().split("T")[0];
+      const todayStr = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("po_daily_snapshots")
         .select("*")
         .eq("entity_id", entityId!)
-        .gte("snapshot_date", since.toISOString().split("T")[0])
+        .gte("snapshot_date", sinceStr)
+        .lte("snapshot_date", todayStr)
         .order("snapshot_date", { ascending: true });
       if (error) throw error;
       return data as DailySnapshot[];
