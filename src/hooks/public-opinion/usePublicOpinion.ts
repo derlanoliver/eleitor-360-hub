@@ -303,7 +303,12 @@ export function useAnalyzePending() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["po_sentiment_analyses"] });
       qc.invalidateQueries({ queryKey: ["po_mentions"] });
-      toast.success(`${data.analyzed ?? 0} menções analisadas com sucesso`);
+      qc.invalidateQueries({ queryKey: ["po_pending_mentions_count"] });
+      if (data?.background) {
+        toast.success(`Processando ${data.total_mentions ?? 0} menções em segundo plano. Os dados serão atualizados automaticamente.`);
+      } else {
+        toast.success(`${data.analyzed ?? 0} menções analisadas com sucesso`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
