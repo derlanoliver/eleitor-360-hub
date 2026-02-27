@@ -200,31 +200,42 @@ serve(async (req) => {
       .eq("tipo", "adversario")
       .eq("is_active", true);
 
-    // Process in batches
-    let totalAnalyzed = 0;
-    const batches = [];
+    // Process in batches in the background to avoid timeout
+    const batches: any[][] = [];
     for (let i = 0; i < allMentions.length; i += BATCH_SIZE) {
       batches.push(allMentions.slice(i, i + BATCH_SIZE));
     }
 
-    console.log(`Processing ${allMentions.length} mentions in ${batches.length} batches of ${BATCH_SIZE}`);
+    console.log(`Processing ${allMentions.length} mentions in ${batches.length} batches of ${BATCH_SIZE} (background)`);
 
-    for (const batch of batches) {
-      try {
-        const count = await analyzeBatch(supabase, batch, entity, adversaries || [], entity_id, LOVABLE_API_KEY);
-        totalAnalyzed += count;
-        console.log(`Batch done: ${count} analyzed (total: ${totalAnalyzed})`);
-      } catch (err) {
-        console.error(`Batch error (${batch.length} mentions):`, err);
-        // Continue with next batch even if one fails
+    const backgroundTask = (async () => {
+      let totalAnalyzed = 0;
+      for (const batch of batches) {
+        try {
+          const count = await analyzeBatch(supabase, batch, entity, adversaries || [], entity_id, LOVABLE_API_KEY);
+          totalAnalyzed += count;
+          console.log(`Batch done: ${count} analyzed (total: ${totalAnalyzed})`);
+        } catch (err) {
+          console.error(`Batch error (${batch.length} mentions):`, err);
+          // Continue with next batch even if one fails
+        }
       }
+      console.log(`Background processing complete: ${totalAnalyzed} analyzed out of ${allMentions.length}`);
+    })();
+
+    // Use EdgeRuntime.waitUntil to keep processing after response
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(backgroundTask);
     }
 
     return new Response(JSON.stringify({
       success: true,
-      analyzed: totalAnalyzed,
+      background: true,
       total_mentions: allMentions.length,
       batches: batches.length,
+      message: `Processando ${allMentions.length} menções em segundo plano.`,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
