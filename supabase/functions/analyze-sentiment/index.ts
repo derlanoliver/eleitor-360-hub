@@ -221,6 +221,22 @@ serve(async (req) => {
         }
       }
       console.log(`Background processing complete: ${totalAnalyzed} analyzed out of ${allMentions.length}`);
+
+      // Trigger daily snapshot aggregation for today
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const aggRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/po-aggregate-daily`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ date: today }),
+        });
+        console.log(`Aggregation triggered for ${today}: status ${aggRes.status}`);
+      } catch (aggErr) {
+        console.error("Failed to trigger aggregation:", aggErr);
+      }
     })();
 
     // Use EdgeRuntime.waitUntil to keep processing after response
