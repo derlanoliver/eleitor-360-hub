@@ -108,7 +108,7 @@ const PublicOpinionSettings = () => {
 
   const principalEntity = entities?.find(e => e.is_principal);
 
-  const EntityFormContent = () => (
+  const entityFormContent = (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -252,7 +252,7 @@ const PublicOpinionSettings = () => {
               </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Nova Entidade Monitorada</DialogTitle></DialogHeader>
-                <EntityFormContent />
+                {entityFormContent}
                 <DialogFooter>
                   <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                   <Button onClick={handleSave} disabled={createEntity.isPending}>
@@ -316,7 +316,7 @@ const PublicOpinionSettings = () => {
       <Dialog open={!!editEntity} onOpenChange={v => { if (!v) { setEditEntity(null); resetForm(); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Entidade</DialogTitle></DialogHeader>
-          <EntityFormContent />
+          {entityFormContent}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
             <Button onClick={handleSave} disabled={updateEntity.isPending}>
