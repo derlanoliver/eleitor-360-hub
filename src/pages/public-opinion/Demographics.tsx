@@ -253,16 +253,27 @@ const Demographics = () => {
         <Card>
           <CardHeader><CardTitle>Categorias de Sentimento</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categories} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ label, value }) => `${label}: ${value}%`}>
-                    {categories.map((_, i) => <Cell key={i} fill={categoryColors[i % categoryColors.length]} />)}
-                  </Pie>
-                  <Legend />
-                  <Tooltip formatter={(value: number, name: string, entry: any) => [`${value}% (${entry.payload.count || 0})`, name]} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="h-[250px] w-[250px] flex-shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={categories} cx="50%" cy="50%" outerRadius={100} innerRadius={45} dataKey="value" paddingAngle={2} strokeWidth={2}>
+                      {categories.map((_, i) => <Cell key={i} fill={categoryColors[i % categoryColors.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(value: number, name: string, entry: any) => [`${value}% (${entry.payload.count || 0})`, name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-col gap-1.5 text-sm w-full">
+                {categories.map((cat, i) => (
+                  <div key={cat.label} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: categoryColors[i % categoryColors.length] }} />
+                    <span className="truncate flex-1 text-muted-foreground">{cat.label}</span>
+                    <span className="font-semibold tabular-nums text-foreground">{cat.value}%</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">({cat.count})</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
