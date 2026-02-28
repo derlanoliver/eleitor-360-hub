@@ -6,6 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function fetchAllPaginated(supabase: any, table: string, filters: { column: string; op: string; value: any }[], selectCols: string) {
+  const pageSize = 1000;
+  let offset = 0;
+  const allData: any[] = [];
+  while (true) {
+    let query = supabase.from(table).select(selectCols).range(offset, offset + pageSize - 1);
+    for (const f of filters) {
+      if (f.op === "gte") query = query.gte(f.column, f.value);
+      else if (f.op === "eq") query = query.eq(f.column, f.value);
+      else if (f.op === "in") query = query.in(f.column, f.value);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allData;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,43 +71,29 @@ serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .gte("created_at", weekStartISO);
 
-    // 3. Mentions this week
-    const { data: mentionsData } = await supabase
+    // 3. Sentiment analyses this week (using sentiment text field like dashboard)
+    const allAnalyses = await fetchAllPaginated(
+      supabase,
+      "po_sentiment_analyses",
+      [{ column: "analyzed_at", op: "gte", value: weekStartISO }],
+      "sentiment, category"
+    );
+
+    const totalAnalyzed = allAnalyses.length;
+    const positiveCount = allAnalyses.filter((a: any) => a.sentiment === "positivo").length;
+    const negativeCount = allAnalyses.filter((a: any) => a.sentiment === "negativo").length;
+    const neutralCount = allAnalyses.filter((a: any) => a.sentiment === "neutro").length;
+    const complaintCount = allAnalyses.filter((a: any) => a.category === "reclamacao" || a.category === "critica").length;
+
+    const positivePct = totalAnalyzed > 0 ? ((positiveCount / totalAnalyzed) * 100).toFixed(1) : "0";
+    const negativePct = totalAnalyzed > 0 ? ((negativeCount / totalAnalyzed) * 100).toFixed(1) : "0";
+    const neutralPct = totalAnalyzed > 0 ? ((neutralCount / totalAnalyzed) * 100).toFixed(1) : "0";
+
+    // 4. Total mentions count this week
+    const { count: totalMentions } = await supabase
       .from("po_mentions")
-      .select("id")
+      .select("*", { count: "exact", head: true })
       .gte("collected_at", weekStartISO);
-    const totalMentions = mentionsData?.length || 0;
-
-    // 4. Sentiment breakdown
-    let positiveCount = 0;
-    let negativeCount = 0;
-    let complaintCount = 0;
-
-    if (totalMentions > 0) {
-      const mentionIds = mentionsData!.map((m) => m.id);
-
-      // Fetch in batches of 500
-      const batchSize = 500;
-      const allAnalyses: any[] = [];
-      for (let i = 0; i < mentionIds.length; i += batchSize) {
-        const batch = mentionIds.slice(i, i + batchSize);
-        const { data: analyses } = await supabase
-          .from("po_sentiment_analyses")
-          .select("sentiment_score, category")
-          .in("mention_id", batch);
-        if (analyses) allAnalyses.push(...analyses);
-      }
-
-      for (const a of allAnalyses) {
-        const score = Number(a.sentiment_score);
-        if (score > 0.2) positiveCount++;
-        else if (score < -0.2) negativeCount++;
-
-        if (a.category === "reclamacao" || a.category === "critica") {
-          complaintCount++;
-        }
-      }
-    }
 
     // 5. Events this week
     const { data: eventsThisWeek } = await supabase
@@ -95,26 +102,28 @@ serve(async (req) => {
       .gte("date", weekStart.toISOString().split("T")[0]);
 
     const totalEvents = eventsThisWeek?.length || 0;
-    const totalRegistrations = eventsThisWeek?.reduce((s, e) => s + (e.registrations_count || 0), 0) || 0;
-    const totalCheckins = eventsThisWeek?.reduce((s, e) => s + (e.checkedin_count || 0), 0) || 0;
+    const totalRegistrations = eventsThisWeek?.reduce((s: number, e: any) => s + (e.registrations_count || 0), 0) || 0;
+    const totalCheckins = eventsThisWeek?.reduce((s: number, e: any) => s + (e.checkedin_count || 0), 0) || 0;
     const attendanceRate = totalRegistrations > 0 ? ((totalCheckins / totalRegistrations) * 100).toFixed(1) : "0";
 
     // 6. Campaign materials distributed this week
-    const { data: withdrawals } = await supabase
-      .from("material_reservations")
-      .select("quantidade, leader_id")
-      .gte("withdrawn_at", weekStartISO)
-      .eq("status", "withdrawn");
-    const totalDistributed = withdrawals?.reduce((s, w) => s + (w.quantidade || 0), 0) || 0;
+    const withdrawals = await fetchAllPaginated(
+      supabase,
+      "material_reservations",
+      [
+        { column: "withdrawn_at", op: "gte", value: weekStartISO },
+        { column: "status", op: "eq", value: "withdrawn" },
+      ],
+      "quantidade, leader_id"
+    );
+    const totalDistributed = withdrawals.reduce((s: number, w: any) => s + (w.quantidade || 0), 0);
 
     // 7. Top region for materials
     let topRegion = "N/A";
     let topRegionQty = 0;
 
-    if (withdrawals && withdrawals.length > 0) {
-      const leaderIds = [...new Set(withdrawals.map((w) => w.leader_id))];
-      
-      // Get leaders' cities
+    if (withdrawals.length > 0) {
+      const leaderIds = [...new Set(withdrawals.map((w: any) => w.leader_id))];
       const { data: leaders } = await supabase
         .from("lideres")
         .select("id, cidade_id")
@@ -123,19 +132,19 @@ serve(async (req) => {
       if (leaders) {
         const cityQty: Record<string, number> = {};
         for (const w of withdrawals) {
-          const leader = leaders.find((l) => l.id === w.leader_id);
+          const leader = leaders.find((l: any) => l.id === w.leader_id);
           if (leader?.cidade_id) {
             cityQty[leader.cidade_id] = (cityQty[leader.cidade_id] || 0) + (w.quantidade || 0);
           }
         }
 
-        const topCityId = Object.entries(cityQty).sort((a, b) => b[1] - a[1])[0];
-        if (topCityId) {
-          topRegionQty = topCityId[1];
+        const topCityEntry = Object.entries(cityQty).sort((a, b) => b[1] - a[1])[0];
+        if (topCityEntry) {
+          topRegionQty = topCityEntry[1];
           const { data: city } = await supabase
             .from("office_cities")
             .select("nome")
-            .eq("id", topCityId[0])
+            .eq("id", topCityEntry[0])
             .single();
           topRegion = city?.nome || "Desconhecida";
         }
@@ -145,7 +154,7 @@ serve(async (req) => {
     // Build report message
     const weekLabel = `${weekStart.toLocaleDateString("pt-BR")} a ${now.toLocaleDateString("pt-BR")}`;
 
-    const report = `🔷 *ELEITOR 360 — RELATÓRIO SEMANAL*
+    const report = `🟠 *SANFONINHA DIGITAL — RELATÓRIO SEMANAL*
 📅 ${weekLabel}
 
 👥 *Cadastros da Semana*
@@ -153,10 +162,12 @@ serve(async (req) => {
 • Líderes: ${leadersThisWeek || 0}
 
 📣 *Menções (Opinião Pública)*
-• Total: ${totalMentions}
-• ✅ Positivas: ${positiveCount}
-• ❌ Negativas: ${negativeCount}
-• ⚠️ Reclamações: ${complaintCount}
+• Total de menções: ${totalMentions || 0}
+• Analisadas: ${totalAnalyzed}
+• ✅ Positivas: ${positiveCount} (${positivePct}%)
+• ❌ Negativas: ${negativeCount} (${negativePct}%)
+• 😐 Neutras: ${neutralCount} (${neutralPct}%)
+• ⚠️ Reclamações/Críticas: ${complaintCount}
 
 🎯 *Eventos*
 • Realizados: ${totalEvents}
@@ -167,7 +178,7 @@ serve(async (req) => {
 • Distribuído: ${totalDistributed} unidades
 • Região destaque: ${topRegion}${topRegionQty > 0 ? ` (${topRegionQty} un.)` : ""}
 
-_Relatório gerado automaticamente pelo Eleitor 360._`;
+_Relatório gerado automaticamente pela Sanfoninha Digital._`;
 
     console.log("[weekly-report] Report:\n", report);
 
@@ -187,19 +198,14 @@ _Relatório gerado automaticamente pelo Eleitor 360._`;
 
     // Send via Z-API
     const isGroup = !!groupId;
-    const endpoint = isGroup
-      ? `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`
-      : `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
-
+    const endpoint = `https://api.z-api.io/instances/${settings.zapi_instance_id}/token/${settings.zapi_token}/send-text`;
     const cleanPhone = phone ? phone.replace(/\D/g, "") : undefined;
 
     const zapiBody = isGroup
       ? { phone: groupId, message: report, isGroup: true }
       : { phone: cleanPhone, message: report };
 
-    const zapiHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const zapiHeaders: Record<string, string> = { "Content-Type": "application/json" };
     if (settings.zapi_client_token) {
       zapiHeaders["Client-Token"] = settings.zapi_client_token;
     }
@@ -226,11 +232,7 @@ _Relatório gerado automaticamente pelo Eleitor 360._`;
     });
 
     return new Response(
-      JSON.stringify({
-        success: zapiResponse.ok,
-        report,
-        zapiResponse: zapiResult,
-      }),
+      JSON.stringify({ success: zapiResponse.ok, report, zapiResponse: zapiResult }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
