@@ -145,7 +145,7 @@ serve(async (req) => {
     // Build report message
     const weekLabel = `${weekStart.toLocaleDateString("pt-BR")} a ${now.toLocaleDateString("pt-BR")}`;
 
-    const report = `📊 *RELATÓRIO SEMANAL*
+    const report = `🔷 *ELEITOR 360 — RELATÓRIO SEMANAL*
 📅 ${weekLabel}
 
 👥 *Cadastros da Semana*
@@ -167,7 +167,7 @@ serve(async (req) => {
 • Distribuído: ${totalDistributed} unidades
 • Região destaque: ${topRegion}${topRegionQty > 0 ? ` (${topRegionQty} un.)` : ""}
 
-_Relatório gerado automaticamente pelo sistema._`;
+_Relatório gerado automaticamente pelo Eleitor 360._`;
 
     console.log("[weekly-report] Report:\n", report);
 
